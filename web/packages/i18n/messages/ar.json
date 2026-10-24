@@ -1,0 +1,31 @@
+{
+  "common": {
+    "appName": "ملعبك",
+    "currency": "ج.م",
+    "loading": "جاري التحميل...",
+    "save": "حفظ",
+    "cancel": "إلغاء",
+    "confirm": "تأكيد",
+    "reject": "رفض"
+  },
+  "booking": {
+    "title": "الحجوزات",
+    "reference": "رقم الحجز",
+    "pitch": "الملعب",
+    "player": "اللاعب",
+    "status": "الحالة",
+    "proof": "إيصال الدفع",
+    "statuses": {
+      "Draft": "مسودة",
+      "PendingDeposit": "بانتظار العربون",
+      "ProofSubmitted": "تم رفع الإيصال",
+      "UnderReview": "قيد المراجعة",
+      "Confirmed": "مؤكد",
+      "Rejected": "مرفوض",
+      "Expired": "منتهي",
+      "Cancelled": "ملغي",
+      "Completed": "مكتمل",
+      "NoShow": "لم يحضر"
+    }
+  }
+}

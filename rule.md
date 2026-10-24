@@ -20,7 +20,7 @@
   - Background jobs: Hangfire (or Quartz.NET)
   - Real-time: SignalR (dashboards); push: FCM
   - File storage: private blob storage (local disk in dev, S3/Azure Blob in prod)
-  - Web dashboards: Blazor Web App (Venue + Admin) — they call the same Application layer / API
+  - Web (Venue + Admin dashboards, and later a public venue/SEO site): **Next.js (App Router) + TypeScript + Tailwind + shadcn/ui**, living in `web/`. The web apps talk to the backend **only through the REST API** (no shared C# code).
   - Mobile client: consumes the REST API only (Flutter or .NET MAUI — decision pending, API must not care)
   - Logging: Serilog → structured logs; Health checks; OpenTelemetry
   - Tests: xUnit, FluentAssertions, Testcontainers (real PostgreSQL), Respawn, Playwright for UI smoke
@@ -71,7 +71,7 @@ Rules:
 ### 2.2 Layers (dependencies point inward only)
 
 ```
-Api / Web  →  Application  →  Domain
+Api  →  Application  →  Domain
                  ↑
           Infrastructure   (implements Application interfaces)
 ```
@@ -79,7 +79,7 @@ Api / Web  →  Application  →  Domain
 - **Domain** — entities, value objects, domain events, business rules. No EF, no ASP.NET, no I/O.
 - **Application** — use cases (commands/queries), validators, DTOs, interfaces (`IBookingRepository`, `IClock`, `IFileStorage`). No HTTP, no EF-specific types leaking out.
 - **Infrastructure** — EF Core, Identity, storage, FCM, Hangfire, email/SMS. Implements Application interfaces.
-- **Api / Web** — controllers/minimal-API endpoints, Blazor pages, DI wiring. **Thin**: parse → call use case → map to response.
+- **Api** — controllers/minimal-API endpoints, DI wiring. **Thin**: parse → call use case → map to response.
 
 ### 2.3 Solution layout
 
@@ -97,9 +97,13 @@ Malabak.sln
 │  ├─ Malabak.Modules.Subscriptions/
 │  ├─ Malabak.Modules.Support/
 │  ├─ Malabak.Modules.Audit/
-│  ├─ Malabak.Api/                     (REST API for mobile + public)
-│  ├─ Malabak.Web.Venue/               (Blazor — venue dashboard)
-│  └─ Malabak.Web.Admin/               (Blazor — admin dashboard)
+│  └─ Malabak.Api/                     (REST API for mobile + web dashboards)
+├─ web/                                (pnpm + Turborepo monorepo)
+│  ├─ apps/venue/                      (Next.js — venue dashboard)
+│  ├─ apps/admin/                      (Next.js — admin dashboard)
+│  ├─ packages/ui/                     (shared components, design tokens, RTL helpers)
+│  ├─ packages/api-client/             (TypeScript client GENERATED from OpenAPI)
+│  └─ packages/i18n/                   (ar.json / en.json messages)
 ├─ tests/
 │  ├─ Malabak.UnitTests/
 │  ├─ Malabak.IntegrationTests/
@@ -268,7 +272,7 @@ States: `Draft, PendingDeposit, ProofSubmitted, UnderReview, Confirmed, Rejected
   - Resource checks in handlers: "is this user staff of the venue that owns this booking?" "is this user a member/captain of this team?" — never trust ids from the client alone (prevent IDOR).
   - Admin navigation/permissions depend on role claims; hide in UI **and** enforce on API.
 - **Uploads (payment proofs):** validate extension + magic bytes + size, re-encode images, random file names, store in a **private** bucket, serve through an authorized endpoint with short-lived signed URLs, never from `wwwroot`. Define retention/deletion.
-- **Input safety:** parameterized queries only (EF), no raw SQL string concat, encode output (Blazor does by default), anti-forgery on cookie-auth UIs, CORS allow-list, HTTPS + HSTS, security headers, request size limits.
+- **Input safety:** parameterized queries only (EF), no raw SQL string concat, never use `dangerouslySetInnerHTML` with user content, CSRF protection (SameSite cookies + anti-forgery token) on cookie-auth endpoints, CORS allow-list, HTTPS + HSTS, security headers, request size limits.
 - **Rate limiting:** built-in `RateLimiter` middleware on auth, OTP, booking creation, uploads.
 - **Privacy:** collect minimum data; never expose a player's precise location to others (round/blur; store only city/area unless needed); customer records visible only to that venue's staff; payment details only to authorised users; no PII in logs.
 - **Secrets:** User Secrets / env / secret manager. Data Protection keys persisted for multi-instance.
@@ -312,8 +316,20 @@ States: `Draft, PendingDeposit, ProofSubmitted, UnderReview, Confirmed, Rejected
 
 ---
 
-## 11. UI rules (Blazor dashboards) & localization
+## 11. Web rules (Next.js dashboards) & localization
 
+### 11.0 Web stack & architecture (Next.js)
+- **Stack:** Next.js (App Router, latest stable), React, TypeScript `strict`, Tailwind CSS (logical properties + RTL), shadcn/ui or Radix primitives, TanStack Query (server state), TanStack Table, React Hook Form + Zod, `next-intl` (ar/en, RTL/LTR), Recharts for charts, a calendar grid built on our own components (the booking calendar is core — don't fight a generic library).
+- **Rendering:** dashboards are authenticated → mostly client components + Route Handlers; use Server Components for layout/data that is safe to fetch on the server. A future public venue/SEO site should use SSR/ISR.
+- **Auth (BFF pattern):** Next.js server holds the session in an **httpOnly, Secure, SameSite cookie**; it calls the .NET API with the access token server-side. Never put JWTs in `localStorage`. Middleware guards routes by role; the API still enforces everything.
+- **API contract:** the .NET API publishes OpenAPI → generate the TypeScript client (`openapi-typescript`/`orval`) into `packages/api-client`. CI fails if the generated client is out of date. Never hand-write API types.
+- **No business rules in the frontend:** price, availability, status transitions, and permissions come from the API. The UI renders what the API says is allowed (e.g., `allowedActions` on a booking).
+- **Real-time:** SignalR client (or SSE) for new requests/proofs in the venue dashboard; fall back to polling.
+- **Quality:** ESLint + Prettier, `tsc --noEmit`, Vitest + Testing Library for components, Playwright for E2E (Flows A–G), axe for accessibility checks. All run in CI.
+- **Performance:** route-level code splitting, `next/image`, virtualized long tables, no giant client bundles, Core Web Vitals budget.
+- **Security:** CSP and security headers in `next.config`, env vars only via validated `env.ts` (no secrets in `NEXT_PUBLIC_*`), dependency audit (`pnpm audit`) in CI.
+
+### 11.1 Design & localization rules
 - Follow the design system (PRD §12): colors from tokens (primary **navy `#071832`**, accent **red `#EB4F42`**, achievement **gold `#F6B326`**; add neutral/semantic tokens: success, warning, error, info). No hardcoded colors in components — use CSS variables.
 - Brand: logo kit is in `docs/brand/` (SVG + PNG). Don't redraw or recolor the logo.
 - Fonts: Tajawal / IBM Plex Sans Arabic for Arabic, Inter for Latin.
@@ -323,7 +339,7 @@ States: `Draft, PendingDeposit, ProofSubmitted, UnderReview, Confirmed, Rejected
 - Every screen needs: loading (skeleton), empty, error, success, disabled and permission-denied states.
 - Status badges consistent everywhere and **not color-only** (icon + text). One shared `BookingStatusBadge` component.
 - Accessibility: contrast ≥ WCAG AA, 44px touch targets, visible focus, aria labels, keyboard navigation.
-- Reusable components first (venue card, pitch card, booking card, KPI card, table, calendar slot, drawer, confirm dialog). No one-off styling.
+- Reusable components first, in `packages/ui` (venue card, pitch card, booking card, KPI card, table, calendar slot, drawer, confirm dialog). No one-off styling.
 - Confirm dialogs for destructive/financial actions; rejection requires a reason field.
 
 ---
@@ -332,7 +348,7 @@ States: `Draft, PendingDeposit, ProofSubmitted, UnderReview, Confirmed, Rejected
 
 - **Environments:** Local (docker-compose) → Staging → Production. Same container image, config via env vars.
 - **Docker:** multi-stage Dockerfile, non-root user, health checks. `docker compose up` starts Postgres, Mailpit (fake SMTP), Seq (logs), and the apps.
-- **CI (GitHub Actions):** restore → build (warnaserror) → format check → unit tests → integration tests (Testcontainers) → vulnerable-package scan → publish image. CD to staging on `main`, to prod on tag with manual approval.
+- **CI (GitHub Actions):** backend: restore → build (warnaserror) → format check → unit tests → integration tests (Testcontainers) → vulnerable-package scan → publish image. Web: install → lint → typecheck → unit tests → regenerate API client (must be clean) → build → Playwright → publish image. CD to staging on `main`, to prod on tag with manual approval.
 - **Branching:** trunk-based with short-lived branches `feat/…`, `fix/…`, `chore/…`. PRs required, 1 review, CI green.
 - **Commits:** Conventional Commits (`feat(booking): add proof upload`), small and atomic.
 - **Migrations in prod:** applied by a migration job/bundle (`dotnet ef migrations bundle`), not on app startup. Backwards-compatible (expand → migrate → contract).
@@ -353,7 +369,8 @@ States: `Draft, PendingDeposit, ProofSubmitted, UnderReview, Confirmed, Rejected
 4. SharedKernel: `Result`, `Error`, `Money`, `Entity`, `IClock`, domain events, outbox.
 5. API host: Serilog, ProblemDetails, versioning, Swagger, health checks, rate limiting, CORS, localization (ar/en), fallback authorization policy.
 6. CI pipeline with build + tests.
-7. ADR-0001: record the stack choices from §0.
+7. Scaffold `web/` (pnpm + Turborepo, `apps/venue`, `apps/admin`, `packages/ui`, `packages/api-client`, `packages/i18n`), RTL + `next-intl` set up, design tokens, BFF login against the API.
+8. ADR-0001 (backend stack) and ADR-0002 (Next.js for web): record the choices from §0 and §11.
 
 ### Phase 1 — Identity & Venues
 - Registration/login (phone OTP for players, email/password for venue/admin), refresh tokens, roles/policies.
@@ -400,7 +417,7 @@ Any decision that changes §0, §2, §5, or §7 needs an ADR in `docs/adr/NNNN-t
 
 Open decisions to resolve early (write ADRs):
 1. Mobile client tech (Flutter vs .NET MAUI).
-2. Dashboards: Blazor vs separate SPA.
+2. ~~Dashboards: Blazor vs SPA~~ → decided: Next.js (see §11 and ADR-0002).
 3. Hosting (Azure / AWS / local Egyptian provider) and data-residency needs.
 4. SMS/OTP provider available in Egypt.
 5. Map & distance provider (Google Maps / Mapbox / OSM + PostGIS).
@@ -416,7 +433,7 @@ Open decisions to resolve early (write ADRs):
 - Never allow overlapping active bookings (DB constraint + tests).
 - Never use `DateTime.Now`/`UtcNow` directly; never store local times.
 - Never return entities from the API; never expose sequential ids.
-- Never put business logic in controllers or Blazor components.
+- Never put business logic in controllers or React components (the frontend displays; the API decides).
 - Never skip authorization or audit on sensitive actions.
 - Never log secrets/PII; never commit secrets.
 - Never edit an applied migration.

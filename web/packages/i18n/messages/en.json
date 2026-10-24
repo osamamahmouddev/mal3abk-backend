@@ -1,0 +1,31 @@
+{
+  "common": {
+    "appName": "Malabak",
+    "currency": "EGP",
+    "loading": "Loading...",
+    "save": "Save",
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "reject": "Reject"
+  },
+  "booking": {
+    "title": "Bookings",
+    "reference": "Booking Reference",
+    "pitch": "Pitch",
+    "player": "Player",
+    "status": "Status",
+    "proof": "Payment Proof",
+    "statuses": {
+      "Draft": "Draft",
+      "PendingDeposit": "Pending Deposit",
+      "ProofSubmitted": "Proof Submitted",
+      "UnderReview": "Under Review",
+      "Confirmed": "Confirmed",
+      "Rejected": "Rejected",
+      "Expired": "Expired",
+      "Cancelled": "Cancelled",
+      "Completed": "Completed",
+      "NoShow": "No Show"
+    }
+  }
+}
