@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>Malabak.ArchitectureTests</RootNamespace>
+    <AssemblyName>Malabak.ArchitectureTests</AssemblyName>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Malabak.SharedKernel\Malabak.SharedKernel.csproj" />
+    <ProjectReference Include="..\..\src\Malabak.Modules.Booking\Malabak.Modules.Booking.csproj" />
+    <ProjectReference Include="..\..\src\Malabak.Modules.Identity\Malabak.Modules.Identity.csproj" />
+    <ProjectReference Include="..\..\src\Malabak.Modules.Venues\Malabak.Modules.Venues.csproj" />
+    <ProjectReference Include="..\..\src\Malabak.Api\Malabak.Api.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+    <PackageReference Include="FluentAssertions" />
+    <PackageReference Include="NetArchTest.Rules" />
+  </ItemGroup>
+
+</Project>

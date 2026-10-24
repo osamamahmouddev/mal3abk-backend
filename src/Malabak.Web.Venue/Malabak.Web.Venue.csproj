@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <RootNamespace>Malabak.Web.Venue</RootNamespace>
+    <AssemblyName>Malabak.Web.Venue</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Malabak.SharedKernel\Malabak.SharedKernel.csproj" />
+    <ProjectReference Include="..\Malabak.Modules.Venues\Malabak.Modules.Venues.csproj" />
+    <ProjectReference Include="..\Malabak.Modules.Booking\Malabak.Modules.Booking.csproj" />
+  </ItemGroup>
+
+</Project>

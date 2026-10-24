@@ -1,0 +1,19 @@
+var builder = WebApplication.CreateBuilder(args);
+
+builder.Services.AddRazorComponents();
+
+var app = builder.Build();
+
+if (!app.Environment.IsDevelopment())
+{
+    app.UseExceptionHandler("/Error");
+    app.UseHsts();
+}
+
+app.UseHttpsRedirection();
+app.UseStaticFiles();
+app.UseAntiforgery();
+
+app.MapGet("/", () => Results.Ok("Malabak Venue Dashboard"));
+
+app.Run();

@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <RootNamespace>Malabak.Web.Admin</RootNamespace>
+    <AssemblyName>Malabak.Web.Admin</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Malabak.SharedKernel\Malabak.SharedKernel.csproj" />
+    <ProjectReference Include="..\Malabak.Modules.Identity\Malabak.Modules.Identity.csproj" />
+    <ProjectReference Include="..\Malabak.Modules.Subscriptions\Malabak.Modules.Subscriptions.csproj" />
+    <ProjectReference Include="..\Malabak.Modules.Audit\Malabak.Modules.Audit.csproj" />
+  </ItemGroup>
+
+</Project>
