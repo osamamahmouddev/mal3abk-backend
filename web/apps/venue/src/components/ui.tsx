@@ -1,0 +1,153 @@
+"use client";
+
+import React, { memo } from "react";
+
+/**
+ * Format string or number with Arabic-Indic digits: 123 -> ١٢٣
+ */
+export const toArabicDigits: (value: number | string) => string = (
+  value: number | string
+): string => String(value).replace(/[0-9]/g, (digit: string) => "٠١٢٣٤٥٦٧٨٩"[Number(digit)]);
+
+/**
+ * Arabic digits with Arabic thousands separator: 1650 -> ١٬٦٥٠
+ */
+export const formatEGP: (amount: number) => string = (amount: number): string =>
+  toArabicDigits(amount.toLocaleString("en-US")).replace(/,/g, "٬");
+
+export const cardShadow = "shadow-[0_1px_2px_rgba(15,27,61,0.04),0_10px_24px_-14px_rgba(15,27,61,0.16)]";
+export const card = `bg-white border border-[#EDF0F5] ${cardShadow}`;
+export const redShadow = "shadow-[0_10px_22px_-10px_rgba(214,59,47,0.65)]";
+
+export const primaryBtn = `min-h-[44px] px-[18px] rounded-xl bg-brand-red hover:bg-brand-red-hover text-white text-sm font-bold ${redShadow} transition inline-flex items-center justify-center gap-2`;
+export const secondaryBtn =
+  "min-h-[44px] px-4 rounded-[10px] border border-[#C9CFD9] bg-white hover:bg-slate-50 text-navy-900 text-sm font-semibold transition inline-flex items-center justify-center gap-2";
+export const disabledBtn = "bg-[#E4E7EC] text-[#6B7383] cursor-not-allowed shadow-none hover:bg-[#E4E7EC]";
+
+export const inputClass =
+  "min-h-[44px] px-3 rounded-xl border border-[#C9CFD9] bg-white text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-navy-900";
+
+export const muted = "text-[#5B6475]";
+
+/**
+ * Selectable chip utility: active state in navy, inactive in clean border.
+ */
+export const chip: (isActive: boolean, extraClasses?: string) => string = (
+  isActive: boolean,
+  extraClasses: string = "min-h-[42px] px-3.5 rounded-xl text-sm"
+): string =>
+  `${extraClasses} font-semibold border transition ${
+    isActive
+      ? "bg-navy-900 text-white border-navy-900"
+      : "bg-white text-slate-900 border-[#DCE0E8] hover:bg-slate-50"
+  }`;
+
+export type Tone = "ok" | "warn" | "wait" | "block" | "bad" | "info";
+
+export const toneClass: Record<Tone, string> = {
+  ok: "bg-[#E5F5EB] text-[#1B6E3E]",
+  warn: "bg-[#FEF3D6] text-[#7A4D00]",
+  wait: "bg-[#EEF0F5] text-[#3B4352]",
+  block: "bg-[#E4E7EC] text-[#3B4352]",
+  bad: "bg-[#FDECEA] text-[#A8261C]",
+  info: "bg-[#E8EEF9] text-[#0F1B3D]",
+};
+
+export interface BadgeProps {
+  tone: Tone;
+  children: React.ReactNode;
+  className?: string;
+}
+
+export const Badge: React.FC<BadgeProps> = memo(({ tone, children, className = "" }) => (
+  <span
+    className={`inline-block text-xs font-bold rounded-full px-2.5 py-[3px] whitespace-nowrap ${toneClass[tone]} ${className}`}
+  >
+    {children}
+  </span>
+));
+
+Badge.displayName = "Badge";
+
+export interface SwitchProps {
+  isChecked?: boolean;
+  on?: boolean;
+  label: string;
+  isDisabled?: boolean;
+  disabled?: boolean;
+  handleToggle?: () => void;
+  onToggle?: () => void;
+}
+
+export const Switch: React.FC<SwitchProps> = memo(
+  ({ isChecked, on, label, isDisabled, disabled, handleToggle, onToggle }) => {
+    const active = isChecked ?? on ?? false;
+    const isControlDisabled = isDisabled ?? disabled ?? false;
+    const toggleHandler = handleToggle ?? onToggle ?? (() => {});
+
+    return (
+      <button
+        type="button"
+        role="switch"
+        aria-checked={active}
+        aria-label={label}
+        disabled={isControlDisabled}
+        onClick={toggleHandler}
+        className={`w-12 h-7 shrink-0 rounded-full p-[3px] flex transition-colors ${
+          active ? "justify-end bg-navy-900" : "justify-start bg-[#C9CFD9]"
+        } ${isControlDisabled ? "opacity-50 cursor-not-allowed" : ""}`}
+      >
+        <span className="w-[22px] h-[22px] rounded-full bg-white" />
+      </button>
+    );
+  }
+);
+
+Switch.displayName = "Switch";
+
+export interface ToastProps {
+  message: string | null;
+  handleClose?: () => void;
+  onClose?: () => void;
+}
+
+export const Toast: React.FC<ToastProps> = memo(({ message, handleClose, onClose }) => {
+  if (!message) return null;
+  const closeAction = handleClose ?? onClose ?? (() => {});
+
+  return (
+    <div
+      role="status"
+      className="fixed left-6 bottom-6 z-[60] max-w-[440px] bg-navy-900 text-white rounded-[14px] px-4 py-3 text-sm shadow-[0_14px_34px_-12px_rgba(15,27,61,0.5)] flex gap-3 items-center"
+    >
+      <span className="flex-1">{message}</span>
+      <button
+        type="button"
+        onClick={closeAction}
+        aria-label="إغلاق"
+        className="min-w-[32px] min-h-[32px] rounded-lg bg-white/[0.12] flex items-center justify-center transition hover:bg-white/[0.2]"
+      >
+        ✕
+      </button>
+    </div>
+  );
+});
+
+Toast.displayName = "Toast";
+
+export interface PageProps {
+  children: React.ReactNode;
+  className?: string;
+}
+
+export const Page: React.FC<PageProps> = ({ children, className = "gap-4" }) => (
+  <div className={`px-8 pt-7 pb-10 w-full flex flex-col ${className}`}>{children}</div>
+);
+
+export interface PageTitleProps {
+  children: React.ReactNode;
+}
+
+export const PageTitle: React.FC<PageTitleProps> = ({ children }) => (
+  <h1 className="text-[26px] font-bold text-slate-900">{children}</h1>
+);

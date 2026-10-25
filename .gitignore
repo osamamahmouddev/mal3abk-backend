@@ -43,3 +43,15 @@ secrets.json
 postgres-data/
 mailpit-data/
 seq-data/
+
+# Node & Web
+node_modules/
+.next/
+out/
+dist/
+*.tsbuildinfo
+.turbo/
+
+# AI & IDE
+.claude/
+

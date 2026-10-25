@@ -342,6 +342,49 @@ States: `Draft, PendingDeposit, ProofSubmitted, UnderReview, Confirmed, Rejected
 - Reusable components first, in `packages/ui` (venue card, pitch card, booking card, KPI card, table, calendar slot, drawer, confirm dialog). No one-off styling.
 - Confirm dialogs for destructive/financial actions; rejection requires a reason field.
 
+### 11.2 Modern Web Development Standards, Code Review & Operational Guidelines
+
+- **Expertise & Tool Selection:** Expert modern web development practices across JavaScript, TypeScript, CSS, React, Tailwind CSS, Node.js, and Next.js (App Router & Pages Router). Prioritize optimal libraries and tools, avoid redundancy/complexity, and ensure full compatibility with Next.js server-first architecture. Justify tool choices based on project requirements, performance, and maintainability.
+- **Code Review Protocol:** Before making suggestions or alterations, perform a thorough review of the existing codebase, referencing specific files (e.g., `@app/page.tsx`, `@components/ui.tsx`). Provide accurate, concise suggestions in incremental steps:
+  - Explanation of the change and its architectural purpose.
+  - Minimal, high-impact code snippet.
+  - Targeted test to validate the change.
+  - Expected outcomes and edge cases.
+  - Request clarification for missing context via `@` references or `status.md`.
+- **Security & Mandatory `<SECURITY_REVIEW>`:** Prioritize security to prevent vulnerabilities (e.g., XSS, CSRF, Injection). For high-risk areas (user input, authentication, financial/booking actions), conduct a mandatory `<SECURITY_REVIEW>` containing:
+  - Vulnerability identification.
+  - Mitigation strategies (e.g., Zod schema validation, input sanitization).
+  - OWASP or Next.js official security references.
+  - Test verifying the mitigation.
+  - Enforce secure defaults (e.g., security headers, Zod schemas) and strictly avoid unsafe practices (e.g., `eval`, raw `dangerouslySetInnerHTML`).
+- **Performance & Robustness:** Optimize for performance, reliability, and scalability:
+  - Minimize re-renders, client bundle size, and server load (e.g., `React.memo`, selective client hydration, ISR/SSG where applicable).
+  - Implement comprehensive `try-catch` blocks for all API/data operations, with user-friendly error messages and structured error logging.
+  - Explicitly address edge cases (empty states, loading skeletons, network disconnects/failures).
+  - Measure performance with Lighthouse or `@next/bundle-analyzer`.
+  - Document technical trade-offs in comments or `status.md`.
+- **Operational Concerns:** Ensure production-ready web deployments:
+  - Hosting: Multi-provider compatibility (Vercel, AWS ECS/Amplify, Netlify, Docker).
+  - Environment Management: Strict use of `.env.local` for local secrets and validated environment variables via `env.ts`.
+  - Monitoring: Integrated error and performance tracking (e.g., Sentry, OpenTelemetry).
+  - Maintenance: Write self-documenting code, maintain `status.md`, and execute regular `npm audit` / `pnpm audit` security scans.
+- **Coding Standards:**
+  - **Early Returns:** Enforce early returns for guard clauses and readability.
+  - **Tailwind CSS:** Mobile-first responsive utilities with logical properties (`ms-`, `me-`, `ps-`, `pe-`). Avoid inline CSS unless strictly justified.
+  - **Functional TypeScript:** Pure functional, declarative TypeScript; avoid classes. Strongly define types and interfaces for all models and props.
+  - **Naming Conventions:** Descriptive names with auxiliary verbs for booleans (e.g., `isLoading`, `hasError`, `isSubmitting`). Prefix all event handlers with `handle` (e.g., `handleClick`, `handleToggle`, `handleSubmit`).
+  - **Explicit Function Types:** Declare `const` arrow functions with explicit return and parameter types (e.g., `const handleToggle: () => void = () => { ... }`).
+  - **Server-First Architecture:** Minimize `'use client'`, `useEffect`, and `useState`. Maximize React Server Components (RSC) for layout and data rendering.
+  - **Suspense Boundaries:** Wrap dynamic/client components in `<Suspense>` with lightweight skeleton fallbacks.
+  - **Dynamic Imports:** Use `next/dynamic` for heavy or non-critical client-only components (`ssr: false`).
+  - **Image Optimization:** Enforce `next/image` with WebP format, explicit width/height dimensions, and `loading="lazy"`.
+  - **Error Handling:** Include `try-catch` and dedicated fallback UI (`error.tsx`, `<ErrorBoundary>`).
+  - **Component Memoization:** Use `React.memo` where re-render prevention provides measurable savings.
+- **Feedback & Uncertainty Handling:**
+  - Track user feedback, architectural decisions, and pending work in `status.md`.
+  - If no clear definitive answer exists, state: *"No definitive solution is available."*
+  - If context is missing or unknown, state: *"I lack sufficient information. Please provide details (e.g., @app/page.tsx)."* and suggest actionable next steps (e.g., consult Next.js docs).
+
 ---
 
 ## 12. DevOps, environments, config
