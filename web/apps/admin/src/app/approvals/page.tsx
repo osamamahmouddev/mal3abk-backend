@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { Page, PageHeader, Tone, TONE, btnOutline, card, muted } from "@/components/ui";
+import { Page, PageHeader, Tone, TONE, btnOutline, card, muted, useRevealOnSelect } from "@/components/ui";
 
 type Missing = "cr" | "lease" | null;
 type State = "new" | "missing" | "approved" | "rejected" | "info";
@@ -58,6 +58,7 @@ const ACTIONS = {
 
 export default function ApprovalsPage() {
   const [selId, setSelId] = useState("v1");
+  const detailsRef = useRevealOnSelect<HTMLElement>(selId);
   const [action, setAction] = useState<keyof typeof ACTIONS | null>(null);
   const [message, setMessage] = useState("");
   const [outcome, setOutcome] = useState<Record<string, State>>({});
@@ -123,7 +124,7 @@ export default function ApprovalsPage() {
           })}
         </section>
 
-        <section className={`flex-[999_1_560px] min-w-0 ${card} rounded-[18px] p-5 flex flex-col gap-[18px]`}>
+        <section ref={detailsRef} className={`scroll-mt-20 flex-[999_1_560px] min-w-0 ${card} rounded-[18px] p-5 flex flex-col gap-[18px]`}>
           <div className="flex flex-wrap justify-between gap-2 items-center">
             <div className="flex flex-col gap-0.5">
               <h2 className="text-[21px] font-bold">{cur.name}</h2>
@@ -132,7 +133,7 @@ export default function ApprovalsPage() {
             <span className={`text-xs font-bold rounded-full px-3 py-1 ${TONE[curTone]}`}>{curLabel}</span>
           </div>
 
-          <div className="grid gap-x-5 gap-y-3 grid-cols-[repeat(auto-fit,minmax(180px,1fr))] text-sm">
+          <div className="grid gap-x-5 gap-y-3 grid-cols-[repeat(auto-fit,minmax(min(180px,100%),1fr))] text-sm">
             {[
               ["المالك", cur.owner, "font-semibold"],
               ["العنوان", cur.address, ""],
@@ -146,7 +147,7 @@ export default function ApprovalsPage() {
             ))}
           </div>
 
-          <div className="grid grid-cols-4 gap-2">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
             {["PHOTO", "PHOTO", "PHOTO", "MAP"].map((l, i) => (
               <div
                 key={i}

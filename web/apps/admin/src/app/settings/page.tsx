@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { Pill, Page, Switch, Tabs, Toast, card, chip, inputClass, muted, redShadow, toArabicDigits } from "@/components/ui";
+import { Pill, Page, Switch, Tabs, Toast, card, chip, inputClass, muted, redShadow, toArabicDigits, useRevealOnSelect } from "@/components/ui";
 
 type Tab = "booking" | "areas" | "templates" | "team";
 type RuleKey = "maxDep" | "proofMin" | "proofMax" | "reviewMax" | "dispute";
@@ -64,6 +64,7 @@ export default function SettingsPage() {
   const [methods, setMethods] = useState<Record<Method, boolean>>({ vc: true, ip: true, bank: true, cash: false });
   const [areas, setAreas] = useState<Record<number, boolean>>({ 0: true, 1: true, 2: true, 3: false, 4: false, 5: false });
   const [tpl, setTpl] = useState(0);
+  const detailsRef = useRevealOnSelect<HTMLElement>(tpl);
   const [bodies, setBodies] = useState<Record<number, string>>({});
   const [roles, setRoles] = useState<Record<number, Role>>({});
   const [dirty, setDirty] = useState(false);
@@ -185,7 +186,7 @@ export default function SettingsPage() {
               </button>
             ))}
           </section>
-          <section className={`flex-[999_1_420px] min-w-0 ${card} rounded-[20px] p-5 flex flex-col gap-3`}>
+          <section ref={detailsRef} className={`scroll-mt-20 flex-[999_1_420px] min-w-0 ${card} rounded-[20px] p-5 flex flex-col gap-3`}>
             <h2 className="text-[17px] font-bold">{TEMPLATES[tpl][0]}</h2>
             <label htmlFor="tb" className="text-[13px] font-semibold">
               نص الرسالة

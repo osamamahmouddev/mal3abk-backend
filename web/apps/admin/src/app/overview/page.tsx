@@ -52,7 +52,7 @@ export default function OverviewPage() {
         />
       </PageHeader>
 
-      <div className="grid gap-3 grid-cols-[repeat(auto-fit,minmax(170px,1fr))]">
+      <div className="grid gap-3 grid-cols-2 md:grid-cols-[repeat(auto-fit,minmax(min(170px,100%),1fr))]">
         {KPI_LABELS.map(([label, sub], i) => (
           <div key={label} className={`${card} rounded-[18px] px-4 py-3.5 flex flex-col gap-1 ${i === 7 ? "!border-ink" : ""}`}>
             <span className={`text-[13px] ${muted}`}>{label}</span>

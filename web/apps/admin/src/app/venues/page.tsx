@@ -2,25 +2,7 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
-import {
-  KV,
-  Page,
-  PageHeader,
-  Pill,
-  ReasonModal,
-  ReasonRequest,
-  Switch,
-  Toast,
-  Tone,
-  btnSmall,
-  card,
-  chip,
-  inputClass,
-  muted,
-  rowCls,
-  thCls,
-  toArabicDigits,
-} from "@/components/ui";
+import { KV, Page, PageHeader, Pill, ReasonModal, ReasonRequest, Switch, Toast, Tone, btnSmall, card, chip, inputClass, muted, rowCls, thCls, toArabicDigits, useRevealOnSelect } from "@/components/ui";
 
 type Status = "live" | "pending" | "overdue" | "suspended";
 type City = "cai" | "giz" | "del";
@@ -54,6 +36,7 @@ export default function VenuesPage() {
   const [filter, setFilter] = useState<"all" | Exclude<Status, "pending">>("all");
   const [city, setCity] = useState<"all" | City>("all");
   const [sel, setSel] = useState(0);
+  const detailsRef = useRevealOnSelect<HTMLElement>(sel);
   const [statusOverride, setStatusOverride] = useState<Record<number, Status>>({});
   const [hidden, setHidden] = useState<Record<number, boolean>>({});
   const [notes, setNotes] = useState<Record<number, string>>({});
@@ -88,7 +71,7 @@ export default function VenuesPage() {
       </PageHeader>
 
       <div className="flex flex-wrap gap-2.5 items-center">
-        <input aria-label="بحث" value={q} onChange={(e) => setQ(e.target.value)} placeholder="ابحث باسم الملعب أو المالك" className={`${inputClass} flex-[1_1_240px]`} />
+        <input aria-label="بحث" value={q} onChange={(e) => setQ(e.target.value)} placeholder="ابحث باسم الملعب أو المالك" className={`${inputClass} flex-[1_1_240px] min-w-0`} />
         <div className="flex gap-1.5 flex-wrap">
           {(
             [
@@ -161,7 +144,7 @@ export default function VenuesPage() {
           {idx.length === 0 && <p className={`p-8 text-center ${muted}`}>مفيش ملاعب بالفلتر ده.</p>}
         </section>
 
-        <aside aria-label="تفاصيل الملعب" className={`flex-[1_1_320px] min-w-0 ${card} rounded-[20px] overflow-hidden flex flex-col`}>
+        <aside ref={detailsRef} aria-label="تفاصيل الملعب" className={`scroll-mt-20 flex-[1_1_320px] min-w-0 ${card} rounded-[20px] overflow-hidden flex flex-col`}>
           <div className="h-[110px]" style={{ background: pitchPattern }} />
           <div className="px-5 pt-[18px] pb-5 flex flex-col gap-3">
             <div className="flex items-center gap-2">
