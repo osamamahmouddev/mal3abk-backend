@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
-import { Badge, Page, Toast, Tone, card, chip, muted, primaryBtn, secondaryBtn, toArabicDigits } from "@/components/ui";
+import { Badge, Page, Toast, Tone, card, chip, muted, primaryBtn, secondaryBtn, toArabicDigits, useRevealOnSelect } from "@/components/ui";
 
 type Status = "proof" | "wait" | "ok" | "expired" | "cancel";
 type Tab = "pending" | "ok" | "closed" | "all";
@@ -74,6 +74,7 @@ export default function ReservationsPage() {
   const [pitch, setPitch] = useState<"all" | number>("all");
   const [page, setPage] = useState(1);
   const [selId, setSelId] = useState<string | null>("b2");
+  const detailsRef = useRevealOnSelect<HTMLElement>(selId);
   const [cancelOpen, setCancelOpen] = useState(false);
   const [reason, setReason] = useState<string | null>(null);
   const [cancelled, setCancelled] = useState<Record<string, boolean>>({});
@@ -138,7 +139,7 @@ export default function ReservationsPage() {
       </div>
 
       <div className="flex flex-wrap gap-2.5 items-center">
-        <div className="flex-[1_1_280px] flex items-center gap-2 min-h-[44px] bg-white border border-[#DCE0E8] rounded-xl px-3">
+        <div className="flex-[1_1_280px] min-w-0 flex items-center gap-2 min-h-[44px] bg-white border border-[#DCE0E8] rounded-xl px-3">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#5B6475" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
             <circle cx="11" cy="11" r="7" />
             <path d="M20 20l-4-4" />
@@ -148,7 +149,7 @@ export default function ReservationsPage() {
             onChange={(e) => setQ(e.target.value)}
             placeholder="ابحث باسم العميل أو رقم الحجز"
             aria-label="بحث"
-            className="flex-1 border-none outline-none text-sm bg-transparent text-slate-900"
+            className="flex-1 min-w-0 border-none outline-none text-sm bg-transparent text-slate-900"
           />
         </div>
         <div role="group" aria-label="الملعب" className="flex gap-1 bg-white border border-[#DCE0E8] rounded-xl p-[3px]">
@@ -177,7 +178,51 @@ export default function ReservationsPage() {
 
       <div className="flex flex-wrap gap-4 items-start">
         <section className={`flex-[999_1_600px] min-w-0 ${card} rounded-[18px] overflow-hidden`}>
-          <div className="overflow-x-auto">
+          {/* Phones: one card per booking */}
+          <ul className="md:hidden divide-y divide-[#EEF1F5]">
+            {list.map((r) => (
+              <li key={r.id} className={`p-4 flex flex-col gap-2 ${r.id === selId ? "bg-[#F5F7FB]" : ""}`}>
+                <div className="flex items-start gap-2">
+                  <div className="flex-1 min-w-0 flex flex-col">
+                    <span className="font-semibold">{r.who}</span>
+                    <span className={`text-xs ${muted}`}>{r.src}</span>
+                  </div>
+                  <Badge tone={STATUS[r.st][1]}>{STATUS[r.st][0]}</Badge>
+                </div>
+                <div className="text-sm">{r.slot}</div>
+                <div className={`flex flex-wrap gap-x-3 gap-y-1 text-xs ${muted}`}>
+                  <span dir="ltr">{r.ref}</span>
+                  <span>{r.dep}</span>
+                </div>
+                <div className="flex flex-wrap gap-2 pt-1">
+                  {r.st === "proof" && (
+                    <Link href="/reservations/proof-review" className="min-h-[40px] px-3.5 rounded-[10px] bg-navy-900 text-white text-[13px] font-bold inline-flex items-center">
+                      مراجعة الإيصال
+                    </Link>
+                  )}
+                  {r.st === "wait" && (
+                    <button
+                      type="button"
+                      onClick={() => setToast(`اتبعت تذكير لـ${r.who} يرفع إيصال العربون.`)}
+                      className="min-h-[40px] px-3.5 rounded-[10px] border border-[#C9CFD9] bg-white text-navy-900 text-[13px] font-semibold"
+                    >
+                      تذكير
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setSelId(r.id)}
+                    className="min-h-[40px] px-3.5 rounded-[10px] bg-[#EEF1F7] text-navy-900 text-[13px] font-semibold"
+                  >
+                    التفاصيل
+                  </button>
+                </div>
+              </li>
+            ))}
+          </ul>
+
+          {/* Tablet and up: table */}
+          <div className="hidden md:block overflow-x-auto">
             <table className="w-full min-w-[760px] border-collapse text-sm">
               <thead>
                 <tr className={`bg-[#F8F9FB] ${muted} text-xs text-right`}>
@@ -274,7 +319,7 @@ export default function ReservationsPage() {
         </section>
 
         {sel && (
-          <aside aria-label="تفاصيل الحجز" className={`flex-[1_1_320px] min-w-0 ${card} rounded-[18px] p-5 flex flex-col gap-3.5`}>
+          <aside ref={detailsRef} aria-label="تفاصيل الحجز" className={`scroll-mt-20 flex-[1_1_320px] min-w-0 ${card} rounded-[18px] p-5 flex flex-col gap-3.5`}>
             <div className="flex justify-between items-center">
               <h2 className="text-lg font-bold">{sel.who}</h2>
               <button

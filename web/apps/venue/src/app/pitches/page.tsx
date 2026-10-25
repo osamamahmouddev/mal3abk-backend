@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
-import { Page, Switch, Toast, cardShadow, chip, toArabicDigits } from "@/components/ui";
+import { Page, Switch, Toast, cardShadow, chip, toArabicDigits, useRevealOnSelect } from "@/components/ui";
 
 type Size = "5" | "7" | "11";
 type Surface = "artificial" | "natural";
@@ -64,6 +64,7 @@ export default function PitchesPage() {
   const [tab, setTab] = useState<"pitches" | "venues">("pitches");
   const [pitches, setPitches] = useState<PitchItem[]>(initialPitches);
   const [selectedId, setSelectedId] = useState<string>(initialPitches[0].id);
+  const detailsRef = useRevealOnSelect<HTMLElement>(selectedId);
   const [published, setPublished] = useState<Record<string, boolean>>({ "1": true, "2": false });
   const [toast, setToast] = useState<string | null>(null);
 
@@ -151,7 +152,7 @@ export default function PitchesPage() {
 
       {/* Venues tab */}
       {tab === "venues" && (
-        <div className="grid gap-4 grid-cols-[repeat(auto-fit,minmax(320px,1fr))]">
+        <div className="grid gap-4 grid-cols-[repeat(auto-fit,minmax(min(320px,100%),1fr))]">
           {venues.map((v) => {
             const on = !!published[v.id];
             return (
@@ -212,7 +213,7 @@ export default function PitchesPage() {
               return (
                 <article
                   key={item.id}
-                  className={`bg-white rounded-[18px] px-4 py-3.5 flex items-center gap-3.5 ${cardShadow} ${
+                  className={`bg-white rounded-[18px] px-4 py-3.5 flex flex-wrap sm:flex-nowrap items-center gap-3.5 ${cardShadow} ${
                     isSelected ? "border-2 border-navy-900" : "border border-[#EDF0F5]"
                   }`}
                 >
@@ -220,7 +221,7 @@ export default function PitchesPage() {
                     className={`w-[72px] h-[72px] shrink-0 rounded-[14px] ${item.isActive ? "" : "opacity-45"}`}
                     style={{ background: pitchPattern }}
                   />
-                  <span className="flex-1 min-w-0 flex flex-col gap-[3px]">
+                  <span className="flex-1 min-w-[150px] flex flex-col gap-[3px]">
                     <span className="text-base font-bold">{item.name}</span>
                     <span className="text-[13px] text-[#5B6475]">
                       {SIZES.find((s) => s.val === item.size)?.label} ·{" "}
@@ -232,22 +233,26 @@ export default function PitchesPage() {
                       {item.isActive ? "● شغال" : "● متوقف"}
                     </span>
                   </span>
-                  <span className="text-[15px] font-bold whitespace-nowrap">
-                    {toArabicDigits(item.pricePerHour)} ج.م/ساعة
+                  {/* Phones: price and action move to their own row under the details */}
+                  <span className="w-full sm:w-auto flex items-center justify-between sm:justify-start gap-3.5 pt-3 sm:pt-0 border-t sm:border-t-0 border-[#EEF0F5]">
+                    <span className="text-[15px] font-bold whitespace-nowrap">
+                      {toArabicDigits(item.pricePerHour)} ج.م/ساعة
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedId(item.id)}
+                      className="min-h-[40px] px-3.5 rounded-[10px] border border-[#C9CFD9] bg-white hover:bg-slate-50 text-navy-900 text-[13px] font-semibold transition"
+                    >
+                      تعديل
+                    </button>
                   </span>
-                  <button
-                    type="button"
-                    onClick={() => setSelectedId(item.id)}
-                    className="min-h-[40px] px-3.5 rounded-[10px] border border-[#C9CFD9] bg-white hover:bg-slate-50 text-navy-900 text-[13px] font-semibold transition"
-                  >
-                    تعديل
-                  </button>
                 </article>
               );
             })}
           </section>
 
           <aside
+            ref={detailsRef}
             aria-label="تعديل الملعب"
             className={`flex-[1_1_340px] min-w-0 bg-white border border-[#EDF0F5] rounded-[20px] p-5 flex flex-col gap-3.5 ${cardShadow}`}
           >

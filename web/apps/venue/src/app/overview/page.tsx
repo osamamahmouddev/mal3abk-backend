@@ -64,7 +64,7 @@ export default function OverviewPage() {
       </div>
 
       {/* KPIs */}
-      <div className="grid gap-3 grid-cols-[repeat(auto-fit,minmax(190px,1fr))]">
+      <div className="grid gap-3 grid-cols-2 md:grid-cols-[repeat(auto-fit,minmax(min(190px,100%),1fr))]">
         <div className={`${card} rounded-[18px] p-4 flex flex-col gap-1.5`}>
           <span className={`text-[13px] ${muted}`}>حجوزات اليوم</span>
           <span className="text-[30px] font-bold">١١</span>
@@ -93,7 +93,7 @@ export default function OverviewPage() {
       </div>
 
       {/* Finance strip */}
-      <section aria-label="ملخص مالي لليوم" className={`${card} rounded-[18px] grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))]`}>
+      <section aria-label="ملخص مالي لليوم" className={`${card} rounded-[18px] grid grid-cols-[repeat(auto-fit,minmax(min(200px,100%),1fr))]`}>
         {finance.map((f, i) => (
           <div key={f.label} className={`px-5 py-4 flex flex-col gap-1 ${i < finance.length - 1 ? "border-l border-[#E4E7EC]" : ""}`}>
             <span className={`text-[13px] ${f.labelCls}`}>{f.label}</span>

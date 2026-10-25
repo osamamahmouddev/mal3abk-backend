@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
-import { Badge, Page, Toast, Tone, card, muted, redShadow, toArabicDigits } from "@/components/ui";
+import { Badge, Page, Toast, Tone, card, muted, redShadow, toArabicDigits, useRevealOnSelect } from "@/components/ui";
 
 type View = "day" | "week" | "month";
 type Kind = "ok" | "rev" | "wait" | "blk";
@@ -33,7 +33,7 @@ export default function CalendarPage() {
   };
 
   return (
-    <Page className="gap-4 !px-7 !pt-6 !pb-8">
+    <Page className="gap-4 lg:!px-7 lg:!pt-6 !pb-8">
       {view === "week" && <WeekView switcher={<ViewSwitch view={view} onChange={switchView} />} toast={setToast} />}
       {view === "day" && <DayView switcher={<ViewSwitch view={view} onChange={switchView} />} toast={setToast} />}
       {view === "month" && <MonthView switcher={<ViewSwitch view={view} onChange={switchView} />} onOpenDay={() => switchView("day")} />}
@@ -147,6 +147,7 @@ const PITCH_FILTERS = ["ملعب ١ · ٥ لاعب", "ملعب ٢ · ٧ لاعب
 
 function WeekView({ switcher, toast }: { switcher: React.ReactNode; toast: (m: string | null) => void }) {
   const [selId, setSelId] = useState("e3");
+  const detailsRef = useRevealOnSelect<HTMLElement>(selId);
   const [wk, setWk] = useState(1);
   const [pf, setPf] = useState(0);
 
@@ -272,7 +273,7 @@ function WeekView({ switcher, toast }: { switcher: React.ReactNode; toast: (m: s
           </div>
         </section>
 
-        <aside aria-label="تفاصيل الحجز" className={`flex-[1_1_300px] min-w-0 ${card} rounded-[18px] p-[18px] flex flex-col gap-3.5`}>
+        <aside ref={detailsRef} aria-label="تفاصيل الحجز" className={`scroll-mt-20 flex-[1_1_300px] min-w-0 ${card} rounded-[18px] p-[18px] flex flex-col gap-3.5`}>
           <div className="flex items-center justify-between gap-2">
             <h2 className="text-[17px] font-bold">{cur[5]}</h2>
             <Badge tone={KIND[k].tone}>{KIND[k].label}</Badge>
@@ -404,6 +405,7 @@ function DayView({ switcher, toast }: { switcher: React.ReactNode; toast: (m: st
   const [selId, setSelId] = useState<string | null>("e2");
   const [slot, setSlot] = useState<[number, number] | null>(null);
   const [blocked, setBlocked] = useState<DayEvent[]>([]);
+  const detailsRef = useRevealOnSelect<HTMLElement>(`${selId}|${slot}`);
 
   const ev = DAY_EVENTS[day].concat(blocked.filter((b) => b[7] === day));
   const taken = new Set<string>();
@@ -507,7 +509,7 @@ function DayView({ switcher, toast }: { switcher: React.ReactNode; toast: (m: st
           </div>
         </section>
 
-        <aside className={`flex-[1_1_300px] min-w-0 ${card} rounded-[18px] p-[18px] flex flex-col gap-3`}>
+        <aside ref={detailsRef} aria-label="تفاصيل الميعاد" className={`scroll-mt-20 flex-[1_1_300px] min-w-0 ${card} rounded-[18px] p-[18px] flex flex-col gap-3`}>
           {cur && (
             <div className="flex flex-col gap-3">
               <h2 className="text-[17px] font-bold">{cur[5]}</h2>
@@ -570,6 +572,7 @@ const MONTHS = [
 function MonthView({ switcher, onOpenDay }: { switcher: React.ReactNode; onOpenDay: () => void }) {
   const [m, setM] = useState(0);
   const [sel, setSel] = useState(26);
+  const detailsRef = useRevealOnSelect<HTMLElement>(sel);
   const M = MONTHS[m];
 
   const occ = (d: number) => (m === 1 && d > 10 ? ((d * 13) % 25) + 5 : ((d * 37 + m * 11) % 55) + 35);
@@ -610,7 +613,7 @@ function MonthView({ switcher, onOpenDay }: { switcher: React.ReactNode; onOpenD
           </div>
           <div className="grid grid-cols-7 gap-1.5">
             {Array.from({ length: M.offset }, (_, i) => (
-              <span key={`b${i}`} className="min-h-[84px]" />
+              <span key={`b${i}`} className="min-h-[60px] sm:min-h-[84px]" />
             ))}
             {Array.from({ length: M.days }, (_, i) => {
               const d = i + 1;
@@ -622,7 +625,7 @@ function MonthView({ switcher, onOpenDay }: { switcher: React.ReactNode; onOpenD
                   type="button"
                   onClick={() => setSel(d)}
                   aria-label={`${toArabicDigits(d)} ${M.name}، ${toArabicDigits(cnt(d))} حجز، إشغال ${toArabicDigits(o)}٪`}
-                  className={`min-h-[84px] p-2 rounded-xl flex flex-col items-start justify-between gap-1 text-right text-slate-900 ${
+                  className={`min-h-[60px] sm:min-h-[84px] p-1.5 sm:p-2 rounded-lg sm:rounded-xl flex flex-col items-start justify-between gap-1 text-right text-slate-900 ${
                     on ? "bg-[#EEF1F7] border-2 border-navy-900" : "bg-white border border-[#EDF0F5]"
                   }`}
                 >
@@ -632,7 +635,7 @@ function MonthView({ switcher, onOpenDay }: { switcher: React.ReactNode; onOpenD
                       <span className="text-[10px] font-bold bg-[#FEF3D6] text-[#7A4D00] rounded-full px-1.5 py-px">{toArabicDigits(rev(d))}</span>
                     )}
                   </span>
-                  <span className={`text-[11px] ${muted}`}>{toArabicDigits(cnt(d))} حجز</span>
+                  <span className={`hidden sm:inline text-[11px] ${muted}`}>{toArabicDigits(cnt(d))} حجز</span>
                   <span className="w-full h-[5px] rounded-[3px] bg-[#EEF0F5] overflow-hidden">
                     <span className={`block h-full ${o >= 80 ? "bg-brand-red" : "bg-navy-900"}`} style={{ width: `${o}%` }} />
                   </span>
@@ -652,7 +655,7 @@ function MonthView({ switcher, onOpenDay }: { switcher: React.ReactNode; onOpenD
           </div>
         </section>
 
-        <aside className={`flex-[1_1_300px] min-w-0 ${card} rounded-[18px] p-[18px] flex flex-col gap-3`}>
+        <aside ref={detailsRef} aria-label="تفاصيل اليوم" className={`scroll-mt-20 flex-[1_1_300px] min-w-0 ${card} rounded-[18px] p-[18px] flex flex-col gap-3`}>
           <h2 className="text-lg font-bold">
             {toArabicDigits(sd)} {M.name}
           </h2>

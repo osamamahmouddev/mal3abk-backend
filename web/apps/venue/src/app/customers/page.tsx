@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
-import { Badge, Page, Toast, Tone, card, chip, formatEGP, muted, secondaryBtn, toArabicDigits } from "@/components/ui";
+import { Badge, Page, Toast, Tone, card, chip, formatEGP, muted, secondaryBtn, toArabicDigits, useRevealOnSelect } from "@/components/ui";
 
 // id, initials, name, phone, bookings, cancellations, no-shows, last booking, spent
 type Customer = [string, string, string, string, number, number, number, string, number];
@@ -34,6 +34,7 @@ export default function CustomersPage() {
   const [q, setQ] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
   const [selId, setSelId] = useState("ahmed");
+  const detailsRef = useRevealOnSelect<HTMLElement>(selId);
   const [notes, setNotes] = useState<Record<string, string>>({
     ahmed: "بيحجز كل سبت. بيحب ملعب ١.",
     youssef: "اتأخر مرتين ٢٠ دقيقة.",
@@ -73,7 +74,7 @@ export default function CustomersPage() {
       </div>
 
       <div className="flex flex-wrap gap-2.5 items-center">
-        <div className="flex-[1_1_280px] flex items-center gap-2 min-h-[44px] bg-white border border-[#DCE0E8] rounded-xl px-3">
+        <div className="flex-[1_1_280px] min-w-0 flex items-center gap-2 min-h-[44px] bg-white border border-[#DCE0E8] rounded-xl px-3">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#5B6475" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
             <circle cx="11" cy="11" r="7" />
             <path d="M20 20l-4-4" />
@@ -83,7 +84,7 @@ export default function CustomersPage() {
             onChange={(e) => setQ(e.target.value)}
             placeholder="ابحث بالاسم أو الموبايل"
             aria-label="بحث"
-            className="flex-1 border-none outline-none text-sm bg-transparent text-slate-900"
+            className="flex-1 min-w-0 border-none outline-none text-sm bg-transparent text-slate-900"
           />
         </div>
         {(
@@ -147,7 +148,7 @@ export default function CustomersPage() {
         </section>
 
         {sel && (
-          <aside aria-label="ملف العميل" className={`flex-[1_1_340px] min-w-0 ${card} rounded-[18px] p-5 flex flex-col gap-3.5`}>
+          <aside ref={detailsRef} aria-label="ملف العميل" className={`scroll-mt-20 flex-[1_1_340px] min-w-0 ${card} rounded-[18px] p-5 flex flex-col gap-3.5`}>
             <div className="flex items-center gap-3">
               <span className="w-[52px] h-[52px] rounded-full bg-navy-900 text-white flex items-center justify-center text-base font-bold">{sel[1]}</span>
               <div className="flex-1 flex flex-col">
