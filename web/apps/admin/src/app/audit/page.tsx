@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
-import { KV, Page, PageHeader, Pill, Toast, Tone, card, chip, muted } from "@/components/ui";
+import { KV, Page, PageHeader, Pill, Toast, Tone, card, chip, muted, useRevealOnSelect } from "@/components/ui";
 
 type Actor = "sara" | "amr" | "nada" | "owner";
 type Kind = "venue" | "billing" | "user" | "support" | "plans" | "settings" | "booking";
@@ -43,6 +43,7 @@ export default function AuditPage() {
   const [who, setWho] = useState<"all" | Exclude<Actor, "owner">>("all");
   const [kind, setKind] = useState<KindGroup>("all");
   const [selected, setSelected] = useState(0);
+  const detailsRef = useRevealOnSelect<HTMLElement>(selected);
   const [toast, setToast] = useState<string | null>(null);
 
   const idx = LOG.map((_, i) => i).filter((i) => (who === "all" || LOG[i][0] === who) && (!KIND_GROUPS[kind] || KIND_GROUPS[kind]!.includes(LOG[i][1])));
@@ -118,7 +119,7 @@ export default function AuditPage() {
         </section>
 
         {idx.length > 0 && (
-          <aside aria-label="تفاصيل الإجراء" className={`flex-[1_1_320px] min-w-0 ${card} rounded-[20px] p-5 flex flex-col gap-3`}>
+          <aside ref={detailsRef} aria-label="تفاصيل الإجراء" className={`scroll-mt-20 flex-[1_1_320px] min-w-0 ${card} rounded-[20px] p-5 flex flex-col gap-3`}>
             <Pill tone={KIND[d[1]][1]} className="self-start">
               {KIND[d[1]][0]}
             </Pill>

@@ -2,23 +2,7 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
-import {
-  Page,
-  PageHeader,
-  Pill,
-  ReasonModal,
-  ReasonRequest,
-  Toast,
-  Tone,
-  btnSmall,
-  card,
-  chip,
-  inputClass,
-  muted,
-  rowCls,
-  thCls,
-  toArabicDigits,
-} from "@/components/ui";
+import { Page, PageHeader, Pill, ReasonModal, ReasonRequest, Toast, Tone, btnSmall, card, chip, inputClass, muted, rowCls, thCls, toArabicDigits, useRevealOnSelect } from "@/components/ui";
 
 type Status = "active" | "flagged" | "suspended";
 // name, phone, area, joined, bookings, no-shows, reports, status, teams
@@ -50,6 +34,7 @@ export default function UsersPage() {
   const [q, setQ] = useState("");
   const [filter, setFilter] = useState<"all" | Status>("all");
   const [sel, setSel] = useState(0);
+  const detailsRef = useRevealOnSelect<HTMLElement>(sel);
   const [statusOverride, setStatusOverride] = useState<Record<number, Status>>({});
   const [notes, setNotes] = useState<Record<number, string>>({});
   const [modal, setModal] = useState<ReasonRequest | null>(null);
@@ -79,7 +64,7 @@ export default function UsersPage() {
       </PageHeader>
 
       <div className="flex flex-wrap gap-2.5 items-center">
-        <input aria-label="بحث" value={q} onChange={(e) => setQ(e.target.value)} placeholder="ابحث بالاسم أو رقم الموبايل" className={`${inputClass} flex-[1_1_260px]`} />
+        <input aria-label="بحث" value={q} onChange={(e) => setQ(e.target.value)} placeholder="ابحث بالاسم أو رقم الموبايل" className={`${inputClass} flex-[1_1_260px] min-w-0`} />
         <div className="flex gap-1.5 flex-wrap">
           {(
             [
@@ -140,7 +125,7 @@ export default function UsersPage() {
           {idx.length === 0 && <p className={`p-8 text-center ${muted}`}>مفيش لاعيبة بالبحث ده.</p>}
         </section>
 
-        <aside aria-label="ملف اللاعب" className={`flex-[1_1_320px] min-w-0 ${card} rounded-[20px] p-5 flex flex-col gap-3.5`}>
+        <aside ref={detailsRef} aria-label="ملف اللاعب" className={`scroll-mt-20 flex-[1_1_320px] min-w-0 ${card} rounded-[20px] p-5 flex flex-col gap-3.5`}>
           <div className="flex items-center gap-3">
             <span className="w-[52px] h-[52px] rounded-full bg-ink text-white flex items-center justify-center text-xl font-bold">{u[0].charAt(0)}</span>
             <span className="flex-1 flex flex-col gap-0.5">

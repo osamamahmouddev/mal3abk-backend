@@ -30,7 +30,7 @@ export default function LoginPage() {
 
   return (
     <div dir="rtl" className="w-full min-h-screen bg-surface text-slate-900 flex flex-wrap">
-      <section className="flex-[1_1_420px] min-h-[320px] relative isolate overflow-hidden bg-navy-900 text-white p-12 flex flex-col justify-between gap-8">
+      <section className="flex-[1_1_100%] lg:flex-[1_1_420px] min-w-0 relative isolate overflow-hidden bg-navy-900 text-white p-6 sm:p-12 flex flex-col justify-between gap-6 sm:gap-8 lg:min-h-screen">
         <svg
           aria-hidden="true"
           width="760"
@@ -55,8 +55,8 @@ export default function LoginPage() {
           <span className="text-xs font-bold text-navy-900 bg-brand-gold rounded-md px-2.5 py-[3px]">للملاعب</span>
         </div>
         <div className="flex flex-col gap-[18px] max-w-[460px]">
-          <h1 className="text-[38px] leading-[54px] font-bold">كل حجوزات ملعبك في مكان واحد.</h1>
-          <div className="flex flex-col gap-3 text-base text-[#D5DBE7]">
+          <h1 className="text-[28px] leading-[40px] sm:text-[38px] sm:leading-[54px] font-bold">كل حجوزات ملعبك في مكان واحد.</h1>
+          <div className="hidden sm:flex flex-col gap-3 text-base text-[#D5DBE7]">
             <span>✓ تقويم واحد لكل الملاعب، من غير تعارض</span>
             <span>✓ مراجعة إيصالات العربون من اللوحة</span>
             <span>✓ تقارير الإشغال والإيراد أول بأول</span>
@@ -65,8 +65,8 @@ export default function LoginPage() {
         <span className="text-[13px] text-[#AEB7CA]">محتاج مساعدة؟ كلّم فريق ملعبك على ٠١٠٠٠٠٠٠٠٠٠</span>
       </section>
 
-      <section className="flex-[1_1_420px] px-6 py-12 flex items-center justify-center">
-        <div className="w-full max-w-[420px] bg-white border border-[#EDF0F5] rounded-3xl shadow-[0_1px_2px_rgba(15,27,61,0.04),0_20px_40px_-24px_rgba(15,27,61,0.25)] p-8 flex flex-col gap-[18px]">
+      <section className="flex-[1_1_100%] lg:flex-[1_1_420px] min-w-0 px-4 py-8 sm:px-6 sm:py-12 flex items-center justify-center">
+        <div className="w-full max-w-[420px] bg-white border border-[#EDF0F5] rounded-3xl shadow-[0_1px_2px_rgba(15,27,61,0.04),0_20px_40px_-24px_rgba(15,27,61,0.25)] p-6 sm:p-8 flex flex-col gap-[18px]">
           {view === "login" && (
             <form onSubmit={handleLogin} className="flex flex-col gap-4">
               <div className="flex flex-col gap-1">

@@ -82,7 +82,7 @@ export default function SetupPage() {
 
   return (
     <div dir="rtl" className="w-full min-h-screen bg-surface text-slate-900 flex flex-col">
-      <header className="bg-white border-b border-[#EDF0F5] px-8 py-4 flex items-center gap-4 flex-wrap">
+      <header className="bg-white border-b border-[#EDF0F5] px-4 sm:px-8 py-4 flex items-center gap-x-4 gap-y-2 flex-wrap">
         <span className="text-2xl font-bold">ملعبك</span>
         <span className="text-[11px] font-bold text-navy-900 bg-brand-gold rounded-md px-2 py-0.5">للملاعب</span>
         <span className="flex-1" />
@@ -92,7 +92,7 @@ export default function SetupPage() {
         </Link>
       </header>
 
-      <div className="flex-1 w-full max-w-[1180px] mx-auto px-6 pt-8 pb-10 flex flex-wrap gap-6 items-start">
+      <div className="flex-1 w-full max-w-[1180px] mx-auto px-4 sm:px-6 pt-5 sm:pt-8 pb-10 flex flex-wrap gap-4 sm:gap-6 items-start">
         <nav aria-label="خطوات الإعداد" className={`flex-[1_1_240px] ${card} rounded-[18px] p-4 flex flex-col gap-1`}>
           {steps.map(([label, hint], i) => {
             const n = i + 1;
@@ -124,12 +124,12 @@ export default function SetupPage() {
           })}
         </nav>
 
-        <main className={`flex-[999_1_560px] min-w-0 ${card} rounded-[20px] p-7 flex flex-col gap-5`}>
+        <main className={`flex-[999_1_560px] min-w-0 ${card} rounded-[20px] p-5 sm:p-7 flex flex-col gap-5`}>
           {step === 1 && (
             <div className="flex flex-col gap-[18px]">
               <h1 className="text-2xl font-bold">بيانات المكان</h1>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="flex flex-col gap-1.5 col-span-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="flex flex-col gap-1.5 sm:col-span-2">
                   <label htmlFor="vn" className="text-sm font-semibold">
                     اسم المكان <span className="text-[#A8261C]">*</span>
                   </label>
@@ -158,7 +158,7 @@ export default function SetupPage() {
                   </label>
                   <input id="ph" dir="ltr" defaultValue="0100 044 5566" className={`${field} text-right`} />
                 </div>
-                <div className="flex flex-col gap-1.5 col-span-2">
+                <div className="flex flex-col gap-1.5 sm:col-span-2">
                   <label htmlFor="ad" className="text-sm font-semibold">
                     العنوان بالتفصيل
                   </label>

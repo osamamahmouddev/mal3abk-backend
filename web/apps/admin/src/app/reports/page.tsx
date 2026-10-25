@@ -89,7 +89,7 @@ export default function ReportsPage() {
         </button>
       </div>
 
-      <div className="grid gap-3 grid-cols-[repeat(auto-fit,minmax(190px,1fr))]">
+      <div className="grid gap-3 grid-cols-2 md:grid-cols-[repeat(auto-fit,minmax(min(190px,100%),1fr))]">
         {kpis.map(([l, v, d, good]) => (
           <div key={l} className={`${card} rounded-[18px] p-4 flex flex-col gap-1.5`}>
             <span className={`text-[13px] ${muted}`}>{l}</span>

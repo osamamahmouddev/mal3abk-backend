@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 
 export const toArabicDigits = (v: number | string) => String(v).replace(/[0-9]/g, (d) => "٠١٢٣٤٥٦٧٨٩"[Number(d)]);
 
@@ -65,7 +65,7 @@ export function Switch({ on, label, onToggle, disabled }: { on: boolean; label: 
 }
 
 export function Page({ children, className = "gap-4" }: { children: React.ReactNode; className?: string }) {
-  return <div className={`px-8 pt-7 pb-10 w-full min-w-0 flex flex-col ${className}`}>{children}</div>;
+  return <div className={`px-4 sm:px-6 lg:px-8 pt-5 sm:pt-7 pb-10 w-full min-w-0 flex flex-col ${className}`}>{children}</div>;
 }
 
 export function PageHeader({ title, sub, children }: { title: string; sub?: React.ReactNode; children?: React.ReactNode }) {
@@ -121,7 +121,7 @@ export function Segmented<T extends string>({ items, value, onChange, label }: {
 
 export function SearchBox({ value, onChange, placeholder }: { value: string; onChange: (v: string) => void; placeholder: string }) {
   return (
-    <div className="flex-[1_1_260px] flex items-center gap-2 min-h-[44px] bg-white border border-[#DCE0E8] rounded-xl px-3">
+    <div className="flex-[1_1_260px] min-w-0 flex items-center gap-2 min-h-[44px] bg-white border border-[#DCE0E8] rounded-xl px-3">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#5B6475" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
         <circle cx="11" cy="11" r="7" />
         <path d="M20 20l-4-4" />
@@ -131,7 +131,7 @@ export function SearchBox({ value, onChange, placeholder }: { value: string; onC
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
         aria-label="بحث"
-        className="flex-1 border-none outline-none text-sm bg-transparent text-slate-900"
+        className="flex-1 min-w-0 border-none outline-none text-sm bg-transparent text-slate-900"
       />
     </div>
   );
@@ -142,7 +142,7 @@ export function Toast({ message, onClose }: { message: string | null; onClose: (
   return (
     <div
       role="status"
-      className="fixed left-6 bottom-6 z-[60] max-w-[440px] bg-ink text-white rounded-[14px] px-4 py-3 text-sm shadow-[0_14px_34px_-12px_rgba(10,19,48,0.5)] flex gap-3 items-center"
+      className="fixed left-4 right-4 bottom-4 sm:right-auto sm:left-6 sm:bottom-6 z-[60] sm:max-w-[440px] bg-ink text-white rounded-[14px] px-4 py-3 text-sm shadow-[0_14px_34px_-12px_rgba(10,19,48,0.5)] flex gap-3 items-center"
     >
       <span className="flex-1">{message}</span>
       <button type="button" onClick={onClose} aria-label="إغلاق" className="min-w-[32px] min-h-[32px] rounded-lg bg-white/[0.12]">
@@ -231,4 +231,25 @@ export function KV({ k, children }: { k: string; children: React.ReactNode }) {
       <span className="text-left">{children}</span>
     </div>
   );
+}
+
+/**
+ * List + details layouts stack on narrow screens, putting the details panel below the list.
+ * Attach the returned ref to the panel: when `selection` changes and the panel is off screen,
+ * it scrolls into view. Does nothing on first render or when the panel is already visible.
+ */
+export function useRevealOnSelect<T extends HTMLElement>(selection: unknown) {
+  const ref = useRef<T>(null);
+  const first = useRef(true);
+  useEffect(() => {
+    if (first.current) {
+      first.current = false;
+      return;
+    }
+    const el = ref.current;
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    if (r.top < 0 || r.top > window.innerHeight * 0.6) el.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [selection]);
+  return ref;
 }

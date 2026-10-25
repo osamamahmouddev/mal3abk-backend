@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
-import { Page, PageHeader, Pill, Tabs, Toast, Tone, card, chip, inputClass, muted, redShadow, thCls, toArabicDigits } from "@/components/ui";
+import { Page, PageHeader, Pill, Tabs, Toast, Tone, card, chip, inputClass, muted, redShadow, thCls, toArabicDigits, useRevealOnSelect } from "@/components/ui";
 
 // check result: 1 = ok, 0 = problem, 2 = unclear
 type Check = [0 | 1 | 2, string];
@@ -86,6 +86,7 @@ const FLAG_STATE: Record<FlagState, [string, Tone]> = {
 export default function DisputesPage() {
   const [tab, setTab] = useState<"d" | "f">("d");
   const [sel, setSel] = useState(0);
+  const detailsRef = useRevealOnSelect<HTMLElement>(sel);
   const [decision, setDecision] = useState<Decision | null>(null);
   const [note, setNote] = useState("");
   const [noteErr, setNoteErr] = useState(false);
@@ -161,7 +162,7 @@ export default function DisputesPage() {
             })}
           </section>
 
-          <section className={`flex-[999_1_480px] min-w-0 ${card} rounded-[20px] p-5 flex flex-col gap-3.5`}>
+          <section ref={detailsRef} className={`scroll-mt-20 flex-[999_1_480px] min-w-0 ${card} rounded-[20px] p-5 flex flex-col gap-3.5`}>
             <div className="flex items-center gap-2.5 flex-wrap">
               <h2 className="flex-1 text-[19px] font-bold">{d[1]}</h2>
               <Link href="/bookings" dir="ltr" className="text-[13px] font-bold text-ink underline">

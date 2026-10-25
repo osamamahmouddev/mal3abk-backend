@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
-import { Page, card, chip, muted, toArabicDigits } from "@/components/ui";
+import { Page, card, chip, muted, toArabicDigits, useRevealOnSelect } from "@/components/ui";
 
 type Outcome = "approved" | "rejected" | "requested";
 
@@ -48,6 +48,7 @@ interface Notice {
 
 export default function ProofReviewPage() {
   const [selId, setSelId] = useState("q1");
+  const detailsRef = useRevealOnSelect<HTMLElement>(selId);
   const [modal, setModal] = useState<"approve" | "reject" | null>(null);
   const [reason, setReason] = useState<string | null>(null);
   const [message, setMessage] = useState("");
@@ -143,7 +144,7 @@ export default function ProofReviewPage() {
           })}
         </section>
 
-        <section aria-label="تفاصيل الإيصال" className={`flex-[999_1_560px] min-w-0 ${card} rounded-[18px] p-5 flex flex-wrap gap-6`}>
+        <section ref={detailsRef} aria-label="تفاصيل الإيصال" className={`scroll-mt-20 flex-[999_1_560px] min-w-0 ${card} rounded-[18px] p-5 flex flex-wrap gap-6`}>
           <div className="flex-[1_1_260px] flex flex-col gap-2.5">
             <div className={`aspect-[3/4] rounded-xl border border-[#E4E7EC] bg-[repeating-linear-gradient(135deg,#E4E7EC_0_8px,#F4F5F7_8px_16px)] flex items-center justify-center font-mono text-xs ${muted}`}>
               PHOTO: transfer receipt

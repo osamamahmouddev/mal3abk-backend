@@ -2,25 +2,7 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
-import {
-  KV,
-  Page,
-  PageHeader,
-  Pill,
-  ReasonModal,
-  ReasonRequest,
-  Toast,
-  Tone,
-  btnSmall,
-  card,
-  chip,
-  inputClass,
-  money,
-  muted,
-  rowCls,
-  thCls,
-  toArabicDigits,
-} from "@/components/ui";
+import { KV, Page, PageHeader, Pill, ReasonModal, ReasonRequest, Toast, Tone, btnSmall, card, chip, inputClass, money, muted, rowCls, thCls, toArabicDigits, useRevealOnSelect } from "@/components/ui";
 
 type Status = "wait" | "review" | "ok" | "dispute" | "noshow" | "cancel" | "admin";
 type Filter = "all" | "open" | "ok" | "problem" | "cancel";
@@ -72,6 +54,7 @@ export default function BookingsPage() {
   const [q, setQ] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
   const [sel, setSel] = useState(0);
+  const detailsRef = useRevealOnSelect<HTMLElement>(sel);
   const [statusOverride, setStatusOverride] = useState<Record<number, Status>>({});
   const [modal, setModal] = useState<ReasonRequest | null>(null);
   const [toast, setToast] = useState<string | null>(null);
@@ -106,7 +89,7 @@ export default function BookingsPage() {
         </button>
       </PageHeader>
 
-      <div className="grid gap-3 grid-cols-[repeat(auto-fit,minmax(170px,1fr))]">
+      <div className="grid gap-3 grid-cols-2 md:grid-cols-[repeat(auto-fit,minmax(min(170px,100%),1fr))]">
         {[
           ["حجوزات مأكدة", toArabicDigits(742)],
           ["مستنية عربون/مراجعة", toArabicDigits(96)],
@@ -121,7 +104,7 @@ export default function BookingsPage() {
       </div>
 
       <div className="flex flex-wrap gap-2.5 items-center">
-        <input aria-label="بحث" value={q} onChange={(e) => setQ(e.target.value)} placeholder="رقم الحجز، اللاعب أو الملعب" className={`${inputClass} flex-[1_1_240px]`} />
+        <input aria-label="بحث" value={q} onChange={(e) => setQ(e.target.value)} placeholder="رقم الحجز، اللاعب أو الملعب" className={`${inputClass} flex-[1_1_240px] min-w-0`} />
         <div className="flex gap-1.5 flex-wrap">
           {(
             [
@@ -186,7 +169,7 @@ export default function BookingsPage() {
           {idx.length === 0 && <p className={`p-8 text-center ${muted}`}>مفيش حجوزات بالبحث ده.</p>}
         </section>
 
-        <aside aria-label="تفاصيل الحجز" className={`flex-[1_1_320px] min-w-0 ${card} rounded-[20px] p-5 flex flex-col gap-3`}>
+        <aside ref={detailsRef} aria-label="تفاصيل الحجز" className={`scroll-mt-20 flex-[1_1_320px] min-w-0 ${card} rounded-[20px] p-5 flex flex-col gap-3`}>
           <div className="flex items-center gap-2">
             <h2 dir="ltr" className="flex-1 text-lg font-bold text-right">
               {b[0]}

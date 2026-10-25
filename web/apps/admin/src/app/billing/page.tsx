@@ -75,7 +75,7 @@ export default function BillingPage() {
         </Link>
       </PageHeader>
 
-      <div className="grid gap-3 grid-cols-[repeat(auto-fit,minmax(170px,1fr))]">
+      <div className="grid gap-3 grid-cols-2 md:grid-cols-[repeat(auto-fit,minmax(min(170px,100%),1fr))]">
         {[
           ["اشتراكات نشطة", toArabicDigits(184), "من ٢٣١ ملعب"],
           ["تجربة مجانية", toArabicDigits(29), "بتخلص خلال ١٤ يوم"],

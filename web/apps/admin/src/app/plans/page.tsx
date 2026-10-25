@@ -82,7 +82,7 @@ export default function PlansPage() {
         </div>
       )}
 
-      <div className="grid gap-3 grid-cols-[repeat(auto-fit,minmax(200px,1fr))]">
+      <div className="grid gap-3 grid-cols-[repeat(auto-fit,minmax(min(200px,100%),1fr))]">
         {(Object.keys(BASE) as PlanId[]).map((id) => {
           const p = get(id);
           const on = id === sel;
@@ -117,7 +117,7 @@ export default function PlansPage() {
       <section className={`${card} rounded-[18px] p-5 flex flex-col gap-5`}>
         <h2 className="text-lg font-bold">تعديل باقة {cur.name}</h2>
 
-        <div className="grid gap-4 grid-cols-[repeat(auto-fit,minmax(220px,1fr))]">
+        <div className="grid gap-4 grid-cols-[repeat(auto-fit,minmax(min(220px,100%),1fr))]">
           <div className="flex flex-col gap-1.5">
             <label htmlFor="pm" className="text-sm font-semibold">
               السعر الشهري (ج.م)
@@ -132,7 +132,7 @@ export default function PlansPage() {
           </div>
         </div>
 
-        <div className="grid gap-3 grid-cols-[repeat(auto-fit,minmax(200px,1fr))]">
+        <div className="grid gap-3 grid-cols-[repeat(auto-fit,minmax(min(200px,100%),1fr))]">
           {LIMITS.map(([k, label, min, max]) => (
             <div key={k} className="border border-[#E4E7EC] rounded-xl px-3.5 py-3 flex flex-col gap-2">
               <span id={`lim-${k}`} className={`text-[13px] ${muted}`}>

@@ -123,7 +123,7 @@ export default function TeamsPage() {
       )}
 
       {tab === "m" && (
-        <div className="grid gap-4 grid-cols-[repeat(auto-fit,minmax(340px,1fr))]">
+        <div className="grid gap-4 grid-cols-[repeat(auto-fit,minmax(min(340px,100%),1fr))]">
           {RESULTS.map(([a, b, ra, rb, meta], i) => {
             const k = res[i];
             const pick = (label: string) => {

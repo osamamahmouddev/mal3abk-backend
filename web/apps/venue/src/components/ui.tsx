@@ -1,6 +1,6 @@
 "use client";
 
-import React, { memo } from "react";
+import React, { memo, useEffect, useRef } from "react";
 
 /**
  * Format string or number with Arabic-Indic digits: 123 -> ١٢٣
@@ -118,7 +118,7 @@ export const Toast: React.FC<ToastProps> = memo(({ message, handleClose, onClose
   return (
     <div
       role="status"
-      className="fixed left-6 bottom-6 z-[60] max-w-[440px] bg-navy-900 text-white rounded-[14px] px-4 py-3 text-sm shadow-[0_14px_34px_-12px_rgba(15,27,61,0.5)] flex gap-3 items-center"
+      className="fixed left-4 right-4 bottom-4 sm:right-auto sm:left-6 sm:bottom-6 z-[60] sm:max-w-[440px] bg-navy-900 text-white rounded-[14px] px-4 py-3 text-sm shadow-[0_14px_34px_-12px_rgba(15,27,61,0.5)] flex gap-3 items-center"
     >
       <span className="flex-1">{message}</span>
       <button
@@ -141,7 +141,7 @@ export interface PageProps {
 }
 
 export const Page: React.FC<PageProps> = ({ children, className = "gap-4" }) => (
-  <div className={`px-8 pt-7 pb-10 w-full flex flex-col ${className}`}>{children}</div>
+  <div className={`px-4 sm:px-6 lg:px-8 pt-5 sm:pt-7 pb-10 w-full min-w-0 flex flex-col ${className}`}>{children}</div>
 );
 
 export interface PageTitleProps {
@@ -151,3 +151,24 @@ export interface PageTitleProps {
 export const PageTitle: React.FC<PageTitleProps> = ({ children }) => (
   <h1 className="text-[26px] font-bold text-slate-900">{children}</h1>
 );
+
+/**
+ * List + details layouts stack on narrow screens, putting the details panel below the list.
+ * Attach the returned ref to the panel: when `selection` changes and the panel is off screen,
+ * it scrolls into view. Does nothing on first render or when the panel is already visible.
+ */
+export function useRevealOnSelect<T extends HTMLElement>(selection: unknown) {
+  const ref = useRef<T>(null);
+  const first = useRef(true);
+  useEffect(() => {
+    if (first.current) {
+      first.current = false;
+      return;
+    }
+    const el = ref.current;
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    if (r.top < 0 || r.top > window.innerHeight * 0.6) el.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [selection]);
+  return ref;
+}

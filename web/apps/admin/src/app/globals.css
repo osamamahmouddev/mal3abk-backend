@@ -22,3 +22,12 @@ a:hover {
   background: #c9cfd9;
   border-radius: 3px;
 }
+
+/* Phones: wide tables scroll sideways inside their card instead of squeezing
+   every cell into a narrow, multi-line column. */
+@media (max-width: 767px) {
+  .overflow-x-auto > table th,
+  .overflow-x-auto > table td {
+    white-space: nowrap;
+  }
+}

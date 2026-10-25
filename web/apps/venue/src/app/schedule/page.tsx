@@ -177,23 +177,27 @@ export default function SchedulePage() {
                 <span className="w-[84px] text-[15px] font-bold">{DAY_NAMES[i]}</span>
                 <Switch on={open} label={`فتح يوم ${DAY_NAMES[i]}`} onToggle={() => setDay(i, (r) => (r[0] = !r[0]))} />
                 {open ? (
-                  <div className="flex items-center gap-2 flex-[1_1_360px] flex-wrap">
-                    <span className={`text-[13px] ${muted}`}>من</span>
-                    <button type="button" aria-label="أبكر" className={stepBtn} onClick={() => setDay(i, (r) => (r[1] = Math.max(0, r[1] - 1)))}>
-                      ‹
-                    </button>
-                    <span className="min-w-[76px] text-center text-sm font-bold">{fmt(from)}</span>
-                    <button type="button" aria-label="أتأخر" className={stepBtn} onClick={() => setDay(i, (r) => (r[1] = Math.min(r[2] - 1, r[1] + 1)))}>
-                      ›
-                    </button>
-                    <span className={`text-[13px] ${muted}`}>لحد</span>
-                    <button type="button" aria-label="أبكر" className={stepBtn} onClick={() => setDay(i, (r) => (r[2] = Math.max(r[1] + 1, r[2] - 1)))}>
-                      ‹
-                    </button>
-                    <span className="min-w-[76px] text-center text-sm font-bold">{fmt(to)}</span>
-                    <button type="button" aria-label="أتأخر" className={stepBtn} onClick={() => setDay(i, (r) => (r[2] = Math.min(24, r[2] + 1)))}>
-                      ›
-                    </button>
+                  <div className="flex items-center gap-x-3 gap-y-2 flex-[1_1_360px] min-w-0 flex-wrap">
+                    <span className="flex items-center gap-2 shrink-0">
+                      <span className={`w-7 text-[13px] ${muted}`}>من</span>
+                      <button type="button" aria-label="أبكر" className={stepBtn} onClick={() => setDay(i, (r) => (r[1] = Math.max(0, r[1] - 1)))}>
+                        ‹
+                      </button>
+                      <span className="min-w-[64px] sm:min-w-[76px] text-center text-sm font-bold">{fmt(from)}</span>
+                      <button type="button" aria-label="أتأخر" className={stepBtn} onClick={() => setDay(i, (r) => (r[1] = Math.min(r[2] - 1, r[1] + 1)))}>
+                        ›
+                      </button>
+                    </span>
+                    <span className="flex items-center gap-2 shrink-0">
+                      <span className={`w-7 text-[13px] ${muted}`}>لحد</span>
+                      <button type="button" aria-label="أبكر" className={stepBtn} onClick={() => setDay(i, (r) => (r[2] = Math.max(r[1] + 1, r[2] - 1)))}>
+                        ‹
+                      </button>
+                      <span className="min-w-[64px] sm:min-w-[76px] text-center text-sm font-bold">{fmt(to)}</span>
+                      <button type="button" aria-label="أتأخر" className={stepBtn} onClick={() => setDay(i, (r) => (r[2] = Math.min(24, r[2] + 1)))}>
+                        ›
+                      </button>
+                    </span>
                     {6 + to > 24 && <Badge tone="wait">بيعدّي نص الليل</Badge>}
                     <span className={`text-[13px] ${muted} ms-auto`}>{toArabicDigits(to - from)} ساعة</span>
                   </div>
@@ -204,7 +208,7 @@ export default function SchedulePage() {
             ))}
           </section>
 
-          <div className="grid gap-4 grid-cols-[repeat(auto-fit,minmax(260px,1fr))]">
+          <div className="grid gap-4 grid-cols-[repeat(auto-fit,minmax(min(260px,100%),1fr))]">
             <section className={`${card} rounded-[18px] p-[18px] flex flex-col gap-2.5`}>
               <h2 className="text-base font-bold">استراحة يومية</h2>
               <span className={`text-[13px] ${muted}`}>وقت صيانة أو نضافة مش بيتحجز فيه.</span>

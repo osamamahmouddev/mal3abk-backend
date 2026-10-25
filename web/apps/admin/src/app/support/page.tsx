@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
-import { Page, PageHeader, Pill, Toast, Tone, card, chip, inputClass, muted, redShadow, toArabicDigits } from "@/components/ui";
+import { Page, PageHeader, Pill, Toast, Tone, card, chip, inputClass, muted, redShadow, toArabicDigits, useRevealOnSelect } from "@/components/ui";
 
 type Kind = "player" | "venue";
 type Priority = "high" | "med" | "low";
@@ -63,6 +63,7 @@ const smallBtn = "min-h-[38px] px-3.5 rounded-[10px] border border-[#C9CFD9] bg-
 export default function SupportPage() {
   const [filter, setFilter] = useState<Filter>("open");
   const [sel, setSel] = useState(0);
+  const detailsRef = useRevealOnSelect<HTMLElement>(sel);
   const [reply, setReply] = useState("");
   const [extra, setExtra] = useState<Record<number, Message[]>>({});
   const [status, setStatus] = useState<Record<number, "open" | "closed">>({});
@@ -142,7 +143,7 @@ export default function SupportPage() {
           {idx.length === 0 && <p className={`p-8 text-center ${muted}`}>مفيش تذاكر هنا.</p>}
         </section>
 
-        <section className={`flex-[999_1_460px] min-w-0 ${card} rounded-[20px] p-5 flex flex-col gap-3.5`}>
+        <section ref={detailsRef} className={`scroll-mt-20 flex-[999_1_460px] min-w-0 ${card} rounded-[20px] p-5 flex flex-col gap-3.5`}>
           <div className="flex items-center gap-2.5 flex-wrap">
             <h2 className="flex-1 text-lg font-bold">{t[3]}</h2>
             <Pill tone={tst === "open" ? "warn" : "ok"}>{tst === "open" ? "مفتوحة" : "مقفولة"}</Pill>
