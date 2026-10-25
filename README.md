@@ -36,8 +36,9 @@ Malabak.sln
 │  ├─ Malabak.Modules.Audit/           # Append-Only Audit Trail
 │  └─ Malabak.Api/                     # Versioned REST API (/api/v1/...)
 ├─ web/                                # pnpm + Turborepo monorepo
+│  ├─ apps/landing/                    # Next.js App Router — Public landing page (SEO, static)
 │  ├─ apps/venue/                      # Next.js App Router — Venue Dashboard
-│  ├─ apps/admin/                      # Next.js App Router — Admin Dashboard
+│  ├─ apps/admin/                      # Next.js App Router — Admin Dashboard (scaffold only)
 │  ├─ packages/ui/                     # Shared design tokens, RTL helpers, components
 │  ├─ packages/api-client/             # TypeScript client GENERATED from OpenAPI
 │  └─ packages/i18n/                   # Arabic (RTL, primary) & English messages
@@ -53,42 +54,83 @@ Malabak.sln
 
 ## 🚀 Getting Started
 
+### Ports at a glance
+
+| What | URL | Started by |
+|---|---|---|
+| Landing page (public) | http://localhost:3002 | `pnpm --filter @malabak/landing dev` |
+| Venue Dashboard | http://localhost:3000 | `pnpm --filter @malabak/venue-dashboard dev` |
+| Admin Dashboard | http://localhost:3001 | scaffold only — no pages yet |
+| Backend API + Swagger | http://localhost:5000/swagger | `dotnet run --project src/Malabak.Api` |
+| PostgreSQL | `localhost:5432` | `docker compose up -d` |
+| pgAdmin | http://localhost:5050 | `docker compose up -d` |
+| Seq (structured logs) | http://localhost:5341 | `docker compose up -d` |
+| Mailpit (fake SMTP UI) | http://localhost:8025 (SMTP on `1025`) | `docker compose up -d` |
+
 ### Prerequisites
-- [.NET 9/10 SDK](https://dotnet.microsoft.com/)
-- [Node.js & pnpm](https://pnpm.io/)
+- [.NET 9 SDK](https://dotnet.microsoft.com/)
+- [Node.js 20+](https://nodejs.org/) and **pnpm 9** (the version pinned in `web/package.json`)
 - [Docker & Docker Compose](https://www.docker.com/)
 
-### 1. Start Local Infrastructure
+### 1. Start local infrastructure
 ```bash
 docker compose up -d
 ```
-This launches:
-- **PostgreSQL** at `localhost:5432`
-- **Seq (Structured Logs)** at `http://localhost:5341`
-- **Mailpit (Fake SMTP Web UI)** at `http://localhost:8025`
-- **pgAdmin** at `http://localhost:5050`
+Database credentials (dev only): database `malabak_dev`, user `malabak`, password `malabak_dev_password`. pgAdmin login: `admin@malabak.com` / `admin`.
 
-### 2. Backend (Build & Test)
+### 2. Backend — build & test
 ```bash
 dotnet restore
 dotnet build --warnaserror
 dotnet test
 ```
 
-### 3. Run the Backend API Host
+### 3. Backend — run the API
 ```bash
 dotnet run --project src/Malabak.Api
 ```
-Browse OpenAPI / Swagger documentation at `http://localhost:5000/swagger`.
+Swagger / OpenAPI: http://localhost:5000/swagger
 
-### 4. Run the Web Dashboards
+### 4. Web apps
+
+Install once, from the `web/` folder:
 ```bash
 cd web
 pnpm install
-pnpm dev
 ```
-- Venue Dashboard: `http://localhost:3000`
-- Admin Dashboard: `http://localhost:3001`
+
+Run **one** app (recommended while working on it):
+```bash
+pnpm --filter @malabak/landing dev           # http://localhost:3002
+pnpm --filter @malabak/venue-dashboard dev   # http://localhost:3000
+```
+
+Or run every app at once with Turborepo: `pnpm dev` (this also starts the admin scaffold on 3001, which has no pages yet).
+
+| App | Folder | Notes |
+|---|---|---|
+| Landing | `web/apps/landing` | Public marketing page for players and venue owners. Fully static (good for SEO). See [its README](./web/apps/landing/README.md). |
+| Venue Dashboard | `web/apps/venue` | Overview, calendar (day / week / month), reservations & deposit-proof review, pitches, schedule, pricing, policies, customers, reports, subscription, notifications, staff, settings, login, setup wizard. Uses sample data until the API is wired. |
+| Admin Dashboard | `web/apps/admin` | Package scaffold only. |
+
+Other useful commands (from `web/`):
+```bash
+pnpm build   # production build of every app (also type-checks them)
+pnpm lint
+```
+
+### Troubleshooting
+
+- **`ERR_PNPM_BAD_PM_VERSION`** — your global pnpm is newer than the pinned 9.0.0. Run pnpm 9 through npx instead:
+  ```bash
+  npx -y pnpm@9.0.0 install
+  ```
+  Without pnpm you can still start a single app with npm: `npm --prefix web/apps/landing run dev`.
+- **Pages show "Internal Server Error" or load without styles** — a `next build` was run while `next dev` was running for the same app; both write to that app's `.next/` folder. Stop the dev server, delete the app's `.next/` folder, and start it again:
+  ```bash
+  rm -rf web/apps/venue/.next
+  ```
+- **Port already in use** — another dev server is still running on that port. Stop it, or check what holds it with `ss -ltnp | grep :3000`.
 
 ---
 
