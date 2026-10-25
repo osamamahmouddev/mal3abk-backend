@@ -26,7 +26,12 @@ const NAV_ITEMS: readonly NavItem[] = [
   { title: "الإعدادات", href: "/settings" },
 ] as const;
 
-export const Sidebar: React.FC = memo(() => {
+export interface SidebarProps {
+  /** Rendered inside the mobile drawer: adds a close button and fills the drawer height. */
+  onClose?: () => void;
+}
+
+export const Sidebar: React.FC<SidebarProps> = memo(({ onClose }) => {
   const pathname = usePathname() ?? "/";
 
   const checkIsActive = (href: string): boolean => {
@@ -43,12 +48,29 @@ export const Sidebar: React.FC = memo(() => {
   };
 
   return (
-    <aside className="w-[248px] shrink-0 min-h-screen bg-navy-900 text-white px-4 py-6 flex flex-col gap-6">
+    <aside
+      id={onClose ? "venue-nav-drawer" : undefined}
+      className={`w-[248px] shrink-0 bg-navy-900 text-white px-4 py-6 flex flex-col gap-6 ${
+        onClose ? "h-full overflow-y-auto" : "min-h-screen"
+      }`}
+    >
       <div className="flex items-center gap-2.5 px-2">
         <span className="text-[26px] font-bold tracking-[-0.5px]">ملعبك</span>
         <span className="text-[11px] font-semibold text-navy-900 bg-brand-gold rounded-md px-2 py-0.5">
           للملاعب
         </span>
+        {onClose && (
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="إغلاق القائمة"
+            className="ms-auto w-10 h-10 rounded-[10px] bg-white/[0.08] flex items-center justify-center"
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+              <path d="M6 6l12 12M18 6L6 18" />
+            </svg>
+          </button>
+        )}
       </div>
 
       <div className="bg-white/[0.08] rounded-xl px-3 py-2.5 flex flex-col gap-0.5">
