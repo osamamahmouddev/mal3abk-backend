@@ -265,6 +265,8 @@ States: `Draft, PendingDeposit, ProofSubmitted, UnderReview, Confirmed, Rejected
 
 ## 7. Authentication, authorization & security
 
+> **SECURITY MANDATE:** Detailed security specifications, threat models, cryptographic rules (ES256, Argon2id, AES-256-GCM), phone change state machines, WS tickets, and rate limiting policies are fully specified in [SECURITY.md](SECURITY.md). All AI assistants must adhere strictly to `SECURITY.md`. If a rule here conflicts with `SECURITY.md`, the stricter rule in `SECURITY.md` takes precedence.
+
 - **Auth:** ASP.NET Core Identity; phone number + OTP for players; email/password (+ optional 2FA) for venue & admin. JWT access tokens (short-lived, ~15 min) + rotating refresh tokens (stored hashed). Rate-limit OTP and login.
 - **Roles:** `Player`, `TeamCaptain` (derived from team membership, not a global role), `VenueOwner`, `VenueStaff`, `Admin`, `SupportAgent`, `Finance`. A user can hold multiple roles.
 - **Authorization is policy-based and resource-based**, enforced on the server:
