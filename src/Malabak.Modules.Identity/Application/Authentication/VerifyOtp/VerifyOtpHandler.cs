@@ -14,6 +14,7 @@ public sealed class VerifyOtpHandler : ICommandHandler<VerifyOtpCommand, Result<
     private readonly IOtpStore _otpStore;
     private readonly IdentityDbContext _dbContext;
     private readonly IClock _clock;
+    private readonly ITokenService? _tokenService;
     private readonly ILogger<VerifyOtpHandler> _logger;
 
     public VerifyOtpHandler(
@@ -22,7 +23,8 @@ public sealed class VerifyOtpHandler : ICommandHandler<VerifyOtpCommand, Result<
         IOtpStore otpStore,
         IdentityDbContext dbContext,
         IClock clock,
-        ILogger<VerifyOtpHandler> logger)
+        ILogger<VerifyOtpHandler> logger,
+        ITokenService? tokenService = null)
     {
         _normalizer = normalizer;
         _securityService = securityService;
@@ -30,6 +32,7 @@ public sealed class VerifyOtpHandler : ICommandHandler<VerifyOtpCommand, Result<
         _dbContext = dbContext;
         _clock = clock;
         _logger = logger;
+        _tokenService = tokenService;
     }
 
     public async Task<Result<VerifyOtpResponse>> HandleAsync(
@@ -99,11 +102,44 @@ public sealed class VerifyOtpHandler : ICommandHandler<VerifyOtpCommand, Result<
             _logger.LogInformation("Auto-registered new player user {UserId} with phone {Phone}", user.Id, normalizedPhone);
         }
 
+        // 4. Token Generation (ES256 Access Token + Rotating Refresh Token)
+        string? accessToken = null;
+        int? expiresIn = null;
+        string? rawRefreshToken = null;
+        DateTime? refreshTokenExpiresAtUtc = null;
+
+        if (_tokenService is not null)
+        {
+            var tokenResult = _tokenService.GenerateTokens(user);
+            accessToken = tokenResult.AccessToken;
+            expiresIn = tokenResult.ExpiresIn;
+            rawRefreshToken = tokenResult.RefreshToken;
+            refreshTokenExpiresAtUtc = tokenResult.RefreshTokenExpiresAtUtc;
+
+            var newHash = _tokenService.HashRefreshToken(tokenResult.RefreshToken);
+            var initialFamilyId = Guid.NewGuid();
+
+            var refreshTokenEntity = Domain.RefreshToken.Create(
+                id: Guid.NewGuid(),
+                userId: user.Id,
+                tokenHash: newHash,
+                familyId: initialFamilyId,
+                expiresAtUtc: tokenResult.RefreshTokenExpiresAtUtc,
+                createdAtUtc: nowUtc);
+
+            _dbContext.RefreshTokens.Add(refreshTokenEntity);
+            await _dbContext.SaveChangesAsync(cancellationToken);
+        }
+
         return Result.Success(new VerifyOtpResponse(
             user.Id,
             user.PhoneNumber,
             user.FullName,
             user.Roles,
-            isNewUser));
+            isNewUser,
+            accessToken,
+            expiresIn,
+            rawRefreshToken,
+            refreshTokenExpiresAtUtc));
     }
 }

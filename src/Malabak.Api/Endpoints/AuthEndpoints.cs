@@ -1,4 +1,8 @@
+using System.Security.Claims;
 using Asp.Versioning.Builder;
+using Malabak.Modules.Identity.Application.Authentication.Logout;
+using Malabak.Modules.Identity.Application.Authentication.LogoutAll;
+using Malabak.Modules.Identity.Application.Authentication.RefreshToken;
 using Malabak.Modules.Identity.Application.Authentication.SendOtp;
 using Malabak.Modules.Identity.Application.Authentication.VerifyOtp;
 using Malabak.SharedKernel;
@@ -60,8 +64,74 @@ public static class AuthEndpoints
         .AllowAnonymous()
         .WithName("VerifyOtp")
         .WithSummary("Verify OTP code and authenticate player");
+
+        group.MapPost("/refresh", async (
+            [FromBody] RefreshTokenRequest request,
+            ICommandHandler<RefreshTokenCommand, Result<RefreshTokenResponse>> handler,
+            CancellationToken cancellationToken) =>
+        {
+            var command = new RefreshTokenCommand(request.RefreshToken);
+
+            var result = await handler.HandleAsync(command, cancellationToken);
+            if (result.IsFailure)
+            {
+                var statusCode = result.Error.Code switch
+                {
+                    "Identity.RefreshTokenReused" => StatusCodes.Status401Unauthorized,
+                    "Identity.RefreshTokenExpired" => StatusCodes.Status401Unauthorized,
+                    "Identity.InvalidRefreshToken" => StatusCodes.Status401Unauthorized,
+                    _ => StatusCodes.Status400BadRequest
+                };
+
+                return Results.Problem(
+                    title: result.Error.Code,
+                    detail: result.Error.Description,
+                    statusCode: statusCode);
+            }
+
+            return Results.Ok(result.Value);
+        })
+        .AllowAnonymous()
+        .WithName("RefreshToken")
+        .WithSummary("Rotate refresh token and issue new ES256 access token");
+
+        group.MapPost("/logout", async (
+            [FromBody] LogoutRequest request,
+            ICommandHandler<LogoutCommand, Result> handler,
+            CancellationToken cancellationToken) =>
+        {
+            var command = new LogoutCommand(request.RefreshToken);
+            await handler.HandleAsync(command, cancellationToken);
+            return Results.NoContent();
+        })
+        .AllowAnonymous()
+        .WithName("Logout")
+        .WithSummary("Revoke refresh token and log out current session");
+
+        group.MapPost("/logout-all", async (
+            ClaimsPrincipal user,
+            ICommandHandler<LogoutAllCommand, Result> handler,
+            CancellationToken cancellationToken) =>
+        {
+            var userIdClaim = user.FindFirst(ClaimTypes.NameIdentifier)?.Value
+                ?? user.FindFirst("sub")?.Value;
+
+            if (!Guid.TryParse(userIdClaim, out var userId))
+            {
+                return Results.Unauthorized();
+            }
+
+            var command = new LogoutAllCommand(userId);
+            await handler.HandleAsync(command, cancellationToken);
+            return Results.NoContent();
+        })
+        .RequireAuthorization()
+        .WithName("LogoutAll")
+        .WithSummary("Revoke all active sessions and rotate security stamp for authenticated user");
     }
 
     public sealed record SendOtpRequest(string PhoneNumber, string TurnstileToken);
     public sealed record VerifyOtpRequest(string PhoneNumber, string Code, string? FullName = null);
+    public sealed record RefreshTokenRequest(string RefreshToken);
+    public sealed record LogoutRequest(string RefreshToken);
 }

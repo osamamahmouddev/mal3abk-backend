@@ -5,4 +5,8 @@ public sealed record VerifyOtpResponse(
     string PhoneNumber,
     string FullName,
     IReadOnlyCollection<string> Roles,
-    bool IsNewUser);
+    bool IsNewUser,
+    string? AccessToken = null,
+    int? ExpiresIn = null,
+    string? RefreshToken = null,
+    DateTime? RefreshTokenExpiresAtUtc = null);
