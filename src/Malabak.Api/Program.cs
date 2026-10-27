@@ -5,7 +5,10 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Localization;
 using Microsoft.AspNetCore.RateLimiting;
 using Serilog;
+using Microsoft.EntityFrameworkCore;
 using Malabak.SharedKernel;
+using Malabak.Modules.Identity.Infrastructure;
+using Malabak.Modules.Venues.Infrastructure;
 using Malabak.Modules.Booking.Application.Bookings.CreateBooking;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -90,7 +93,17 @@ builder.Services.AddAuthorization(options =>
         .Build();
 });
 
-// 10. Dependency Injection
+// 10. Database Contexts (Modular Monolith - Schema per module)
+var postgresConnectionString = builder.Configuration.GetConnectionString("Postgres");
+builder.Services.AddDbContext<IdentityDbContext>(options =>
+    options.UseNpgsql(postgresConnectionString, npgsql =>
+        npgsql.MigrationsHistoryTable("__EFMigrationsHistory", IdentityDbContext.Schema)));
+
+builder.Services.AddDbContext<VenuesDbContext>(options =>
+    options.UseNpgsql(postgresConnectionString, npgsql =>
+        npgsql.MigrationsHistoryTable("__EFMigrationsHistory", VenuesDbContext.Schema)));
+
+// 11. Dependency Injection
 builder.Services.AddSingleton<IClock, SystemClock>();
 builder.Services.AddScoped<ICommandHandler<CreateBookingCommand, Result<CreateBookingResponse>>, CreateBookingHandler>();
 
@@ -133,7 +146,7 @@ app.MapGet("/api/v{version:apiVersion}/ping", () => Results.Ok(new { message = "
     .MapToApiVersion(1, 0)
     .AllowAnonymous();
 
-app.Run();
+await app.RunAsync();
 
 // Required for WebApplicationFactory in integration tests
 public partial class Program

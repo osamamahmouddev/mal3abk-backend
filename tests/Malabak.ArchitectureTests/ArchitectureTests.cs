@@ -27,6 +27,48 @@ public sealed class ArchitectureTests
     }
 
     [Fact]
+    public void IdentityDomain_ShouldNotDependOn_InfrastructureOrApi()
+    {
+        // Arrange
+        var assembly = typeof(Modules.Identity.Domain.User).Assembly;
+
+        // Act
+        var testResult = Types.InAssembly(assembly)
+            .That()
+            .ResideInNamespace("Malabak.Modules.Identity.Domain")
+            .ShouldNot()
+            .HaveDependencyOnAny(
+                "Malabak.Modules.Identity.Infrastructure",
+                "Malabak.Api",
+                "Microsoft.EntityFrameworkCore")
+            .GetResult();
+
+        // Assert
+        testResult.IsSuccessful.Should().BeTrue();
+    }
+
+    [Fact]
+    public void VenuesDomain_ShouldNotDependOn_InfrastructureOrApi()
+    {
+        // Arrange
+        var assembly = typeof(Modules.Venues.Domain.Venue).Assembly;
+
+        // Act
+        var testResult = Types.InAssembly(assembly)
+            .That()
+            .ResideInNamespace("Malabak.Modules.Venues.Domain")
+            .ShouldNot()
+            .HaveDependencyOnAny(
+                "Malabak.Modules.Venues.Infrastructure",
+                "Malabak.Api",
+                "Microsoft.EntityFrameworkCore")
+            .GetResult();
+
+        // Assert
+        testResult.IsSuccessful.Should().BeTrue();
+    }
+
+    [Fact]
     public void BookingDomain_ShouldNotDependOn_InfrastructureOrApi()
     {
         // Arrange

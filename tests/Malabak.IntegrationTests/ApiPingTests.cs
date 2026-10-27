@@ -15,7 +15,7 @@ public sealed class ApiPingTests : IClassFixture<WebApplicationFactory<Program>>
     }
 
     [Fact]
-    public async Task PingEndpoint_ReturnsSuccessStatusCode()
+    public async Task PingEndpoint_ReturnsSuccessStatusCodeAsync()
     {
         // Arrange
         var client = _factory.CreateClient();
