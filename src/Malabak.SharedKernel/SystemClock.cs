@@ -2,15 +2,15 @@ namespace Malabak.SharedKernel;
 
 public sealed class SystemClock : IClock
 {
-    private static readonly TimeZoneInfo CairoZone = ResolveCairoTimeZone();
+    private static readonly TimeZoneInfo _cairoZone = ResolveCairoTimeZone();
 
     public DateTime UtcNow => DateTime.UtcNow;
 
-    public DateTime CairoNow => TimeZoneInfo.ConvertTimeFromUtc(UtcNow, CairoZone);
+    public DateTime CairoNow => TimeZoneInfo.ConvertTimeFromUtc(UtcNow, _cairoZone);
 
     public DateOnly CairoToday => DateOnly.FromDateTime(CairoNow);
 
-    public TimeZoneInfo CairoTimeZone => CairoZone;
+    public TimeZoneInfo CairoTimeZone => _cairoZone;
 
     private static TimeZoneInfo ResolveCairoTimeZone()
     {

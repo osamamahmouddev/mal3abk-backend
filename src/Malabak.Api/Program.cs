@@ -133,7 +133,7 @@ app.MapGet("/api/v{version:apiVersion}/ping", () => Results.Ok(new { message = "
     .MapToApiVersion(1, 0)
     .AllowAnonymous();
 
-app.Run();
+await app.RunAsync();
 
 // Required for WebApplicationFactory in integration tests
 public partial class Program
