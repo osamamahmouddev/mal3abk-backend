@@ -48,4 +48,26 @@ public sealed class Result<TValue> : Result
 
     public static implicit operator Result<TValue>(TValue? value) =>
         value is not null ? Success(value) : Failure<TValue>(Error.NullValue);
+
+    public TResult Match<TResult>(Func<TValue, TResult> onSuccess, Func<Error, TResult> onFailure)
+    {
+        ArgumentNullException.ThrowIfNull(onSuccess);
+        ArgumentNullException.ThrowIfNull(onFailure);
+
+        return IsSuccess ? onSuccess(Value) : onFailure(Error);
+    }
+
+    public Result<TTarget> Map<TTarget>(Func<TValue, TTarget> mapper)
+    {
+        ArgumentNullException.ThrowIfNull(mapper);
+
+        return IsSuccess ? Success(mapper(Value)) : Failure<TTarget>(Error);
+    }
+
+    public Result<TTarget> Bind<TTarget>(Func<TValue, Result<TTarget>> binder)
+    {
+        ArgumentNullException.ThrowIfNull(binder);
+
+        return IsSuccess ? binder(Value) : Failure<TTarget>(Error);
+    }
 }
