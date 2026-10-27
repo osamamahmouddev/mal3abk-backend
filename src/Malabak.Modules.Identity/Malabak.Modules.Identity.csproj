@@ -13,6 +13,8 @@
     <PackageReference Include="Microsoft.EntityFrameworkCore" />
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" />
     <PackageReference Include="FluentValidation" />
+    <PackageReference Include="libphonenumber-csharp" />
+    <PackageReference Include="StackExchange.Redis" />
   </ItemGroup>
 
 </Project>

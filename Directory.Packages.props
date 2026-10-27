@@ -42,5 +42,9 @@
 
     <!-- Auth -->
     <PackageVersion Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="9.0.0" />
+
+    <!-- Phone & Redis -->
+    <PackageVersion Include="libphonenumber-csharp" Version="8.13.50" />
+    <PackageVersion Include="StackExchange.Redis" Version="2.8.24" />
   </ItemGroup>
 </Project>

@@ -7,6 +7,8 @@ using Microsoft.AspNetCore.RateLimiting;
 using Serilog;
 using Microsoft.EntityFrameworkCore;
 using Malabak.SharedKernel;
+using Malabak.Api.Endpoints;
+using Malabak.Modules.Identity;
 using Malabak.Modules.Identity.Infrastructure;
 using Malabak.Modules.Venues.Infrastructure;
 using Malabak.Modules.Booking.Application.Bookings.CreateBooking;
@@ -106,6 +108,7 @@ builder.Services.AddDbContext<VenuesDbContext>(options =>
 // 11. Dependency Injection
 builder.Services.AddSingleton<IClock, SystemClock>();
 builder.Services.AddScoped<ICommandHandler<CreateBookingCommand, Result<CreateBookingResponse>>, CreateBookingHandler>();
+builder.Services.AddIdentityModule(builder.Configuration);
 
 var app = builder.Build();
 
@@ -145,6 +148,8 @@ app.MapGet("/api/v{version:apiVersion}/ping", () => Results.Ok(new { message = "
     .WithApiVersionSet(apiVersionSet)
     .MapToApiVersion(1, 0)
     .AllowAnonymous();
+
+app.MapAuthEndpoints(apiVersionSet);
 
 await app.RunAsync();
 
