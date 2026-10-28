@@ -85,6 +85,7 @@ public static class IdentityModule
 
         // Device sessions (sid claim checked on every request; IDeviceContext is provided by the API host)
         services.AddScoped<ISessionStore, RedisSessionStore>();
+        services.AddScoped<Malabak.SharedKernel.Contracts.ISessionActivityChecker, SessionActivityChecker>();
         services.AddScoped<SessionService>();
 
         // Step-up re-authentication for sensitive actions

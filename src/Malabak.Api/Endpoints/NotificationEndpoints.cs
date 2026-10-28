@@ -45,10 +45,38 @@ public static class NotificationEndpoints
             [FromBody] PreferenceApiRequest request, UserNotificationService notifications, CancellationToken ct) =>
             Results.Ok(await notifications.UpdatePreferenceAsync(user.GetUserId()!.Value, category, request.InAppEnabled, request.PushEnabled, ct)))
         .WithName("UpdateNotificationPreference").WithSummary("Security alerts stay on regardless");
+
+        // --- Push device tokens (bound to the current device session) ---
+
+        group.MapPost("/devices/push-token", async (ClaimsPrincipal user, [FromBody] PushTokenApiRequest request,
+            DeviceTokenService devices, CancellationToken ct) =>
+        {
+            var sessionId = user.GetSessionId();
+            if (sessionId is null || string.IsNullOrWhiteSpace(request.Token) || request.Token.Length > DeviceToken.MaxTokenLength)
+            {
+                return Results.Problem(title: "Push.InvalidToken", statusCode: StatusCodes.Status400BadRequest);
+            }
+
+            await devices.RegisterAsync(user.GetUserId()!.Value, sessionId.Value, request.Token, request.Platform, IsArabic() ? "ar" : "en", ct);
+            return Results.NoContent();
+        })
+        .WithName("RegisterPushToken").WithSummary("Register this device's FCM token; push language follows Accept-Language");
+
+        group.MapDelete("/devices/push-token", async (ClaimsPrincipal user, [FromBody] UnregisterPushTokenApiRequest request,
+            DeviceTokenService devices, CancellationToken ct) =>
+        {
+            await devices.UnregisterAsync(user.GetUserId()!.Value, request.Token ?? string.Empty, ct);
+            return Results.NoContent(); // idempotent; doesn't reveal whether the token existed
+        })
+        .WithName("UnregisterPushToken");
     }
 
     // Arabic is the primary language; RequestLocalization has already set the culture from Accept-Language.
     private static bool IsArabic() => !CultureInfo.CurrentUICulture.TwoLetterISOLanguageName.Equals("en", StringComparison.OrdinalIgnoreCase);
 
     public sealed record PreferenceApiRequest(bool InAppEnabled, bool PushEnabled);
+
+    public sealed record PushTokenApiRequest(string Token, DevicePlatform Platform);
+
+    public sealed record UnregisterPushTokenApiRequest(string? Token);
 }

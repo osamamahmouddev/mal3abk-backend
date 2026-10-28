@@ -47,12 +47,14 @@ public sealed class NotificationDispatcher
     private readonly NotificationsDbContext _dbContext;
     private readonly IClock _clock;
     private readonly ILogger<NotificationDispatcher> _logger;
+    private readonly DeviceTokenService? _push;
 
-    public NotificationDispatcher(NotificationsDbContext dbContext, IClock clock, ILogger<NotificationDispatcher> logger)
+    public NotificationDispatcher(NotificationsDbContext dbContext, IClock clock, ILogger<NotificationDispatcher> logger, DeviceTokenService? push = null)
     {
         _dbContext = dbContext;
         _clock = clock;
         _logger = logger;
+        _push = push;
     }
 
     public async Task<int> ProcessPendingAsync(int batchSize = 100, CancellationToken cancellationToken = default)
@@ -105,9 +107,15 @@ public sealed class NotificationDispatcher
         }
 
         var data = message.Data;
-        _dbContext.Notifications.Add(Notification.Create(
-            message.UserId, message.Type, template.Category, data, template.DeepLink(data), message.DedupeKey, _clock.UtcNow));
-        // Push delivery (FCM) hooks in here with TASK-202, honouring preference.PushEnabled.
+        var notification = Notification.Create(
+            message.UserId, message.Type, template.Category, data, template.DeepLink(data), message.DedupeKey, _clock.UtcNow);
+        _dbContext.Notifications.Add(notification);
+
+        var push = preference?.PushEnabled ?? NotificationPreference.Defaults(template.Category).Push;
+        if (push && _push is not null)
+        {
+            await _push.QueueAsync(notification, cancellationToken);
+        }
     }
 }
 

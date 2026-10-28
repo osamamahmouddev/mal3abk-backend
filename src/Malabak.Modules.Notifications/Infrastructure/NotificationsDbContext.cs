@@ -10,6 +10,8 @@ public sealed class NotificationsDbContext : DbContext
     public DbSet<Notification> Notifications => Set<Notification>();
     public DbSet<NotificationPreference> Preferences => Set<NotificationPreference>();
     public DbSet<NotificationOutboxMessage> Outbox => Set<NotificationOutboxMessage>();
+    public DbSet<DeviceToken> DeviceTokens => Set<DeviceToken>();
+    public DbSet<PushDelivery> PushDeliveries => Set<PushDelivery>();
 
     public NotificationsDbContext(DbContextOptions<NotificationsDbContext> options)
         : base(options)
@@ -53,6 +55,29 @@ public sealed class NotificationsDbContext : DbContext
             b.Property(m => m.Error).HasMaxLength(500);
             b.Ignore(m => m.Data);
             b.HasIndex(m => new { m.ProcessedAtUtc, m.CreatedAtUtc });
+        });
+
+        modelBuilder.Entity<DeviceToken>(b =>
+        {
+            b.ToTable("device_tokens");
+            b.HasKey(t => t.Id);
+            b.Property(t => t.Token).HasMaxLength(DeviceToken.MaxTokenLength).IsRequired();
+            b.Property(t => t.Platform).HasConversion<string>().HasMaxLength(10).IsRequired();
+            b.Property(t => t.Language).HasMaxLength(5).IsRequired();
+            b.Property(t => t.DeactivatedReason).HasMaxLength(40);
+            b.HasIndex(t => t.Token).IsUnique();
+            b.HasIndex(t => new { t.UserId, t.IsActive });
+            b.HasIndex(t => t.SessionId);
+        });
+
+        modelBuilder.Entity<PushDelivery>(b =>
+        {
+            b.ToTable("push_deliveries");
+            b.HasKey(d => d.Id);
+            b.Property(d => d.Status).HasConversion<string>().HasMaxLength(10).IsRequired();
+            b.Property(d => d.Error).HasMaxLength(300);
+            b.HasIndex(d => new { d.NotificationId, d.DeviceTokenId }).IsUnique(); // dedupe per device
+            b.HasIndex(d => new { d.Status, d.NextAttemptAtUtc });
         });
     }
 }

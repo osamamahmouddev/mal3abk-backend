@@ -28,6 +28,7 @@ public sealed class NotificationDispatchService : BackgroundService
             {
                 using var scope = _scopeFactory.CreateScope();
                 await scope.ServiceProvider.GetRequiredService<NotificationDispatcher>().ProcessPendingAsync(cancellationToken: stoppingToken);
+                await scope.ServiceProvider.GetRequiredService<PushDispatcher>().ProcessDueAsync(cancellationToken: stoppingToken);
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {

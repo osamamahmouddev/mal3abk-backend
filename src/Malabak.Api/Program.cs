@@ -201,7 +201,10 @@ builder.Services.AddScoped<IBookingConflictChecker, BookingConflictChecker>();
 builder.Services.AddScoped<ICommandHandler<CreateBookingCommand, Result<CreateBookingResponse>>, CreateBookingHandler>();
 builder.Services.AddIdentityModule(builder.Configuration);
 builder.Services.AddVenuesModule();
-builder.Services.AddNotificationsModule();
+var fcmSection = builder.Configuration.GetSection("Push:Fcm");
+builder.Services.AddNotificationsModule(string.IsNullOrWhiteSpace(fcmSection["PrivateKeyPem"])
+    ? null
+    : new FcmOptions(fcmSection["ProjectId"]!, fcmSection["ClientEmail"]!, fcmSection["PrivateKeyPem"]!));
 builder.Services.AddHostedService<NotificationDispatchService>();
 
 var app = builder.Build();
