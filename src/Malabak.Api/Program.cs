@@ -2,6 +2,10 @@ using System.Globalization;
 using System.Threading.RateLimiting;
 using Asp.Versioning;
 using Malabak.Api.Endpoints;
+using Malabak.Api.Infrastructure.Errors;
+using Malabak.Api.Infrastructure.Health;
+using Malabak.Api.Infrastructure.Logging;
+using Malabak.Api.Infrastructure.OpenTelemetry;
 using Malabak.Modules.Booking.Application.Bookings.CreateBooking;
 using Malabak.Modules.Identity;
 using Malabak.Modules.Identity.Application.Common;
@@ -10,20 +14,34 @@ using Malabak.Modules.Venues.Infrastructure;
 using Malabak.SharedKernel;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.Localization;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Serilog;
+using Serilog.Events;
+using StackExchange.Redis;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// 1. Serilog Structured Logging
-builder.Host.UseSerilog((context, configuration) =>
-    configuration.ReadFrom.Configuration(context.Configuration));
+// 1. Serilog Structured Logging with PII Masking
+builder.Host.UseSerilog((context, services, configuration) =>
+{
+    configuration
+        .ReadFrom.Configuration(context.Configuration)
+        .ReadFrom.Services(services)
+        .Enrich.FromLogContext()
+        .Enrich.With<PiiMaskingEnricher>();
+});
 
-// 2. ProblemDetails RFC 9457
+// 2. OpenTelemetry Traces & Metrics
+builder.Services.AddMalabakOpenTelemetry();
+
+// 3. ProblemDetails RFC 9457 & Global Exception Handler
+builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 builder.Services.AddProblemDetails(options =>
 {
     options.CustomizeProblemDetails = context =>
@@ -32,7 +50,7 @@ builder.Services.AddProblemDetails(options =>
     };
 });
 
-// 3. API Versioning
+// 4. API Versioning
 builder.Services.AddApiVersioning(options =>
 {
     options.DefaultApiVersion = new ApiVersion(1, 0);
@@ -44,14 +62,24 @@ builder.Services.AddApiVersioning(options =>
     options.SubstituteApiVersionInUrl = true;
 });
 
-// 4. Swagger / OpenAPI Documentation
+// 5. Swagger / OpenAPI Documentation
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-// 5. Health Checks
-builder.Services.AddHealthChecks();
+// 6. Redis & Health Checks
+builder.Services.AddSingleton<IConnectionMultiplexer>(_ =>
+{
+    var connectionString = builder.Configuration.GetConnectionString("Redis")
+        ?? "localhost:6379,abortConnect=false";
+    return ConnectionMultiplexer.Connect(connectionString);
+});
 
-// 6. Rate Limiting
+builder.Services.AddHealthChecks()
+    .AddCheck("live", () => HealthCheckResult.Healthy("Liveness check succeeded"), tags: ["live"])
+    .AddCheck<PostgresHealthCheck>("postgres", tags: ["ready"])
+    .AddCheck<RedisHealthCheck>("redis", tags: ["ready"]);
+
+// 7. Rate Limiting
 builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
@@ -67,7 +95,7 @@ builder.Services.AddRateLimiter(options =>
             }));
 });
 
-// 7. CORS
+// 8. CORS
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("DefaultCorsPolicy", policy =>
@@ -79,7 +107,7 @@ builder.Services.AddCors(options =>
     });
 });
 
-// 8. Localization (Arabic primary RTL, English)
+// 9. Localization (Arabic primary RTL, English)
 builder.Services.AddLocalization();
 var supportedCultures = new[] { new CultureInfo("ar-EG"), new CultureInfo("en-US") };
 builder.Services.Configure<RequestLocalizationOptions>(options =>
@@ -89,7 +117,7 @@ builder.Services.Configure<RequestLocalizationOptions>(options =>
     options.SupportedUICultures = supportedCultures;
 });
 
-// 9. Security & Fallback Authorization Policy (Deny by default)
+// 10. Security & Fallback Authorization Policy (Deny by default with ES256 JWT)
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer();
 
@@ -118,7 +146,7 @@ builder.Services.AddAuthorization(options =>
         .Build();
 });
 
-// 10. Database Contexts (Modular Monolith - Schema per module)
+// 11. Database Contexts (Modular Monolith - Schema per module)
 var postgresConnectionString = builder.Configuration.GetConnectionString("Postgres");
 builder.Services.AddDbContext<IdentityDbContext>(options =>
     options.UseNpgsql(postgresConnectionString, npgsql =>
@@ -128,7 +156,7 @@ builder.Services.AddDbContext<VenuesDbContext>(options =>
     options.UseNpgsql(postgresConnectionString, npgsql =>
         npgsql.MigrationsHistoryTable("__EFMigrationsHistory", VenuesDbContext.Schema)));
 
-// 11. Dependency Injection
+// 12. Dependency Injection
 builder.Services.AddSingleton<IClock, SystemClock>();
 builder.Services.AddScoped<ICommandHandler<CreateBookingCommand, Result<CreateBookingResponse>>, CreateBookingHandler>();
 builder.Services.AddIdentityModule(builder.Configuration);
@@ -136,7 +164,22 @@ builder.Services.AddIdentityModule(builder.Configuration);
 var app = builder.Build();
 
 // Configure Middleware Pipeline
-app.UseSerilogRequestLogging();
+app.UseSerilogRequestLogging(options =>
+{
+    options.MessageTemplate = "HTTP {RequestMethod} {RequestPath} responded {StatusCode} in {Elapsed:0.0000} ms";
+    options.GetLevel = (httpContext, _, ex) =>
+    {
+        if (httpContext.Request.Path.StartsWithSegments("/health", StringComparison.OrdinalIgnoreCase))
+        {
+            return LogEventLevel.Verbose;
+        }
+
+        return ex != null || httpContext.Response.StatusCode >= StatusCodes.Status500InternalServerError
+            ? LogEventLevel.Error
+            : LogEventLevel.Information;
+    };
+});
+
 app.UseExceptionHandler();
 app.UseStatusCodePages();
 
@@ -158,8 +201,17 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 // Health check endpoints
-app.MapHealthChecks("/health/live").AllowAnonymous();
-app.MapHealthChecks("/health/ready").AllowAnonymous();
+app.MapHealthChecks("/health/live", new HealthCheckOptions
+{
+    Predicate = check => check.Tags.Contains("live"),
+    ResponseWriter = HealthCheckResponseWriter.WriteResponseAsync
+}).AllowAnonymous();
+
+app.MapHealthChecks("/health/ready", new HealthCheckOptions
+{
+    Predicate = check => check.Tags.Contains("ready"),
+    ResponseWriter = HealthCheckResponseWriter.WriteResponseAsync
+}).AllowAnonymous();
 
 // Minimal API test endpoint
 var apiVersionSet = app.NewApiVersionSet()
@@ -167,8 +219,10 @@ var apiVersionSet = app.NewApiVersionSet()
     .ReportApiVersions()
     .Build();
 
-app.MapGet("/api/v{version:apiVersion}/ping", () => Results.Ok(new { message = "Malabak API is operational", status = "Healthy" }))
-    .WithApiVersionSet(apiVersionSet)
+var v1 = app.MapGroup("/api/v{version:apiVersion}")
+    .WithApiVersionSet(apiVersionSet);
+
+v1.MapGet("/ping", () => Results.Ok(new { message = "Malabak API is operational", status = "Healthy" }))
     .MapToApiVersion(1, 0)
     .AllowAnonymous();
 
