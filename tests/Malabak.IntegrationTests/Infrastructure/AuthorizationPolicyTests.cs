@@ -1,4 +1,8 @@
 using System.Net;
+using System.Net.Http.Headers;
+using Malabak.Modules.Identity.Application.Common;
+using Malabak.Modules.Identity.Domain;
+using Microsoft.Extensions.DependencyInjection;
 using System.Security.Claims;
 using FluentAssertions;
 using Malabak.Api.Infrastructure.Authorization;
@@ -28,6 +32,36 @@ public sealed class AuthorizationPolicyTests : IClassFixture<WebApplicationFacto
         var client = _factory.CreateClient();
 
         var response = await client.GetAsync(url);
+
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Theory]
+    [InlineData("/api/v1/admin/sessions")]
+    [InlineData("/api/v1/admin/venues/pending-approval")]
+    public async Task AdminEndpoint_WithPlayerAudienceToken_Returns401Async(string url)
+    {
+        var tokenService = _factory.Services.GetRequiredService<ITokenService>();
+        var player = User.CreatePlayer(Guid.NewGuid(), "+201001234567", "Player", DateTime.UtcNow);
+        player.AddRole(UserRole.Admin); // even a forged role claim doesn't help: the audience is wrong
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", tokenService.GenerateTokens(player).AccessToken);
+
+        var response = await client.GetAsync(url);
+
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task RegularEndpoint_WithAdminAudienceToken_Returns401Async()
+    {
+        var tokenService = _factory.Services.GetRequiredService<ITokenService>();
+        var admin = User.CreateStaff(Guid.NewGuid(), "a@x.com", "+201001234568", "hash", "Admin", UserRole.Admin, DateTime.UtcNow);
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", tokenService.GenerateAdminTokens(admin, DateTime.UtcNow.AddHours(1)).AccessToken);
+
+        var response = await client.GetAsync("/api/v1/me/permissions");
 
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
