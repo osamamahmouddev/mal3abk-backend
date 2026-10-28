@@ -5,6 +5,7 @@ using Malabak.Api.Endpoints;
 using Malabak.Api.Infrastructure.Configuration;
 using Malabak.Api.Infrastructure.Errors;
 using Malabak.Api.Infrastructure.Health;
+using Malabak.Api.Infrastructure.Hangfire;
 using Malabak.Api.Infrastructure.Logging;
 using Malabak.Api.Infrastructure.OpenTelemetry;
 using Malabak.Api.Infrastructure.Redis;
@@ -82,7 +83,10 @@ builder.Services.AddHealthChecks()
     .AddCheck<PostgresHealthCheck>("postgres", tags: ["ready"])
     .AddCheck<RedisHealthCheck>("redis", tags: ["ready"]);
 
-// 7. Rate Limiting
+// 7. Hangfire Background Jobs
+builder.Services.AddHangfireInfrastructure(builder.Configuration, builder.Environment);
+
+// 8. Rate Limiting
 builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
@@ -202,6 +206,9 @@ app.UseCors("DefaultCorsPolicy");
 app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
+
+// Hangfire Dashboard (Secured Admin & Cloudflare Access)
+app.UseHangfireInfrastructure();
 
 // Health check endpoints
 app.MapHealthChecks("/health/live", new HealthCheckOptions

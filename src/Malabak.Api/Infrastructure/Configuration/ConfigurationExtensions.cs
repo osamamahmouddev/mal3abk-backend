@@ -73,6 +73,21 @@ public static class ConfigurationExtensions
             .ValidateDataAnnotations()
             .ValidateOnStart();
 
+        // Hangfire Options
+        services.AddOptions<HangfireOptions>()
+            .Bind(configuration.GetSection(HangfireOptions.SectionName))
+            .ValidateDataAnnotations()
+            .Validate(options =>
+            {
+                if (!environment.IsDevelopment() && options.BypassDashboardAuthInDevelopment)
+                {
+                    return false;
+                }
+
+                return true;
+            }, "BypassDashboardAuthInDevelopment is strictly prohibited outside of Development.")
+            .ValidateOnStart();
+
         return services;
     }
 }

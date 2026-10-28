@@ -46,6 +46,7 @@
     <!-- Background Jobs & Redis -->
     <PackageVersion Include="StackExchange.Redis" Version="2.8.24" />
     <PackageVersion Include="Hangfire.Core" Version="1.8.17" />
+    <PackageVersion Include="Hangfire.AspNetCore" Version="1.8.17" />
     <PackageVersion Include="Hangfire.PostgreSql" Version="1.20.10" />
 
     <!-- Auth -->
