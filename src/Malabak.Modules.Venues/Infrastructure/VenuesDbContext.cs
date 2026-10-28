@@ -18,6 +18,8 @@ public sealed class VenuesDbContext : DbContext
     public DbSet<VenuePolicy> Policies => Set<VenuePolicy>();
     public DbSet<VenuePaymentMethod> PaymentMethods => Set<VenuePaymentMethod>();
     public DbSet<VenueApprovalEvent> ApprovalEvents => Set<VenueApprovalEvent>();
+    public DbSet<VenueStaffMember> StaffMembers => Set<VenueStaffMember>();
+    public DbSet<VenueStaffInvitation> StaffInvitations => Set<VenueStaffInvitation>();
 
     public VenuesDbContext(DbContextOptions<VenuesDbContext> options)
         : base(options)
@@ -47,5 +49,7 @@ public sealed class VenuesDbContext : DbContext
         modelBuilder.Entity<VenuePolicy>().HasQueryFilter(e => !IsTenantRestricted || TenantVenueIds.Contains(e.VenueId));
         modelBuilder.Entity<VenuePaymentMethod>().HasQueryFilter(e => !IsTenantRestricted || TenantVenueIds.Contains(e.VenueId));
         modelBuilder.Entity<VenueApprovalEvent>().HasQueryFilter(e => !IsTenantRestricted || TenantVenueIds.Contains(e.VenueId));
+        modelBuilder.Entity<VenueStaffMember>().HasQueryFilter(e => !IsTenantRestricted || TenantVenueIds.Contains(e.VenueId));
+        modelBuilder.Entity<VenueStaffInvitation>().HasQueryFilter(e => !IsTenantRestricted || TenantVenueIds.Contains(e.VenueId));
     }
 }

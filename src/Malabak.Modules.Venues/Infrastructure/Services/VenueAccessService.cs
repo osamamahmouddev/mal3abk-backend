@@ -1,12 +1,10 @@
 using Malabak.Modules.Venues.Application.Common;
+using Malabak.Modules.Venues.Domain;
 using Microsoft.EntityFrameworkCore;
 
 namespace Malabak.Modules.Venues.Infrastructure.Services;
 
-/// <summary>
-/// Ownership is the only venue relationship today. Staff memberships (TASK-212) plug in here by
-/// returning <see cref="VenueAccessLevel.Staff"/> with that member's permission set.
-/// </summary>
+/// <summary>Owners get every venue-scoped permission; staff get the permission set of their per-venue role.</summary>
 public sealed class VenueAccessService : IVenueAccessService
 {
     private readonly VenuesDbContext _dbContext;
@@ -18,12 +16,23 @@ public sealed class VenueAccessService : IVenueAccessService
 
     public async Task<VenueAccess> GetAccessAsync(Guid userId, Guid venueId, CancellationToken cancellationToken = default)
     {
-        // Bypasses the tenant filter: this is the query that decides what the filter should allow.
+        // Bypasses the tenant filter: these are the queries that decide what the filter should allow.
         var isOwner = await _dbContext.Venues
             .IgnoreQueryFilters()
             .AnyAsync(v => v.Id == venueId && v.OwnerId == userId && !v.IsDeleted, cancellationToken);
+        if (isOwner)
+        {
+            return VenueAccess.Owner(venueId);
+        }
 
-        return isOwner ? VenueAccess.Owner(venueId) : VenueAccess.None(venueId);
+        var staffRole = await _dbContext.StaffMembers
+            .IgnoreQueryFilters()
+            .Where(m => m.VenueId == venueId && m.UserId == userId && !m.IsDeleted)
+            .Where(m => _dbContext.Venues.IgnoreQueryFilters().Any(v => v.Id == m.VenueId && !v.IsDeleted))
+            .Select(m => (VenueStaffRole?)m.Role)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        return staffRole is { } role ? VenueAccess.Staff(venueId, role) : VenueAccess.None(venueId);
     }
 
     public async Task<IReadOnlyList<VenueAccess>> GetAccessibleVenuesAsync(Guid userId, CancellationToken cancellationToken = default)
@@ -35,6 +44,16 @@ public sealed class VenueAccessService : IVenueAccessService
             .Select(v => v.Id)
             .ToListAsync(cancellationToken);
 
-        return ownedVenueIds.Select(VenueAccess.Owner).ToList();
+        var staffMemberships = await _dbContext.StaffMembers
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .Where(m => m.UserId == userId && !m.IsDeleted && !ownedVenueIds.Contains(m.VenueId))
+            .Where(m => _dbContext.Venues.IgnoreQueryFilters().Any(v => v.Id == m.VenueId && !v.IsDeleted))
+            .Select(m => new { m.VenueId, m.Role })
+            .ToListAsync(cancellationToken);
+
+        return ownedVenueIds.Select(VenueAccess.Owner)
+            .Concat(staffMemberships.Select(m => VenueAccess.Staff(m.VenueId, m.Role)))
+            .ToList();
     }
 }

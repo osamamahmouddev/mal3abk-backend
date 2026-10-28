@@ -1,17 +1,18 @@
 using Malabak.Modules.Venues.Application.BlockedSlots;
 using Malabak.Modules.Venues.Application.Common;
 using Malabak.SharedKernel;
+using Malabak.SharedKernel.Authorization;
 
 namespace Malabak.Modules.Venues.Application.BlockedSlots.GetBlockedSlotsByVenue;
 
 public sealed class GetBlockedSlotsByVenueHandler : IQueryHandler<GetBlockedSlotsByVenueQuery, Result<IReadOnlyList<BlockedSlotDto>>>
 {
-    private readonly IVenueRepository _venueRepository;
+    private readonly IVenueAccessService _accessService;
     private readonly IBlockedSlotRepository _blockedSlotRepository;
 
-    public GetBlockedSlotsByVenueHandler(IVenueRepository venueRepository, IBlockedSlotRepository blockedSlotRepository)
+    public GetBlockedSlotsByVenueHandler(IVenueAccessService accessService, IBlockedSlotRepository blockedSlotRepository)
     {
-        _venueRepository = venueRepository;
+        _accessService = accessService;
         _blockedSlotRepository = blockedSlotRepository;
     }
 
@@ -19,15 +20,10 @@ public sealed class GetBlockedSlotsByVenueHandler : IQueryHandler<GetBlockedSlot
         GetBlockedSlotsByVenueQuery query,
         CancellationToken cancellationToken = default)
     {
-        var venue = await _venueRepository.GetByIdAsync(query.VenueId, cancellationToken);
-        if (venue is null)
+        var access = await _accessService.GetAccessAsync(query.UserId, query.VenueId, cancellationToken);
+        if (!access.Can(Permissions.VenueView))
         {
-            return Result.Failure<IReadOnlyList<BlockedSlotDto>>(new Error("Venue.NotFound", "Venue not found."));
-        }
-
-        if (venue.OwnerId != query.UserId)
-        {
-            return Result.Failure<IReadOnlyList<BlockedSlotDto>>(new Error("Venue.Forbidden", "You are not authorized to view blocked slots for this venue."));
+            return Result.Failure<IReadOnlyList<BlockedSlotDto>>(VenueAccessErrors.VenueNotFound);
         }
 
         var slots = await _blockedSlotRepository.GetByVenueIdAsync(query.VenueId, cancellationToken);

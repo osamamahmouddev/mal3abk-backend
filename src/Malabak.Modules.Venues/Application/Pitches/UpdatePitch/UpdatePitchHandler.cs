@@ -2,6 +2,7 @@ using Malabak.Modules.Venues.Application.Common;
 using Malabak.Modules.Venues.Application.Pitches;
 using Malabak.Modules.Venues.Infrastructure;
 using Malabak.SharedKernel;
+using Malabak.SharedKernel.Authorization;
 using Microsoft.Extensions.Logging;
 
 namespace Malabak.Modules.Venues.Application.Pitches.UpdatePitch;
@@ -39,7 +40,7 @@ public sealed class UpdatePitchHandler : ICommandHandler<UpdatePitchCommand, Res
         }
 
         var venue = await _venueRepository.GetByIdAsync(pitch.VenueId, cancellationToken);
-        if (venue is null || venue.OwnerId != command.OwnerId)
+        if (venue is null || !await VenuePermissionCheck.CanAsync(_dbContext, command.OwnerId, venue.Id, Permissions.PitchesManage, cancellationToken))
         {
             return Result.Failure<PitchDto>(new Error("Pitch.Forbidden", "You are not authorized to update this pitch."));
         }

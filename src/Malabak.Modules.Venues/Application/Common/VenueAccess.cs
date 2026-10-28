@@ -17,6 +17,9 @@ public sealed record VenueAccess(Guid VenueId, VenueAccessLevel Level, IReadOnly
     public static VenueAccess Owner(Guid venueId) =>
         new(venueId, VenueAccessLevel.Owner, new HashSet<string>(SharedKernel.Authorization.Permissions.VenueScoped, StringComparer.Ordinal));
 
+    public static VenueAccess Staff(Guid venueId, Domain.VenueStaffRole role) =>
+        new(venueId, VenueAccessLevel.Staff, Domain.VenueStaffRolePermissions.For(role));
+
     public bool HasAccess => Level != VenueAccessLevel.None;
 
     public bool Can(string permission) => Permissions.Contains(permission);

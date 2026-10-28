@@ -4,6 +4,7 @@ using Malabak.Modules.Venues.Application.BlockedSlots.DeleteBlockedSlot;
 using Malabak.Modules.Venues.Application.BlockedSlots.GetBlockedSlotsByVenue;
 using Malabak.Modules.Venues.Application.Approvals;
 using Malabak.Modules.Venues.Application.Policies;
+using Malabak.Modules.Venues.Application.Staff;
 using Malabak.SharedKernel.Contracts;
 using Malabak.Modules.Venues.Application.Common;
 using Malabak.Modules.Venues.Application.PaymentMethods;
@@ -93,6 +94,17 @@ public static class VenuesModule
         services.AddScoped<ICommandHandler<SetBookingPolicyCommand, Result<BookingPolicyDto>>, SetBookingPolicyHandler>();
         services.AddScoped<IQueryHandler<GetBookingPoliciesQuery, Result<IReadOnlyList<BookingPolicyDto>>>, GetBookingPoliciesHandler>();
         services.AddScoped<IQueryHandler<GetBookingPolicyPreviewQuery, Result<BookingPolicyPreviewDto>>, GetBookingPolicyPreviewHandler>();
+
+        // Staff management & invitations
+        services.AddScoped<IStaffQuotaPolicy, DefaultStaffQuotaPolicy>();
+        services.AddScoped<StaffManagementHandlers>();
+        services.AddScoped<ICommandHandler<InviteStaffCommand, Result<StaffInvitationDto>>>(sp => sp.GetRequiredService<StaffManagementHandlers>());
+        services.AddScoped<ICommandHandler<ResendStaffInvitationCommand, Result>>(sp => sp.GetRequiredService<StaffManagementHandlers>());
+        services.AddScoped<ICommandHandler<RevokeStaffInvitationCommand, Result>>(sp => sp.GetRequiredService<StaffManagementHandlers>());
+        services.AddScoped<IQueryHandler<GetVenueStaffQuery, Result<VenueStaffDto>>>(sp => sp.GetRequiredService<StaffManagementHandlers>());
+        services.AddScoped<ICommandHandler<ChangeStaffRoleCommand, Result<StaffMemberDto>>>(sp => sp.GetRequiredService<StaffManagementHandlers>());
+        services.AddScoped<ICommandHandler<RemoveStaffMemberCommand, Result>>(sp => sp.GetRequiredService<StaffManagementHandlers>());
+        services.AddScoped<ICommandHandler<AcceptStaffInvitationCommand, Result<StaffMemberDto>>>(sp => sp.GetRequiredService<StaffManagementHandlers>());
 
         // Approval workflow
         services.AddScoped<ICommandHandler<SubmitVenueForApprovalCommand, Result<VenueApprovalDto>>, SubmitVenueForApprovalHandler>();

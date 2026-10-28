@@ -66,6 +66,9 @@ public static class IdentityModule
         services.AddScoped<IQueryHandler<ListAdminSessionsQuery, Result<IReadOnlyList<AdminSessionDto>>>>(sp => sp.GetRequiredService<AdminAuthHandlers>());
         services.AddScoped<ICommandHandler<RevokeAdminSessionCommand, Result>>(sp => sp.GetRequiredService<AdminAuthHandlers>());
 
+        // Contract used by other modules (e.g. Venues staff invitations)
+        services.AddScoped<Malabak.SharedKernel.Contracts.IUserAccountsContract, UserAccountsContract>();
+
         // Device sessions (sid claim checked on every request; IDeviceContext is provided by the API host)
         services.AddScoped<ISessionStore, RedisSessionStore>();
         services.AddScoped<SessionService>();

@@ -271,6 +271,7 @@ app.MapBookingPolicyEndpoints(apiVersionSet);
 app.MapPasswordAuthEndpoints(apiVersionSet);
 app.MapAdminAuthEndpoints(apiVersionSet);
 app.MapStepUpEndpoints(apiVersionSet);
+app.MapStaffEndpoints(apiVersionSet);
 
 await app.RunAsync();
 

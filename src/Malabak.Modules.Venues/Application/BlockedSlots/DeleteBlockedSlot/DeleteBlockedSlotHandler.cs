@@ -2,6 +2,7 @@ using Malabak.Modules.Venues.Application.Common;
 using Malabak.Modules.Venues.Domain;
 using Malabak.Modules.Venues.Infrastructure;
 using Malabak.SharedKernel;
+using Malabak.SharedKernel.Authorization;
 using Microsoft.Extensions.Logging;
 
 namespace Malabak.Modules.Venues.Application.BlockedSlots.DeleteBlockedSlot;
@@ -44,7 +45,7 @@ public sealed class DeleteBlockedSlotHandler : ICommandHandler<DeleteBlockedSlot
         }
 
         var venue = await _venueRepository.GetByIdAsync(slot.VenueId, cancellationToken);
-        if (venue is null || venue.OwnerId != command.UserId)
+        if (venue is null || !await VenuePermissionCheck.CanAsync(_dbContext, command.UserId, venue.Id, Permissions.BlockedSlotsManage, cancellationToken))
         {
             return Result.Failure(new Error("BlockedSlot.Forbidden", "You are not authorized to unblock this slot."));
         }

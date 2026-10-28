@@ -6,6 +6,7 @@ using Malabak.Modules.Venues.Application.Common;
 using Malabak.Modules.Venues.Domain;
 using Malabak.Modules.Venues.Infrastructure;
 using Malabak.Modules.Venues.Infrastructure.Repositories;
+using Malabak.Modules.Venues.Infrastructure.Services;
 using Malabak.SharedKernel;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
@@ -453,7 +454,7 @@ public sealed class BlockedSlotTests
         dbContext.BlockedSlots.AddRange(activeSlot1, activeSlot2, deletedSlot, otherVenueSlot);
         await dbContext.SaveChangesAsync();
 
-        var handler = new GetBlockedSlotsByVenueHandler(new VenueRepository(dbContext), new BlockedSlotRepository(dbContext));
+        var handler = new GetBlockedSlotsByVenueHandler(new VenueAccessService(dbContext), new BlockedSlotRepository(dbContext));
         var result = await handler.HandleAsync(new GetBlockedSlotsByVenueQuery(venue.Id, ownerId));
 
         result.IsSuccess.Should().BeTrue();
@@ -469,11 +470,11 @@ public sealed class BlockedSlotTests
         dbContext.BlockedSlots.Add(CreateSlot(venue.Id, pitch.Id, ownerId));
         await dbContext.SaveChangesAsync();
 
-        var handler = new GetBlockedSlotsByVenueHandler(new VenueRepository(dbContext), new BlockedSlotRepository(dbContext));
+        var handler = new GetBlockedSlotsByVenueHandler(new VenueAccessService(dbContext), new BlockedSlotRepository(dbContext));
         var result = await handler.HandleAsync(new GetBlockedSlotsByVenueQuery(venue.Id, Guid.NewGuid()));
 
         result.IsFailure.Should().BeTrue();
-        result.Error.Code.Should().Be("Venue.Forbidden");
+        result.Error.Code.Should().Be("Venue.NotFound");
     }
 
     private sealed class FakeBookingConflictChecker : IBookingConflictChecker

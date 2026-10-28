@@ -3,6 +3,7 @@ using Malabak.Modules.Venues.Application.Common;
 using Malabak.Modules.Venues.Domain;
 using Malabak.Modules.Venues.Infrastructure;
 using Malabak.SharedKernel;
+using Malabak.SharedKernel.Authorization;
 using Microsoft.Extensions.Logging;
 
 namespace Malabak.Modules.Venues.Application.BlockedSlots.CreateBlockedSlot;
@@ -56,7 +57,7 @@ public sealed class CreateBlockedSlotHandler : ICommandHandler<CreateBlockedSlot
             return Result.Failure<BlockedSlotDto>(new Error("Venue.NotFound", "Venue not found."));
         }
 
-        if (venue.OwnerId != command.UserId)
+        if (!await VenuePermissionCheck.CanAsync(_dbContext, command.UserId, venue.Id, Permissions.BlockedSlotsManage, cancellationToken))
         {
             return Result.Failure<BlockedSlotDto>(new Error("Venue.Forbidden", "You are not authorized to block slots for this venue."));
         }
