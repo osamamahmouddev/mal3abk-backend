@@ -1,0 +1,46 @@
+#!/bin/sh
+# Malabak Pre-Commit Hook: Secret Scan & Code Formatting Verification
+# Enforces SECURITY.md rules before commits are accepted.
+
+set -e
+
+echo "🔍 [Malabak Hook] Running pre-commit security and quality checks..."
+
+# 1. Quick Secret & Credential Detection across staged files (excluding hook itself)
+FORBIDDEN_PATTERNS='BEGIN RSA PRIVATE KEY|BEGIN EC PRIVATE KEY|BEGIN PRIVATE KEY|AKIA[0-9A-Z]{16}|secret_key|private_key.*=.*["'\''][a-zA-Z0-9_\-]{20,}["'\'']|password.*=.*["'\''][^"'\'']+["'\'']'
+
+if git rev-parse --verify HEAD >/dev/null 2>&1; then
+    AGAINST=HEAD
+else
+    # Initial commit
+    AGAINST=$(git hash-object -t tree /dev/null)
+fi
+
+SUSPICIOUS_DIFF=$(git diff --cached "$AGAINST" -- ':!.githooks/pre-commit' | grep -E -i "$FORBIDDEN_PATTERNS" || true)
+
+if [ -n "$SUSPICIOUS_DIFF" ]; then
+    echo "❌ [SECURITY ALERT] Potential secret or private key pattern detected in staged changes:"
+    echo "$SUSPICIOUS_DIFF" | head -n 10
+    echo ""
+    echo "Commit rejected per SECURITY.md. Never store secrets, passwords, or keys in git."
+    exit 1
+fi
+
+# 2. Check if Gitleaks is installed and run it on staged changes
+if command -v gitleaks >/dev/null 2>&1; then
+    echo "🛡️  Running Gitleaks detection..."
+    gitleaks protect --staged --verbose
+fi
+
+# 3. Code Formatting Verification for C# if dotnet is present
+STAGED_CS_FILES=$(git diff --cached --name-only "$AGAINST" | grep -E '\.cs$' || true)
+if [ -n "$STAGED_CS_FILES" ] && command -v dotnet >/dev/null 2>&1; then
+    echo "🧹 Verifying .NET code formatting..."
+    if ! dotnet format --verify-no-changes >/dev/null 2>&1; then
+        echo "⚠️  [FORMATTING WARNING] Some C# files do not adhere to .editorconfig format rules."
+        echo "Run 'dotnet format' to resolve formatting automatically before committing."
+    fi
+fi
+
+echo "✅ [Malabak Hook] Pre-commit checks passed successfully!"
+exit 0

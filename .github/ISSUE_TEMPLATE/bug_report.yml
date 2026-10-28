@@ -1,0 +1,48 @@
+name: Bug Report
+description: Create a report to help us reproduce and fix a bug
+title: "[BUG]: "
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report this issue! Please provide as much detail as possible.
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: What environment did this occur in? (e.g. Local Dev, Docker, Staging, Production)
+      placeholder: "e.g., Local Docker, .NET 9.0.0, Node 20"
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: Bug Description
+      description: A clear and concise description of what the bug is.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to Reproduce
+      description: Steps to reproduce the behavior.
+      placeholder: |
+        1. Call endpoint 'POST /api/v1/...'
+        2. Provide payload '...'
+        3. See error response
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+      description: What should have happened according to business logic / PRD.
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant Logs or Error Payload
+      description: Paste any sanitized log snippets (ensure NO secrets or real OTPs/passwords are included).
+      render: shell

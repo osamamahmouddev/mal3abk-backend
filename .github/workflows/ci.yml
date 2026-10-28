@@ -1,13 +1,28 @@
-name: CI Build & Test
+name: CI Build & Quality Gates
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [ main, dev ]
   pull_request:
-    branches: [ main, develop ]
+    branches: [ main, dev ]
 
 jobs:
-  build-and-test:
+  secret-scan:
+    name: Gitleaks Secret Detection
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run Gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  backend-build-test:
+    name: .NET Backend Verification
     runs-on: ubuntu-latest
     steps:
       - name: Check out code
@@ -18,14 +33,52 @@ jobs:
         with:
           dotnet-version: '9.0.x'
 
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('Directory.Packages.props', '**/*.csproj') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget-
+
       - name: Restore dependencies
         run: dotnet restore Malabak.sln
 
       - name: Verify code formatting
-        run: dotnet format --verify-no-changes --verbosity diagnostic
+        run: dotnet format --verify-no-changes --verbosity normal
 
       - name: Build with warnings as errors
         run: dotnet build Malabak.sln --no-restore -c Release -warnaserror
 
-      - name: Run unit & architecture tests
+      - name: Run automated tests
         run: dotnet test Malabak.sln --no-build -c Release --verbosity normal
+
+  web-monorepo:
+    name: Web Monorepo Verification
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Cache pnpm/node_modules
+        uses: actions/cache@v4
+        with:
+          path: |
+            web/node_modules
+            ~/.pnpm-store
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('web/package.json', 'web/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-
+
+      - name: Install dependencies
+        working-directory: ./web
+        run: npm install
+
+      - name: Turbo Build
+        working-directory: ./web
+        run: npm run build

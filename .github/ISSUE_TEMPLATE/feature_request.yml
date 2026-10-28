@@ -1,0 +1,28 @@
+name: Feature Request
+description: Propose a new feature or architectural enhancement for Malabak
+title: "[FEAT]: "
+labels: ["enhancement", "proposal"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please explain the feature request and how it aligns with the Malabak PRD and Egyptian sports ecosystem.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem Statement
+      description: Is your feature request related to a problem or business limitation?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed Solution / Architecture
+      description: Describe your proposed solution, bounded context impacted, and API/UI expectations.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives Considered
+      description: Any alternative solutions or workarounds you've considered.
