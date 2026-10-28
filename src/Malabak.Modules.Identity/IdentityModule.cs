@@ -52,6 +52,7 @@ public static class IdentityModule
         services.AddScoped<ISmsGateway, SmsGateway>();
         services.AddScoped<ISmsAlertService, GatewaySmsAlertService>();
         services.AddScoped<SmsDeliveryReceipts>();
+        services.AddScoped<EmailBounceHandler>();
 
         // Password authentication (venue owners / staff)
         services.AddSingleton<IPasswordHasher, Pbkdf2PasswordHasher>();

@@ -85,7 +85,7 @@ public sealed class UserAccountsContract : IUserAccountsContract
         {
             if (!string.IsNullOrWhiteSpace(email))
             {
-                await _email.SendAsync(email, $"Invitation to join {venueName} on Malabak", body, cancellationToken);
+                await _email.SendAsync(email, EmailTemplates.StaffInvitation(venueName, role, link), cancellationToken);
             }
             else if (!string.IsNullOrWhiteSpace(normalizedPhone))
             {

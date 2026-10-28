@@ -31,6 +31,10 @@ public interface IBreachedPasswordChecker
 public interface IEmailSender
 {
     Task SendAsync(string toAddress, string subject, string body, CancellationToken cancellationToken = default);
+
+    /// <summary>Sends a templated email (text + HTML). Senders without HTML support fall back to the text part.</summary>
+    Task SendAsync(string toAddress, RenderedEmail email, CancellationToken cancellationToken = default) =>
+        SendAsync(toAddress, email.Subject, email.Text, cancellationToken);
 }
 
 public interface ITotpService

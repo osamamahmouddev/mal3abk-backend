@@ -51,6 +51,25 @@ namespace Malabak.Modules.Identity.Infrastructure.Migrations
                     b.ToTable("admin_recovery_codes", "identity");
                 });
 
+            modelBuilder.Entity("Malabak.Modules.Identity.Domain.EmailSuppression", b =>
+                {
+                    b.Property<string>("EmailHash")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.HasKey("EmailHash");
+
+                    b.ToTable("email_suppressions", "identity");
+                });
+
             modelBuilder.Entity("Malabak.Modules.Identity.Domain.PhoneChangeRequest", b =>
                 {
                     b.Property<Guid>("Id")

@@ -302,7 +302,7 @@ public sealed class PasswordAuthTests
             return Task.CompletedTask;
         }
 
-        public string LastToken() => Sent[^1][(Sent[^1].IndexOf("token=", StringComparison.Ordinal) + 6)..];
+        public string LastToken() => new(Sent[^1][(Sent[^1].IndexOf("token=", StringComparison.Ordinal) + 6)..].TakeWhile(c => !char.IsWhiteSpace(c)).ToArray());
     }
 
     private sealed class FakeBreachChecker(bool breached) : IBreachedPasswordChecker

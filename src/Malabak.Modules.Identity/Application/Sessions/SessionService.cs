@@ -145,7 +145,7 @@ public sealed class SessionService
         {
             if (!string.IsNullOrWhiteSpace(user.Email))
             {
-                await _email.SendAsync(user.Email, "New sign-in to your Malabak account", message, cancellationToken);
+                await _email.SendAsync(user.Email, EmailTemplates.NewDeviceSignIn(device, session.CreatedAtUtc), cancellationToken);
             }
             else
             {

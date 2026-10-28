@@ -111,7 +111,7 @@ public sealed class PasswordAccountHandlers :
         var raw = IssueToken(user.Id, UserActionTokenPurpose.EmailVerification, nowUtc);
         await _dbContext.SaveChangesAsync(cancellationToken);
 
-        await SendSafelyAsync(email, "Verify your Malabak email", $"Confirm your email: {_dashboardUrl}/verify-email?token={raw}", cancellationToken);
+        await SendSafelyAsync(email, EmailTemplates.EmailVerification($"{_dashboardUrl}/verify-email?token={raw}"), cancellationToken);
         _logger.LogInformation("Venue owner {UserId} registered; verification email sent", user.Id);
         return Result.Success();
     }
@@ -138,7 +138,7 @@ public sealed class PasswordAccountHandlers :
             {
                 var raw = IssueToken(user.Id, UserActionTokenPurpose.EmailVerification, _clock.UtcNow);
                 await _dbContext.SaveChangesAsync(cancellationToken);
-                await SendSafelyAsync(email, "Verify your Malabak email", $"Confirm your email: {_dashboardUrl}/verify-email?token={raw}", cancellationToken);
+                await SendSafelyAsync(email, EmailTemplates.EmailVerification($"{_dashboardUrl}/verify-email?token={raw}"), cancellationToken);
             }
         }
 
@@ -156,8 +156,7 @@ public sealed class PasswordAccountHandlers :
                 await InvalidateOpenTokensAsync(user.Id, UserActionTokenPurpose.PasswordReset, nowUtc, cancellationToken);
                 var raw = IssueToken(user.Id, UserActionTokenPurpose.PasswordReset, nowUtc);
                 await _dbContext.SaveChangesAsync(cancellationToken);
-                await SendSafelyAsync(email, "Reset your Malabak password",
-                    $"Reset your password (valid 30 minutes): {_dashboardUrl}/reset-password?token={raw}", cancellationToken);
+                await SendSafelyAsync(email, EmailTemplates.PasswordReset($"{_dashboardUrl}/reset-password?token={raw}"), cancellationToken);
             }
         }
 
@@ -292,16 +291,16 @@ public sealed class PasswordAccountHandlers :
         open.ForEach(t => t.MarkUsed(nowUtc));
     }
 
-    private async Task SendSafelyAsync(string to, string subject, string body, CancellationToken cancellationToken)
+    private async Task SendSafelyAsync(string to, RenderedEmail email, CancellationToken cancellationToken)
     {
         try
         {
-            await _emailSender.SendAsync(to, subject, body, cancellationToken);
+            await _emailSender.SendAsync(to, email, cancellationToken);
         }
         catch (Exception ex) when (ex is System.Net.Mail.SmtpException or InvalidOperationException or System.Net.Sockets.SocketException)
         {
             // The token is already stored; the user can request a new email. Never log the link (it contains the token).
-            _logger.LogError(ex, "Failed to send account email ({Subject})", subject);
+            _logger.LogError(ex, "Failed to send account email ({Subject})", email.Subject);
         }
     }
 }
