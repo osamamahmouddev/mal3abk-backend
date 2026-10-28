@@ -23,6 +23,34 @@ namespace Malabak.Modules.Identity.Infrastructure.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("Malabak.Modules.Identity.Domain.AdminRecoveryCode", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("CodeHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("UsedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId", "CodeHash")
+                        .IsUnique();
+
+                    b.ToTable("admin_recovery_codes", "identity");
+                });
+
             modelBuilder.Entity("Malabak.Modules.Identity.Domain.PhoneChangeRequest", b =>
                 {
                     b.Property<Guid>("Id")
@@ -105,6 +133,9 @@ namespace Malabak.Modules.Identity.Infrastructure.Migrations
 
                     b.Property<Guid>("FamilyId")
                         .HasColumnType("uuid");
+
+                    b.Property<bool>("IsAdminSession")
+                        .HasColumnType("boolean");
 
                     b.Property<bool>("IsDeleted")
                         .ValueGeneratedOnAdd()

@@ -37,6 +37,7 @@ public static class VenueApprovalEndpoints
             .WithApiVersionSet(apiVersionSet)
             .MapToApiVersion(1, 0)
             .RequireAuthorization(Permissions.AdminVenuesApprove)
+            .AddEndpointFilter<AdminIpAllowlistFilter>()
             .WithTags("Admin Venue Approval");
 
         admin.MapGet("/pending-approval", async ([FromQuery] int? page, [FromQuery] int? pageSize,

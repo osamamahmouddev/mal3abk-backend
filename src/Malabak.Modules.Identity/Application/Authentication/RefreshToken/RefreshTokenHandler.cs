@@ -43,7 +43,8 @@ public sealed class RefreshTokenHandler : ICommandHandler<RefreshTokenCommand, R
         var token = await _dbContext.RefreshTokens
             .FirstOrDefaultAsync(t => t.TokenHash == tokenHash, cancellationToken);
 
-        if (token is null)
+        // Admin sessions refresh only through the admin endpoint, which issues admin-audience tokens.
+        if (token is null || token.IsAdminSession)
         {
             return Result.Failure<RefreshTokenResponse>(new Error(
                 "Identity.InvalidRefreshToken",

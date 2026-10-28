@@ -29,59 +29,57 @@ public sealed class TokenService : ITokenService
 
     public TokenResult GenerateTokens(User user)
     {
+        var nowUtc = _clock.UtcNow;
+        var expirationMinutes = _options.AccessTokenExpirationMinutes > 0 ? _options.AccessTokenExpirationMinutes : 15;
+        var refreshTokenDays = _options.RefreshTokenExpirationDays > 0 ? _options.RefreshTokenExpirationDays : 7;
+
+        return Issue(user, _options.Audience, TimeSpan.FromMinutes(expirationMinutes), nowUtc.AddDays(refreshTokenDays), amr: null);
+    }
+
+    public TokenResult GenerateAdminTokens(User user, DateTime sessionExpiresAtUtc)
+    {
+        var minutes = _options.AdminAccessTokenExpirationMinutes > 0 ? _options.AdminAccessTokenExpirationMinutes : 5;
+        return Issue(user, _options.AdminAudience, TimeSpan.FromMinutes(minutes), sessionExpiresAtUtc, amr: ["pwd", "mfa"]);
+    }
+
+    // The payload is readable by anyone (base64), so no PII goes in: no phone, no email (SECURITY.md §3.3).
+    private TokenResult Issue(User user, string audience, TimeSpan accessLifetime, DateTime refreshExpiresAtUtc, string[]? amr)
+    {
         ArgumentNullException.ThrowIfNull(user);
 
         var nowUtc = _clock.UtcNow;
-        var expirationMinutes = _options.AccessTokenExpirationMinutes > 0 ? _options.AccessTokenExpirationMinutes : 15;
-        var expiresAtUtc = nowUtc.AddMinutes(expirationMinutes);
+        var expiresAtUtc = nowUtc + accessLifetime;
 
         var claims = new List<Claim>
         {
             new(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
             new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString("N")),
             new(JwtRegisteredClaimNames.Iat, new DateTimeOffset(nowUtc).ToUnixTimeSeconds().ToString(), ClaimValueTypes.Integer64),
-            new("phone_number", user.PhoneNumber),
             new("security_stamp", user.SecurityStamp),
             new("name", user.FullName)
         };
 
-        if (!string.IsNullOrWhiteSpace(user.Email))
-        {
-            claims.Add(new(JwtRegisteredClaimNames.Email, user.Email));
-        }
-
-        foreach (var role in user.Roles)
-        {
-            claims.Add(new(ClaimTypes.Role, role));
-        }
-
-        var signingCredentials = _keyProvider.GetCurrentSigningCredentials();
+        claims.AddRange(user.Roles.Select(role => new Claim(ClaimTypes.Role, role)));
+        claims.AddRange((amr ?? []).Select(method => new Claim("amr", method)));
 
         var tokenDescriptor = new SecurityTokenDescriptor
         {
             Subject = new ClaimsIdentity(claims),
             Issuer = _options.Issuer,
-            Audience = _options.Audience,
+            Audience = audience,
             NotBefore = nowUtc,
             IssuedAt = nowUtc,
             Expires = expiresAtUtc,
-            SigningCredentials = signingCredentials
+            SigningCredentials = _keyProvider.GetCurrentSigningCredentials()
         };
 
-        var securityToken = _tokenHandler.CreateToken(tokenDescriptor);
-        var accessToken = _tokenHandler.WriteToken(securityToken);
-
-        var rawRefreshToken = GenerateRawRefreshToken();
-        var refreshTokenDays = _options.RefreshTokenExpirationDays > 0 ? _options.RefreshTokenExpirationDays : 7;
-        var refreshTokenExpiresAtUtc = nowUtc.AddDays(refreshTokenDays);
-
-        var expiresInSeconds = (int)(expiresAtUtc - nowUtc).TotalSeconds;
+        var accessToken = _tokenHandler.WriteToken(_tokenHandler.CreateToken(tokenDescriptor));
 
         return new TokenResult(
             AccessToken: accessToken,
-            ExpiresIn: expiresInSeconds,
-            RefreshToken: rawRefreshToken,
-            RefreshTokenExpiresAtUtc: refreshTokenExpiresAtUtc);
+            ExpiresIn: (int)accessLifetime.TotalSeconds,
+            RefreshToken: GenerateRawRefreshToken(),
+            RefreshTokenExpiresAtUtc: refreshExpiresAtUtc);
     }
 
     public string GenerateRawRefreshToken()

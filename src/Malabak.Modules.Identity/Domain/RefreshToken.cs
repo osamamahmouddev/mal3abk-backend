@@ -12,6 +12,7 @@ public sealed class RefreshToken : Entity<Guid>
     public string TokenHash { get; private set; } = string.Empty;
     public Guid FamilyId { get; private set; }
     public bool IsRevoked { get; private set; }
+    public bool IsAdminSession { get; private set; }
     public string? ReplacedByTokenHash { get; private set; }
     public DateTime ExpiresAtUtc { get; private set; }
 
@@ -24,7 +25,8 @@ public sealed class RefreshToken : Entity<Guid>
         string tokenHash,
         Guid familyId,
         DateTime expiresAtUtc,
-        DateTime createdAtUtc)
+        DateTime createdAtUtc,
+        bool isAdminSession = false)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(tokenHash);
 
@@ -36,6 +38,7 @@ public sealed class RefreshToken : Entity<Guid>
             FamilyId = familyId,
             ExpiresAtUtc = expiresAtUtc,
             IsRevoked = false,
+            IsAdminSession = isAdminSession,
             CreatedAtUtc = createdAtUtc
         };
     }

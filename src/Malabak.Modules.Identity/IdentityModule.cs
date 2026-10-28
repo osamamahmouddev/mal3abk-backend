@@ -1,3 +1,4 @@
+using Malabak.Modules.Identity.Application.AdminAuth;
 using Malabak.Modules.Identity.Application.Authentication.Logout;
 using Malabak.Modules.Identity.Application.Authentication.LogoutAll;
 using Malabak.Modules.Identity.Application.Authentication.RefreshToken;
@@ -52,6 +53,16 @@ public static class IdentityModule
         services.AddScoped<ICommandHandler<ChangePasswordCommand, Result>>(sp => sp.GetRequiredService<PasswordAccountHandlers>());
         services.AddScoped<ICommandHandler<EnrollTotpCommand, Result<TotpEnrollmentResponse>>>(sp => sp.GetRequiredService<PasswordAccountHandlers>());
         services.AddScoped<ICommandHandler<ConfirmTotpCommand, Result>>(sp => sp.GetRequiredService<PasswordAccountHandlers>());
+
+        // Admin authentication (separate audience, mandatory TOTP)
+        services.AddScoped<AdminAuthHandlers>();
+        services.AddScoped<ICommandHandler<AdminLoginCommand, Result<AdminLoginResponse>>>(sp => sp.GetRequiredService<AdminAuthHandlers>());
+        services.AddScoped<ICommandHandler<AdminEnrollTotpCommand, Result<TotpEnrollmentResponse>>>(sp => sp.GetRequiredService<AdminAuthHandlers>());
+        services.AddScoped<ICommandHandler<AdminConfirmTotpCommand, Result<IReadOnlyList<string>>>>(sp => sp.GetRequiredService<AdminAuthHandlers>());
+        services.AddScoped<ICommandHandler<AdminRefreshCommand, Result<AdminTokens>>>(sp => sp.GetRequiredService<AdminAuthHandlers>());
+        services.AddScoped<ICommandHandler<AdminLogoutCommand, Result>>(sp => sp.GetRequiredService<AdminAuthHandlers>());
+        services.AddScoped<IQueryHandler<ListAdminSessionsQuery, Result<IReadOnlyList<AdminSessionDto>>>>(sp => sp.GetRequiredService<AdminAuthHandlers>());
+        services.AddScoped<ICommandHandler<RevokeAdminSessionCommand, Result>>(sp => sp.GetRequiredService<AdminAuthHandlers>());
 
         // Authorization (roles/permissions are read from the database on each request)
         services.AddScoped<IUserPermissionService, UserPermissionService>();

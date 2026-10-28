@@ -125,26 +125,32 @@ builder.Services.Configure<RequestLocalizationOptions>(options =>
 });
 
 // 10. Security & Fallback Authorization Policy (Deny by default with ES256 JWT)
+// Two schemes with the same signing keys but different audiences: a player/venue token is rejected on
+// /admin endpoints and an admin token is rejected everywhere else (SECURITY.md §3.9).
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-    .AddJwtBearer();
+    .AddJwtBearer()
+    .AddJwtBearer(Malabak.Api.Infrastructure.Authorization.AuthorizationServiceCollectionExtensions.AdminScheme);
 
-builder.Services.AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme)
-    .Configure<IJwtKeyProvider, IOptions<JwtOptions>>((options, keyProvider, jwtOptions) =>
-    {
-        var opts = jwtOptions.Value;
-        options.TokenValidationParameters = new TokenValidationParameters
+foreach (var (scheme, isAdmin) in new[] { (JwtBearerDefaults.AuthenticationScheme, false), (Malabak.Api.Infrastructure.Authorization.AuthorizationServiceCollectionExtensions.AdminScheme, true) })
+{
+    builder.Services.AddOptions<JwtBearerOptions>(scheme)
+        .Configure<IJwtKeyProvider, IOptions<JwtOptions>>((options, keyProvider, jwtOptions) =>
         {
-            ValidateIssuerSigningKey = true,
-            IssuerSigningKeys = keyProvider.GetValidationKeys(),
-            ValidateIssuer = true,
-            ValidIssuer = opts.Issuer,
-            ValidateAudience = true,
-            ValidAudience = opts.Audience,
-            ValidateLifetime = true,
-            ClockSkew = TimeSpan.FromMinutes(1),
-            ValidAlgorithms = [SecurityAlgorithms.EcdsaSha256]
-        };
-    });
+            var opts = jwtOptions.Value;
+            options.TokenValidationParameters = new TokenValidationParameters
+            {
+                ValidateIssuerSigningKey = true,
+                IssuerSigningKeys = keyProvider.GetValidationKeys(),
+                ValidateIssuer = true,
+                ValidIssuer = opts.Issuer,
+                ValidateAudience = true,
+                ValidAudience = isAdmin ? opts.AdminAudience : opts.Audience,
+                ValidateLifetime = true,
+                ClockSkew = TimeSpan.FromSeconds(30),
+                ValidAlgorithms = [SecurityAlgorithms.EcdsaSha256]
+            };
+        });
+}
 
 builder.Services.AddMalabakAuthorization();
 
@@ -245,6 +251,7 @@ app.MapPaymentMethodEndpoints(apiVersionSet);
 app.MapVenueApprovalEndpoints(apiVersionSet);
 app.MapBookingPolicyEndpoints(apiVersionSet);
 app.MapPasswordAuthEndpoints(apiVersionSet);
+app.MapAdminAuthEndpoints(apiVersionSet);
 
 await app.RunAsync();
 

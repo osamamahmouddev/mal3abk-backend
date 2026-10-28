@@ -12,6 +12,7 @@ public sealed class IdentityDbContext : DbContext
     public DbSet<UserSession> UserSessions => Set<UserSession>();
     public DbSet<PhoneChangeRequest> PhoneChangeRequests => Set<PhoneChangeRequest>();
     public DbSet<UserActionToken> UserActionTokens => Set<UserActionToken>();
+    public DbSet<AdminRecoveryCode> AdminRecoveryCodes => Set<AdminRecoveryCode>();
 
     public IdentityDbContext(DbContextOptions<IdentityDbContext> options)
         : base(options)
