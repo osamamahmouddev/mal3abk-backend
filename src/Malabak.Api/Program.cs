@@ -7,6 +7,7 @@ using Malabak.Api.Infrastructure.Authorization;
 using Malabak.Api.Infrastructure.Errors;
 using Malabak.Api.Infrastructure.Health;
 using Malabak.Api.Infrastructure.Logging;
+using Malabak.Api.Infrastructure.Media;
 using Malabak.Api.Infrastructure.Security;
 using Malabak.Api.Infrastructure.OpenTelemetry;
 using Malabak.Modules.Booking.Application.Bookings.CreateBooking;
@@ -93,6 +94,9 @@ builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
     options.AddPasswordAuthRateLimit();
+    options.AddPolicy(MediaEndpoints.UploadRateLimitPolicy, http => RateLimitPartition.GetSlidingWindowLimiter(
+        http.User.FindFirst("sub")?.Value ?? http.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+        _ => new SlidingWindowRateLimiterOptions { PermitLimit = 30, Window = TimeSpan.FromHours(1), SegmentsPerWindow = 6, QueueLimit = 0 }));
     options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(context =>
         RateLimitPartition.GetFixedWindowLimiter(
             partitionKey: context.Connection.RemoteIpAddress?.ToString() ?? "anonymous",
@@ -187,6 +191,13 @@ builder.Services.AddDbContext<VenuesDbContext>(options =>
 builder.Services.AddDbContext<BookingDbContext>(options =>
     options.UseNpgsql(postgresConnectionString, npgsql =>
         npgsql.MigrationsHistoryTable("__EFMigrationsHistory", BookingDbContext.Schema)));
+
+builder.Services.AddDbContext<MediaDbContext>(options =>
+    options.UseNpgsql(postgresConnectionString, npgsql =>
+        npgsql.MigrationsHistoryTable("__EFMigrationsHistory", MediaDbContext.Schema)));
+builder.Services.AddSingleton<IObjectStorage, LocalObjectStorage>();
+builder.Services.AddSingleton<IMalwareScanner, NoOpMalwareScanner>();
+builder.Services.AddScoped<MediaService>();
 
 builder.Services.AddDbContext<NotificationsDbContext>(options =>
     options.UseNpgsql(postgresConnectionString, npgsql =>
@@ -287,6 +298,7 @@ app.MapNotificationEndpoints(apiVersionSet);
 app.MapSmsWebhookEndpoints(apiVersionSet);
 app.MapProfileEndpoints(apiVersionSet);
 app.MapReferenceDataEndpoints(apiVersionSet);
+app.MapMediaEndpoints(apiVersionSet);
 
 await app.RunAsync();
 
