@@ -286,6 +286,7 @@ app.MapStaffEndpoints(apiVersionSet);
 app.MapNotificationEndpoints(apiVersionSet);
 app.MapSmsWebhookEndpoints(apiVersionSet);
 app.MapProfileEndpoints(apiVersionSet);
+app.MapReferenceDataEndpoints(apiVersionSet);
 
 await app.RunAsync();
 

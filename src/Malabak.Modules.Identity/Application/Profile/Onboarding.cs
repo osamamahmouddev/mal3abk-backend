@@ -1,6 +1,7 @@
 using Malabak.Modules.Identity.Domain;
 using Malabak.Modules.Identity.Infrastructure;
 using Malabak.SharedKernel;
+using Malabak.SharedKernel.Reference;
 using Microsoft.EntityFrameworkCore;
 
 namespace Malabak.Modules.Identity.Application.Profile;
@@ -29,7 +30,7 @@ public static class ProfileErrors
 {
     public static readonly Error NotFound = new("Profile.NotFound", "Account not found.");
     public static readonly Error InvalidName = new("Profile.InvalidName", "Full name is required (2–100 characters).");
-    public static readonly Error InvalidPlace = new("Profile.InvalidPlace", "City and area are required (up to 100 characters).");
+    public static readonly Error InvalidPlace = new("Profile.InvalidPlace", "Choose a governorate and area from the reference list (GET /reference/governorates).");
     public static readonly Error InvalidLanguage = new("Profile.InvalidLanguage", "Language must be 'ar' or 'en'.");
     public static readonly Error InvalidPositions = new("Profile.InvalidPositions", "Choose up to 4 valid positions.");
 }
@@ -89,7 +90,8 @@ public sealed class ProfileHandlers :
         }
 
         var nowUtc = _clock.UtcNow;
-        user.UpdateProfile(Clean(command.FullName), Clean(command.City), Clean(command.Area), command.Positions, command.SkillLevel, nowUtc);
+        var (city, area) = NormalizePlace(Clean(command.City), Clean(command.Area));
+        user.UpdateProfile(Clean(command.FullName), city, area, command.Positions, command.SkillLevel, nowUtc);
         if (command.Language is not null)
         {
             user.SetLanguage(command.Language, nowUtc);
@@ -131,7 +133,9 @@ public sealed class ProfileHandlers :
 
         var city = Clean(command.City);
         var area = Clean(command.Area);
-        if (city.Length == 0 || area.Length == 0 || city.Length > User.MaxPlaceLength || area.Length > User.MaxPlaceLength)
+        var governorate = EgyptReferenceData.FindGovernorate(city);
+        if (city.Length == 0 || area.Length == 0 || city.Length > User.MaxPlaceLength || area.Length > User.MaxPlaceLength
+            || governorate is null || !EgyptReferenceData.IsValidArea(governorate, area))
         {
             return ProfileErrors.InvalidPlace;
         }
@@ -147,6 +151,17 @@ public sealed class ProfileHandlers :
         }
 
         return command.Language is not null && !UserLanguages.IsSupported(command.Language) ? ProfileErrors.InvalidLanguage : null;
+    }
+
+    /// <summary>Stores stable codes (e.g. "cairo", "nasr_city") so names can be re-localized; free-text areas stay as typed.</summary>
+    private static (string City, string Area) NormalizePlace(string city, string area)
+    {
+        var governorate = EgyptReferenceData.FindGovernorate(city)!;
+        var curated = governorate.Areas.FirstOrDefault(a =>
+            string.Equals(a.Code, area, StringComparison.OrdinalIgnoreCase)
+            || string.Equals(a.NameEn, area, StringComparison.OrdinalIgnoreCase)
+            || string.Equals(a.NameAr, area, StringComparison.Ordinal));
+        return (governorate.Code, curated?.Code ?? area);
     }
 
     /// <summary>Trims and strips control / bidi-override characters that could spoof how a name renders (SECURITY.md §15.2).</summary>

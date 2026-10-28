@@ -67,6 +67,20 @@ public sealed class AuthorizationPolicyTests : IClassFixture<WebApplicationFacto
     }
 
     [Fact]
+    public async Task ReferenceData_IsPublic_AndCacheableWithEtagAsync()
+    {
+        var client = _factory.CreateClient();
+
+        var first = await client.GetAsync("/api/v1/reference/governorates");
+        first.StatusCode.Should().Be(HttpStatusCode.OK);
+        first.Headers.CacheControl!.Public.Should().BeTrue();
+
+        using var conditional = new HttpRequestMessage(HttpMethod.Get, "/api/v1/reference/governorates");
+        conditional.Headers.TryAddWithoutValidation("If-None-Match", first.Headers.ETag!.Tag);
+        (await client.SendAsync(conditional)).StatusCode.Should().Be(HttpStatusCode.NotModified);
+    }
+
+    [Fact]
     public async Task PermissionHandler_UserHasPermission_SucceedsAsync()
     {
         var userId = Guid.NewGuid();
