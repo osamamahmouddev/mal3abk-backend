@@ -465,25 +465,64 @@ namespace Malabak.Modules.Venues.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
-                    b.Property<int>("CancellationWindowHours")
+                    b.Property<bool>("AllowReschedule")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("CancellationDeadlineHours")
                         .HasColumnType("integer");
 
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<decimal>("DepositPercentage")
-                        .HasPrecision(5, 2)
-                        .HasColumnType("numeric(5,2)");
+                    b.Property<Guid>("CreatedByUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("DepositType")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<decimal>("DepositValue")
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<DateTime>("EffectiveFromUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsCurrent")
+                        .HasColumnType("boolean");
 
                     b.Property<bool>("IsDeleted")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("boolean")
                         .HasDefaultValue(false);
 
-                    b.Property<string>("RefundPolicyType")
+                    b.Property<int>("LateArrivalGraceMinutes")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("ManualReviewWindowMinutes")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("NoShowRule")
                         .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("character varying(50)");
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)");
+
+                    b.Property<bool>("PendingBookingsBlockSlots")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("ProofSubmissionWindowMinutes")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("RefundEligibility")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<decimal>("RefundPercentage")
+                        .HasColumnType("numeric(5,2)");
+
+                    b.Property<int>("RescheduleDeadlineHours")
+                        .HasColumnType("integer");
 
                     b.Property<uint>("RowVersion")
                         .IsConcurrencyToken()
@@ -491,7 +530,10 @@ namespace Malabak.Modules.Venues.Infrastructure.Migrations
                         .HasColumnType("xid")
                         .HasColumnName("xmin");
 
-                    b.Property<string>("TermsAndConditions")
+                    b.Property<DateTime?>("SupersededAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Terms")
                         .HasMaxLength(4000)
                         .HasColumnType("character varying(4000)");
 
@@ -501,9 +543,18 @@ namespace Malabak.Modules.Venues.Infrastructure.Migrations
                     b.Property<Guid>("VenueId")
                         .HasColumnType("uuid");
 
+                    b.Property<int>("Version")
+                        .HasColumnType("integer");
+
                     b.HasKey("Id");
 
-                    b.HasIndex("VenueId");
+                    b.HasIndex("VenueId")
+                        .IsUnique()
+                        .HasDatabaseName("ux_policies_single_current")
+                        .HasFilter("\"IsCurrent\" = TRUE");
+
+                    b.HasIndex("VenueId", "Version")
+                        .IsUnique();
 
                     b.ToTable("policies", "venues");
                 });

@@ -242,6 +242,7 @@ app.MapVenueManagerEndpoints(apiVersionSet);
 app.MapMeEndpoints(apiVersionSet);
 app.MapPaymentMethodEndpoints(apiVersionSet);
 app.MapVenueApprovalEndpoints(apiVersionSet);
+app.MapBookingPolicyEndpoints(apiVersionSet);
 
 await app.RunAsync();
 
