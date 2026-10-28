@@ -12,6 +12,7 @@
     <ProjectReference Include="..\..\src\Malabak.Modules.Booking\Malabak.Modules.Booking.csproj" />
     <ProjectReference Include="..\..\src\Malabak.Modules.Venues\Malabak.Modules.Venues.csproj" />
     <ProjectReference Include="..\..\src\Malabak.Modules.Identity\Malabak.Modules.Identity.csproj" />
+    <ProjectReference Include="..\..\src\Malabak.Modules.Notifications\Malabak.Modules.Notifications.csproj" />
   </ItemGroup>
 
   <ItemGroup>

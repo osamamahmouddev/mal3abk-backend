@@ -2,6 +2,7 @@ using Malabak.Modules.Venues.Application.Common;
 using Malabak.Modules.Venues.Domain;
 using Malabak.Modules.Venues.Infrastructure;
 using Malabak.SharedKernel;
+using Malabak.SharedKernel.Contracts;
 using Microsoft.EntityFrameworkCore;
 
 namespace Malabak.Modules.Venues.Application.Approvals;
@@ -18,12 +19,14 @@ public sealed class DecideVenueApprovalHandler : ICommandHandler<DecideVenueAppr
     private readonly IVenueAuditLogger _auditLogger;
     private readonly VenuesDbContext _dbContext;
     private readonly IClock _clock;
+    private readonly INotificationPublisher? _notifications;
 
-    public DecideVenueApprovalHandler(IVenueAuditLogger auditLogger, VenuesDbContext dbContext, IClock clock)
+    public DecideVenueApprovalHandler(IVenueAuditLogger auditLogger, VenuesDbContext dbContext, IClock clock, INotificationPublisher? notifications = null)
     {
         _auditLogger = auditLogger;
         _dbContext = dbContext;
         _clock = clock;
+        _notifications = notifications;
     }
 
     public async Task<Result<VenueApprovalDto>> HandleAsync(DecideVenueApprovalCommand command, CancellationToken cancellationToken = default)
@@ -54,7 +57,34 @@ public sealed class DecideVenueApprovalHandler : ICommandHandler<DecideVenueAppr
         await _auditLogger.LogAsync($"Venue.Approval.{command.Decision}", nameof(Venue), venue.Id, command.AdminId,
             new { From = transition.Value.FromStatus.ToString(), To = transition.Value.ToStatus.ToString() }, cancellationToken);
 
+        await NotifyOwnerAsync(venue, transition.Value, cancellationToken);
+
         return Result.Success(await VenueApprovalQueries.LoadAsync(_dbContext, venue, cancellationToken));
+    }
+
+    private async Task NotifyOwnerAsync(Venue venue, VenueApprovalEvent decision, CancellationToken cancellationToken)
+    {
+        if (_notifications is null)
+        {
+            return;
+        }
+
+        var type = decision.Action switch
+        {
+            VenueApprovalAction.Approved => NotificationTypes.VenueApproved,
+            VenueApprovalAction.Rejected => NotificationTypes.VenueRejected,
+            _ => NotificationTypes.VenueInfoRequested
+        };
+
+        var data = new Dictionary<string, string>
+        {
+            ["venueId"] = venue.Id.ToString("D"),
+            ["venueName"] = venue.Name,
+            ["reason"] = decision.Message ?? string.Empty,
+            ["message"] = decision.Message ?? string.Empty
+        };
+
+        await _notifications.PublishAsync(new NotificationRequest(venue.OwnerId, type, data, $"{type}:{decision.Id:N}"), cancellationToken);
     }
 }
 

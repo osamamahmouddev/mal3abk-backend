@@ -15,6 +15,8 @@ using Malabak.Modules.Identity;
 using Malabak.Modules.Identity.Application.Common;
 using Malabak.Modules.Identity.Application.Sessions;
 using Malabak.Modules.Identity.Infrastructure;
+using Malabak.Modules.Notifications;
+using Malabak.Modules.Notifications.Infrastructure;
 using Malabak.Modules.Venues;
 using Malabak.Modules.Venues.Application.Common;
 using Malabak.Modules.Venues.Infrastructure;
@@ -186,6 +188,10 @@ builder.Services.AddDbContext<BookingDbContext>(options =>
     options.UseNpgsql(postgresConnectionString, npgsql =>
         npgsql.MigrationsHistoryTable("__EFMigrationsHistory", BookingDbContext.Schema)));
 
+builder.Services.AddDbContext<NotificationsDbContext>(options =>
+    options.UseNpgsql(postgresConnectionString, npgsql =>
+        npgsql.MigrationsHistoryTable("__EFMigrationsHistory", NotificationsDbContext.Schema)));
+
 // 12. Field-level encryption, blind indexes and the persisted Data Protection key ring
 builder.Services.AddFieldEncryption(builder.Configuration, postgresConnectionString);
 
@@ -195,6 +201,8 @@ builder.Services.AddScoped<IBookingConflictChecker, BookingConflictChecker>();
 builder.Services.AddScoped<ICommandHandler<CreateBookingCommand, Result<CreateBookingResponse>>, CreateBookingHandler>();
 builder.Services.AddIdentityModule(builder.Configuration);
 builder.Services.AddVenuesModule();
+builder.Services.AddNotificationsModule();
+builder.Services.AddHostedService<NotificationDispatchService>();
 
 var app = builder.Build();
 
@@ -272,6 +280,7 @@ app.MapPasswordAuthEndpoints(apiVersionSet);
 app.MapAdminAuthEndpoints(apiVersionSet);
 app.MapStepUpEndpoints(apiVersionSet);
 app.MapStaffEndpoints(apiVersionSet);
+app.MapNotificationEndpoints(apiVersionSet);
 
 await app.RunAsync();
 
