@@ -44,4 +44,10 @@ public sealed class BlockedSlot : Entity<Guid>
             CreatedAtUtc = createdAtUtc
         };
     }
+
+    public void MarkDeleted(DateTime nowUtc)
+    {
+        IsDeleted = true;
+        UpdatedAtUtc = nowUtc;
+    }
 }

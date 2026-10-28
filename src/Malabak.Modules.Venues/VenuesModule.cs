@@ -1,3 +1,7 @@
+using Malabak.Modules.Venues.Application.BlockedSlots;
+using Malabak.Modules.Venues.Application.BlockedSlots.CreateBlockedSlot;
+using Malabak.Modules.Venues.Application.BlockedSlots.DeleteBlockedSlot;
+using Malabak.Modules.Venues.Application.BlockedSlots.GetBlockedSlotsByVenue;
 using Malabak.Modules.Venues.Application.Common;
 using Malabak.Modules.Venues.Application.Pitches;
 using Malabak.Modules.Venues.Application.Pitches.CreatePitch;
@@ -17,6 +21,7 @@ using Malabak.Modules.Venues.Application.Venues.GetVenuesByOwner;
 using Malabak.Modules.Venues.Application.Venues.PublishVenue;
 using Malabak.Modules.Venues.Application.Venues.UpdateVenue;
 using Malabak.Modules.Venues.Infrastructure.Repositories;
+using Malabak.Modules.Venues.Infrastructure.Services;
 using Malabak.SharedKernel;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -31,6 +36,10 @@ public static class VenuesModule
         // Repositories
         services.AddScoped<IVenueRepository, VenueRepository>();
         services.AddScoped<IPitchRepository, PitchRepository>();
+        services.AddScoped<IBlockedSlotRepository, BlockedSlotRepository>();
+
+        // Services
+        services.AddScoped<IVenueAuditLogger, LoggingVenueAuditLogger>();
 
         // Venue Handlers
         services.AddScoped<ICommandHandler<CreateVenueCommand, Result<VenueDto>>, CreateVenueHandler>();
@@ -51,6 +60,11 @@ public static class VenuesModule
         services.AddScoped<ICommandHandler<UpdateVenueSchedulesCommand, Result<IReadOnlyList<OperatingScheduleDto>>>, UpdateVenueSchedulesHandler>();
         services.AddScoped<IQueryHandler<GetVenueSchedulesQuery, Result<IReadOnlyList<OperatingScheduleDto>>>, GetVenueSchedulesHandler>();
         services.AddScoped<IQueryHandler<GetVenueSlotsQuery, Result<IReadOnlyList<ScheduleSlotDto>>>, GetVenueSlotsHandler>();
+
+        // Blocked Slot Handlers
+        services.AddScoped<ICommandHandler<CreateBlockedSlotCommand, Result<BlockedSlotDto>>, CreateBlockedSlotHandler>();
+        services.AddScoped<ICommandHandler<DeleteBlockedSlotCommand, Result>, DeleteBlockedSlotHandler>();
+        services.AddScoped<IQueryHandler<GetBlockedSlotsByVenueQuery, Result<IReadOnlyList<BlockedSlotDto>>>, GetBlockedSlotsByVenueHandler>();
 
         return services;
     }

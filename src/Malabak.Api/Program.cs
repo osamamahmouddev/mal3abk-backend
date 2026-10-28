@@ -2,15 +2,18 @@ using System.Globalization;
 using System.Threading.RateLimiting;
 using Asp.Versioning;
 using Malabak.Api.Endpoints;
+using Malabak.Api.Infrastructure;
 using Malabak.Api.Infrastructure.Errors;
 using Malabak.Api.Infrastructure.Health;
 using Malabak.Api.Infrastructure.Logging;
 using Malabak.Api.Infrastructure.OpenTelemetry;
 using Malabak.Modules.Booking.Application.Bookings.CreateBooking;
+using Malabak.Modules.Booking.Infrastructure;
 using Malabak.Modules.Identity;
 using Malabak.Modules.Identity.Application.Common;
 using Malabak.Modules.Identity.Infrastructure;
 using Malabak.Modules.Venues;
+using Malabak.Modules.Venues.Application.Common;
 using Malabak.Modules.Venues.Infrastructure;
 using Malabak.SharedKernel;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -157,8 +160,13 @@ builder.Services.AddDbContext<VenuesDbContext>(options =>
     options.UseNpgsql(postgresConnectionString, npgsql =>
         npgsql.MigrationsHistoryTable("__EFMigrationsHistory", VenuesDbContext.Schema)));
 
+builder.Services.AddDbContext<BookingDbContext>(options =>
+    options.UseNpgsql(postgresConnectionString, npgsql =>
+        npgsql.MigrationsHistoryTable("__EFMigrationsHistory", BookingDbContext.Schema)));
+
 // 12. Dependency Injection
 builder.Services.AddSingleton<IClock, SystemClock>();
+builder.Services.AddScoped<IBookingConflictChecker, BookingConflictChecker>();
 builder.Services.AddScoped<ICommandHandler<CreateBookingCommand, Result<CreateBookingResponse>>, CreateBookingHandler>();
 builder.Services.AddIdentityModule(builder.Configuration);
 builder.Services.AddVenuesModule();
