@@ -346,18 +346,25 @@ namespace Malabak.Modules.Venues.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
-                    b.Property<string>("AccountIdentifier")
+                    b.Property<byte[]>("AccountDetailsCiphertext")
                         .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
+                        .HasColumnType("bytea");
 
-                    b.Property<string>("AccountName")
+                    b.Property<string>("AccountDetailsMask")
                         .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
 
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("DepositType")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<decimal>("DepositValue")
+                        .HasColumnType("numeric(18,2)");
 
                     b.Property<string>("Instructions")
                         .HasMaxLength(1000)
@@ -377,6 +384,11 @@ namespace Malabak.Modules.Venues.Infrastructure.Migrations
                         .IsRequired()
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)");
+
+                    b.Property<string>("RecipientName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
 
                     b.Property<uint>("RowVersion")
                         .IsConcurrencyToken()

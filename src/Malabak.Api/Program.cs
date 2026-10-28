@@ -240,6 +240,7 @@ app.MapAuthEndpoints(apiVersionSet);
 app.MapPhoneChangeEndpoints(apiVersionSet);
 app.MapVenueManagerEndpoints(apiVersionSet);
 app.MapMeEndpoints(apiVersionSet);
+app.MapPaymentMethodEndpoints(apiVersionSet);
 
 await app.RunAsync();
 

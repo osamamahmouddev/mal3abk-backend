@@ -3,6 +3,13 @@ using Malabak.Modules.Venues.Application.BlockedSlots.CreateBlockedSlot;
 using Malabak.Modules.Venues.Application.BlockedSlots.DeleteBlockedSlot;
 using Malabak.Modules.Venues.Application.BlockedSlots.GetBlockedSlotsByVenue;
 using Malabak.Modules.Venues.Application.Common;
+using Malabak.Modules.Venues.Application.PaymentMethods;
+using Malabak.Modules.Venues.Application.PaymentMethods.CreatePaymentMethod;
+using Malabak.Modules.Venues.Application.PaymentMethods.DeletePaymentMethod;
+using Malabak.Modules.Venues.Application.PaymentMethods.GetPaymentMethods;
+using Malabak.Modules.Venues.Application.PaymentMethods.RevealPaymentMethodDetails;
+using Malabak.Modules.Venues.Application.PaymentMethods.UpdatePaymentMethod;
+using Malabak.SharedKernel.Security;
 using Malabak.Modules.Venues.Application.Pitches;
 using Malabak.Modules.Venues.Application.Pitches.CreatePitch;
 using Malabak.Modules.Venues.Application.Pitches.DeletePitch;
@@ -69,6 +76,14 @@ public static class VenuesModule
         services.AddScoped<ICommandHandler<CreateBlockedSlotCommand, Result<BlockedSlotDto>>, CreateBlockedSlotHandler>();
         services.AddScoped<ICommandHandler<DeleteBlockedSlotCommand, Result>, DeleteBlockedSlotHandler>();
         services.AddScoped<IQueryHandler<GetBlockedSlotsByVenueQuery, Result<IReadOnlyList<BlockedSlotDto>>>, GetBlockedSlotsByVenueHandler>();
+
+        // Payment Method Handlers (account details encrypted at field level)
+        services.AddScoped<ICommandHandler<CreatePaymentMethodCommand, Result<PaymentMethodDto>>, CreatePaymentMethodHandler>();
+        services.AddScoped<ICommandHandler<UpdatePaymentMethodCommand, Result<PaymentMethodDto>>, UpdatePaymentMethodHandler>();
+        services.AddScoped<ICommandHandler<DeletePaymentMethodCommand, Result>, DeletePaymentMethodHandler>();
+        services.AddScoped<IQueryHandler<GetPaymentMethodsQuery, Result<IReadOnlyList<PaymentMethodDto>>>, GetPaymentMethodsHandler>();
+        services.AddScoped<IQueryHandler<RevealPaymentMethodDetailsQuery, Result<PaymentMethodDetailsDto>>, RevealPaymentMethodDetailsHandler>();
+        services.AddScoped<IReEncryptionTarget, PaymentMethodReEncryptionTarget>();
 
         return services;
     }
