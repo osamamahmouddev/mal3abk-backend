@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Threading.RateLimiting;
 using Asp.Versioning;
 using Malabak.Api.Endpoints;
+using Malabak.Api.Infrastructure.Configuration;
 using Malabak.Api.Infrastructure.Errors;
 using Malabak.Api.Infrastructure.Health;
 using Malabak.Api.Infrastructure.Logging;
@@ -26,6 +27,12 @@ using Serilog.Events;
 using StackExchange.Redis;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Configure configuration sources (User Secrets in Development, Environment Variables with MALABAK_ prefix)
+builder.Configuration.ConfigureMalabakConfigurationSources(builder.Environment);
+
+// Register strongly-typed Options with validation on start
+builder.Services.AddMalabakOptions(builder.Configuration, builder.Environment);
 
 // 1. Serilog Structured Logging with PII Masking
 builder.Host.UseSerilog((context, services, configuration) =>
