@@ -16,4 +16,17 @@ public sealed class RedisOptions
     public int SyncTimeoutMs { get; set; } = 5000;
 
     public bool AbortOnConnectFail { get; set; }
+
+    public string KeyPrefix { get; set; } = "malabak";
+
+    public string? EnvironmentName { get; set; }
+
+    public bool? Ssl { get; set; }
+
+    public string? Password { get; set; }
+
+    [Range(0, 15, ErrorMessage = "DefaultDatabase must be between 0 and 15.")]
+    public int? DefaultDatabase { get; set; }
+
+    public string ClientName { get; set; } = "Malabak.Api";
 }

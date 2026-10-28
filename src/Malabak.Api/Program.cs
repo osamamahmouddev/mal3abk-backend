@@ -7,6 +7,7 @@ using Malabak.Api.Infrastructure.Errors;
 using Malabak.Api.Infrastructure.Health;
 using Malabak.Api.Infrastructure.Logging;
 using Malabak.Api.Infrastructure.OpenTelemetry;
+using Malabak.Api.Infrastructure.Redis;
 using Malabak.Modules.Booking.Application.Bookings.CreateBooking;
 using Malabak.Modules.Identity;
 using Malabak.Modules.Identity.Application.Common;
@@ -73,13 +74,8 @@ builder.Services.AddApiVersioning(options =>
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-// 6. Redis & Health Checks
-builder.Services.AddSingleton<IConnectionMultiplexer>(_ =>
-{
-    var connectionString = builder.Configuration.GetConnectionString("Redis")
-        ?? "localhost:6379,abortConnect=false";
-    return ConnectionMultiplexer.Connect(connectionString);
-});
+// 6. Redis Infrastructure & Health Checks
+builder.Services.AddRedisInfrastructure(builder.Environment);
 
 builder.Services.AddHealthChecks()
     .AddCheck("live", () => HealthCheckResult.Healthy("Liveness check succeeded"), tags: ["live"])

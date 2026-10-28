@@ -116,6 +116,25 @@ public sealed class ConfigurationOptionsTests
         results.Should().Contain(r => r.ErrorMessage != null && r.ErrorMessage.Contains("ConnectTimeoutMs must be between 100 and 30000 ms"));
     }
 
+    [Theory]
+    [InlineData(-1)]
+    [InlineData(16)]
+    public void RedisOptions_WithInvalidDefaultDatabase_ShouldFailValidation(int invalidDatabase)
+    {
+        // Arrange
+        var options = new RedisOptions
+        {
+            ConnectionString = "localhost:6379",
+            DefaultDatabase = invalidDatabase
+        };
+
+        // Act
+        var results = ValidateModel(options);
+
+        // Assert
+        results.Should().Contain(r => r.ErrorMessage != null && r.ErrorMessage.Contains("DefaultDatabase must be between 0 and 15"));
+    }
+
     [Fact]
     public void TurnstileOptions_WithValidValues_ShouldPassValidation()
     {
