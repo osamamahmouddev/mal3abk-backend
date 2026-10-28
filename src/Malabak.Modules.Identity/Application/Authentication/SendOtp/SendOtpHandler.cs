@@ -11,19 +11,22 @@ public sealed class SendOtpHandler : ICommandHandler<SendOtpCommand, Result<Send
     private readonly IOtpSecurityService _securityService;
     private readonly IOtpStore _otpStore;
     private readonly ILogger<SendOtpHandler> _logger;
+    private readonly ISmsGateway? _sms;
 
     public SendOtpHandler(
         IPhoneNumberNormalizer normalizer,
         ITurnstileValidator turnstileValidator,
         IOtpSecurityService securityService,
         IOtpStore otpStore,
-        ILogger<SendOtpHandler> logger)
+        ILogger<SendOtpHandler> logger,
+        ISmsGateway? sms = null)
     {
         _normalizer = normalizer;
         _turnstileValidator = turnstileValidator;
         _securityService = securityService;
         _otpStore = otpStore;
         _logger = logger;
+        _sms = sms;
     }
 
     public async Task<Result<SendOtpResponse>> HandleAsync(
@@ -78,6 +81,18 @@ public sealed class SendOtpHandler : ICommandHandler<SendOtpCommand, Result<Send
             TimeSpan.FromMinutes(ttlMinutes),
             maxVerificationAttempts: 5,
             cancellationToken);
+
+        // 6. Deliver it (country allow-list, spend caps and failover live in the gateway).
+        if (_sms is not null)
+        {
+            var outcome = await _sms.SendOtpAsync(normalizedPhone, code, cancellationToken);
+            if (outcome != SmsSendOutcome.Sent)
+            {
+                return Result.Failure<SendOtpResponse>(new Error(
+                    "Identity.OtpDeliveryFailed",
+                    "We couldn't send a verification code right now. Please try again later."));
+            }
+        }
 
         // Never log the code itself (SECURITY.md §15.5).
         _logger.LogInformation("Generated OTP for {Phone} with 5-minute validity", normalizedPhone);

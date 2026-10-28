@@ -281,6 +281,7 @@ app.MapAdminAuthEndpoints(apiVersionSet);
 app.MapStepUpEndpoints(apiVersionSet);
 app.MapStaffEndpoints(apiVersionSet);
 app.MapNotificationEndpoints(apiVersionSet);
+app.MapSmsWebhookEndpoints(apiVersionSet);
 
 await app.RunAsync();
 

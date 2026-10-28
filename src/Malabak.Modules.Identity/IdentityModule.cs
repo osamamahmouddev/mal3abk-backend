@@ -14,6 +14,8 @@ using Malabak.Modules.Identity.Application.PhoneChange.StartPhoneChange;
 using Malabak.Modules.Identity.Application.PhoneChange.VerifyNewPhone;
 using Malabak.Modules.Identity.Application.PhoneChange.VerifyOldPhone;
 using Malabak.Modules.Identity.Infrastructure.Services;
+using Malabak.Modules.Identity.Infrastructure.Sms;
+using Microsoft.Extensions.Options;
 using Malabak.SharedKernel;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -37,7 +39,19 @@ public static class IdentityModule
         services.AddSingleton<ITurnstileValidator, TurnstileValidator>();
         services.AddSingleton<IOtpSecurityService, OtpSecurityService>();
         services.AddSingleton<IStepUpService, StepUpService>();
-        services.AddSingleton<ISmsAlertService, LoggingSmsAlertService>();
+        // SMS / WhatsApp: cost-controlled gateway with provider failover (Twilio accounts; Mailpit in Development)
+        services.Configure<SmsOptions>(configuration.GetSection(SmsOptions.SectionName));
+        if (SecurityConfiguration.IsDevelopment(configuration) && !configuration.GetSection($"{SmsOptions.SectionName}:Providers").Exists())
+        {
+            services.PostConfigure<SmsOptions>(o => o.Providers.Add(MailpitSmsProvider.ProviderName));
+        }
+
+        var isDevelopment = SecurityConfiguration.IsDevelopment(configuration);
+        services.AddScoped<IEnumerable<ISmsProvider>>(sp =>
+            SmsProviderFactory.Create(sp.GetRequiredService<IOptions<SmsOptions>>(), sp.GetRequiredService<IEmailSender>(), isDevelopment).ToList());
+        services.AddScoped<ISmsGateway, SmsGateway>();
+        services.AddScoped<ISmsAlertService, GatewaySmsAlertService>();
+        services.AddScoped<SmsDeliveryReceipts>();
 
         // Password authentication (venue owners / staff)
         services.AddSingleton<IPasswordHasher, Pbkdf2PasswordHasher>();
