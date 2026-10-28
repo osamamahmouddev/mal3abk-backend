@@ -6,6 +6,7 @@ using Malabak.Api.Infrastructure;
 using Malabak.Api.Infrastructure.Errors;
 using Malabak.Api.Infrastructure.Health;
 using Malabak.Api.Infrastructure.Logging;
+using Malabak.Api.Infrastructure.Security;
 using Malabak.Api.Infrastructure.OpenTelemetry;
 using Malabak.Modules.Booking.Application.Bookings.CreateBooking;
 using Malabak.Modules.Booking.Infrastructure;
@@ -164,7 +165,10 @@ builder.Services.AddDbContext<BookingDbContext>(options =>
     options.UseNpgsql(postgresConnectionString, npgsql =>
         npgsql.MigrationsHistoryTable("__EFMigrationsHistory", BookingDbContext.Schema)));
 
-// 12. Dependency Injection
+// 12. Field-level encryption, blind indexes and the persisted Data Protection key ring
+builder.Services.AddFieldEncryption(builder.Configuration, postgresConnectionString);
+
+// 13. Dependency Injection
 builder.Services.AddSingleton<IClock, SystemClock>();
 builder.Services.AddScoped<IBookingConflictChecker, BookingConflictChecker>();
 builder.Services.AddScoped<ICommandHandler<CreateBookingCommand, Result<CreateBookingResponse>>, CreateBookingHandler>();

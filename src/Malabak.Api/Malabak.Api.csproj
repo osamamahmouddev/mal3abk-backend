@@ -3,6 +3,7 @@
   <PropertyGroup>
     <RootNamespace>Malabak.Api</RootNamespace>
     <AssemblyName>Malabak.Api</AssemblyName>
+    <UserSecretsId>5ffb011e-bba2-4d52-ba9b-602cb7c16d35</UserSecretsId>
   </PropertyGroup>
 
   <ItemGroup>

@@ -92,6 +92,14 @@ dotnet run --project src/Malabak.Api
 ```
 Swagger / OpenAPI: http://localhost:5000/swagger
 
+**Field-encryption keys (optional locally, required outside Development).** Without them the API generates throwaway keys on every start, so anything encrypted can't be read after a restart. To keep encrypted data across restarts, put random 32-byte keys in User Secrets (never in `appsettings`):
+```bash
+dotnet user-secrets --project src/Malabak.Api set "Security:Encryption:CurrentKeyEncryptionKeyId" "local-kek-1"
+dotnet user-secrets --project src/Malabak.Api set "Security:Encryption:KeyEncryptionKeys:local-kek-1" "$(openssl rand -base64 32)"
+dotnet user-secrets --project src/Malabak.Api set "Security:Encryption:BlindIndexKey" "$(openssl rand -base64 32)"
+```
+See [ADR-0003](docs/adr/0003-field-level-encryption-and-key-management.md) for the design and how rotation works.
+
 ### 4. Web apps
 
 Install once, from the `web/` folder:
