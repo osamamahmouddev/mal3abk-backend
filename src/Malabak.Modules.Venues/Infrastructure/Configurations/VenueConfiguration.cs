@@ -1,0 +1,125 @@
+using System.Text.Json;
+using Malabak.Modules.Venues.Domain;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
+using Microsoft.EntityFrameworkCore.Metadata.Builders;
+
+namespace Malabak.Modules.Venues.Infrastructure.Configurations;
+
+public sealed class VenueConfiguration : IEntityTypeConfiguration<Venue>
+{
+    public void Configure(EntityTypeBuilder<Venue> builder)
+    {
+        builder.ToTable("venues");
+
+        builder.HasKey(v => v.Id);
+
+        builder.Property(v => v.Name)
+            .HasMaxLength(200)
+            .IsRequired();
+
+        builder.Property(v => v.Slug)
+            .HasMaxLength(200)
+            .IsRequired();
+
+        builder.HasIndex(v => v.Slug)
+            .IsUnique();
+
+        builder.Property(v => v.Description)
+            .HasMaxLength(2000);
+
+        builder.Property(v => v.OwnerId)
+            .IsRequired();
+
+        builder.HasIndex(v => v.OwnerId);
+
+        builder.Property(v => v.Address)
+            .HasMaxLength(500)
+            .IsRequired();
+
+        builder.Property(v => v.City)
+            .HasMaxLength(100)
+            .IsRequired();
+
+        builder.Property(v => v.Area)
+            .HasMaxLength(100)
+            .IsRequired();
+
+        builder.HasIndex(v => new { v.City, v.Area });
+
+        builder.Property(v => v.Latitude);
+        builder.Property(v => v.Longitude);
+
+        builder.Property(v => v.PhoneNumber)
+            .HasMaxLength(32)
+            .IsRequired();
+
+        builder.Property(v => v.IsApproved)
+            .IsRequired()
+            .HasDefaultValue(false);
+
+        builder.Property(v => v.IsPublished)
+            .IsRequired()
+            .HasDefaultValue(false);
+
+        builder.HasIndex(v => new { v.IsApproved, v.IsPublished });
+
+        builder.Property(v => v.CreatedAtUtc)
+            .IsRequired();
+
+        builder.Property(v => v.UpdatedAtUtc);
+
+        builder.Property(v => v.IsDeleted)
+            .IsRequired()
+            .HasDefaultValue(false);
+
+        builder.Property(x => x.RowVersion).IsRowVersion();
+
+        var stringListComparer = new ValueComparer<IReadOnlyCollection<string>>(
+            (c1, c2) => c1 != null && c2 != null && c1.SequenceEqual(c2),
+            c => c.Aggregate(0, (a, v) => HashCode.Combine(a, v.GetHashCode())),
+            c => c.ToList().AsReadOnly());
+
+        builder.Property(v => v.Facilities)
+            .HasConversion(
+                v => JsonSerializer.Serialize(v, (JsonSerializerOptions?)null),
+                v => (IReadOnlyCollection<string>)(JsonSerializer.Deserialize<List<string>>(v, (JsonSerializerOptions?)null) ?? new List<string>()))
+            .Metadata.SetValueComparer(stringListComparer);
+
+        builder.Property(v => v.Photos)
+            .HasConversion(
+                v => JsonSerializer.Serialize(v, (JsonSerializerOptions?)null),
+                v => (IReadOnlyCollection<string>)(JsonSerializer.Deserialize<List<string>>(v, (JsonSerializerOptions?)null) ?? new List<string>()))
+            .Metadata.SetValueComparer(stringListComparer);
+
+        builder.HasMany(v => v.Pitches)
+            .WithOne()
+            .HasForeignKey(p => p.VenueId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.HasMany(v => v.OperatingSchedules)
+            .WithOne()
+            .HasForeignKey(s => s.VenueId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.HasMany(v => v.PriceRules)
+            .WithOne()
+            .HasForeignKey(r => r.VenueId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.HasMany(v => v.BlockedSlots)
+            .WithOne()
+            .HasForeignKey(b => b.VenueId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.HasMany(v => v.Policies)
+            .WithOne()
+            .HasForeignKey(p => p.VenueId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.HasMany(v => v.PaymentMethods)
+            .WithOne()
+            .HasForeignKey(m => m.VenueId)
+            .OnDelete(DeleteBehavior.Cascade);
+    }
+}

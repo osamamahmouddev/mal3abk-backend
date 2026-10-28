@@ -1,17 +1,26 @@
 using System.Globalization;
 using System.Threading.RateLimiting;
 using Asp.Versioning;
+using Malabak.Api.Endpoints;
 using Malabak.Api.Infrastructure.Errors;
 using Malabak.Api.Infrastructure.Health;
 using Malabak.Api.Infrastructure.Logging;
 using Malabak.Api.Infrastructure.OpenTelemetry;
 using Malabak.Modules.Booking.Application.Bookings.CreateBooking;
+using Malabak.Modules.Identity;
+using Malabak.Modules.Identity.Application.Common;
+using Malabak.Modules.Identity.Infrastructure;
+using Malabak.Modules.Venues.Infrastructure;
 using Malabak.SharedKernel;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.Localization;
 using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
+using Microsoft.Extensions.Options;
+using Microsoft.IdentityModel.Tokens;
 using Serilog;
 using Serilog.Events;
 using StackExchange.Redis;
@@ -47,14 +56,13 @@ builder.Services.AddApiVersioning(options =>
     options.DefaultApiVersion = new ApiVersion(1, 0);
     options.AssumeDefaultVersionWhenUnspecified = true;
     options.ReportApiVersions = true;
-    options.ApiVersionReader = new UrlSegmentApiVersionReader();
 }).AddApiExplorer(options =>
 {
     options.GroupNameFormat = "'v'VVV";
     options.SubstituteApiVersionInUrl = true;
 });
 
-// 5. Swagger / OpenAPI
+// 5. Swagger / OpenAPI Documentation
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
@@ -109,8 +117,28 @@ builder.Services.Configure<RequestLocalizationOptions>(options =>
     options.SupportedUICultures = supportedCultures;
 });
 
-// 10. Security & Fallback Authorization Policy (Deny by default)
-builder.Services.AddAuthentication();
+// 10. Security & Fallback Authorization Policy (Deny by default with ES256 JWT)
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer();
+
+builder.Services.AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme)
+    .Configure<IJwtKeyProvider, IOptions<JwtOptions>>((options, keyProvider, jwtOptions) =>
+    {
+        var opts = jwtOptions.Value;
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuerSigningKey = true,
+            IssuerSigningKeys = keyProvider.GetValidationKeys(),
+            ValidateIssuer = true,
+            ValidIssuer = opts.Issuer,
+            ValidateAudience = true,
+            ValidAudience = opts.Audience,
+            ValidateLifetime = true,
+            ClockSkew = TimeSpan.FromMinutes(1),
+            ValidAlgorithms = [SecurityAlgorithms.EcdsaSha256]
+        };
+    });
+
 builder.Services.AddAuthorization(options =>
 {
     options.FallbackPolicy = new AuthorizationPolicyBuilder()
@@ -118,9 +146,20 @@ builder.Services.AddAuthorization(options =>
         .Build();
 });
 
-// 11. Dependency Injection
+// 11. Database Contexts (Modular Monolith - Schema per module)
+var postgresConnectionString = builder.Configuration.GetConnectionString("Postgres");
+builder.Services.AddDbContext<IdentityDbContext>(options =>
+    options.UseNpgsql(postgresConnectionString, npgsql =>
+        npgsql.MigrationsHistoryTable("__EFMigrationsHistory", IdentityDbContext.Schema)));
+
+builder.Services.AddDbContext<VenuesDbContext>(options =>
+    options.UseNpgsql(postgresConnectionString, npgsql =>
+        npgsql.MigrationsHistoryTable("__EFMigrationsHistory", VenuesDbContext.Schema)));
+
+// 12. Dependency Injection
 builder.Services.AddSingleton<IClock, SystemClock>();
 builder.Services.AddScoped<ICommandHandler<CreateBookingCommand, Result<CreateBookingResponse>>, CreateBookingHandler>();
+builder.Services.AddIdentityModule(builder.Configuration);
 
 var app = builder.Build();
 
@@ -186,6 +225,8 @@ var v1 = app.MapGroup("/api/v{version:apiVersion}")
 v1.MapGet("/ping", () => Results.Ok(new { message = "Malabak API is operational", status = "Healthy" }))
     .MapToApiVersion(1, 0)
     .AllowAnonymous();
+
+app.MapAuthEndpoints(apiVersionSet);
 
 await app.RunAsync();
 
