@@ -3,6 +3,7 @@ using System.Threading.RateLimiting;
 using Asp.Versioning;
 using Malabak.Api.Endpoints;
 using Malabak.Api.Infrastructure;
+using Malabak.Api.Infrastructure.Authorization;
 using Malabak.Api.Infrastructure.Errors;
 using Malabak.Api.Infrastructure.Health;
 using Malabak.Api.Infrastructure.Logging;
@@ -144,12 +145,7 @@ builder.Services.AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationSc
         };
     });
 
-builder.Services.AddAuthorization(options =>
-{
-    options.FallbackPolicy = new AuthorizationPolicyBuilder()
-        .RequireAuthenticatedUser()
-        .Build();
-});
+builder.Services.AddMalabakAuthorization();
 
 // 11. Database Contexts (Modular Monolith - Schema per module)
 var postgresConnectionString = builder.Configuration.GetConnectionString("Postgres");
@@ -243,6 +239,7 @@ v1.MapGet("/ping", () => Results.Ok(new { message = "Malabak API is operational"
 app.MapAuthEndpoints(apiVersionSet);
 app.MapPhoneChangeEndpoints(apiVersionSet);
 app.MapVenueManagerEndpoints(apiVersionSet);
+app.MapMeEndpoints(apiVersionSet);
 
 await app.RunAsync();
 

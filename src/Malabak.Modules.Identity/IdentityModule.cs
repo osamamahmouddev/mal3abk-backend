@@ -3,6 +3,7 @@ using Malabak.Modules.Identity.Application.Authentication.LogoutAll;
 using Malabak.Modules.Identity.Application.Authentication.RefreshToken;
 using Malabak.Modules.Identity.Application.Authentication.SendOtp;
 using Malabak.Modules.Identity.Application.Authentication.VerifyOtp;
+using Malabak.Modules.Identity.Application.Authorization;
 using Malabak.Modules.Identity.Application.Common;
 using Malabak.Modules.Identity.Application.PhoneChange.RecoverPhone;
 using Malabak.Modules.Identity.Application.PhoneChange.StartPhoneChange;
@@ -33,6 +34,9 @@ public static class IdentityModule
         services.AddSingleton<IOtpSecurityService, OtpSecurityService>();
         services.AddSingleton<IStepUpService, StepUpService>();
         services.AddSingleton<ISmsAlertService, LoggingSmsAlertService>();
+
+        // Authorization (roles/permissions are read from the database on each request)
+        services.AddScoped<IUserPermissionService, UserPermissionService>();
 
         // Redis / In-Memory OTP Store
         var redisConnectionString = configuration.GetConnectionString("Redis");

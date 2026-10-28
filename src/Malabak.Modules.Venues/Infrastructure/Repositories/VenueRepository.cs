@@ -45,7 +45,10 @@ public sealed class VenueRepository : IVenueRepository
     public async Task<bool> ExistsBySlugAsync(string slug, Guid? excludeVenueId = null, CancellationToken cancellationToken = default)
     {
         var normalized = slug.Trim().ToLowerInvariant();
+
+        // Slugs are unique across all owners, so this check must see venues outside the caller's tenant scope.
         return await _dbContext.Venues
+            .IgnoreQueryFilters()
             .AnyAsync(v => v.Slug == normalized && (!excludeVenueId.HasValue || v.Id != excludeVenueId.Value) && !v.IsDeleted, cancellationToken);
     }
 

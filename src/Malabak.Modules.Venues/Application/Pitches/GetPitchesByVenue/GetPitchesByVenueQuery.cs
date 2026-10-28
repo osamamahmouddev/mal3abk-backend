@@ -3,4 +3,4 @@ using Malabak.SharedKernel;
 
 namespace Malabak.Modules.Venues.Application.Pitches.GetPitchesByVenue;
 
-public sealed record GetPitchesByVenueQuery(Guid VenueId) : IQuery<Result<IReadOnlyList<PitchDto>>>;
+public sealed record GetPitchesByVenueQuery(Guid VenueId, Guid UserId) : IQuery<Result<IReadOnlyList<PitchDto>>>;

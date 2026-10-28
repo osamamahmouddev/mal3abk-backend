@@ -41,6 +41,10 @@ public static class VenuesModule
         // Services
         services.AddScoped<IVenueAuditLogger, LoggingVenueAuditLogger>();
 
+        // Authorization & tenant isolation
+        services.AddScoped<IVenueTenantContext, VenueTenantContext>();
+        services.AddScoped<IVenueAccessService, VenueAccessService>();
+
         // Venue Handlers
         services.AddScoped<ICommandHandler<CreateVenueCommand, Result<VenueDto>>, CreateVenueHandler>();
         services.AddScoped<ICommandHandler<UpdateVenueCommand, Result<VenueDto>>, UpdateVenueHandler>();

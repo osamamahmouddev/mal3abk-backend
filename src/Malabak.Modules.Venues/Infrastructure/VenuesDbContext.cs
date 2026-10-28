@@ -1,3 +1,4 @@
+using Malabak.Modules.Venues.Application.Common;
 using Malabak.Modules.Venues.Domain;
 using Microsoft.EntityFrameworkCore;
 
@@ -6,6 +7,8 @@ namespace Malabak.Modules.Venues.Infrastructure;
 public sealed class VenuesDbContext : DbContext
 {
     public const string Schema = "venues";
+
+    private readonly IVenueTenantContext? _tenant;
 
     public DbSet<Venue> Venues => Set<Venue>();
     public DbSet<Pitch> Pitches => Set<Pitch>();
@@ -20,9 +23,27 @@ public sealed class VenuesDbContext : DbContext
     {
     }
 
+    public VenuesDbContext(DbContextOptions<VenuesDbContext> options, IVenueTenantContext tenant)
+        : base(options)
+    {
+        _tenant = tenant;
+    }
+
+    // Read by the query filters at execution time, so each request sees its own tenant scope.
+    private bool IsTenantRestricted => _tenant?.IsRestricted ?? false;
+    private IReadOnlyCollection<Guid> TenantVenueIds => _tenant?.VenueIds ?? [];
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.HasDefaultSchema(Schema);
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(VenuesDbContext).Assembly);
+
+        modelBuilder.Entity<Venue>().HasQueryFilter(v => !IsTenantRestricted || TenantVenueIds.Contains(v.Id));
+        modelBuilder.Entity<Pitch>().HasQueryFilter(e => !IsTenantRestricted || TenantVenueIds.Contains(e.VenueId));
+        modelBuilder.Entity<OperatingSchedule>().HasQueryFilter(e => !IsTenantRestricted || TenantVenueIds.Contains(e.VenueId));
+        modelBuilder.Entity<PriceRule>().HasQueryFilter(e => !IsTenantRestricted || TenantVenueIds.Contains(e.VenueId));
+        modelBuilder.Entity<BlockedSlot>().HasQueryFilter(e => !IsTenantRestricted || TenantVenueIds.Contains(e.VenueId));
+        modelBuilder.Entity<VenuePolicy>().HasQueryFilter(e => !IsTenantRestricted || TenantVenueIds.Contains(e.VenueId));
+        modelBuilder.Entity<VenuePaymentMethod>().HasQueryFilter(e => !IsTenantRestricted || TenantVenueIds.Contains(e.VenueId));
     }
 }

@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using Asp.Versioning.Builder;
+using Malabak.Api.Infrastructure.Authorization;
 using Malabak.Modules.Venues.Application.BlockedSlots;
 using Malabak.Modules.Venues.Application.BlockedSlots.CreateBlockedSlot;
 using Malabak.Modules.Venues.Application.BlockedSlots.DeleteBlockedSlot;
@@ -22,6 +23,7 @@ using Malabak.Modules.Venues.Application.Venues.GetVenuesByOwner;
 using Malabak.Modules.Venues.Application.Venues.PublishVenue;
 using Malabak.Modules.Venues.Application.Venues.UpdateVenue;
 using Malabak.SharedKernel;
+using Malabak.SharedKernel.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Malabak.Api.Endpoints;
@@ -33,7 +35,8 @@ public static class VenueManagerEndpoints
         var group = app.MapGroup("/api/v{version:apiVersion}/venue-manager")
             .WithApiVersionSet(apiVersionSet)
             .MapToApiVersion(1, 0)
-            .RequireAuthorization()
+            .RequireAuthorization(Permissions.VenuesManage)
+            .AddEndpointFilter<VenueTenantEndpointFilter>()
             .WithTags("Venue Manager");
 
         // --- Venues ---
@@ -99,10 +102,17 @@ public static class VenueManagerEndpoints
 
         group.MapGet("/venues/{id:guid}", async (
             Guid id,
+            ClaimsPrincipal user,
             IQueryHandler<GetVenueByIdQuery, Result<VenueDto>> handler,
             CancellationToken cancellationToken) =>
         {
-            var query = new GetVenueByIdQuery(id);
+            var userId = GetUserId(user);
+            if (!userId.HasValue)
+            {
+                return Results.Unauthorized();
+            }
+
+            var query = new GetVenueByIdQuery(id, userId.Value);
             var result = await handler.HandleAsync(query, cancellationToken);
             if (result.IsFailure)
             {
@@ -239,10 +249,17 @@ public static class VenueManagerEndpoints
 
         group.MapGet("/venues/{venueId:guid}/pitches", async (
             Guid venueId,
+            ClaimsPrincipal user,
             IQueryHandler<GetPitchesByVenueQuery, Result<IReadOnlyList<PitchDto>>> handler,
             CancellationToken cancellationToken) =>
         {
-            var query = new GetPitchesByVenueQuery(venueId);
+            var userId = GetUserId(user);
+            if (!userId.HasValue)
+            {
+                return Results.Unauthorized();
+            }
+
+            var query = new GetPitchesByVenueQuery(venueId, userId.Value);
             var result = await handler.HandleAsync(query, cancellationToken);
             if (result.IsFailure)
             {
@@ -256,10 +273,17 @@ public static class VenueManagerEndpoints
 
         group.MapGet("/pitches/{id:guid}", async (
             Guid id,
+            ClaimsPrincipal user,
             IQueryHandler<GetPitchByIdQuery, Result<PitchDto>> handler,
             CancellationToken cancellationToken) =>
         {
-            var query = new GetPitchByIdQuery(id);
+            var userId = GetUserId(user);
+            if (!userId.HasValue)
+            {
+                return Results.Unauthorized();
+            }
+
+            var query = new GetPitchByIdQuery(id, userId.Value);
             var result = await handler.HandleAsync(query, cancellationToken);
             if (result.IsFailure)
             {
@@ -362,10 +386,17 @@ public static class VenueManagerEndpoints
 
         group.MapGet("/venues/{venueId:guid}/schedules", async (
             Guid venueId,
+            ClaimsPrincipal user,
             IQueryHandler<GetVenueSchedulesQuery, Result<IReadOnlyList<OperatingScheduleDto>>> handler,
             CancellationToken cancellationToken) =>
         {
-            var query = new GetVenueSchedulesQuery(venueId);
+            var userId = GetUserId(user);
+            if (!userId.HasValue)
+            {
+                return Results.Unauthorized();
+            }
+
+            var query = new GetVenueSchedulesQuery(venueId, userId.Value);
             var result = await handler.HandleAsync(query, cancellationToken);
             if (result.IsFailure)
             {
@@ -380,10 +411,17 @@ public static class VenueManagerEndpoints
         group.MapGet("/venues/{venueId:guid}/slots", async (
             Guid venueId,
             [FromQuery] DateOnly date,
+            ClaimsPrincipal user,
             IQueryHandler<GetVenueSlotsQuery, Result<IReadOnlyList<ScheduleSlotDto>>> handler,
             CancellationToken cancellationToken) =>
         {
-            var query = new GetVenueSlotsQuery(venueId, date);
+            var userId = GetUserId(user);
+            if (!userId.HasValue)
+            {
+                return Results.Unauthorized();
+            }
+
+            var query = new GetVenueSlotsQuery(venueId, date, userId.Value);
             var result = await handler.HandleAsync(query, cancellationToken);
             if (result.IsFailure)
             {
