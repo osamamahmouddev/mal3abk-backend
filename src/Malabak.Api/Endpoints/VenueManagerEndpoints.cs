@@ -6,6 +6,10 @@ using Malabak.Modules.Venues.Application.Pitches.DeletePitch;
 using Malabak.Modules.Venues.Application.Pitches.GetPitchById;
 using Malabak.Modules.Venues.Application.Pitches.GetPitchesByVenue;
 using Malabak.Modules.Venues.Application.Pitches.UpdatePitch;
+using Malabak.Modules.Venues.Application.Schedules;
+using Malabak.Modules.Venues.Application.Schedules.GetVenueSchedules;
+using Malabak.Modules.Venues.Application.Schedules.GetVenueSlots;
+using Malabak.Modules.Venues.Application.Schedules.UpdateVenueSchedules;
 using Malabak.Modules.Venues.Application.Venues;
 using Malabak.Modules.Venues.Application.Venues.CreateVenue;
 using Malabak.Modules.Venues.Application.Venues.DeleteVenue;
@@ -320,6 +324,72 @@ public static class VenueManagerEndpoints
         })
         .WithName("DeletePitch")
         .WithSummary("Soft delete a pitch");
+
+        // --- Operating Schedules & Slots ---
+
+        group.MapPut("/venues/{venueId:guid}/schedules", async (
+            Guid venueId,
+            ClaimsPrincipal user,
+            [FromBody] UpdateVenueSchedulesApiRequest request,
+            ICommandHandler<UpdateVenueSchedulesCommand, Result<IReadOnlyList<OperatingScheduleDto>>> handler,
+            CancellationToken cancellationToken) =>
+        {
+            var ownerId = GetUserId(user);
+            if (!ownerId.HasValue)
+            {
+                return Results.Unauthorized();
+            }
+
+            var items = request.Schedules
+                .Select(s => new ScheduleItemInput(s.DayOfWeek, s.OpenTime, s.CloseTime, s.SlotDurationMinutes, s.IsActive))
+                .ToList();
+
+            var command = new UpdateVenueSchedulesCommand(venueId, ownerId.Value, items);
+            var result = await handler.HandleAsync(command, cancellationToken);
+            if (result.IsFailure)
+            {
+                return MapErrorToProblem(result.Error);
+            }
+
+            return Results.Ok(result.Value);
+        })
+        .WithName("UpdateVenueSchedules")
+        .WithSummary("Configure weekly operating schedules with overnight span support");
+
+        group.MapGet("/venues/{venueId:guid}/schedules", async (
+            Guid venueId,
+            IQueryHandler<GetVenueSchedulesQuery, Result<IReadOnlyList<OperatingScheduleDto>>> handler,
+            CancellationToken cancellationToken) =>
+        {
+            var query = new GetVenueSchedulesQuery(venueId);
+            var result = await handler.HandleAsync(query, cancellationToken);
+            if (result.IsFailure)
+            {
+                return MapErrorToProblem(result.Error);
+            }
+
+            return Results.Ok(result.Value);
+        })
+        .WithName("GetVenueSchedules")
+        .WithSummary("Get weekly operating schedules for a venue");
+
+        group.MapGet("/venues/{venueId:guid}/slots", async (
+            Guid venueId,
+            [FromQuery] DateOnly date,
+            IQueryHandler<GetVenueSlotsQuery, Result<IReadOnlyList<ScheduleSlotDto>>> handler,
+            CancellationToken cancellationToken) =>
+        {
+            var query = new GetVenueSlotsQuery(venueId, date);
+            var result = await handler.HandleAsync(query, cancellationToken);
+            if (result.IsFailure)
+            {
+                return MapErrorToProblem(result.Error);
+            }
+
+            return Results.Ok(result.Value);
+        })
+        .WithName("GetVenueSlots")
+        .WithSummary("Get calculated bookable slots for a venue on a specific business date");
     }
 
     private static IResult MapErrorToProblem(Error error)
@@ -387,4 +457,13 @@ public static class VenueManagerEndpoints
         decimal? LengthMeters,
         decimal? WidthMeters,
         IEnumerable<string>? Photos);
+
+    public sealed record ScheduleItemApiRequest(
+        DayOfWeek DayOfWeek,
+        TimeOnly OpenTime,
+        TimeOnly CloseTime,
+        int SlotDurationMinutes = 60,
+        bool IsActive = true);
+
+    public sealed record UpdateVenueSchedulesApiRequest(IReadOnlyList<ScheduleItemApiRequest> Schedules);
 }

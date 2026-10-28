@@ -8,6 +8,8 @@ public interface IVenueRepository
 
     Task<Venue?> GetByIdWithPitchesAsync(Guid id, CancellationToken cancellationToken = default);
 
+    Task<Venue?> GetByIdWithSchedulesAsync(Guid id, CancellationToken cancellationToken = default);
+
     Task<IReadOnlyList<Venue>> GetByOwnerIdAsync(Guid ownerId, CancellationToken cancellationToken = default);
 
     Task<bool> ExistsBySlugAsync(string slug, Guid? excludeVenueId = null, CancellationToken cancellationToken = default);

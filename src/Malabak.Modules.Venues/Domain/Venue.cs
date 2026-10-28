@@ -172,6 +172,15 @@ public sealed class Venue : Entity<Guid>
         _pitches.RemoveAll(p => p.Id == pitchId);
     }
 
+    public void SetOperatingSchedules(IEnumerable<OperatingSchedule> schedules, DateTime nowUtc)
+    {
+        ArgumentNullException.ThrowIfNull(schedules);
+
+        _operatingSchedules.Clear();
+        _operatingSchedules.AddRange(schedules);
+        UpdatedAtUtc = nowUtc;
+    }
+
     public void MarkDeleted(DateTime nowUtc)
     {
         IsDeleted = true;

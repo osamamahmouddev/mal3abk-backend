@@ -5,6 +5,10 @@ using Malabak.Modules.Venues.Application.Pitches.DeletePitch;
 using Malabak.Modules.Venues.Application.Pitches.GetPitchById;
 using Malabak.Modules.Venues.Application.Pitches.GetPitchesByVenue;
 using Malabak.Modules.Venues.Application.Pitches.UpdatePitch;
+using Malabak.Modules.Venues.Application.Schedules;
+using Malabak.Modules.Venues.Application.Schedules.GetVenueSchedules;
+using Malabak.Modules.Venues.Application.Schedules.GetVenueSlots;
+using Malabak.Modules.Venues.Application.Schedules.UpdateVenueSchedules;
 using Malabak.Modules.Venues.Application.Venues;
 using Malabak.Modules.Venues.Application.Venues.CreateVenue;
 using Malabak.Modules.Venues.Application.Venues.DeleteVenue;
@@ -42,6 +46,11 @@ public static class VenuesModule
         services.AddScoped<ICommandHandler<DeletePitchCommand, Result>, DeletePitchHandler>();
         services.AddScoped<IQueryHandler<GetPitchByIdQuery, Result<PitchDto>>, GetPitchByIdHandler>();
         services.AddScoped<IQueryHandler<GetPitchesByVenueQuery, Result<IReadOnlyList<PitchDto>>>, GetPitchesByVenueHandler>();
+
+        // Operating Schedule Handlers
+        services.AddScoped<ICommandHandler<UpdateVenueSchedulesCommand, Result<IReadOnlyList<OperatingScheduleDto>>>, UpdateVenueSchedulesHandler>();
+        services.AddScoped<IQueryHandler<GetVenueSchedulesQuery, Result<IReadOnlyList<OperatingScheduleDto>>>, GetVenueSchedulesHandler>();
+        services.AddScoped<IQueryHandler<GetVenueSlotsQuery, Result<IReadOnlyList<ScheduleSlotDto>>>, GetVenueSlotsHandler>();
 
         return services;
     }

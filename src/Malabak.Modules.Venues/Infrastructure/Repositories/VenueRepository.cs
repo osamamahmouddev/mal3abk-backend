@@ -26,6 +26,13 @@ public sealed class VenueRepository : IVenueRepository
             .FirstOrDefaultAsync(v => v.Id == id && !v.IsDeleted, cancellationToken);
     }
 
+    public async Task<Venue?> GetByIdWithSchedulesAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        return await _dbContext.Venues
+            .Include(v => v.OperatingSchedules.Where(s => !s.IsDeleted))
+            .FirstOrDefaultAsync(v => v.Id == id && !v.IsDeleted, cancellationToken);
+    }
+
     public async Task<IReadOnlyList<Venue>> GetByOwnerIdAsync(Guid ownerId, CancellationToken cancellationToken = default)
     {
         return await _dbContext.Venues
