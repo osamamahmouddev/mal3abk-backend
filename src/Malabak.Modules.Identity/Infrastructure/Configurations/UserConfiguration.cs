@@ -72,6 +72,7 @@ public sealed class UserConfiguration : IEntityTypeConfiguration<User>
 
         builder.Property(u => u.City).HasMaxLength(User.MaxPlaceLength);
         builder.Property(u => u.Area).HasMaxLength(User.MaxPlaceLength);
+        builder.Property(u => u.AvatarUrl).HasMaxLength(User.MaxAvatarUrlLength);
         builder.Property(u => u.SkillLevel).HasConversion<string>().HasMaxLength(20);
         builder.Property(u => u.Language).HasMaxLength(5).IsRequired().HasDefaultValue(UserLanguages.Arabic);
         builder.Ignore(u => u.IsOnboardingComplete);

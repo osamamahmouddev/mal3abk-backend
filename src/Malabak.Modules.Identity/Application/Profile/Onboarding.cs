@@ -18,7 +18,36 @@ public sealed record MyProfileDto(
     IReadOnlyList<string> Positions,
     string? SkillLevel,
     string Language,
-    bool OnboardingComplete);
+    bool OnboardingComplete,
+    string? AvatarUrl);
+
+/// <summary>
+/// What other players may see. Deliberately excludes phone, email, area and anything finer than the governorate
+/// (SECURITY.md data minimisation).
+/// </summary>
+public sealed record PublicPlayerProfileDto(
+    Guid UserId, string FullName, string? AvatarUrl, string? City, IReadOnlyList<string> Positions, string? SkillLevel, PlayerStatsSummary? Stats);
+
+public sealed record PlayerStatsSummary(int MatchesPlayed, int TeamsCount);
+
+/// <summary>Hook for the teams/matches modules to contribute a stats summary; none is registered in Phase 1.</summary>
+public interface IPlayerStatsSummaryProvider
+{
+    Task<PlayerStatsSummary?> GetAsync(Guid userId, CancellationToken cancellationToken = default);
+}
+
+public sealed class NoPlayerStatsSummaryProvider : IPlayerStatsSummaryProvider
+{
+    public Task<PlayerStatsSummary?> GetAsync(Guid userId, CancellationToken cancellationToken = default) => Task.FromResult<PlayerStatsSummary?>(null);
+}
+
+/// <summary>Partial update: null fields stay unchanged; City and Area must be sent together.</summary>
+public sealed record UpdateMyProfileCommand(
+    Guid UserId, string? FullName, string? City, string? Area, IReadOnlyList<PlayerPosition>? Positions, SkillLevel? SkillLevel, string? Language)
+    : ICommand<Result<MyProfileDto>>;
+
+/// <param name="AvatarUrl">URL of a ready media-pipeline avatar owned by the user (checked by the caller), or null to remove.</param>
+public sealed record SetAvatarCommand(Guid UserId, string? AvatarUrl) : ICommand<Result<MyProfileDto>>;
 
 public sealed record CompleteProfileCommand(
     Guid UserId, string FullName, string City, string Area, IReadOnlyList<PlayerPosition>? Positions, SkillLevel? SkillLevel, string? Language)
@@ -41,7 +70,9 @@ public static class ProfileErrors
 /// </summary>
 public sealed class ProfileHandlers :
     ICommandHandler<CompleteProfileCommand, Result<MyProfileDto>>,
-    ICommandHandler<SetLanguageCommand, Result>
+    ICommandHandler<SetLanguageCommand, Result>,
+    ICommandHandler<UpdateMyProfileCommand, Result<MyProfileDto>>,
+    ICommandHandler<SetAvatarCommand, Result<MyProfileDto>>
 {
     private readonly IdentityDbContext _dbContext;
     private readonly IClock _clock;
@@ -75,6 +106,21 @@ public sealed class ProfileHandlers :
         return user is null ? null : ToDto(user);
     }
 
+    public async Task<PublicPlayerProfileDto?> GetPublicProfileAsync(
+        Guid userId, IPlayerStatsSummaryProvider stats, CancellationToken cancellationToken = default)
+    {
+        var user = await _dbContext.Users.AsNoTracking()
+            .FirstOrDefaultAsync(u => u.Id == userId && !u.IsDeleted && u.OnboardingCompletedAtUtc != null, cancellationToken);
+        if (user is null)
+        {
+            return null;
+        }
+
+        return new PublicPlayerProfileDto(
+            user.Id, user.FullName, user.AvatarUrl, user.City, user.Positions.Select(p => p.ToString()).ToList(), user.SkillLevel?.ToString(),
+            await stats.GetAsync(user.Id, cancellationToken));
+    }
+
     public async Task<Result<MyProfileDto>> HandleAsync(CompleteProfileCommand command, CancellationToken cancellationToken = default)
     {
         var validation = Validate(command);
@@ -101,6 +147,48 @@ public sealed class ProfileHandlers :
         return Result.Success(ToDto(user));
     }
 
+    public async Task<Result<MyProfileDto>> HandleAsync(UpdateMyProfileCommand command, CancellationToken cancellationToken = default)
+    {
+        if ((command.City is null) != (command.Area is null))
+        {
+            return Result.Failure<MyProfileDto>(ProfileErrors.InvalidPlace);
+        }
+
+        var user = await _dbContext.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == command.UserId && !u.IsDeleted, cancellationToken);
+        if (user is null)
+        {
+            return Result.Failure<MyProfileDto>(ProfileErrors.NotFound);
+        }
+
+        if (command.City is null && (user.City is null || user.Area is null))
+        {
+            return Result.Failure<MyProfileDto>(ProfileErrors.InvalidPlace);
+        }
+
+        // Merge onto the current values and reuse the onboarding validation/normalisation.
+        return await HandleAsync(new CompleteProfileCommand(
+            command.UserId,
+            command.FullName ?? user.FullName,
+            command.City ?? user.City!,
+            command.Area ?? user.Area!,
+            command.Positions ?? user.Positions.ToList(),
+            command.SkillLevel ?? user.SkillLevel,
+            command.Language), cancellationToken);
+    }
+
+    public async Task<Result<MyProfileDto>> HandleAsync(SetAvatarCommand command, CancellationToken cancellationToken = default)
+    {
+        var user = await _dbContext.Users.FirstOrDefaultAsync(u => u.Id == command.UserId && !u.IsDeleted, cancellationToken);
+        if (user is null)
+        {
+            return Result.Failure<MyProfileDto>(ProfileErrors.NotFound);
+        }
+
+        user.SetAvatar(command.AvatarUrl, _clock.UtcNow);
+        await _dbContext.SaveChangesAsync(cancellationToken);
+        return Result.Success(ToDto(user));
+    }
+
     public async Task<Result> HandleAsync(SetLanguageCommand command, CancellationToken cancellationToken = default)
     {
         if (!UserLanguages.IsSupported(command.Language))
@@ -121,7 +209,7 @@ public sealed class ProfileHandlers :
 
     internal static MyProfileDto ToDto(User user) => new(
         user.Id, user.FullName, user.PhoneNumber, user.Email, user.City, user.Area,
-        user.Positions.Select(p => p.ToString()).ToList(), user.SkillLevel?.ToString(), user.Language, user.IsOnboardingComplete);
+        user.Positions.Select(p => p.ToString()).ToList(), user.SkillLevel?.ToString(), user.Language, user.IsOnboardingComplete, user.AvatarUrl);
 
     private static Error? Validate(CompleteProfileCommand command)
     {

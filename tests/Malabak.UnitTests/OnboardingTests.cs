@@ -87,6 +87,66 @@ public sealed class OnboardingTests
         (await handlers.GetMyProfileAsync(player.Id))!.Language.Should().Be("en");
     }
 
+    [Fact]
+    public async Task PatchProfile_ChangesOnlySentFields_AndRequiresCityWithAreaAsync()
+    {
+        await using var db = NewDb();
+        var player = await SeedPlayerAsync(db);
+        var handlers = new ProfileHandlers(db, _clock);
+        await handlers.HandleAsync(new CompleteProfileCommand(player.Id, "Omar", "Cairo", "Maadi", [PlayerPosition.Defender], SkillLevel.Beginner, null));
+
+        var result = await handlers.HandleAsync(new UpdateMyProfileCommand(player.Id, "Omar Ali", null, null, null, SkillLevel.Advanced, null));
+
+        result.Value.FullName.Should().Be("Omar Ali");
+        result.Value.City.Should().Be("cairo");
+        result.Value.Positions.Should().Equal("Defender");
+        result.Value.SkillLevel.Should().Be("Advanced");
+        (await handlers.HandleAsync(new UpdateMyProfileCommand(player.Id, null, "Giza", null, null, null, null))).Error.Should().Be(ProfileErrors.InvalidPlace);
+        (await handlers.HandleAsync(new UpdateMyProfileCommand(player.Id, "x", null, null, null, null, null))).Error.Should().Be(ProfileErrors.InvalidName);
+    }
+
+    [Fact]
+    public async Task PatchProfile_BeforeOnboarding_NeedsAPlaceAsync()
+    {
+        await using var db = NewDb();
+        var player = await SeedPlayerAsync(db);
+
+        var result = await new ProfileHandlers(db, _clock).HandleAsync(new UpdateMyProfileCommand(player.Id, "Omar", null, null, null, null, null));
+
+        result.Error.Should().Be(ProfileErrors.InvalidPlace);
+    }
+
+    [Fact]
+    public async Task PublicProfile_HidesPhoneEmailAndArea_AndRequiresOnboardingAsync()
+    {
+        await using var db = NewDb();
+        var player = await SeedPlayerAsync(db);
+        var handlers = new ProfileHandlers(db, _clock);
+        var stats = new NoPlayerStatsSummaryProvider();
+
+        (await handlers.GetPublicProfileAsync(player.Id, stats)).Should().BeNull("unfinished profiles aren't discoverable");
+
+        await handlers.HandleAsync(new CompleteProfileCommand(player.Id, "Omar", "Cairo", "Maadi", null, null, null));
+        await handlers.HandleAsync(new SetAvatarCommand(player.Id, "/api/v1/media/x/medium"));
+        var profile = await handlers.GetPublicProfileAsync(player.Id, stats);
+
+        profile!.City.Should().Be("cairo");
+        profile.AvatarUrl.Should().Be("/api/v1/media/x/medium");
+        typeof(PublicPlayerProfileDto).GetProperties().Select(p => p.Name).Should().NotContain(["PhoneNumber", "Email", "Area"]);
+    }
+
+    [Fact]
+    public async Task Avatar_CanBeSetAndRemovedAsync()
+    {
+        await using var db = NewDb();
+        var player = await SeedPlayerAsync(db);
+        var handlers = new ProfileHandlers(db, _clock);
+
+        (await handlers.HandleAsync(new SetAvatarCommand(player.Id, "/api/v1/media/a/medium"))).Value.AvatarUrl.Should().NotBeNull();
+        (await handlers.HandleAsync(new SetAvatarCommand(player.Id, null))).Value.AvatarUrl.Should().BeNull();
+        (await handlers.HandleAsync(new SetAvatarCommand(Guid.NewGuid(), null))).Error.Should().Be(ProfileErrors.NotFound);
+    }
+
     private async Task<User> SeedPlayerAsync(IdentityDbContext db)
     {
         var player = User.CreatePlayer(Guid.NewGuid(), "+201001234567", "Player", _clock.UtcNow);

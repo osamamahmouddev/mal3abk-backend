@@ -93,6 +93,9 @@ public static class IdentityModule
         services.AddScoped<Malabak.Modules.Identity.Application.Profile.ProfileHandlers>();
         services.AddScoped<ICommandHandler<Malabak.Modules.Identity.Application.Profile.CompleteProfileCommand, Result<Malabak.Modules.Identity.Application.Profile.MyProfileDto>>>(sp => sp.GetRequiredService<Malabak.Modules.Identity.Application.Profile.ProfileHandlers>());
         services.AddScoped<ICommandHandler<Malabak.Modules.Identity.Application.Profile.SetLanguageCommand, Result>>(sp => sp.GetRequiredService<Malabak.Modules.Identity.Application.Profile.ProfileHandlers>());
+        services.AddScoped<ICommandHandler<Malabak.Modules.Identity.Application.Profile.UpdateMyProfileCommand, Result<Malabak.Modules.Identity.Application.Profile.MyProfileDto>>>(sp => sp.GetRequiredService<Malabak.Modules.Identity.Application.Profile.ProfileHandlers>());
+        services.AddScoped<ICommandHandler<Malabak.Modules.Identity.Application.Profile.SetAvatarCommand, Result<Malabak.Modules.Identity.Application.Profile.MyProfileDto>>>(sp => sp.GetRequiredService<Malabak.Modules.Identity.Application.Profile.ProfileHandlers>());
+        services.AddScoped<Malabak.Modules.Identity.Application.Profile.IPlayerStatsSummaryProvider, Malabak.Modules.Identity.Application.Profile.NoPlayerStatsSummaryProvider>();
 
         // Step-up re-authentication for sensitive actions
         services.AddScoped<StepUpHandlers>();

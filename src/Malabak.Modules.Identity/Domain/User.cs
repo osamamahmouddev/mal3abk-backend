@@ -31,6 +31,10 @@ public sealed class User : Entity<Guid>
 
     public const int MaxNameLength = 100;
     public const int MaxPlaceLength = 100;
+    public const int MaxAvatarUrlLength = 300;
+
+    /// <summary>Media-pipeline URL of the re-encoded avatar (never a client-supplied external URL).</summary>
+    public string? AvatarUrl { get; private set; }
 
     public int FailedLoginCount { get; private set; }
     public DateTime? LoginThrottledUntilUtc { get; private set; }
@@ -140,6 +144,17 @@ public sealed class User : Entity<Guid>
         }
 
         Language = language;
+        UpdatedAtUtc = nowUtc;
+    }
+
+    public void SetAvatar(string? avatarUrl, DateTime nowUtc)
+    {
+        if (avatarUrl is { Length: 0 or > MaxAvatarUrlLength })
+        {
+            throw new ArgumentException("Invalid avatar URL.", nameof(avatarUrl));
+        }
+
+        AvatarUrl = avatarUrl;
         UpdatedAtUtc = nowUtc;
     }
 
