@@ -4,6 +4,10 @@ using Malabak.Modules.Identity.Application.Authentication.RefreshToken;
 using Malabak.Modules.Identity.Application.Authentication.SendOtp;
 using Malabak.Modules.Identity.Application.Authentication.VerifyOtp;
 using Malabak.Modules.Identity.Application.Common;
+using Malabak.Modules.Identity.Application.PhoneChange.RecoverPhone;
+using Malabak.Modules.Identity.Application.PhoneChange.StartPhoneChange;
+using Malabak.Modules.Identity.Application.PhoneChange.VerifyNewPhone;
+using Malabak.Modules.Identity.Application.PhoneChange.VerifyOldPhone;
 using Malabak.Modules.Identity.Infrastructure.Services;
 using Malabak.SharedKernel;
 using Microsoft.Extensions.Configuration;
@@ -27,6 +31,8 @@ public static class IdentityModule
         services.AddSingleton<IPhoneNumberNormalizer, PhoneNumberNormalizer>();
         services.AddSingleton<ITurnstileValidator, TurnstileValidator>();
         services.AddSingleton<IOtpSecurityService, OtpSecurityService>();
+        services.AddSingleton<IStepUpService, StepUpService>();
+        services.AddSingleton<ISmsAlertService, LoggingSmsAlertService>();
 
         // Redis / In-Memory OTP Store
         var redisConnectionString = configuration.GetConnectionString("Redis");
@@ -48,12 +54,18 @@ public static class IdentityModule
             services.AddSingleton<IOtpStore, InMemoryOtpStore>();
         }
 
-        // Command Handlers
+        // Command Handlers - Authentication
         services.AddScoped<ICommandHandler<SendOtpCommand, Result<SendOtpResponse>>, SendOtpHandler>();
         services.AddScoped<ICommandHandler<VerifyOtpCommand, Result<VerifyOtpResponse>>, VerifyOtpHandler>();
         services.AddScoped<ICommandHandler<RefreshTokenCommand, Result<RefreshTokenResponse>>, RefreshTokenHandler>();
         services.AddScoped<ICommandHandler<LogoutCommand, Result>, LogoutHandler>();
         services.AddScoped<ICommandHandler<LogoutAllCommand, Result>, LogoutAllHandler>();
+
+        // Command Handlers - Phone Change State Machine
+        services.AddScoped<ICommandHandler<StartPhoneChangeCommand, Result<StartPhoneChangeResponse>>, StartPhoneChangeHandler>();
+        services.AddScoped<ICommandHandler<VerifyOldPhoneCommand, Result>, VerifyOldPhoneHandler>();
+        services.AddScoped<ICommandHandler<VerifyNewPhoneCommand, Result<VerifyNewPhoneResponse>>, VerifyNewPhoneHandler>();
+        services.AddScoped<ICommandHandler<RecoverPhoneCommand, Result>, RecoverPhoneHandler>();
 
         return services;
     }

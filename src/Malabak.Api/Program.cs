@@ -227,6 +227,7 @@ v1.MapGet("/ping", () => Results.Ok(new { message = "Malabak API is operational"
     .AllowAnonymous();
 
 app.MapAuthEndpoints(apiVersionSet);
+app.MapPhoneChangeEndpoints(apiVersionSet);
 
 await app.RunAsync();
 
