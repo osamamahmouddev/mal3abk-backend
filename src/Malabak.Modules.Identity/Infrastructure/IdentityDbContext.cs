@@ -11,6 +11,7 @@ public sealed class IdentityDbContext : DbContext
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
     public DbSet<UserSession> UserSessions => Set<UserSession>();
     public DbSet<PhoneChangeRequest> PhoneChangeRequests => Set<PhoneChangeRequest>();
+    public DbSet<UserActionToken> UserActionTokens => Set<UserActionToken>();
 
     public IdentityDbContext(DbContextOptions<IdentityDbContext> options)
         : base(options)

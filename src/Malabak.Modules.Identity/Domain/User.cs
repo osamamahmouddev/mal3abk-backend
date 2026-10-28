@@ -19,6 +19,19 @@ public sealed class User : Entity<Guid>
     public bool IsEmailConfirmed { get; private set; }
     public bool TwoFactorEnabled { get; private set; }
     public DateTime? LastPhoneChangeAtUtc { get; private set; }
+    public int FailedLoginCount { get; private set; }
+    public DateTime? LoginThrottledUntilUtc { get; private set; }
+
+    /// <summary>TOTP shared secret, encrypted with the field cipher (AAD bound to this user).</summary>
+    public byte[]? TotpSecretCiphertext { get; private set; }
+
+    /// <summary>Failed password attempts before the login also requires a CAPTCHA (Turnstile).</summary>
+    public const int CaptchaAfterFailures = 3;
+
+    /// <summary>Failed attempts after which an increasing (never permanent) delay applies.</summary>
+    public const int ThrottleAfterFailures = 5;
+
+    public static readonly TimeSpan MaxThrottle = TimeSpan.FromMinutes(15);
 
     public IReadOnlyCollection<string> Roles => _roles.AsReadOnly();
 
@@ -73,6 +86,55 @@ public sealed class User : Entity<Guid>
 
         user._roles.Add(role);
         return user;
+    }
+
+    /// <summary>Self-registered venue owner: email starts unconfirmed until the verification link is used.</summary>
+    public static User CreateVenueOwner(Guid id, string email, string phoneNumber, string passwordHash, string fullName, DateTime createdAtUtc)
+    {
+        var user = CreateStaff(id, email, phoneNumber, passwordHash, fullName, UserRole.VenueOwner, createdAtUtc);
+        user.IsEmailConfirmed = false;
+        return user;
+    }
+
+    public void ConfirmEmail(DateTime nowUtc)
+    {
+        IsEmailConfirmed = true;
+        UpdatedAtUtc = nowUtc;
+    }
+
+    public bool IsLoginThrottled(DateTime nowUtc) => LoginThrottledUntilUtc is { } until && until > nowUtc;
+
+    /// <summary>
+    /// Progressive delay instead of a permanent lockout (a permanent lock would let anyone lock a victim out):
+    /// 1, 2, 4, 8 … minutes after the 5th failure, capped at 15 minutes.
+    /// </summary>
+    public void RegisterFailedLogin(DateTime nowUtc)
+    {
+        FailedLoginCount++;
+        if (FailedLoginCount >= ThrottleAfterFailures)
+        {
+            var exponent = Math.Min(FailedLoginCount - ThrottleAfterFailures, 4);
+            var delay = TimeSpan.FromMinutes(Math.Pow(2, exponent));
+            LoginThrottledUntilUtc = nowUtc + (delay < MaxThrottle ? delay : MaxThrottle);
+        }
+
+        UpdatedAtUtc = nowUtc;
+    }
+
+    public void RegisterSuccessfulLogin(DateTime nowUtc)
+    {
+        FailedLoginCount = 0;
+        LoginThrottledUntilUtc = null;
+        UpdatedAtUtc = nowUtc;
+    }
+
+    /// <summary>Stores a pending TOTP secret; 2FA is only enabled once a code from it is confirmed.</summary>
+    public void SetPendingTotpSecret(byte[] ciphertext, DateTime nowUtc)
+    {
+        ArgumentNullException.ThrowIfNull(ciphertext);
+        TotpSecretCiphertext = ciphertext;
+        TwoFactorEnabled = false;
+        UpdatedAtUtc = nowUtc;
     }
 
     public void AddRole(string role)

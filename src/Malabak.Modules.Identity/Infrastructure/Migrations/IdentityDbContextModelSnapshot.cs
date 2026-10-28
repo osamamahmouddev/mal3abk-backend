@@ -162,6 +162,9 @@ namespace Malabak.Modules.Identity.Infrastructure.Migrations
                         .HasMaxLength(256)
                         .HasColumnType("character varying(256)");
 
+                    b.Property<int>("FailedLoginCount")
+                        .HasColumnType("integer");
+
                     b.Property<string>("FullName")
                         .IsRequired()
                         .HasMaxLength(200)
@@ -179,6 +182,9 @@ namespace Malabak.Modules.Identity.Infrastructure.Migrations
                         .HasColumnType("boolean");
 
                     b.Property<DateTime?>("LastPhoneChangeAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("LoginThrottledUntilUtc")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("PasswordHash")
@@ -205,6 +211,9 @@ namespace Malabak.Modules.Identity.Infrastructure.Migrations
                         .HasMaxLength(128)
                         .HasColumnType("character varying(128)");
 
+                    b.Property<byte[]>("TotpSecretCiphertext")
+                        .HasColumnType("bytea");
+
                     b.Property<bool>("TwoFactorEnabled")
                         .HasColumnType("boolean");
 
@@ -217,7 +226,7 @@ namespace Malabak.Modules.Identity.Infrastructure.Migrations
 
                     b.HasIndex("Email")
                         .IsUnique()
-                        .HasFilter("email IS NOT NULL");
+                        .HasFilter("\"Email\" IS NOT NULL");
 
                     b.HasIndex("IsDeleted");
 
@@ -225,6 +234,44 @@ namespace Malabak.Modules.Identity.Infrastructure.Migrations
                         .IsUnique();
 
                     b.ToTable("users", "identity");
+                });
+
+            modelBuilder.Entity("Malabak.Modules.Identity.Domain.UserActionToken", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("ExpiresAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Purpose")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)");
+
+                    b.Property<string>("TokenHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<DateTime?>("UsedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TokenHash")
+                        .IsUnique();
+
+                    b.HasIndex("UserId", "Purpose");
+
+                    b.ToTable("user_action_tokens", "identity");
                 });
 
             modelBuilder.Entity("Malabak.Modules.Identity.Domain.UserSession", b =>

@@ -220,7 +220,7 @@ namespace Malabak.Modules.Identity.Infrastructure.Migrations
 
                     b.HasIndex("Email")
                         .IsUnique()
-                        .HasFilter("email IS NOT NULL");
+                        .HasFilter("\"Email\" IS NOT NULL");
 
                     b.HasIndex("IsDeleted");
 

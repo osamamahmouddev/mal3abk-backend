@@ -196,7 +196,7 @@ public partial class InitialIdentity : Migration
             table: "users",
             column: "Email",
             unique: true,
-            filter: "email IS NOT NULL");
+            filter: "\"Email\" IS NOT NULL");
 
         migrationBuilder.CreateIndex(
             name: "IX_users_IsDeleted",

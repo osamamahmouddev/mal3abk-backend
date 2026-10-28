@@ -26,7 +26,7 @@ public sealed class UserConfiguration : IEntityTypeConfiguration<User>
 
         builder.HasIndex(u => u.Email)
             .IsUnique()
-            .HasFilter("email IS NOT NULL");
+            .HasFilter("\"Email\" IS NOT NULL");
 
         builder.Property(u => u.FullName)
             .HasMaxLength(200)

@@ -5,6 +5,7 @@ using Malabak.Modules.Identity.Application.Authentication.SendOtp;
 using Malabak.Modules.Identity.Application.Authentication.VerifyOtp;
 using Malabak.Modules.Identity.Application.Authorization;
 using Malabak.Modules.Identity.Application.Common;
+using Malabak.Modules.Identity.Application.PasswordAuth;
 using Malabak.Modules.Identity.Application.PhoneChange.RecoverPhone;
 using Malabak.Modules.Identity.Application.PhoneChange.StartPhoneChange;
 using Malabak.Modules.Identity.Application.PhoneChange.VerifyNewPhone;
@@ -34,6 +35,23 @@ public static class IdentityModule
         services.AddSingleton<IOtpSecurityService, OtpSecurityService>();
         services.AddSingleton<IStepUpService, StepUpService>();
         services.AddSingleton<ISmsAlertService, LoggingSmsAlertService>();
+
+        // Password authentication (venue owners / staff)
+        services.AddSingleton<IPasswordHasher, Pbkdf2PasswordHasher>();
+        services.AddSingleton<IBreachedPasswordChecker, HibpBreachedPasswordChecker>();
+        services.AddSingleton<IPasswordPolicy, PasswordPolicy>();
+        services.AddSingleton<IEmailSender, SmtpEmailSender>();
+        services.AddSingleton<ITotpService, TotpService>();
+        services.AddScoped<ICommandHandler<PasswordLoginCommand, Result<PasswordLoginResponse>>, PasswordLoginHandler>();
+        services.AddScoped<PasswordAccountHandlers>();
+        services.AddScoped<ICommandHandler<RegisterVenueOwnerCommand, Result>>(sp => sp.GetRequiredService<PasswordAccountHandlers>());
+        services.AddScoped<ICommandHandler<VerifyEmailCommand, Result>>(sp => sp.GetRequiredService<PasswordAccountHandlers>());
+        services.AddScoped<ICommandHandler<ResendVerificationCommand, Result>>(sp => sp.GetRequiredService<PasswordAccountHandlers>());
+        services.AddScoped<ICommandHandler<ForgotPasswordCommand, Result>>(sp => sp.GetRequiredService<PasswordAccountHandlers>());
+        services.AddScoped<ICommandHandler<ResetPasswordCommand, Result>>(sp => sp.GetRequiredService<PasswordAccountHandlers>());
+        services.AddScoped<ICommandHandler<ChangePasswordCommand, Result>>(sp => sp.GetRequiredService<PasswordAccountHandlers>());
+        services.AddScoped<ICommandHandler<EnrollTotpCommand, Result<TotpEnrollmentResponse>>>(sp => sp.GetRequiredService<PasswordAccountHandlers>());
+        services.AddScoped<ICommandHandler<ConfirmTotpCommand, Result>>(sp => sp.GetRequiredService<PasswordAccountHandlers>());
 
         // Authorization (roles/permissions are read from the database on each request)
         services.AddScoped<IUserPermissionService, UserPermissionService>();

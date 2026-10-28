@@ -89,6 +89,7 @@ builder.Services.AddHealthChecks()
 builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.AddPasswordAuthRateLimit();
     options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(context =>
         RateLimitPartition.GetFixedWindowLimiter(
             partitionKey: context.Connection.RemoteIpAddress?.ToString() ?? "anonymous",
@@ -243,6 +244,7 @@ app.MapMeEndpoints(apiVersionSet);
 app.MapPaymentMethodEndpoints(apiVersionSet);
 app.MapVenueApprovalEndpoints(apiVersionSet);
 app.MapBookingPolicyEndpoints(apiVersionSet);
+app.MapPasswordAuthEndpoints(apiVersionSet);
 
 await app.RunAsync();
 
