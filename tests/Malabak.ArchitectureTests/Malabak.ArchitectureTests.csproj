@@ -9,8 +9,15 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Malabak.SharedKernel\Malabak.SharedKernel.csproj" />
+    <ProjectReference Include="..\..\src\Malabak.Modules.Audit\Malabak.Modules.Audit.csproj" />
     <ProjectReference Include="..\..\src\Malabak.Modules.Booking\Malabak.Modules.Booking.csproj" />
     <ProjectReference Include="..\..\src\Malabak.Modules.Identity\Malabak.Modules.Identity.csproj" />
+    <ProjectReference Include="..\..\src\Malabak.Modules.Matches\Malabak.Modules.Matches.csproj" />
+    <ProjectReference Include="..\..\src\Malabak.Modules.Notifications\Malabak.Modules.Notifications.csproj" />
+    <ProjectReference Include="..\..\src\Malabak.Modules.Payments\Malabak.Modules.Payments.csproj" />
+    <ProjectReference Include="..\..\src\Malabak.Modules.Subscriptions\Malabak.Modules.Subscriptions.csproj" />
+    <ProjectReference Include="..\..\src\Malabak.Modules.Support\Malabak.Modules.Support.csproj" />
+    <ProjectReference Include="..\..\src\Malabak.Modules.Teams\Malabak.Modules.Teams.csproj" />
     <ProjectReference Include="..\..\src\Malabak.Modules.Venues\Malabak.Modules.Venues.csproj" />
     <ProjectReference Include="..\..\src\Malabak.Api\Malabak.Api.csproj" />
   </ItemGroup>

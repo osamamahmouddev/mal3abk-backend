@@ -15,6 +15,7 @@ Built using **Modular Monolith** and **Clean Architecture** with Vertical Slice 
   `Api` ➔ `Application` ➔ `Domain` ⮜ `Infrastructure`
 - **Frontend Isolation:** The web dashboards talk to the backend **only through the REST API** (no shared C# code).
 - **Core Engineering Rules:** Stored in [`rule.md`](./rule.md).
+- **Security Architecture & Protocols:** Stored in [`SECURITY.md`](./SECURITY.md).
 
 ---
 

@@ -1,6 +1,6 @@
 services:
   postgres:
-    image: postgres:16-alpine
+    image: postgres:17-alpine
     container_name: malabak-postgres
     restart: unless-stopped
     environment:
@@ -11,24 +11,27 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./docker/postgres/01-init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U malabak -d malabak_dev"]
       interval: 10s
       timeout: 5s
       retries: 5
 
-  pgadmin:
-    image: dpage/pgadmin4:latest
-    container_name: malabak-pgadmin
+  redis:
+    image: redis:7.2-alpine
+    container_name: malabak-redis
     restart: unless-stopped
-    environment:
-      PGADMIN_DEFAULT_EMAIL: admin@malabak.com
-      PGADMIN_DEFAULT_PASSWORD: admin
+    command: ["redis-server", "--requirepass", "malabak_dev_redis_password"]
     ports:
-      - "5050:80"
-    depends_on:
-      postgres:
-        condition: service_healthy
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "malabak_dev_redis_password", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   seq:
     image: datalust/seq:latest
@@ -36,10 +39,17 @@ services:
     restart: unless-stopped
     environment:
       ACCEPT_EULA: "Y"
+      SEQ_FIRSTRUN_NOAUTHENTICATION: "true"
     ports:
       - "5341:80"
     volumes:
       - seq_data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sSf http://localhost/api || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
 
   mailpit:
     image: axllent/mailpit:latest
@@ -51,4 +61,5 @@ services:
 
 volumes:
   postgres_data:
+  redis_data:
   seq_data:
