@@ -10,6 +10,9 @@ public abstract class BaseDbContext : DbContext, IUnitOfWork
 
     public abstract string ModuleSchema { get; }
 
+    public DbSet<OutboxMessage> OutboxMessages => Set<OutboxMessage>();
+    public DbSet<InboxMessage> InboxMessages => Set<InboxMessage>();
+
     protected BaseDbContext(DbContextOptions options, IClock? clock = null)
         : base(options)
     {
@@ -24,7 +27,8 @@ public abstract class BaseDbContext : DbContext, IUnitOfWork
         {
             optionsBuilder.AddInterceptors(
                 new AuditableEntityInterceptor(_clock),
-                new SoftDeleteInterceptor(_clock));
+                new SoftDeleteInterceptor(_clock),
+                new OutboxInterceptor(_clock));
         }
     }
 
@@ -38,6 +42,29 @@ public abstract class BaseDbContext : DbContext, IUnitOfWork
         }
 
         ConfigureConventions(modelBuilder);
+        ConfigureOutboxAndInbox(modelBuilder);
+    }
+
+    private static void ConfigureOutboxAndInbox(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<OutboxMessage>(builder =>
+        {
+            builder.ToTable("outbox_messages");
+            builder.HasKey(m => m.Id);
+            builder.Property(m => m.Type).HasMaxLength(500).IsRequired();
+            builder.Property(m => m.Content).HasColumnType("text").IsRequired();
+            builder.Property(m => m.Error).HasColumnType("text");
+            builder.Property(m => m.LockToken).HasMaxLength(128);
+            builder.HasIndex(m => new { m.ProcessedOnUtc, m.NextRetryUtc });
+        });
+
+        modelBuilder.Entity<InboxMessage>(builder =>
+        {
+            builder.ToTable("inbox_messages");
+            builder.HasKey(m => new { m.EventId, m.HandlerName });
+            builder.Property(m => m.HandlerName).HasMaxLength(256).IsRequired();
+            builder.Property(m => m.Error).HasColumnType("text");
+        });
     }
 
     private static void ConfigureConventions(ModelBuilder modelBuilder)

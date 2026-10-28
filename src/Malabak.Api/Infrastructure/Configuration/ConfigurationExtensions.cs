@@ -88,6 +88,12 @@ public static class ConfigurationExtensions
             }, "BypassDashboardAuthInDevelopment is strictly prohibited outside of Development.")
             .ValidateOnStart();
 
+        // Outbox Options
+        services.AddOptions<OutboxOptions>()
+            .Bind(configuration.GetSection(OutboxOptions.SectionName))
+            .ValidateDataAnnotations()
+            .ValidateOnStart();
+
         return services;
     }
 }

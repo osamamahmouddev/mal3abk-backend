@@ -2,6 +2,6 @@ namespace Malabak.SharedKernel;
 
 public interface IDomainEvent
 {
-    Guid EventId => Guid.NewGuid();
+    Guid EventId => IdGenerator.NewGuid();
     DateTime OccurredOnUtc => DateTime.UtcNow;
 }

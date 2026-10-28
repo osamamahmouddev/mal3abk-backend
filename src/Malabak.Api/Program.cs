@@ -8,6 +8,7 @@ using Malabak.Api.Infrastructure.Health;
 using Malabak.Api.Infrastructure.Hangfire;
 using Malabak.Api.Infrastructure.Logging;
 using Malabak.Api.Infrastructure.OpenTelemetry;
+using Malabak.Api.Infrastructure.Outbox;
 using Malabak.Api.Infrastructure.Redis;
 using Malabak.Modules.Booking.Application.Bookings.CreateBooking;
 using Malabak.Modules.Identity;
@@ -86,7 +87,10 @@ builder.Services.AddHealthChecks()
 // 7. Hangfire Background Jobs
 builder.Services.AddHangfireInfrastructure(builder.Configuration, builder.Environment);
 
-// 8. Rate Limiting
+// 8. Outbox & Domain Events Infrastructure
+builder.Services.AddMalabakOutbox();
+
+// 9. Rate Limiting
 builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;

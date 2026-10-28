@@ -2,7 +2,7 @@ using Malabak.SharedKernel.Persistence;
 
 namespace Malabak.SharedKernel;
 
-public abstract class Entity<TId> : IAuditableEntity, ISoftDeletable, IVersionedEntity
+public abstract class Entity<TId> : IAuditableEntity, ISoftDeletable, IVersionedEntity, IHasDomainEvents
     where TId : notnull
 {
     private readonly List<IDomainEvent> _domainEvents = [];
