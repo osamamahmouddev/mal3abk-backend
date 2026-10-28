@@ -129,9 +129,9 @@ builder.Services.Configure<RequestLocalizationOptions>(options =>
 // /admin endpoints and an admin token is rejected everywhere else (SECURITY.md §3.9).
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer()
-    .AddJwtBearer(Malabak.Api.Infrastructure.Authorization.AuthorizationServiceCollectionExtensions.AdminScheme);
+    .AddJwtBearer(MalabakAuthorization.AdminScheme);
 
-foreach (var (scheme, isAdmin) in new[] { (JwtBearerDefaults.AuthenticationScheme, false), (Malabak.Api.Infrastructure.Authorization.AuthorizationServiceCollectionExtensions.AdminScheme, true) })
+foreach (var (scheme, isAdmin) in new[] { (JwtBearerDefaults.AuthenticationScheme, false), (MalabakAuthorization.AdminScheme, true) })
 {
     builder.Services.AddOptions<JwtBearerOptions>(scheme)
         .Configure<IJwtKeyProvider, IOptions<JwtOptions>>((options, keyProvider, jwtOptions) =>
@@ -252,6 +252,7 @@ app.MapVenueApprovalEndpoints(apiVersionSet);
 app.MapBookingPolicyEndpoints(apiVersionSet);
 app.MapPasswordAuthEndpoints(apiVersionSet);
 app.MapAdminAuthEndpoints(apiVersionSet);
+app.MapStepUpEndpoints(apiVersionSet);
 
 await app.RunAsync();
 

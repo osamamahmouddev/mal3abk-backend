@@ -3,13 +3,16 @@ using Microsoft.AspNetCore.Authorization;
 
 namespace Malabak.Api.Infrastructure.Authorization;
 
-public static class AuthorizationServiceCollectionExtensions
+public static class MalabakAuthorization
 {
     /// <summary>JWT scheme that only accepts admin-audience tokens.</summary>
     public const string AdminScheme = "AdminBearer";
 
     /// <summary>Policy for admin endpoints that need an admin session but no specific permission.</summary>
     public const string AdminSessionPolicy = "admin.session";
+
+    /// <summary>Policy accepting either a regular or an admin session.</summary>
+    public const string AnySessionPolicy = "any.session";
 
     /// <summary>
     /// Deny by default (every endpoint needs an authenticated user unless marked AllowAnonymous) plus one
@@ -28,6 +31,11 @@ public static class AuthorizationServiceCollectionExtensions
 
             options.AddPolicy(AdminSessionPolicy, policy => policy
                 .AddAuthenticationSchemes(AdminScheme)
+                .RequireAuthenticatedUser());
+
+            // Endpoints shared by all signed-in users, including admins (e.g. step-up).
+            options.AddPolicy(AnySessionPolicy, policy => policy
+                .AddAuthenticationSchemes(Microsoft.AspNetCore.Authentication.JwtBearer.JwtBearerDefaults.AuthenticationScheme, AdminScheme)
                 .RequireAuthenticatedUser());
 
             foreach (var permission in Permissions.Platform)

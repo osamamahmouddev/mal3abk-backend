@@ -59,7 +59,7 @@ public static class AdminAuthEndpoints
             await handler.HandleAsync(new AdminLogoutCommand(request.RefreshToken), ct);
             return Results.NoContent();
         })
-        .RequireAuthorization(Malabak.Api.Infrastructure.Authorization.AuthorizationServiceCollectionExtensions.AdminSessionPolicy).WithName("AdminLogout");
+        .RequireAuthorization(MalabakAuthorization.AdminSessionPolicy).WithName("AdminLogout");
 
         var sessions = app.MapGroup("/api/v{version:apiVersion}/admin/sessions")
             .WithApiVersionSet(apiVersionSet)

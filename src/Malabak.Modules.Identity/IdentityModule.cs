@@ -7,6 +7,7 @@ using Malabak.Modules.Identity.Application.Authentication.VerifyOtp;
 using Malabak.Modules.Identity.Application.Authorization;
 using Malabak.Modules.Identity.Application.Common;
 using Malabak.Modules.Identity.Application.PasswordAuth;
+using Malabak.Modules.Identity.Application.StepUp;
 using Malabak.Modules.Identity.Application.PhoneChange.RecoverPhone;
 using Malabak.Modules.Identity.Application.PhoneChange.StartPhoneChange;
 using Malabak.Modules.Identity.Application.PhoneChange.VerifyNewPhone;
@@ -63,6 +64,12 @@ public static class IdentityModule
         services.AddScoped<ICommandHandler<AdminLogoutCommand, Result>>(sp => sp.GetRequiredService<AdminAuthHandlers>());
         services.AddScoped<IQueryHandler<ListAdminSessionsQuery, Result<IReadOnlyList<AdminSessionDto>>>>(sp => sp.GetRequiredService<AdminAuthHandlers>());
         services.AddScoped<ICommandHandler<RevokeAdminSessionCommand, Result>>(sp => sp.GetRequiredService<AdminAuthHandlers>());
+
+        // Step-up re-authentication for sensitive actions
+        services.AddScoped<StepUpHandlers>();
+        services.AddScoped<ICommandHandler<SendStepUpOtpCommand, Result>>(sp => sp.GetRequiredService<StepUpHandlers>());
+        services.AddScoped<ICommandHandler<VerifyStepUpCommand, Result<StepUpTokenResponse>>>(sp => sp.GetRequiredService<StepUpHandlers>());
+        services.AddScoped<IStepUpVerifier>(sp => sp.GetRequiredService<StepUpHandlers>());
 
         // Authorization (roles/permissions are read from the database on each request)
         services.AddScoped<IUserPermissionService, UserPermissionService>();
