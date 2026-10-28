@@ -12,6 +12,8 @@ namespace Malabak.Modules.Identity.Infrastructure.Services;
 
 public sealed class TokenService : ITokenService
 {
+    public const string SessionClaim = "sid";
+
     private readonly IJwtKeyProvider _keyProvider;
     private readonly IClock _clock;
     private readonly JwtOptions _options;
@@ -27,23 +29,23 @@ public sealed class TokenService : ITokenService
         _options = options.Value;
     }
 
-    public TokenResult GenerateTokens(User user)
+    public TokenResult GenerateTokens(User user, Guid? sessionId = null)
     {
         var nowUtc = _clock.UtcNow;
         var expirationMinutes = _options.AccessTokenExpirationMinutes > 0 ? _options.AccessTokenExpirationMinutes : 15;
         var refreshTokenDays = _options.RefreshTokenExpirationDays > 0 ? _options.RefreshTokenExpirationDays : 7;
 
-        return Issue(user, _options.Audience, TimeSpan.FromMinutes(expirationMinutes), nowUtc.AddDays(refreshTokenDays), amr: null);
+        return Issue(user, _options.Audience, TimeSpan.FromMinutes(expirationMinutes), nowUtc.AddDays(refreshTokenDays), amr: null, sessionId);
     }
 
-    public TokenResult GenerateAdminTokens(User user, DateTime sessionExpiresAtUtc)
+    public TokenResult GenerateAdminTokens(User user, DateTime sessionExpiresAtUtc, Guid? sessionId = null)
     {
         var minutes = _options.AdminAccessTokenExpirationMinutes > 0 ? _options.AdminAccessTokenExpirationMinutes : 5;
-        return Issue(user, _options.AdminAudience, TimeSpan.FromMinutes(minutes), sessionExpiresAtUtc, amr: ["pwd", "mfa"]);
+        return Issue(user, _options.AdminAudience, TimeSpan.FromMinutes(minutes), sessionExpiresAtUtc, amr: ["pwd", "mfa"], sessionId);
     }
 
     // The payload is readable by anyone (base64), so no PII goes in: no phone, no email (SECURITY.md §3.3).
-    private TokenResult Issue(User user, string audience, TimeSpan accessLifetime, DateTime refreshExpiresAtUtc, string[]? amr)
+    private TokenResult Issue(User user, string audience, TimeSpan accessLifetime, DateTime refreshExpiresAtUtc, string[]? amr, Guid? sessionId)
     {
         ArgumentNullException.ThrowIfNull(user);
 
@@ -61,6 +63,11 @@ public sealed class TokenService : ITokenService
 
         claims.AddRange(user.Roles.Select(role => new Claim(ClaimTypes.Role, role)));
         claims.AddRange((amr ?? []).Select(method => new Claim("amr", method)));
+
+        if (sessionId is { } sid)
+        {
+            claims.Add(new Claim(SessionClaim, sid.ToString("D")));
+        }
 
         var tokenDescriptor = new SecurityTokenDescriptor
         {

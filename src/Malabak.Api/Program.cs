@@ -13,6 +13,7 @@ using Malabak.Modules.Booking.Application.Bookings.CreateBooking;
 using Malabak.Modules.Booking.Infrastructure;
 using Malabak.Modules.Identity;
 using Malabak.Modules.Identity.Application.Common;
+using Malabak.Modules.Identity.Application.Sessions;
 using Malabak.Modules.Identity.Infrastructure;
 using Malabak.Modules.Venues;
 using Malabak.Modules.Venues.Application.Common;
@@ -149,8 +150,25 @@ foreach (var (scheme, isAdmin) in new[] { (JwtBearerDefaults.AuthenticationSchem
                 ClockSkew = TimeSpan.FromSeconds(30),
                 ValidAlgorithms = [SecurityAlgorithms.EcdsaSha256]
             };
+
+            // A revoked device session stops working immediately, not when its access token expires (SECURITY.md §3.5).
+            options.Events = new JwtBearerEvents
+            {
+                OnTokenValidated = async context =>
+                {
+                    var sessionId = context.Principal?.GetSessionId();
+                    var store = context.HttpContext.RequestServices.GetRequiredService<ISessionStore>();
+                    if (sessionId is null || !await store.IsActiveAsync(sessionId.Value, context.HttpContext.RequestAborted))
+                    {
+                        context.Fail("session_revoked");
+                    }
+                }
+            };
         });
 }
+
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<IDeviceContext, HttpDeviceContext>();
 
 builder.Services.AddMalabakAuthorization();
 

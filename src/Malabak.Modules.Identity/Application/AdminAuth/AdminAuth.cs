@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using Malabak.Modules.Identity.Application.Common;
 using Malabak.Modules.Identity.Application.PasswordAuth;
+using Malabak.Modules.Identity.Application.Sessions;
 using Malabak.Modules.Identity.Domain;
 using Malabak.Modules.Identity.Infrastructure;
 using Malabak.SharedKernel;
@@ -70,6 +71,7 @@ public sealed class AdminAuthHandlers :
     private readonly ITotpService _totp;
     private readonly IFieldCipher _cipher;
     private readonly ITokenService _tokenService;
+    private readonly SessionService _sessions;
     private readonly IStepUpService _stepUp;
     private readonly ITurnstileValidator _turnstile;
     private readonly IClock _clock;
@@ -82,6 +84,7 @@ public sealed class AdminAuthHandlers :
         ITotpService totp,
         IFieldCipher cipher,
         ITokenService tokenService,
+        SessionService sessions,
         IStepUpService stepUp,
         ITurnstileValidator turnstile,
         IClock clock,
@@ -93,6 +96,7 @@ public sealed class AdminAuthHandlers :
         _totp = totp;
         _cipher = cipher;
         _tokenService = tokenService;
+        _sessions = sessions;
         _stepUp = stepUp;
         _turnstile = turnstile;
         _clock = clock;
@@ -143,7 +147,8 @@ public sealed class AdminAuthHandlers :
         }
 
         user.RegisterSuccessfulLogin(nowUtc);
-        var tokens = await StartSessionAsync(user, Guid.NewGuid(), nowUtc.AddHours(_jwtOptions.AdminSessionHours), nowUtc, cancellationToken);
+        var sessionId = await _sessions.StartAsync(user, isAdminSession: true, cancellationToken);
+        var tokens = await StartSessionAsync(user, sessionId, nowUtc.AddHours(_jwtOptions.AdminSessionHours), nowUtc, cancellationToken);
         _logger.LogInformation("Admin {UserId} signed in", user.Id);
         return Result.Success(new AdminLoginResponse(tokens, null));
     }
@@ -216,7 +221,8 @@ public sealed class AdminAuthHandlers :
         }
 
         var user = await _dbContext.Users.FirstOrDefaultAsync(u => u.Id == token.UserId && !u.IsDeleted, cancellationToken);
-        if (token.IsExpired(nowUtc) || user is null || !user.Roles.Any(AdminRoles.Contains) || !user.TwoFactorEnabled)
+        if (token.IsExpired(nowUtc) || user is null || !user.Roles.Any(AdminRoles.Contains) || !user.TwoFactorEnabled
+            || !await _sessions.TouchAsync(token.FamilyId, cancellationToken))
         {
             token.Revoke("admin_session_ended", nowUtc);
             await _dbContext.SaveChangesAsync(cancellationToken);
@@ -315,7 +321,7 @@ public sealed class AdminAuthHandlers :
     private async Task<AdminTokens> StartSessionAsync(
         User user, Guid familyId, DateTime sessionExpiresAtUtc, DateTime nowUtc, CancellationToken cancellationToken, RefreshToken? replacing = null)
     {
-        var tokens = _tokenService.GenerateAdminTokens(user, sessionExpiresAtUtc);
+        var tokens = _tokenService.GenerateAdminTokens(user, sessionExpiresAtUtc, familyId);
         var hash = _tokenService.HashRefreshToken(tokens.RefreshToken);
         replacing?.Revoke(hash, nowUtc);
         _dbContext.RefreshTokens.Add(RefreshToken.Create(Guid.NewGuid(), user.Id, hash, familyId, sessionExpiresAtUtc, nowUtc, isAdminSession: true));

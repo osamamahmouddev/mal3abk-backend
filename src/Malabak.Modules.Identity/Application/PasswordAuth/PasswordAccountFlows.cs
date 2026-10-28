@@ -245,6 +245,9 @@ public sealed class PasswordAccountHandlers :
         var activeTokens = await _dbContext.RefreshTokens.Where(t => t.UserId == user.Id && !t.IsRevoked).ToListAsync(cancellationToken);
         activeTokens.ForEach(t => t.Revoke(reason, nowUtc));
 
+        var openSessions = await _dbContext.UserSessions.Where(s => s.UserId == user.Id && !s.IsRevoked).ToListAsync(cancellationToken);
+        openSessions.ForEach(s => s.Revoke(nowUtc, reason));
+
         await _dbContext.SaveChangesAsync(cancellationToken);
         _logger.LogInformation("Password updated for user {UserId} ({Reason}); {Count} sessions revoked", user.Id, reason, activeTokens.Count);
     }

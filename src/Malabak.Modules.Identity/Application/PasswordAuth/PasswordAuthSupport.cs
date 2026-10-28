@@ -76,11 +76,11 @@ internal static class PasswordAuthSupport
     public static FieldEncryptionContext TotpContext(Guid userId) => new("users", "totp_secret", userId);
 
     public static async Task<PasswordLoginResponse> IssueTokensAsync(
-        IdentityDbContext db, ITokenService tokenService, User user, DateTime nowUtc, CancellationToken cancellationToken)
+        IdentityDbContext db, ITokenService tokenService, User user, Guid sessionId, DateTime nowUtc, CancellationToken cancellationToken)
     {
-        var tokens = tokenService.GenerateTokens(user);
+        var tokens = tokenService.GenerateTokens(user, sessionId);
         db.RefreshTokens.Add(RefreshToken.Create(
-            Guid.NewGuid(), user.Id, tokenService.HashRefreshToken(tokens.RefreshToken), Guid.NewGuid(), tokens.RefreshTokenExpiresAtUtc, nowUtc));
+            Guid.NewGuid(), user.Id, tokenService.HashRefreshToken(tokens.RefreshToken), sessionId, tokens.RefreshTokenExpiresAtUtc, nowUtc));
         await db.SaveChangesAsync(cancellationToken);
 
         return new PasswordLoginResponse(

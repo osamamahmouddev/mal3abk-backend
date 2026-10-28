@@ -1,4 +1,5 @@
 using Malabak.Modules.Identity.Application.Common;
+using Malabak.Modules.Identity.Application.Sessions;
 using Malabak.Modules.Identity.Domain;
 using Malabak.Modules.Identity.Infrastructure;
 using Malabak.SharedKernel;
@@ -13,17 +14,20 @@ public sealed class RefreshTokenHandler : ICommandHandler<RefreshTokenCommand, R
     private readonly ITokenService _tokenService;
     private readonly IClock _clock;
     private readonly ILogger<RefreshTokenHandler> _logger;
+    private readonly SessionService? _sessions;
 
     public RefreshTokenHandler(
         IdentityDbContext dbContext,
         ITokenService tokenService,
         IClock clock,
-        ILogger<RefreshTokenHandler> logger)
+        ILogger<RefreshTokenHandler> logger,
+        SessionService? sessions = null)
     {
         _dbContext = dbContext;
         _tokenService = tokenService;
         _clock = clock;
         _logger = logger;
+        _sessions = sessions;
     }
 
     public async Task<Result<RefreshTokenResponse>> HandleAsync(
@@ -69,6 +73,11 @@ public sealed class RefreshTokenHandler : ICommandHandler<RefreshTokenCommand, R
 
             await _dbContext.SaveChangesAsync(cancellationToken);
 
+            if (_sessions is not null)
+            {
+                await _sessions.RevokeAsync(token.UserId, token.FamilyId, "refresh_reuse_detected", cancellationToken);
+            }
+
             _logger.LogWarning(
                 "SECURITY ALERT: Refresh token reuse detected for TokenId {TokenId}, FamilyId {FamilyId}, UserId {UserId}. Revoked {Count} active tokens in family.",
                 token.Id, token.FamilyId, token.UserId, familyTokens.Count);
@@ -90,14 +99,15 @@ public sealed class RefreshTokenHandler : ICommandHandler<RefreshTokenCommand, R
         var user = await _dbContext.Users
             .FirstOrDefaultAsync(u => u.Id == token.UserId, cancellationToken);
 
-        if (user is null)
+        // A revoked device session can no longer be refreshed, even with an unrevoked token.
+        if (user is null || (_sessions is not null && !await _sessions.TouchAsync(token.FamilyId, cancellationToken)))
         {
             return Result.Failure<RefreshTokenResponse>(new Error(
                 "Identity.UserNotFound",
                 "User associated with this token was not found."));
         }
 
-        var tokenResult = _tokenService.GenerateTokens(user);
+        var tokenResult = _tokenService.GenerateTokens(user, token.FamilyId);
         var newHash = _tokenService.HashRefreshToken(tokenResult.RefreshToken);
 
         token.Revoke(newHash, nowUtc);

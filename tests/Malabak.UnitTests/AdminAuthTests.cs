@@ -209,7 +209,7 @@ public sealed class AdminAuthTests
             .AddInMemoryCollection(new Dictionary<string, string?> { ["Security:StepUp:SecretKey"] = "test-step-up-secret-0123456789" })
             .Build();
 
-        return new AdminAuthHandlers(db, _hasher, _totp, _cipher, TokenService(), new StepUpService(stepUpConfig, _clock),
+        return new AdminAuthHandlers(db, _hasher, _totp, _cipher, TokenService(), TestSessions.Create(db, _clock), new StepUpService(stepUpConfig, _clock),
             new AllowTurnstile(), _clock, _jwtOptions, NullLogger<AdminAuthHandlers>.Instance);
     }
 

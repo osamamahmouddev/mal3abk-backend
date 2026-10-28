@@ -1,4 +1,5 @@
 using Malabak.Modules.Identity.Application.Common;
+using Malabak.Modules.Identity.Application.Sessions;
 using Malabak.Modules.Identity.Domain;
 using Malabak.Modules.Identity.Infrastructure;
 using Malabak.SharedKernel;
@@ -22,6 +23,7 @@ public sealed class PasswordLoginHandler : ICommandHandler<PasswordLoginCommand,
     private readonly ITotpService _totp;
     private readonly IFieldCipher _cipher;
     private readonly ITokenService _tokenService;
+    private readonly SessionService _sessions;
     private readonly IClock _clock;
     private readonly ILogger<PasswordLoginHandler> _logger;
 
@@ -32,6 +34,7 @@ public sealed class PasswordLoginHandler : ICommandHandler<PasswordLoginCommand,
         ITotpService totp,
         IFieldCipher cipher,
         ITokenService tokenService,
+        SessionService sessions,
         IClock clock,
         ILogger<PasswordLoginHandler> logger)
     {
@@ -41,6 +44,7 @@ public sealed class PasswordLoginHandler : ICommandHandler<PasswordLoginCommand,
         _totp = totp;
         _cipher = cipher;
         _tokenService = tokenService;
+        _sessions = sessions;
         _clock = clock;
         _logger = logger;
     }
@@ -103,7 +107,8 @@ public sealed class PasswordLoginHandler : ICommandHandler<PasswordLoginCommand,
 
         user.RegisterSuccessfulLogin(nowUtc);
         _logger.LogInformation("User {UserId} signed in with password", user.Id);
-        return Result.Success(await PasswordAuthSupport.IssueTokensAsync(_dbContext, _tokenService, user, nowUtc, cancellationToken));
+        var sessionId = await _sessions.StartAsync(user, isAdminSession: false, cancellationToken);
+        return Result.Success(await PasswordAuthSupport.IssueTokensAsync(_dbContext, _tokenService, user, sessionId, nowUtc, cancellationToken));
     }
 
     private async Task<Result<PasswordLoginResponse>> FailAsync(User user, DateTime nowUtc, Error error, CancellationToken cancellationToken)

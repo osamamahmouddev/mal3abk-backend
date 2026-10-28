@@ -23,6 +23,12 @@ public sealed class UserSessionConfiguration : IEntityTypeConfiguration<UserSess
             .HasMaxLength(512)
             .IsRequired();
 
+        builder.Property(s => s.DeviceId).HasMaxLength(UserSession.MaxDeviceIdLength);
+        builder.Property(s => s.DeviceName).HasMaxLength(UserSession.MaxDeviceNameLength);
+        builder.Property(s => s.RevokedReason).HasMaxLength(50);
+        builder.HasIndex(s => new { s.UserId, s.IsRevoked });
+        builder.HasIndex(s => new { s.UserId, s.DeviceId });
+
         builder.Property(s => s.LastActivityAtUtc)
             .IsRequired();
 

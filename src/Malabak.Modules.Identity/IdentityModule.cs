@@ -7,6 +7,7 @@ using Malabak.Modules.Identity.Application.Authentication.VerifyOtp;
 using Malabak.Modules.Identity.Application.Authorization;
 using Malabak.Modules.Identity.Application.Common;
 using Malabak.Modules.Identity.Application.PasswordAuth;
+using Malabak.Modules.Identity.Application.Sessions;
 using Malabak.Modules.Identity.Application.StepUp;
 using Malabak.Modules.Identity.Application.PhoneChange.RecoverPhone;
 using Malabak.Modules.Identity.Application.PhoneChange.StartPhoneChange;
@@ -64,6 +65,10 @@ public static class IdentityModule
         services.AddScoped<ICommandHandler<AdminLogoutCommand, Result>>(sp => sp.GetRequiredService<AdminAuthHandlers>());
         services.AddScoped<IQueryHandler<ListAdminSessionsQuery, Result<IReadOnlyList<AdminSessionDto>>>>(sp => sp.GetRequiredService<AdminAuthHandlers>());
         services.AddScoped<ICommandHandler<RevokeAdminSessionCommand, Result>>(sp => sp.GetRequiredService<AdminAuthHandlers>());
+
+        // Device sessions (sid claim checked on every request; IDeviceContext is provided by the API host)
+        services.AddScoped<ISessionStore, RedisSessionStore>();
+        services.AddScoped<SessionService>();
 
         // Step-up re-authentication for sensitive actions
         services.AddScoped<StepUpHandlers>();

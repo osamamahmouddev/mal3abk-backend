@@ -314,10 +314,21 @@ namespace Malabak.Modules.Identity.Infrastructure.Migrations
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<string>("DeviceId")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<string>("DeviceName")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
                     b.Property<string>("IpAddress")
                         .IsRequired()
                         .HasMaxLength(64)
                         .HasColumnType("character varying(64)");
+
+                    b.Property<bool>("IsAdminSession")
+                        .HasColumnType("boolean");
 
                     b.Property<bool>("IsDeleted")
                         .ValueGeneratedOnAdd()
@@ -329,6 +340,10 @@ namespace Malabak.Modules.Identity.Infrastructure.Migrations
 
                     b.Property<DateTime>("LastActivityAtUtc")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("RevokedReason")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
 
                     b.Property<uint>("RowVersion")
                         .IsConcurrencyToken()
@@ -350,6 +365,8 @@ namespace Malabak.Modules.Identity.Infrastructure.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("LastActivityAtUtc");
+
+                    b.HasIndex("UserId", "DeviceId");
 
                     b.HasIndex("UserId", "IsRevoked");
 

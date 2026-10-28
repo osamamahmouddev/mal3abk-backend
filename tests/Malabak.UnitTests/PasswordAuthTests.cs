@@ -277,7 +277,7 @@ public sealed class PasswordAuthTests
     }
 
     private PasswordLoginHandler Login(IdentityDbContext db) =>
-        new(db, _hasher, _turnstile, _totp, _cipher, NewTokenService(), _clock, NullLogger<PasswordLoginHandler>.Instance);
+        new(db, _hasher, _turnstile, _totp, _cipher, NewTokenService(), TestSessions.Create(db, _clock), _clock, NullLogger<PasswordLoginHandler>.Instance);
 
     private PasswordAccountHandlers Accounts(IdentityDbContext db) =>
         new(db, _hasher, new PasswordPolicy(new FakeBreachChecker(false)), new PhoneNumberNormalizer(), _mailbox, _totp, _cipher, _clock,

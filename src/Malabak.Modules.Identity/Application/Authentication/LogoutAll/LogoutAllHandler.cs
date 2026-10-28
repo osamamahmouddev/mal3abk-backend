@@ -1,3 +1,4 @@
+using Malabak.Modules.Identity.Application.Sessions;
 using Malabak.Modules.Identity.Infrastructure;
 using Malabak.SharedKernel;
 using Microsoft.EntityFrameworkCore;
@@ -10,15 +11,18 @@ public sealed class LogoutAllHandler : ICommandHandler<LogoutAllCommand, Result>
     private readonly IdentityDbContext _dbContext;
     private readonly IClock _clock;
     private readonly ILogger<LogoutAllHandler> _logger;
+    private readonly SessionService? _sessions;
 
     public LogoutAllHandler(
         IdentityDbContext dbContext,
         IClock clock,
-        ILogger<LogoutAllHandler> logger)
+        ILogger<LogoutAllHandler> logger,
+        SessionService? sessions = null)
     {
         _dbContext = dbContext;
         _clock = clock;
         _logger = logger;
+        _sessions = sessions;
     }
 
     public async Task<Result> HandleAsync(
@@ -40,6 +44,11 @@ public sealed class LogoutAllHandler : ICommandHandler<LogoutAllCommand, Result>
             .FirstOrDefaultAsync(u => u.Id == command.UserId, cancellationToken);
 
         user?.UpdateSecurityStamp(nowUtc);
+
+        if (_sessions is not null)
+        {
+            await _sessions.RevokeAllAsync(command.UserId, exceptSessionId: null, "user_logout_all", cancellationToken);
+        }
 
         await _dbContext.SaveChangesAsync(cancellationToken);
 
