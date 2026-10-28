@@ -238,7 +238,8 @@ public sealed class VenuePitchTests
         publishResult.Error.Code.Should().Be("Venue.NotApproved");
 
         // Approve venue
-        venue.SetApproved(true, _clock.UtcNow);
+        venue.SubmitForApproval(ownerId, null, _clock.UtcNow).IsSuccess.Should().BeTrue();
+        venue.Approve(Guid.NewGuid(), null, _clock.UtcNow).IsSuccess.Should().BeTrue();
         await dbContext.SaveChangesAsync();
 
         // Publish now succeeds

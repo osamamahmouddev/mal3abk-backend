@@ -19,6 +19,7 @@ public static class VenueMapper
             venue.Latitude,
             venue.Longitude,
             venue.PhoneNumber,
+            venue.ApprovalStatus.ToString(),
             venue.IsApproved,
             venue.IsPublished,
             venue.Facilities.ToList(),

@@ -62,7 +62,16 @@ public sealed class VenueConfiguration : IEntityTypeConfiguration<Venue>
             .IsRequired()
             .HasDefaultValue(false);
 
+        builder.Property(v => v.ApprovalStatus)
+            .HasConversion<string>()
+            .HasMaxLength(20)
+            .IsRequired()
+            .HasDefaultValue(VenueApprovalStatus.Draft);
+
+        builder.Ignore(v => v.IsSearchable);
+
         builder.HasIndex(v => new { v.IsApproved, v.IsPublished });
+        builder.HasIndex(v => v.ApprovalStatus);
 
         builder.Property(v => v.CreatedAtUtc)
             .IsRequired();

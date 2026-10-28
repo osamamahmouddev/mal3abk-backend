@@ -253,6 +253,13 @@ namespace Malabak.Modules.Venues.Infrastructure.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)");
 
+                    b.Property<string>("ApprovalStatus")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasDefaultValue("Draft");
+
                     b.Property<string>("Area")
                         .IsRequired()
                         .HasMaxLength(100)
@@ -328,6 +335,8 @@ namespace Malabak.Modules.Venues.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("ApprovalStatus");
+
                     b.HasIndex("OwnerId");
 
                     b.HasIndex("Slug")
@@ -338,6 +347,47 @@ namespace Malabak.Modules.Venues.Infrastructure.Migrations
                     b.HasIndex("IsApproved", "IsPublished");
 
                     b.ToTable("venues", "venues");
+                });
+
+            modelBuilder.Entity("Malabak.Modules.Venues.Domain.VenueApprovalEvent", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Action")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<Guid>("ActorUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("FromStatus")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("Message")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<string>("ToStatus")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<Guid>("VenueId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("VenueId", "CreatedAtUtc");
+
+                    b.ToTable("venue_approval_events", "venues");
                 });
 
             modelBuilder.Entity("Malabak.Modules.Venues.Domain.VenuePaymentMethod", b =>

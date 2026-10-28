@@ -2,6 +2,7 @@ using Malabak.Modules.Venues.Application.BlockedSlots;
 using Malabak.Modules.Venues.Application.BlockedSlots.CreateBlockedSlot;
 using Malabak.Modules.Venues.Application.BlockedSlots.DeleteBlockedSlot;
 using Malabak.Modules.Venues.Application.BlockedSlots.GetBlockedSlotsByVenue;
+using Malabak.Modules.Venues.Application.Approvals;
 using Malabak.Modules.Venues.Application.Common;
 using Malabak.Modules.Venues.Application.PaymentMethods;
 using Malabak.Modules.Venues.Application.PaymentMethods.CreatePaymentMethod;
@@ -84,6 +85,12 @@ public static class VenuesModule
         services.AddScoped<IQueryHandler<GetPaymentMethodsQuery, Result<IReadOnlyList<PaymentMethodDto>>>, GetPaymentMethodsHandler>();
         services.AddScoped<IQueryHandler<RevealPaymentMethodDetailsQuery, Result<PaymentMethodDetailsDto>>, RevealPaymentMethodDetailsHandler>();
         services.AddScoped<IReEncryptionTarget, PaymentMethodReEncryptionTarget>();
+
+        // Approval workflow
+        services.AddScoped<ICommandHandler<SubmitVenueForApprovalCommand, Result<VenueApprovalDto>>, SubmitVenueForApprovalHandler>();
+        services.AddScoped<IQueryHandler<GetVenueApprovalQuery, Result<VenueApprovalDto>>, GetVenueApprovalHandler>();
+        services.AddScoped<ICommandHandler<DecideVenueApprovalCommand, Result<VenueApprovalDto>>, DecideVenueApprovalHandler>();
+        services.AddScoped<IQueryHandler<GetPendingVenueApprovalsQuery, Result<IReadOnlyList<PendingVenueApprovalDto>>>, GetPendingVenueApprovalsHandler>();
 
         return services;
     }

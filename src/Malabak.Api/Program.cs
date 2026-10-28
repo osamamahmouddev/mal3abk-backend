@@ -241,6 +241,7 @@ app.MapPhoneChangeEndpoints(apiVersionSet);
 app.MapVenueManagerEndpoints(apiVersionSet);
 app.MapMeEndpoints(apiVersionSet);
 app.MapPaymentMethodEndpoints(apiVersionSet);
+app.MapVenueApprovalEndpoints(apiVersionSet);
 
 await app.RunAsync();
 
