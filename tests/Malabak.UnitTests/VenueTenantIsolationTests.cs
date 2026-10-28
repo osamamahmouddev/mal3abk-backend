@@ -29,8 +29,7 @@ public sealed class VenueTenantIsolationTests
         return tenant is null ? new VenuesDbContext(options) : new VenuesDbContext(options, tenant);
     }
 
-    // Tests that load whole Venue entities pass their own context: the EF InMemory provider can't
-    // re-materialize Venue's string collections in a second context (Postgres reads them via the converter).
+    // Optionally seed through a caller-supplied context so a test can keep working with the tracked entities.
     private async Task<(Venue A, Pitch PitchA, Venue B, Pitch PitchB)> SeedTwoVenuesAsync(VenuesDbContext? sharedContext = null)
     {
         var db = sharedContext ?? CreateContext();

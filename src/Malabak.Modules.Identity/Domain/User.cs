@@ -19,6 +19,19 @@ public sealed class User : Entity<Guid>
     public bool IsEmailConfirmed { get; private set; }
     public bool TwoFactorEnabled { get; private set; }
     public DateTime? LastPhoneChangeAtUtc { get; private set; }
+    // Profile: city/area only (never precise location), optional football info, language. Minimum data by design.
+    public string? City { get; private set; }
+    public string? Area { get; private set; }
+    public SkillLevel? SkillLevel { get; private set; }
+    public string Language { get; private set; } = UserLanguages.Arabic;
+    public DateTime? OnboardingCompletedAtUtc { get; private set; }
+
+    private readonly List<PlayerPosition> _positions = [];
+    public IReadOnlyCollection<PlayerPosition> Positions => _positions.AsReadOnly();
+
+    public const int MaxNameLength = 100;
+    public const int MaxPlaceLength = 100;
+
     public int FailedLoginCount { get; private set; }
     public DateTime? LoginThrottledUntilUtc { get; private set; }
 
@@ -95,6 +108,42 @@ public sealed class User : Entity<Guid>
         user.IsEmailConfirmed = false;
         return user;
     }
+
+    /// <summary>Profile setup from onboarding (and later edits). Completing it marks onboarding done the first time.</summary>
+    public void UpdateProfile(
+        string fullName, string city, string area, IEnumerable<PlayerPosition>? positions, SkillLevel? skillLevel, DateTime nowUtc)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(fullName);
+        ArgumentException.ThrowIfNullOrWhiteSpace(city);
+        ArgumentException.ThrowIfNullOrWhiteSpace(area);
+
+        if (fullName.Trim().Length > MaxNameLength || city.Trim().Length > MaxPlaceLength || area.Trim().Length > MaxPlaceLength)
+        {
+            throw new ArgumentException("Profile value too long.");
+        }
+
+        FullName = fullName.Trim();
+        City = city.Trim();
+        Area = area.Trim();
+        SkillLevel = skillLevel;
+        _positions.Clear();
+        _positions.AddRange((positions ?? []).Distinct());
+        OnboardingCompletedAtUtc ??= nowUtc;
+        UpdatedAtUtc = nowUtc;
+    }
+
+    public void SetLanguage(string language, DateTime nowUtc)
+    {
+        if (!UserLanguages.IsSupported(language))
+        {
+            throw new ArgumentException("Unsupported language.", nameof(language));
+        }
+
+        Language = language;
+        UpdatedAtUtc = nowUtc;
+    }
+
+    public bool IsOnboardingComplete => OnboardingCompletedAtUtc is not null;
 
     public void ConfirmEmail(DateTime nowUtc)
     {

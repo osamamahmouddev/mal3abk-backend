@@ -268,6 +268,14 @@ namespace Malabak.Modules.Identity.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<string>("Area")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("City")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasColumnType("timestamp with time zone");
 
@@ -294,10 +302,20 @@ namespace Malabak.Modules.Identity.Infrastructure.Migrations
                     b.Property<bool>("IsPhoneNumberConfirmed")
                         .HasColumnType("boolean");
 
+                    b.Property<string>("Language")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(5)
+                        .HasColumnType("character varying(5)")
+                        .HasDefaultValue("ar");
+
                     b.Property<DateTime?>("LastPhoneChangeAtUtc")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<DateTime?>("LoginThrottledUntilUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("OnboardingCompletedAtUtc")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("PasswordHash")
@@ -308,6 +326,11 @@ namespace Malabak.Modules.Identity.Infrastructure.Migrations
                         .IsRequired()
                         .HasMaxLength(32)
                         .HasColumnType("character varying(32)");
+
+                    b.Property<string>("Positions")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
 
                     b.Property<string>("Roles")
                         .IsRequired()
@@ -323,6 +346,10 @@ namespace Malabak.Modules.Identity.Infrastructure.Migrations
                         .IsRequired()
                         .HasMaxLength(128)
                         .HasColumnType("character varying(128)");
+
+                    b.Property<string>("SkillLevel")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
 
                     b.Property<byte[]>("TotpSecretCiphertext")
                         .HasColumnType("bytea");

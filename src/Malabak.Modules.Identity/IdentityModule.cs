@@ -89,6 +89,11 @@ public static class IdentityModule
         services.AddScoped<Malabak.SharedKernel.Contracts.ISessionActivityChecker, SessionActivityChecker>();
         services.AddScoped<SessionService>();
 
+        // Player profile & onboarding
+        services.AddScoped<Malabak.Modules.Identity.Application.Profile.ProfileHandlers>();
+        services.AddScoped<ICommandHandler<Malabak.Modules.Identity.Application.Profile.CompleteProfileCommand, Result<Malabak.Modules.Identity.Application.Profile.MyProfileDto>>>(sp => sp.GetRequiredService<Malabak.Modules.Identity.Application.Profile.ProfileHandlers>());
+        services.AddScoped<ICommandHandler<Malabak.Modules.Identity.Application.Profile.SetLanguageCommand, Result>>(sp => sp.GetRequiredService<Malabak.Modules.Identity.Application.Profile.ProfileHandlers>());
+
         // Step-up re-authentication for sensitive actions
         services.AddScoped<StepUpHandlers>();
         services.AddScoped<ICommandHandler<SendStepUpOtpCommand, Result>>(sp => sp.GetRequiredService<StepUpHandlers>());
