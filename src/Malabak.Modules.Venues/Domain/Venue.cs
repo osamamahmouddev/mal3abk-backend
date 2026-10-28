@@ -62,6 +62,8 @@ public sealed class Venue : Entity<Guid>
         ArgumentException.ThrowIfNullOrWhiteSpace(area);
         ArgumentException.ThrowIfNullOrWhiteSpace(phoneNumber);
 
+        ValidateCoordinates(latitude, longitude);
+
         var venue = new Venue
         {
             Id = id,
@@ -112,6 +114,8 @@ public sealed class Venue : Entity<Guid>
         ArgumentException.ThrowIfNullOrWhiteSpace(area);
         ArgumentException.ThrowIfNullOrWhiteSpace(phoneNumber);
 
+        ValidateCoordinates(latitude, longitude);
+
         Name = name.Trim();
         Description = description?.Trim();
         Address = address.Trim();
@@ -155,5 +159,35 @@ public sealed class Venue : Entity<Guid>
 
         IsPublished = isPublished;
         UpdatedAtUtc = nowUtc;
+    }
+
+    public void AddPitch(Pitch pitch)
+    {
+        ArgumentNullException.ThrowIfNull(pitch);
+        _pitches.Add(pitch);
+    }
+
+    public void RemovePitch(Guid pitchId)
+    {
+        _pitches.RemoveAll(p => p.Id == pitchId);
+    }
+
+    public void MarkDeleted(DateTime nowUtc)
+    {
+        IsDeleted = true;
+        UpdatedAtUtc = nowUtc;
+    }
+
+    private static void ValidateCoordinates(double? latitude, double? longitude)
+    {
+        if (latitude.HasValue && (latitude.Value < -90 || latitude.Value > 90))
+        {
+            throw new ArgumentOutOfRangeException(nameof(latitude), "Latitude must be between -90 and 90 degrees.");
+        }
+
+        if (longitude.HasValue && (longitude.Value < -180 || longitude.Value > 180))
+        {
+            throw new ArgumentOutOfRangeException(nameof(longitude), "Longitude must be between -180 and 180 degrees.");
+        }
     }
 }

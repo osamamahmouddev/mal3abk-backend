@@ -10,6 +10,7 @@ using Malabak.Modules.Booking.Application.Bookings.CreateBooking;
 using Malabak.Modules.Identity;
 using Malabak.Modules.Identity.Application.Common;
 using Malabak.Modules.Identity.Infrastructure;
+using Malabak.Modules.Venues;
 using Malabak.Modules.Venues.Infrastructure;
 using Malabak.SharedKernel;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -160,6 +161,7 @@ builder.Services.AddDbContext<VenuesDbContext>(options =>
 builder.Services.AddSingleton<IClock, SystemClock>();
 builder.Services.AddScoped<ICommandHandler<CreateBookingCommand, Result<CreateBookingResponse>>, CreateBookingHandler>();
 builder.Services.AddIdentityModule(builder.Configuration);
+builder.Services.AddVenuesModule();
 
 var app = builder.Build();
 
@@ -228,6 +230,7 @@ v1.MapGet("/ping", () => Results.Ok(new { message = "Malabak API is operational"
 
 app.MapAuthEndpoints(apiVersionSet);
 app.MapPhoneChangeEndpoints(apiVersionSet);
+app.MapVenueManagerEndpoints(apiVersionSet);
 
 await app.RunAsync();
 
