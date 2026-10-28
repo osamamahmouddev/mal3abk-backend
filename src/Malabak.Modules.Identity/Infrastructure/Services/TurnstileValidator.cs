@@ -19,10 +19,16 @@ public sealed class TurnstileValidator : ITurnstileValidator
         ILogger<TurnstileValidator> logger)
     {
         _logger = logger;
-        _secretKey = configuration["Security:Turnstile:SecretKey"] ?? "1x0000000000000000000000000000000AA"; // Cloudflare always-pass test key
+        var isDevelopment = SecurityConfiguration.IsDevelopment(configuration);
 
+        // Bypass and test tokens exist for local development only; they must never weaken production.
         var bypassConfig = configuration["Security:Turnstile:BypassInDevelopment"];
-        _bypassInDev = string.IsNullOrEmpty(bypassConfig) || (bool.TryParse(bypassConfig, out var bypass) && bypass);
+        _bypassInDev = isDevelopment && bool.TryParse(bypassConfig, out var bypass) && bypass;
+
+        _secretKey = configuration["Security:Turnstile:SecretKey"]
+            ?? (isDevelopment
+                ? "1x0000000000000000000000000000000AA" // Cloudflare's public always-pass test key
+                : throw new InvalidOperationException("Required secret 'Security:Turnstile:SecretKey' is not configured."));
     }
 
     public async Task<bool> ValidateTokenAsync(
@@ -33,14 +39,6 @@ public sealed class TurnstileValidator : ITurnstileValidator
         if (string.IsNullOrWhiteSpace(turnstileToken))
         {
             return false;
-        }
-
-        // Allow test tokens for development and unit testing
-        if (turnstileToken.StartsWith("dummy-", StringComparison.OrdinalIgnoreCase) ||
-            turnstileToken.StartsWith("test-", StringComparison.OrdinalIgnoreCase) ||
-            turnstileToken.Equals("1x00000000000000000000AA", StringComparison.OrdinalIgnoreCase))
-        {
-            return true;
         }
 
         if (_bypassInDev)

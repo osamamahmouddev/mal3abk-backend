@@ -57,8 +57,8 @@ public sealed class VenueRepository : IVenueRepository
         _dbContext.Venues.Add(venue);
     }
 
-    public void Delete(Venue venue)
+    public void Delete(Venue venue, DateTime nowUtc)
     {
-        venue.MarkDeleted(DateTime.UtcNow);
+        venue.MarkDeleted(nowUtc);
     }
 }

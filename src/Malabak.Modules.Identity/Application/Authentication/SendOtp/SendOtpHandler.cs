@@ -79,7 +79,8 @@ public sealed class SendOtpHandler : ICommandHandler<SendOtpCommand, Result<Send
             maxVerificationAttempts: 5,
             cancellationToken);
 
-        _logger.LogInformation("Generated OTP for {Phone} with 5-minute validity (Code: {Code})", normalizedPhone, code);
+        // Never log the code itself (SECURITY.md §15.5).
+        _logger.LogInformation("Generated OTP for {Phone} with 5-minute validity", normalizedPhone);
 
         return Result.Success(new SendOtpResponse(
             normalizedPhone,

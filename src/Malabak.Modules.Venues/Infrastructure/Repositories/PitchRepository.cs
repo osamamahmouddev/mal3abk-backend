@@ -32,8 +32,8 @@ public sealed class PitchRepository : IPitchRepository
         _dbContext.Pitches.Add(pitch);
     }
 
-    public void Delete(Pitch pitch)
+    public void Delete(Pitch pitch, DateTime nowUtc)
     {
-        pitch.MarkDeleted(DateTime.UtcNow);
+        pitch.MarkDeleted(nowUtc);
     }
 }

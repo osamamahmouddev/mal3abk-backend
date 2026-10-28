@@ -13,8 +13,7 @@ public sealed class StepUpService : IStepUpService
 
     public StepUpService(IConfiguration configuration, IClock clock)
     {
-        var secret = configuration["Security:StepUp:SecretKey"] ?? "Malabak-StepUp-Verification-HMAC-SHA256-Key-2026!";
-        _hmacKey = Encoding.UTF8.GetBytes(secret);
+        _hmacKey = SecurityConfiguration.RequireSecret(configuration, "Security:StepUp:SecretKey");
         _clock = clock;
     }
 

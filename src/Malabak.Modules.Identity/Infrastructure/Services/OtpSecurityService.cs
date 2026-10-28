@@ -11,8 +11,7 @@ public sealed class OtpSecurityService : IOtpSecurityService
 
     public OtpSecurityService(IConfiguration configuration)
     {
-        var secret = configuration["Security:Otp:HmacSecret"] ?? "Malabak-Secure-Otp-HMAC-SHA256-Key-2026-Egypt!";
-        _hmacKey = Encoding.UTF8.GetBytes(secret);
+        _hmacKey = SecurityConfiguration.RequireSecret(configuration, "Security:Otp:HmacSecret");
     }
 
     public string GenerateSecureOtpCode()

@@ -10,5 +10,5 @@ public interface IPitchRepository
 
     void Add(Pitch pitch);
 
-    void Delete(Pitch pitch);
+    void Delete(Pitch pitch, DateTime nowUtc);
 }

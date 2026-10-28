@@ -21,7 +21,8 @@ public sealed class OtpAuthTests
         var configDict = new Dictionary<string, string?>
         {
             ["Security:Otp:HmacSecret"] = "TestSecretKeyForHmacSha256Authentication123456!",
-            ["Security:Turnstile:BypassInDevelopment"] = "true"
+            ["Security:Turnstile:BypassInDevelopment"] = "true",
+            ["environment"] = "Development"
         };
 
         _configuration = new TestConfiguration(configDict);
@@ -132,6 +133,45 @@ public sealed class OtpAuthTests
         result.IsSuccess.Should().BeTrue();
         result.Value.NormalizedPhoneNumber.Should().Be("+201011223344");
         result.Value.ExpiresInSeconds.Should().Be(300);
+    }
+
+    [Fact]
+    public void Turnstile_InProduction_WithoutSecret_FailsClosed()
+    {
+        var config = new TestConfiguration(new Dictionary<string, string?>
+        {
+            ["environment"] = "Production",
+            ["Security:Turnstile:BypassInDevelopment"] = "true"
+        });
+
+        var act = () => new TurnstileValidator(config, NullLogger<TurnstileValidator>.Instance);
+
+        act.Should().Throw<InvalidOperationException>();
+    }
+
+    [Fact]
+    public void SecretServices_InProduction_WithoutSecrets_FailClosed()
+    {
+        var config = new TestConfiguration(new Dictionary<string, string?> { ["environment"] = "Production" });
+
+        var otp = () => new OtpSecurityService(config);
+
+        otp.Should().Throw<InvalidOperationException>();
+    }
+
+    [Fact]
+    public async Task Turnstile_InProduction_TestPrefixedToken_IsNotAcceptedAsync()
+    {
+        var config = new TestConfiguration(new Dictionary<string, string?>
+        {
+            ["environment"] = "Production",
+            ["Security:Turnstile:SecretKey"] = "prod-secret",
+            ["Security:Turnstile:BypassInDevelopment"] = "true"
+        });
+        var turnstile = new TurnstileValidator(config, NullLogger<TurnstileValidator>.Instance);
+
+        // Siteverify rejects (or is unreachable for) this token; either way it must not pass.
+        (await turnstile.ValidateTokenAsync("test-anything")).Should().BeFalse();
     }
 
     [Fact]
