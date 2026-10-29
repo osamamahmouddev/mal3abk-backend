@@ -12,6 +12,7 @@ using Malabak.Api.Infrastructure.Logging;
 using Malabak.Api.Infrastructure.OpenTelemetry;
 using Malabak.Api.Infrastructure.Outbox;
 using Malabak.Api.Infrastructure.Redis;
+using Malabak.Api.Infrastructure.Security;
 using Malabak.Api.Infrastructure.Validation;
 using Malabak.Modules.Booking.Application.Bookings.CreateBooking;
 using Malabak.Modules.Identity;
@@ -113,17 +114,8 @@ builder.Services.AddRateLimiter(options =>
             }));
 });
 
-// 8. CORS
-builder.Services.AddCors(options =>
-{
-    options.AddPolicy("DefaultCorsPolicy", policy =>
-    {
-        policy.WithOrigins("http://localhost:3000", "http://localhost:5000", "http://localhost:5001")
-              .AllowAnyHeader()
-              .AllowAnyMethod()
-              .AllowCredentials();
-    });
-});
+// 8. Security Infrastructure (Headers, CORS, Cloudflare, Distributed Rate Limiter)
+builder.Services.AddMalabakSecurity(builder.Configuration);
 
 // 9. Localization (Arabic primary RTL, English)
 builder.Services.AddLocalization();
@@ -217,7 +209,7 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-app.UseCors("DefaultCorsPolicy");
+app.UseMalabakSecurity();
 app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
@@ -284,6 +276,18 @@ if (app.Environment.IsDevelopment())
 
     v1.MapGet("/test/auth-fallback-protected", () => Results.Ok(new { secret = "data" }))
         .MapToApiVersion(1, 0);
+
+    v1.MapGet("/test/rate-limited", () => Results.Ok(new { message = "rate limit test ok" }))
+        .MapToApiVersion(1, 0)
+        .RequireDistributedRateLimiting("test-policy", permitLimit: 3, windowSeconds: 10)
+        .AllowAnonymous();
+
+    v1.MapGet("/test/client-ip", (HttpContext httpContext) => Results.Ok(new
+    {
+        clientIp = httpContext.Connection.RemoteIpAddress?.ToString()
+    }))
+    .MapToApiVersion(1, 0)
+    .AllowAnonymous();
 }
 
 app.MapAuthEndpoints(apiVersionSet);
