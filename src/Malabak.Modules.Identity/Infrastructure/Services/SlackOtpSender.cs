@@ -42,25 +42,10 @@ public sealed class SlackOtpSender : IOtpSender
 
         return $"""
             *ملعبك — كود تحقق* ({environmentName})
-            الرقم: `{MaskPhoneNumber(phoneNumber)}`
+            الرقم: `{PhoneNumberMasker.Mask(phoneNumber)}`
             الغرض: {purposeText}
             الكود: *{code}*
             صالح لمدة {minutes} دقيقة
             """;
-    }
-
-    /// <summary>Keeps the country and operator prefix and the last three digits: +201012345678 → +2010•••••678.</summary>
-    public static string MaskPhoneNumber(string phoneNumber)
-    {
-        const int visiblePrefix = 5;
-        const int visibleSuffix = 3;
-
-        if (string.IsNullOrEmpty(phoneNumber) || phoneNumber.Length <= visiblePrefix + visibleSuffix)
-        {
-            return new string('•', phoneNumber?.Length ?? 0);
-        }
-
-        var hidden = phoneNumber.Length - visiblePrefix - visibleSuffix;
-        return string.Concat(phoneNumber.AsSpan(0, visiblePrefix), new string('•', hidden), phoneNumber.AsSpan(phoneNumber.Length - visibleSuffix));
     }
 }

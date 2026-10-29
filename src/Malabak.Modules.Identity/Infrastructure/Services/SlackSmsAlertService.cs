@@ -26,14 +26,14 @@ public sealed class SlackSmsAlertService : ISmsAlertService
     {
         var header = $"""
             *ملعبك — تنبيه أمان* ({environmentName})
-            الرقم: `{SlackOtpSender.MaskPhoneNumber(phoneNumber)}`
+            الرقم: `{PhoneNumberMasker.Mask(phoneNumber)}`
             """;
 
         return alert.Kind switch
         {
             SecurityAlertKind.PhoneChanged => $"""
                 {header}
-                النوع: تم تغيير رقم الحساب إلى `{SlackOtpSender.MaskPhoneNumber(alert.NewPhoneNumber ?? string.Empty)}`
+                النوع: تم تغيير رقم الحساب إلى `{PhoneNumberMasker.Mask(alert.NewPhoneNumber ?? string.Empty)}`
                 رابط الاسترجاع (صالح 24 ساعة): {alert.RecoveryLink}
                 """,
             SecurityAlertKind.PhoneRestored => $"""
