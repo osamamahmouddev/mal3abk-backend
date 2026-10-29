@@ -12,6 +12,7 @@ public abstract class BaseDbContext : DbContext, IUnitOfWork
 
     public DbSet<OutboxMessage> OutboxMessages => Set<OutboxMessage>();
     public DbSet<InboxMessage> InboxMessages => Set<InboxMessage>();
+    public DbSet<IdempotencyRecord> IdempotencyRecords => Set<IdempotencyRecord>();
 
     protected BaseDbContext(DbContextOptions options, IClock? clock = null)
         : base(options)
@@ -64,6 +65,20 @@ public abstract class BaseDbContext : DbContext, IUnitOfWork
             builder.HasKey(m => new { m.EventId, m.HandlerName });
             builder.Property(m => m.HandlerName).HasMaxLength(256).IsRequired();
             builder.Property(m => m.Error).HasColumnType("text");
+        });
+
+        modelBuilder.Entity<IdempotencyRecord>(builder =>
+        {
+            builder.ToTable("idempotency_records");
+            builder.HasKey(r => r.Id);
+            builder.Property(r => r.Key).HasMaxLength(256).IsRequired();
+            builder.Property(r => r.RequestHash).HasMaxLength(64).IsRequired();
+            builder.Property(r => r.HttpMethod).HasMaxLength(16).IsRequired();
+            builder.Property(r => r.RequestPath).HasMaxLength(512).IsRequired();
+            builder.Property(r => r.ResponseBody).HasColumnType("text");
+            builder.Property(r => r.ResponseContentType).HasMaxLength(128);
+            builder.HasIndex(r => r.Key).IsUnique();
+            builder.HasIndex(r => r.ExpiresAtUtc);
         });
     }
 

@@ -94,6 +94,12 @@ public static class ConfigurationExtensions
             .ValidateDataAnnotations()
             .ValidateOnStart();
 
+        // Idempotency Options
+        services.AddOptions<IdempotencyOptions>()
+            .Bind(configuration.GetSection(IdempotencyOptions.SectionName))
+            .ValidateDataAnnotations()
+            .ValidateOnStart();
+
         return services;
     }
 }

@@ -6,6 +6,7 @@ using Malabak.Api.Infrastructure.Configuration;
 using Malabak.Api.Infrastructure.Errors;
 using Malabak.Api.Infrastructure.Health;
 using Malabak.Api.Infrastructure.Hangfire;
+using Malabak.Api.Infrastructure.Idempotency;
 using Malabak.Api.Infrastructure.Logging;
 using Malabak.Api.Infrastructure.OpenTelemetry;
 using Malabak.Api.Infrastructure.Outbox;
@@ -90,7 +91,10 @@ builder.Services.AddHangfireInfrastructure(builder.Configuration, builder.Enviro
 // 8. Outbox & Domain Events Infrastructure
 builder.Services.AddMalabakOutbox();
 
-// 9. Rate Limiting
+// 9. Reusable Idempotency Infrastructure
+builder.Services.AddMalabakIdempotency();
+
+// 10. Rate Limiting
 builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
@@ -210,6 +214,7 @@ app.UseCors("DefaultCorsPolicy");
 app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseMalabakIdempotency();
 
 // Hangfire Dashboard (Secured Admin & Cloudflare Access)
 app.UseHangfireInfrastructure();
@@ -239,6 +244,15 @@ var v1 = app.MapGroup("/api/v{version:apiVersion}")
 v1.MapGet("/ping", () => Results.Ok(new { message = "Malabak API is operational", status = "Healthy" }))
     .MapToApiVersion(1, 0)
     .AllowAnonymous();
+
+if (app.Environment.IsDevelopment())
+{
+    v1.MapPost("/test/idempotent-action", (TestIdempotencyRequest request) =>
+        Results.Created($"/api/v1/test/{request.Id}", new { status = "Created", id = request.Id, value = request.Value }))
+        .MapToApiVersion(1, 0)
+        .RequireIdempotency()
+        .AllowAnonymous();
+}
 
 app.MapAuthEndpoints(apiVersionSet);
 
