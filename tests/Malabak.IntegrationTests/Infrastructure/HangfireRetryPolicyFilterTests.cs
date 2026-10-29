@@ -12,7 +12,7 @@ namespace Malabak.IntegrationTests.Infrastructure;
 
 public sealed class HangfireRetryPolicyFilterTests
 {
-    private const string _connectionString = "Host=localhost;Port=5432;Database=malabak_dev;Username=malabak;Password=malabak_dev_password";
+    private static string ConnectionString => IntegrationTestEnvironment.PostgresConnectionString;
     private readonly HangfireRetryPolicyFilterAttribute _filter = new(
         maxAttempts: 3,
         logger: NullLogger<HangfireRetryPolicyFilterAttribute>.Instance);
@@ -114,7 +114,7 @@ public sealed class HangfireRetryPolicyFilterTests
             PrepareSchemaIfNecessary = true
         };
 #pragma warning disable CS0618
-        return new PostgreSqlStorage(_connectionString, options);
+        return new PostgreSqlStorage(ConnectionString, options);
 #pragma warning restore CS0618
     }
 

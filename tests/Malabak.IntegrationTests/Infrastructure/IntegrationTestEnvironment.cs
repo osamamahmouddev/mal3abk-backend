@@ -20,6 +20,12 @@ namespace Malabak.IntegrationTests.Infrastructure;
 /// </summary>
 internal static class IntegrationTestEnvironment
 {
+    /// <summary>PostgreSQL connection string for tests that talk to the database directly.</summary>
+    public static string PostgresConnectionString => Environment.GetEnvironmentVariable("ConnectionStrings__Postgres")!;
+
+    /// <summary>Redis connection string for tests that talk to Redis directly.</summary>
+    public static string RedisConnectionString => Environment.GetEnvironmentVariable("ConnectionStrings__Redis")!;
+
     private const string _postgresImage = "postgres:17-alpine";
     private const string _redisImage = "redis:7.2-alpine";
     private const int _redisPort = 6379;

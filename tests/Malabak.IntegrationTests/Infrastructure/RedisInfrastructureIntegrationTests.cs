@@ -25,7 +25,7 @@ public sealed class RedisInfrastructureIntegrationTests : IAsyncLifetime
     {
         var options = new RedisOptions
         {
-            ConnectionString = "localhost:6379,password=malabak_dev_redis_password,abortConnect=false",
+            ConnectionString = IntegrationTestEnvironment.RedisConnectionString,
             ConnectTimeoutMs = 5000,
             SyncTimeoutMs = 5000,
             AbortOnConnectFail = false,
