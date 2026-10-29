@@ -65,18 +65,16 @@ internal static class IntegrationTestEnvironment
     {
         var redisPassword = RandomSecret();
 
-        var postgresContainer = new PostgreSqlBuilder()
-            .WithImage(_postgresImage)
+        var postgresContainer = new PostgreSqlBuilder(_postgresImage)
             .WithDatabase("malabak_test")
             .WithUsername("malabak_test")
             .WithPassword(RandomSecret())
             .Build();
 
-        var redisContainer = new ContainerBuilder()
-            .WithImage(_redisImage)
+        var redisContainer = new ContainerBuilder(_redisImage)
             .WithCommand("redis-server", "--requirepass", redisPassword)
             .WithPortBinding(_redisPort, true)
-            .WithWaitStrategy(Wait.ForUnixContainer().UntilPortIsAvailable(_redisPort))
+            .WithWaitStrategy(Wait.ForUnixContainer().UntilInternalTcpPortIsAvailable(_redisPort))
             .Build();
 
         var previousContext = SynchronizationContext.Current;
