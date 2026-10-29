@@ -1,0 +1,51 @@
+# Cloudflare Tunnel (cloudflared) configuration
+# Origin server executes: cloudflared tunnel --config /etc/cloudflared/config.yml run
+
+tunnel: <TUNNEL_UUID>
+credentials-file: /etc/cloudflared/<TUNNEL_UUID>.json
+
+# Transport protocol: QUIC (HTTP/3) preferred, fallback to HTTP/2
+protocol: quic
+
+# Metrics and health check endpoint for monitoring
+metrics: 127.0.0.1:2000
+
+ingress:
+  # 1. Malabak API Gateway (Kestrel / ASP.NET Core)
+  - hostname: api.malabak.app
+    service: http://127.0.0.1:5000
+    originRequest:
+      httpHostHeader: api.malabak.app
+      connectTimeout: 30s
+      keepAliveTimeout: 90s
+      noTLSVerify: false
+
+  # 2. Malabak Admin Dashboard (Next.js)
+  - hostname: admin.malabak.app
+    service: http://127.0.0.1:3000
+    originRequest:
+      httpHostHeader: admin.malabak.app
+      connectTimeout: 30s
+
+  # 3. Malabak Venue Portal (Next.js)
+  - hostname: venue.malabak.app
+    service: http://127.0.0.1:3001
+    originRequest:
+      httpHostHeader: venue.malabak.app
+      connectTimeout: 30s
+
+  # 4. Malabak Landing & Player Web
+  - hostname: malabak.app
+    service: http://127.0.0.1:3002
+    originRequest:
+      httpHostHeader: malabak.app
+      connectTimeout: 30s
+
+  - hostname: www.malabak.app
+    service: http://127.0.0.1:3002
+    originRequest:
+      httpHostHeader: malabak.app
+      connectTimeout: 30s
+
+  # Default catch-all
+  - service: http_status:404
