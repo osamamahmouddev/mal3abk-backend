@@ -5,6 +5,8 @@ export interface ProblemDetailsData {
   detail?: string;
   instance?: string;
   traceId?: string;
+  errorCode?: string;
+  invalidParams?: Array<{ name: string; reason: string }>;
   errors?: Record<string, string[]>;
   [key: string]: unknown;
 }
@@ -31,6 +33,10 @@ export class ProblemDetailsException extends MalabakApiException {
     this.name = 'ProblemDetailsException';
     this.problemDetails = problemDetails;
     Object.setPrototypeOf(this, new.target.prototype);
+  }
+
+  public get errorCode(): string | undefined {
+    return this.problemDetails.errorCode;
   }
 }
 

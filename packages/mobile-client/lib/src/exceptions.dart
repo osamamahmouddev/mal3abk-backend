@@ -14,6 +14,7 @@ class ProblemDetailsException extends MalabakApiException {
   final String? detail;
   final String? instance;
   final String? traceId;
+  final String? errorCode;
   final Map<String, List<String>> errors;
 
   ProblemDetailsException({
@@ -23,6 +24,7 @@ class ProblemDetailsException extends MalabakApiException {
     this.detail,
     this.instance,
     this.traceId,
+    this.errorCode,
     this.errors = const {},
   }) : super(detail ?? title ?? 'API Error with status $statusCode', statusCode);
 
@@ -42,13 +44,14 @@ class ProblemDetailsException extends MalabakApiException {
       detail: json['detail'] as String?,
       instance: json['instance'] as String?,
       traceId: json['traceId'] as String?,
+      errorCode: json['errorCode'] as String?,
       errors: parsedErrors,
     );
   }
 
   @override
   String toString() =>
-      'ProblemDetailsException(status: $statusCode, title: $title, detail: $detail, errors: $errors)';
+      'ProblemDetailsException(status: $statusCode, errorCode: $errorCode, title: $title, detail: $detail, errors: $errors)';
 }
 
 class RateLimitException extends MalabakApiException {
