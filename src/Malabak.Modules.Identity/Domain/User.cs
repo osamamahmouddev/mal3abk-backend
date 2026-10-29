@@ -147,6 +147,56 @@ public sealed class User : Entity<Guid>
         UpdatedAtUtc = nowUtc;
     }
 
+    /// <summary>How long a deleted account is kept (disputes, refunds, fraud checks) before its personal data is erased.</summary>
+    public static readonly TimeSpan DeletionRetention = TimeSpan.FromDays(30);
+
+    public const string AnonymizedName = "Deleted user";
+
+    public DateTime? DeletionRequestedAtUtc { get; private set; }
+    public DateTime? AnonymizedAtUtc { get; private set; }
+
+    /// <summary>Soft delete: the account stops working immediately; personal data is erased after the retention window.</summary>
+    public void RequestDeletion(DateTime nowUtc)
+    {
+        if (IsDeleted)
+        {
+            return;
+        }
+
+        IsDeleted = true;
+        DeletionRequestedAtUtc = nowUtc;
+        UpdateSecurityStamp(nowUtc);
+    }
+
+    /// <summary>
+    /// Irreversibly replaces personal data. The row stays so bookings and payments keep a valid (now anonymous) owner;
+    /// the phone number is released so it can sign up again.
+    /// </summary>
+    public void Anonymize(DateTime nowUtc)
+    {
+        if (!IsDeleted || AnonymizedAtUtc is not null)
+        {
+            return;
+        }
+
+        // Unique, fits the 32-char column, and can never match a normalized phone number (those start with '+').
+        PhoneNumber = Id.ToString("N");
+        Email = null;
+        FullName = AnonymizedName;
+        PasswordHash = null;
+        IsPhoneNumberConfirmed = false;
+        IsEmailConfirmed = false;
+        TwoFactorEnabled = false;
+        TotpSecretCiphertext = null;
+        City = null;
+        Area = null;
+        AvatarUrl = null;
+        SkillLevel = null;
+        _positions.Clear();
+        AnonymizedAtUtc = nowUtc;
+        UpdateSecurityStamp(nowUtc);
+    }
+
     public void SetAvatar(string? avatarUrl, DateTime nowUtc)
     {
         if (avatarUrl is { Length: 0 or > MaxAvatarUrlLength })

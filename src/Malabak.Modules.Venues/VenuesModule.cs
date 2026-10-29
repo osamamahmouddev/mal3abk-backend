@@ -116,6 +116,7 @@ public static class VenuesModule
         services.AddScoped<ICommandHandler<Application.SpecialSchedules.SetPitchWeeklyHoursCommand, Result<Application.SpecialSchedules.ScheduleChangeOutcome>>>(sp => sp.GetRequiredService<Application.SpecialSchedules.SpecialScheduleHandlers>());
         services.AddScoped<ICommandHandler<Application.SpecialSchedules.SetBookingRulesCommand, Result<Application.SpecialSchedules.BookingRulesDto>>>(sp => sp.GetRequiredService<Application.SpecialSchedules.SpecialScheduleHandlers>());
         services.AddScoped<Application.PlayerLists.PlayerVenueListHandlers>();
+        services.AddScoped<IPersonalDataContributor, Application.PlayerLists.PlayerListsPersonalData>();
         services.AddScoped<Application.Gallery.GalleryHandlers>();
         services.AddScoped<ICommandHandler<Application.Gallery.AddGalleryPhotoCommand, Result<IReadOnlyList<string>>>>(sp => sp.GetRequiredService<Application.Gallery.GalleryHandlers>());
         services.AddScoped<ICommandHandler<Application.Gallery.RemoveGalleryPhotoCommand, Result<IReadOnlyList<string>>>>(sp => sp.GetRequiredService<Application.Gallery.GalleryHandlers>());

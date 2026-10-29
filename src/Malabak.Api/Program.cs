@@ -210,6 +210,8 @@ builder.Services.AddFieldEncryption(builder.Configuration, postgresConnectionStr
 builder.Services.AddSingleton<IClock, SystemClock>();
 builder.Services.AddScoped<IBookingConflictChecker, BookingConflictChecker>();
 builder.Services.AddScoped<Malabak.SharedKernel.Contracts.IUpcomingBookingsReader, UpcomingBookingsReader>();
+builder.Services.AddScoped<Malabak.SharedKernel.Contracts.IPersonalDataContributor, BookingPersonalData>();
+builder.Services.AddHostedService<Malabak.Api.Infrastructure.AccountAnonymizationService>();
 builder.Services.AddScoped<ICommandHandler<CreateBookingCommand, Result<CreateBookingResponse>>, CreateBookingHandler>();
 builder.Services.AddIdentityModule(builder.Configuration);
 builder.Services.AddVenuesModule();
@@ -302,6 +304,7 @@ app.MapReferenceDataEndpoints(apiVersionSet);
 app.MapMediaEndpoints(apiVersionSet);
 app.MapSpecialScheduleEndpoints(apiVersionSet);
 app.MapPlayerVenueListEndpoints(apiVersionSet);
+app.MapPrivacyEndpoints(apiVersionSet);
 
 await app.RunAsync();
 

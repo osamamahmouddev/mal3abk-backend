@@ -95,7 +95,7 @@ public sealed class SendOtpHandler : ICommandHandler<SendOtpCommand, Result<Send
         }
 
         // Never log the code itself (SECURITY.md §15.5).
-        _logger.LogInformation("Generated OTP for {Phone} with 5-minute validity", normalizedPhone);
+        _logger.LogInformation("Generated OTP with 5-minute validity");
 
         return Result.Success(new SendOtpResponse(
             normalizedPhone,

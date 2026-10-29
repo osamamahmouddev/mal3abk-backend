@@ -91,6 +91,8 @@ public static class IdentityModule
 
         // Player profile & onboarding
         services.AddScoped<Malabak.Modules.Identity.Application.Profile.ProfileHandlers>();
+        services.AddScoped<Malabak.Modules.Identity.Application.Privacy.PrivacyHandlers>();
+        services.AddScoped<Malabak.Modules.Identity.Application.Privacy.AccountAnonymizer>();
         services.AddScoped<ICommandHandler<Malabak.Modules.Identity.Application.Profile.CompleteProfileCommand, Result<Malabak.Modules.Identity.Application.Profile.MyProfileDto>>>(sp => sp.GetRequiredService<Malabak.Modules.Identity.Application.Profile.ProfileHandlers>());
         services.AddScoped<ICommandHandler<Malabak.Modules.Identity.Application.Profile.SetLanguageCommand, Result>>(sp => sp.GetRequiredService<Malabak.Modules.Identity.Application.Profile.ProfileHandlers>());
         services.AddScoped<ICommandHandler<Malabak.Modules.Identity.Application.Profile.UpdateMyProfileCommand, Result<Malabak.Modules.Identity.Application.Profile.MyProfileDto>>>(sp => sp.GetRequiredService<Malabak.Modules.Identity.Application.Profile.ProfileHandlers>());

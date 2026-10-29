@@ -15,6 +15,7 @@ public sealed class IdentityDbContext : DbContext
     public DbSet<AdminRecoveryCode> AdminRecoveryCodes => Set<AdminRecoveryCode>();
     public DbSet<SmsDispatch> SmsDispatches => Set<SmsDispatch>();
     public DbSet<EmailSuppression> EmailSuppressions => Set<EmailSuppression>();
+    public DbSet<UserConsent> UserConsents => Set<UserConsent>();
 
     public IdentityDbContext(DbContextOptions<IdentityDbContext> options)
         : base(options)

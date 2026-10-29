@@ -268,6 +268,9 @@ namespace Malabak.Modules.Identity.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<DateTime?>("AnonymizedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<string>("Area")
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
@@ -281,6 +284,9 @@ namespace Malabak.Modules.Identity.Infrastructure.Migrations
                         .HasColumnType("character varying(100)");
 
                     b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("DeletionRequestedAtUtc")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("Email")
@@ -416,6 +422,37 @@ namespace Malabak.Modules.Identity.Infrastructure.Migrations
                     b.HasIndex("UserId", "Purpose");
 
                     b.ToTable("user_action_tokens", "identity");
+                });
+
+            modelBuilder.Entity("Malabak.Modules.Identity.Domain.UserConsent", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("Granted")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime>("RecordedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Version")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId", "Type", "RecordedAtUtc");
+
+                    b.ToTable("user_consents", "identity");
                 });
 
             modelBuilder.Entity("Malabak.Modules.Identity.Domain.UserSession", b =>

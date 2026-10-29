@@ -68,7 +68,7 @@ public sealed class VerifyOtpHandler : ICommandHandler<VerifyOtpCommand, Result<
 
         if (verificationResult.IsMaxAttemptsExceeded)
         {
-            _logger.LogWarning("Max OTP verification attempts exceeded for phone {Phone}", normalizedPhone);
+            _logger.LogWarning("Max OTP verification attempts exceeded");
             return Result.Failure<VerifyOtpResponse>(new Error(
                 "Identity.OtpMaxAttemptsExceeded",
                 "Maximum verification attempts exceeded. Please request a new code."));
@@ -85,6 +85,14 @@ public sealed class VerifyOtpHandler : ICommandHandler<VerifyOtpCommand, Result<
         var nowUtc = _clock.UtcNow;
         var user = await _dbContext.Users
             .FirstOrDefaultAsync(u => u.PhoneNumber == normalizedPhone, cancellationToken);
+
+        // A deleted account keeps its number until anonymization; it must not sign back in or be re-created meanwhile.
+        if (user is { IsDeleted: true })
+        {
+            return Result.Failure<VerifyOtpResponse>(new Error(
+                "Identity.AccountDeleted",
+                "This account was deleted. The number can be used for a new account after the deletion period ends."));
+        }
 
         var isNewUser = false;
         if (user is null)
@@ -103,7 +111,7 @@ public sealed class VerifyOtpHandler : ICommandHandler<VerifyOtpCommand, Result<
             await _dbContext.SaveChangesAsync(cancellationToken);
             isNewUser = true;
 
-            _logger.LogInformation("Auto-registered new player user {UserId} with phone {Phone}", user.Id, normalizedPhone);
+            _logger.LogInformation("Auto-registered new player user {UserId}", user.Id);
         }
 
         // 4. Token Generation (ES256 Access Token + Rotating Refresh Token)

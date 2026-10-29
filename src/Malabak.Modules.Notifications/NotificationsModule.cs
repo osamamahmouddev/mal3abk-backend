@@ -18,6 +18,7 @@ public static class NotificationsModule
         services.AddScoped<NotificationDispatcher>();
         services.AddScoped<PushDispatcher>();
         services.AddScoped<UserNotificationService>();
+        services.AddScoped<Malabak.SharedKernel.Contracts.IPersonalDataContributor, NotificationsPersonalData>();
 
         if (fcm is not null)
         {

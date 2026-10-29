@@ -17,12 +17,14 @@ public static class StepUpScopes
     public const string DeleteAccount = "delete_account";
     public const string DisableTwoFactor = "disable_2fa";
     public const string AdminDestructive = "admin_destructive";
+    public const string ExportData = "export_data";
 
     public static readonly IReadOnlySet<string> All = new HashSet<string>(StringComparer.Ordinal)
     {
         ChangePhone,
         DeleteAccount,
         DisableTwoFactor,
-        AdminDestructive
+        AdminDestructive,
+        ExportData
     };
 }
