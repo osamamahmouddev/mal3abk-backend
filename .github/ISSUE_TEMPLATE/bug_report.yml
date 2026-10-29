@@ -12,7 +12,7 @@ body:
     attributes:
       label: Environment
       description: What environment did this occur in? (e.g. Local Dev, Docker, Staging, Production)
-      placeholder: "e.g., Local Docker, .NET 9.0.0, Node 20"
+      placeholder: "e.g., Local Docker, .NET 10.0.14, Node 20"
     validations:
       required: true
   - type: textarea

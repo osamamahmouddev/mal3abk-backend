@@ -11,10 +11,9 @@ public sealed class RedisContainerFixture : IAsyncLifetime
 
     public RedisContainerFixture()
     {
-        _container = new ContainerBuilder()
-            .WithImage("redis:7.2-alpine")
+        _container = new ContainerBuilder("redis:7.2-alpine")
             .WithPortBinding(_redisPort, true)
-            .WithWaitStrategy(Wait.ForUnixContainer().UntilPortIsAvailable(_redisPort))
+            .WithWaitStrategy(Wait.ForUnixContainer().UntilInternalTcpPortIsAvailable(_redisPort))
             .Build();
     }
 
