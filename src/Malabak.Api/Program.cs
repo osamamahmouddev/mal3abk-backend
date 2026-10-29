@@ -9,6 +9,7 @@ using Malabak.Api.Infrastructure.Hangfire;
 using Malabak.Api.Infrastructure.Idempotency;
 using Malabak.Api.Infrastructure.Localization;
 using Malabak.Api.Infrastructure.Logging;
+using Malabak.Api.Infrastructure.OpenApi;
 using Malabak.Api.Infrastructure.OpenTelemetry;
 using Malabak.Api.Infrastructure.Outbox;
 using Malabak.Api.Infrastructure.Redis;
@@ -78,8 +79,7 @@ builder.Services.AddApiVersioning(options =>
 });
 
 // 5. Swagger / OpenAPI Documentation
-builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+builder.Services.AddMalabakSwagger();
 
 // 6. Redis Infrastructure & Health Checks
 builder.Services.AddRedisInfrastructure(builder.Environment);
@@ -203,7 +203,7 @@ var localizationOptions = new RequestLocalizationOptions()
 localizationOptions.RequestCultureProviders.Insert(0, new XLocaleRequestCultureProvider());
 app.UseRequestLocalization(localizationOptions);
 
-if (app.Environment.IsDevelopment())
+if (app.Environment.IsDevelopment() || app.Environment.IsEnvironment("Testing"))
 {
     app.UseSwagger();
     app.UseSwaggerUI();

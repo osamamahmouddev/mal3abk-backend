@@ -1,0 +1,591 @@
+{
+  "openapi": "3.0.1",
+  "info": {
+    "title": "Malabak API",
+    "description": "High-performance modular monolith backend for the Malabak sports venue and pitch booking platform.",
+    "contact": {
+      "name": "Malabak Engineering Team",
+      "email": "security@malabak.app"
+    },
+    "version": "v1"
+  },
+  "paths": {
+    "/api/v1/auth/otp/send": {
+      "post": {
+        "tags": [
+          "Authentication"
+        ],
+        "summary": "Send 6-digit OTP code to Egyptian phone number",
+        "operationId": "SendOtp",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SendOtpRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Bad Request (Validation failure, invalid inputs)"
+          },
+          "401": {
+            "description": "Unauthorized (Missing or expired JWT access token)"
+          },
+          "403": {
+            "description": "Forbidden (Insufficient role or permissions)"
+          },
+          "404": {
+            "description": "Not Found (Resource does not exist)"
+          },
+          "409": {
+            "description": "Conflict (Concurrent update or duplicate idempotency in flight)"
+          },
+          "422": {
+            "description": "Unprocessable Entity (Business rule violation or payload mismatch)"
+          },
+          "429": {
+            "description": "Too Many Requests (Rate limit exceeded, check Retry-After header)"
+          }
+        }
+      }
+    },
+    "/api/v1/auth/otp/verify": {
+      "post": {
+        "tags": [
+          "Authentication"
+        ],
+        "summary": "Verify OTP code and authenticate player",
+        "operationId": "VerifyOtp",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VerifyOtpRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Bad Request (Validation failure, invalid inputs)"
+          },
+          "401": {
+            "description": "Unauthorized (Missing or expired JWT access token)"
+          },
+          "403": {
+            "description": "Forbidden (Insufficient role or permissions)"
+          },
+          "404": {
+            "description": "Not Found (Resource does not exist)"
+          },
+          "409": {
+            "description": "Conflict (Concurrent update or duplicate idempotency in flight)"
+          },
+          "422": {
+            "description": "Unprocessable Entity (Business rule violation or payload mismatch)"
+          },
+          "429": {
+            "description": "Too Many Requests (Rate limit exceeded, check Retry-After header)"
+          }
+        }
+      }
+    },
+    "/api/v1/auth/refresh": {
+      "post": {
+        "tags": [
+          "Authentication"
+        ],
+        "summary": "Rotate refresh token and issue new ES256 access token",
+        "operationId": "RefreshToken",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RefreshTokenRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Bad Request (Validation failure, invalid inputs)"
+          },
+          "401": {
+            "description": "Unauthorized (Missing or expired JWT access token)"
+          },
+          "403": {
+            "description": "Forbidden (Insufficient role or permissions)"
+          },
+          "404": {
+            "description": "Not Found (Resource does not exist)"
+          },
+          "409": {
+            "description": "Conflict (Concurrent update or duplicate idempotency in flight)"
+          },
+          "422": {
+            "description": "Unprocessable Entity (Business rule violation or payload mismatch)"
+          },
+          "429": {
+            "description": "Too Many Requests (Rate limit exceeded, check Retry-After header)"
+          }
+        }
+      }
+    },
+    "/api/v1/auth/logout": {
+      "post": {
+        "tags": [
+          "Authentication"
+        ],
+        "summary": "Revoke refresh token and log out current session",
+        "operationId": "Logout",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LogoutRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Bad Request (Validation failure, invalid inputs)"
+          },
+          "401": {
+            "description": "Unauthorized (Missing or expired JWT access token)"
+          },
+          "403": {
+            "description": "Forbidden (Insufficient role or permissions)"
+          },
+          "404": {
+            "description": "Not Found (Resource does not exist)"
+          },
+          "409": {
+            "description": "Conflict (Concurrent update or duplicate idempotency in flight)"
+          },
+          "422": {
+            "description": "Unprocessable Entity (Business rule violation or payload mismatch)"
+          },
+          "429": {
+            "description": "Too Many Requests (Rate limit exceeded, check Retry-After header)"
+          }
+        }
+      }
+    },
+    "/api/v1/auth/logout-all": {
+      "post": {
+        "tags": [
+          "Authentication"
+        ],
+        "summary": "Revoke all active sessions and rotate security stamp for authenticated user",
+        "operationId": "LogoutAll",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Bad Request (Validation failure, invalid inputs)"
+          },
+          "401": {
+            "description": "Unauthorized (Missing or expired JWT access token)"
+          },
+          "403": {
+            "description": "Forbidden (Insufficient role or permissions)"
+          },
+          "404": {
+            "description": "Not Found (Resource does not exist)"
+          },
+          "409": {
+            "description": "Conflict (Concurrent update or duplicate idempotency in flight)"
+          },
+          "422": {
+            "description": "Unprocessable Entity (Business rule violation or payload mismatch)"
+          },
+          "429": {
+            "description": "Too Many Requests (Rate limit exceeded, check Retry-After header)"
+          }
+        }
+      }
+    },
+    "/api/v1/ping": {
+      "get": {
+        "tags": [
+          "Malabak.Api"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Bad Request (Validation failure, invalid inputs)"
+          },
+          "401": {
+            "description": "Unauthorized (Missing or expired JWT access token)"
+          },
+          "403": {
+            "description": "Forbidden (Insufficient role or permissions)"
+          },
+          "404": {
+            "description": "Not Found (Resource does not exist)"
+          },
+          "409": {
+            "description": "Conflict (Concurrent update or duplicate idempotency in flight)"
+          },
+          "422": {
+            "description": "Unprocessable Entity (Business rule violation or payload mismatch)"
+          },
+          "429": {
+            "description": "Too Many Requests (Rate limit exceeded, check Retry-After header)"
+          }
+        }
+      }
+    },
+    "/api/v1/test/idempotent-action": {
+      "post": {
+        "tags": [
+          "Malabak.Api"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TestIdempotencyRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Bad Request (Validation failure, invalid inputs)"
+          },
+          "401": {
+            "description": "Unauthorized (Missing or expired JWT access token)"
+          },
+          "403": {
+            "description": "Forbidden (Insufficient role or permissions)"
+          },
+          "404": {
+            "description": "Not Found (Resource does not exist)"
+          },
+          "409": {
+            "description": "Conflict (Concurrent update or duplicate idempotency in flight)"
+          },
+          "422": {
+            "description": "Unprocessable Entity (Business rule violation or payload mismatch)"
+          },
+          "429": {
+            "description": "Too Many Requests (Rate limit exceeded, check Retry-After header)"
+          }
+        }
+      }
+    },
+    "/api/v1/test/validation": {
+      "post": {
+        "tags": [
+          "Malabak.Api"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TestValidationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Bad Request (Validation failure, invalid inputs)"
+          },
+          "401": {
+            "description": "Unauthorized (Missing or expired JWT access token)"
+          },
+          "403": {
+            "description": "Forbidden (Insufficient role or permissions)"
+          },
+          "404": {
+            "description": "Not Found (Resource does not exist)"
+          },
+          "409": {
+            "description": "Conflict (Concurrent update or duplicate idempotency in flight)"
+          },
+          "422": {
+            "description": "Unprocessable Entity (Business rule violation or payload mismatch)"
+          },
+          "429": {
+            "description": "Too Many Requests (Rate limit exceeded, check Retry-After header)"
+          }
+        }
+      }
+    },
+    "/api/v1/test/result-error/{code}": {
+      "get": {
+        "tags": [
+          "Malabak.Api"
+        ],
+        "parameters": [
+          {
+            "name": "code",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Bad Request (Validation failure, invalid inputs)"
+          },
+          "401": {
+            "description": "Unauthorized (Missing or expired JWT access token)"
+          },
+          "403": {
+            "description": "Forbidden (Insufficient role or permissions)"
+          },
+          "404": {
+            "description": "Not Found (Resource does not exist)"
+          },
+          "409": {
+            "description": "Conflict (Concurrent update or duplicate idempotency in flight)"
+          },
+          "422": {
+            "description": "Unprocessable Entity (Business rule violation or payload mismatch)"
+          },
+          "429": {
+            "description": "Too Many Requests (Rate limit exceeded, check Retry-After header)"
+          }
+        }
+      }
+    },
+    "/api/v1/test/auth-fallback-protected": {
+      "get": {
+        "tags": [
+          "Malabak.Api"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Bad Request (Validation failure, invalid inputs)"
+          },
+          "401": {
+            "description": "Unauthorized (Missing or expired JWT access token)"
+          },
+          "403": {
+            "description": "Forbidden (Insufficient role or permissions)"
+          },
+          "404": {
+            "description": "Not Found (Resource does not exist)"
+          },
+          "409": {
+            "description": "Conflict (Concurrent update or duplicate idempotency in flight)"
+          },
+          "422": {
+            "description": "Unprocessable Entity (Business rule violation or payload mismatch)"
+          },
+          "429": {
+            "description": "Too Many Requests (Rate limit exceeded, check Retry-After header)"
+          }
+        }
+      }
+    },
+    "/api/v1/test/rate-limited": {
+      "get": {
+        "tags": [
+          "Malabak.Api"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Bad Request (Validation failure, invalid inputs)"
+          },
+          "401": {
+            "description": "Unauthorized (Missing or expired JWT access token)"
+          },
+          "403": {
+            "description": "Forbidden (Insufficient role or permissions)"
+          },
+          "404": {
+            "description": "Not Found (Resource does not exist)"
+          },
+          "409": {
+            "description": "Conflict (Concurrent update or duplicate idempotency in flight)"
+          },
+          "422": {
+            "description": "Unprocessable Entity (Business rule violation or payload mismatch)"
+          },
+          "429": {
+            "description": "Too Many Requests (Rate limit exceeded, check Retry-After header)"
+          }
+        }
+      }
+    },
+    "/api/v1/test/client-ip": {
+      "get": {
+        "tags": [
+          "Malabak.Api"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Bad Request (Validation failure, invalid inputs)"
+          },
+          "401": {
+            "description": "Unauthorized (Missing or expired JWT access token)"
+          },
+          "403": {
+            "description": "Forbidden (Insufficient role or permissions)"
+          },
+          "404": {
+            "description": "Not Found (Resource does not exist)"
+          },
+          "409": {
+            "description": "Conflict (Concurrent update or duplicate idempotency in flight)"
+          },
+          "422": {
+            "description": "Unprocessable Entity (Business rule violation or payload mismatch)"
+          },
+          "429": {
+            "description": "Too Many Requests (Rate limit exceeded, check Retry-After header)"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "LogoutRequest": {
+        "type": "object",
+        "properties": {
+          "refreshToken": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "RefreshTokenRequest": {
+        "type": "object",
+        "properties": {
+          "refreshToken": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "SendOtpRequest": {
+        "type": "object",
+        "properties": {
+          "phoneNumber": {
+            "type": "string",
+            "nullable": true
+          },
+          "turnstileToken": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "TestIdempotencyRequest": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "nullable": true
+          },
+          "value": {
+            "type": "number",
+            "format": "double"
+          }
+        },
+        "additionalProperties": false
+      },
+      "TestValidationRequest": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "nullable": true
+          },
+          "phoneNumber": {
+            "type": "string",
+            "nullable": true
+          },
+          "amount": {
+            "type": "number",
+            "format": "double"
+          }
+        },
+        "additionalProperties": false
+      },
+      "VerifyOtpRequest": {
+        "type": "object",
+        "properties": {
+          "phoneNumber": {
+            "type": "string",
+            "nullable": true
+          },
+          "code": {
+            "type": "string",
+            "nullable": true
+          },
+          "fullName": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "securitySchemes": {
+      "Bearer": {
+        "type": "http",
+        "description": "JWT Authorization header using the Bearer scheme. Format: \u0027Bearer {token}\u0027",
+        "scheme": "Bearer",
+        "bearerFormat": "JWT"
+      }
+    }
+  },
+  "security": [
+    {
+      "Bearer": []
+    }
+  ]
+}

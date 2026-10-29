@@ -53,6 +53,9 @@ jobs:
       - name: Run automated tests
         run: dotnet test Malabak.sln --no-build -c Release --verbosity normal
 
+      - name: Verify OpenAPI contract & client staleness
+        run: ./scripts/check-openapi-staleness.sh
+
   web-monorepo:
     name: Web Monorepo Verification
     runs-on: ubuntu-latest
