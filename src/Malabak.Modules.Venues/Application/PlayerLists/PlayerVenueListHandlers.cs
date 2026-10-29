@@ -10,7 +10,7 @@ namespace Malabak.Modules.Venues.Application.PlayerLists;
 public sealed record VenueCardDto(
     Guid VenueId, string Name, string Slug, string City, string Area, string? CoverPhotoUrl, bool IsFavorite, DateTime? NextAvailableStartUtc, DateTime? ViewedAtUtc);
 
-/// <summary>Per-venue flags for explore/search results (TASK-014 joins these onto its cards).</summary>
+/// <summary>Per-venue flags for explore/search results; the player-facing search endpoint joins these onto its cards.</summary>
 public sealed record VenueEngagementFlags(bool IsFavorite, bool RecentlyViewed);
 
 public static class PlayerListErrors
