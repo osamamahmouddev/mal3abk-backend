@@ -7,16 +7,19 @@ using Malabak.Api.Infrastructure.Errors;
 using Malabak.Api.Infrastructure.Health;
 using Malabak.Api.Infrastructure.Hangfire;
 using Malabak.Api.Infrastructure.Idempotency;
+using Malabak.Api.Infrastructure.Localization;
 using Malabak.Api.Infrastructure.Logging;
 using Malabak.Api.Infrastructure.OpenTelemetry;
 using Malabak.Api.Infrastructure.Outbox;
 using Malabak.Api.Infrastructure.Redis;
+using Malabak.Api.Infrastructure.Validation;
 using Malabak.Modules.Booking.Application.Bookings.CreateBooking;
 using Malabak.Modules.Identity;
 using Malabak.Modules.Identity.Application.Common;
 using Malabak.Modules.Identity.Infrastructure;
 using Malabak.Modules.Venues.Infrastructure;
 using Malabak.SharedKernel;
+using Malabak.SharedKernel.Time;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
@@ -173,6 +176,9 @@ builder.Services.AddDbContext<VenuesDbContext>(options =>
 
 // 12. Dependency Injection
 builder.Services.AddSingleton<IClock, SystemClock>();
+builder.Services.AddSingleton<ITimeZoneProvider, CairoTimeZoneProvider>();
+builder.Services.AddSingleton<IErrorMessageLocalizer, ErrorMessageLocalizer>();
+builder.Services.AddMalabakValidation();
 builder.Services.AddScoped<ICommandHandler<CreateBookingCommand, Result<CreateBookingResponse>>, CreateBookingHandler>();
 builder.Services.AddIdentityModule(builder.Configuration);
 
@@ -202,6 +208,7 @@ var localizationOptions = new RequestLocalizationOptions()
     .SetDefaultCulture("ar-EG")
     .AddSupportedCultures("ar-EG", "en-US")
     .AddSupportedUICultures("ar-EG", "en-US");
+localizationOptions.RequestCultureProviders.Insert(0, new XLocaleRequestCultureProvider());
 app.UseRequestLocalization(localizationOptions);
 
 if (app.Environment.IsDevelopment())
@@ -252,6 +259,31 @@ if (app.Environment.IsDevelopment())
         .MapToApiVersion(1, 0)
         .RequireIdempotency()
         .AllowAnonymous();
+
+    v1.MapPost("/test/validation", (TestValidationRequest request) =>
+        Result.Success(new { validated = true, name = request.Name }).ToHttpResult())
+        .MapToApiVersion(1, 0)
+        .WithValidation<TestValidationRequest>()
+        .AllowAnonymous();
+
+    v1.MapGet("/test/result-error/{code}", (string code, HttpContext httpContext) =>
+    {
+        var error = code switch
+        {
+            "not-found" => Error.NotFound("not_found", "Item not found"),
+            "unauthorized" => Error.Unauthorized("unauthorized", "Access denied"),
+            "forbidden" => Error.Forbidden("forbidden", "Forbidden action"),
+            "conflict" => Error.Conflict("conflict", "Duplicate entity"),
+            "validation" => Error.Validation("validation_failed", "Input validation failed"),
+            _ => Error.Failure(code, "General domain failure")
+        };
+        return Result.Failure(error).ToHttpResult(httpContext: httpContext);
+    })
+    .MapToApiVersion(1, 0)
+    .AllowAnonymous();
+
+    v1.MapGet("/test/auth-fallback-protected", () => Results.Ok(new { secret = "data" }))
+        .MapToApiVersion(1, 0);
 }
 
 app.MapAuthEndpoints(apiVersionSet);
