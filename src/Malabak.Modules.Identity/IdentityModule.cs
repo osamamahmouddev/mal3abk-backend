@@ -1,3 +1,4 @@
+using System.Security.Cryptography;
 using Malabak.Modules.Identity.Application.AdminAuth;
 using Malabak.Modules.Identity.Application.Authentication.Logout;
 using Malabak.Modules.Identity.Application.Authentication.LogoutAll;
@@ -19,7 +20,7 @@ using Microsoft.Extensions.Options;
 using Malabak.SharedKernel;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using StackExchange.Redis;
+using Microsoft.Extensions.Hosting;
 
 namespace Malabak.Modules.Identity;
 
@@ -29,8 +30,9 @@ public static class IdentityModule
 
     public static IServiceCollection AddIdentityModule(this IServiceCollection services, IConfiguration configuration)
     {
-        // JWT & Token Options & Services
-        services.Configure<JwtOptions>(configuration.GetSection(JwtOptions.SectionName));
+        AddSecurityOptions(services, configuration);
+
+        // JWT & Token Services
         services.AddSingleton<IJwtKeyProvider, JwtKeyProvider>();
         services.AddSingleton<ITokenService, TokenService>();
 
@@ -39,18 +41,10 @@ public static class IdentityModule
         services.AddSingleton<ITurnstileValidator, TurnstileValidator>();
         services.AddSingleton<IOtpSecurityService, OtpSecurityService>();
         services.AddSingleton<IStepUpService, StepUpService>();
-        // SMS / WhatsApp: cost-controlled gateway with provider failover (Twilio accounts; Mailpit in Development)
-        services.Configure<SmsOptions>(configuration.GetSection(SmsOptions.SectionName));
-        if (SecurityConfiguration.IsDevelopment(configuration) && !configuration.GetSection($"{SmsOptions.SectionName}:Providers").Exists())
-        {
-            services.PostConfigure<SmsOptions>(o => o.Providers.Add(MailpitSmsProvider.ProviderName));
-        }
 
-        var isDevelopment = SecurityConfiguration.IsDevelopment(configuration);
-        services.AddScoped<IEnumerable<ISmsProvider>>(sp =>
-            SmsProviderFactory.Create(sp.GetRequiredService<IOptions<SmsOptions>>(), sp.GetRequiredService<IEmailSender>(), isDevelopment).ToList());
-        services.AddScoped<ISmsGateway, SmsGateway>();
-        services.AddScoped<ISmsAlertService, GatewaySmsAlertService>();
+        // Twilio delivery receipts are accepted whichever OTP provider is active; the gateway itself is
+        // registered by AddOtpDelivery when Identity:OtpDelivery:Provider is Sms.
+        services.Configure<SmsOptions>(configuration.GetSection(SmsOptions.SectionName));
         services.AddScoped<SmsDeliveryReceipts>();
         services.AddScoped<EmailBounceHandler>();
 
@@ -108,25 +102,12 @@ public static class IdentityModule
         // Authorization (roles/permissions are read from the database on each request)
         services.AddScoped<IUserPermissionService, UserPermissionService>();
 
-        // Redis / In-Memory OTP Store
-        var redisConnectionString = configuration.GetConnectionString("Redis");
-        if (!string.IsNullOrWhiteSpace(redisConnectionString))
-        {
-            try
-            {
-                var redis = ConnectionMultiplexer.Connect(redisConnectionString);
-                services.AddSingleton<IConnectionMultiplexer>(redis);
-                services.AddSingleton<IOtpStore, RedisOtpStore>();
-            }
-            catch
-            {
-                services.AddSingleton<IOtpStore, InMemoryOtpStore>();
-            }
-        }
-        else
-        {
-            services.AddSingleton<IOtpStore, InMemoryOtpStore>();
-        }
+        AddOtpDelivery(services, configuration);
+
+        // OTP codes live in Redis, through the host's single IConnectionMultiplexer (TLS, timeouts and
+        // logging come from RedisConnectionFactory). No in-memory fallback: if Redis is down, OTP
+        // requests fail closed instead of being checked per instance (SECURITY.md).
+        services.AddSingleton<IOtpStore, RedisOtpStore>();
 
         // Command Handlers - Authentication
         services.AddScoped<ICommandHandler<SendOtpCommand, Result<SendOtpResponse>>, SendOtpHandler>();
@@ -143,4 +124,153 @@ public static class IdentityModule
 
         return services;
     }
+
+    // Secrets fall back to built-in values only in Development/Testing. Everywhere else, Staging included,
+    // a missing or placeholder secret fails startup instead of silently weakening auth (SECURITY.md).
+    private static void AddSecurityOptions(IServiceCollection services, IConfiguration configuration)
+    {
+        services.AddOptions<JwtOptions>()
+            .Bind(configuration.GetSection(JwtOptions.SectionName))
+            .Validate<IHostEnvironment>(
+                (options, environment) => !string.IsNullOrWhiteSpace(options.PrivateKeyPem) || IdentityEnvironment.AllowsDevelopmentShortcuts(environment),
+                $"{JwtOptions.SectionName}:PrivateKeyPem is required outside Development/Testing: without it every instance signs tokens with its own throwaway key.")
+            .Validate(
+                options => string.IsNullOrWhiteSpace(options.PrivateKeyPem) || IsP256PrivateKeyPem(options.PrivateKeyPem),
+                $"{JwtOptions.SectionName}:PrivateKeyPem must be a PEM-encoded ECDSA P-256 private key.")
+            .ValidateOnStart();
+
+        services.AddOptions<OtpSecurityOptions>()
+            .Bind(configuration.GetSection(OtpSecurityOptions.SectionName))
+            .PostConfigure<IHostEnvironment>((options, environment) =>
+            {
+                if (string.IsNullOrWhiteSpace(options.HmacSecret) && IdentityEnvironment.AllowsDevelopmentShortcuts(environment))
+                {
+                    options.HmacSecret = DevelopmentSecrets.OtpHmacSecret;
+                }
+            })
+            .Validate(
+                options => IsStrongSecret(options.HmacSecret),
+                $"{OtpSecurityOptions.SectionName}:HmacSecret is required outside Development/Testing and must be at least {_minimumSecretLength} characters.")
+            .ValidateOnStart();
+
+        services.AddOptions<StepUpOptions>()
+            .Bind(configuration.GetSection(StepUpOptions.SectionName))
+            .PostConfigure<IHostEnvironment>((options, environment) =>
+            {
+                if (string.IsNullOrWhiteSpace(options.SecretKey) && IdentityEnvironment.AllowsDevelopmentShortcuts(environment))
+                {
+                    options.SecretKey = DevelopmentSecrets.StepUpSecretKey;
+                }
+            })
+            .Validate(
+                options => IsStrongSecret(options.SecretKey),
+                $"{StepUpOptions.SectionName}:SecretKey is required outside Development/Testing and must be at least {_minimumSecretLength} characters.")
+            .ValidateOnStart();
+
+        services.AddOptions<TurnstileOptions>()
+            .Bind(configuration.GetSection(TurnstileOptions.SectionName))
+            .PostConfigure<IHostEnvironment>((options, environment) =>
+            {
+                if (string.IsNullOrWhiteSpace(options.SecretKey) && IdentityEnvironment.AllowsDevelopmentShortcuts(environment))
+                {
+                    options.SecretKey = DevelopmentSecrets.TurnstileAlwaysPassSecretKey;
+                }
+            })
+            .ValidateDataAnnotations()
+            .Validate<IHostEnvironment>(
+                (options, environment) => !options.BypassInDevelopment || IdentityEnvironment.AllowsDevelopmentShortcuts(environment),
+                $"{TurnstileOptions.SectionName}:BypassInDevelopment is strictly prohibited outside of Development/Testing.")
+            .Validate(
+                options => !string.IsNullOrWhiteSpace(options.SecretKey),
+                $"{TurnstileOptions.SectionName}:SecretKey is required outside Development/Testing.")
+            .Validate<IHostEnvironment>(
+                (options, environment) => !IsTurnstileTestSecretKey(options.SecretKey) || IdentityEnvironment.AllowsDevelopmentShortcuts(environment),
+                $"{TurnstileOptions.SectionName}:SecretKey must not be a Cloudflare test secret key outside Development/Testing.")
+            .ValidateOnStart();
+    }
+
+    private const int _minimumSecretLength = 32;
+
+    private static bool IsStrongSecret(string? secret) =>
+        !string.IsNullOrWhiteSpace(secret) && secret.Length >= _minimumSecretLength;
+
+    // Cloudflare's published test secrets: 1x always passes, 2x always fails, 3x reports the token as spent.
+    private static bool IsTurnstileTestSecretKey(string? secretKey) =>
+        secretKey is "1x0000000000000000000000000000000AA" or "2x0000000000000000000000000000000AA" or "3x0000000000000000000000000000000AA";
+
+    private static bool IsP256PrivateKeyPem(string pem)
+    {
+        try
+        {
+            using var ecdsa = ECDsa.Create();
+            ecdsa.ImportFromPem(pem);
+            return ecdsa.ExportParameters(includePrivateParameters: true).Curve.Oid.Value == ECCurve.NamedCurves.nistP256.Oid.Value;
+        }
+        catch (Exception ex) when (ex is ArgumentException or CryptographicException)
+        {
+            return false;
+        }
+    }
+
+    // Known values, so never usable outside Development/Testing (see AddSecurityOptions).
+    private static class DevelopmentSecrets
+    {
+        public const string OtpHmacSecret = "Malabak-Development-Only-Otp-HMAC-SHA256-Key!";
+        public const string StepUpSecretKey = "Malabak-Development-Only-StepUp-HMAC-SHA256-Key!";
+        public const string TurnstileAlwaysPassSecretKey = "1x0000000000000000000000000000000AA";
+    }
+
+    // OTP codes and security alerts share one provider switch, webhook and HttpClient.
+    private static void AddOtpDelivery(IServiceCollection services, IConfiguration configuration)
+    {
+        services.AddOptions<OtpDeliveryOptions>()
+            .Bind(configuration.GetSection(OtpDeliveryOptions.SectionName))
+            .Validate<IHostEnvironment>(
+                (options, environment) => options.Provider != OtpDeliveryProvider.Slack || !environment.IsProduction(),
+                "OTP delivery to Slack is for testing only and is not allowed in Production: everyone in the channel could read every code.")
+            .Validate(
+                options => options.Provider != OtpDeliveryProvider.Slack || IsSlackWebhookUrl(options.Slack.WebhookUrl),
+                $"{OtpDeliveryOptions.SectionName}:Slack:WebhookUrl must be an https://hooks.slack.com/ Incoming Webhook URL.")
+            .ValidateOnStart();
+
+        var provider = configuration.GetSection(OtpDeliveryOptions.SectionName).GetValue<OtpDeliveryProvider>(nameof(OtpDeliveryOptions.Provider));
+        if (provider == OtpDeliveryProvider.Slack)
+        {
+            services.AddHttpClient<SlackWebhookClient>(client => client.Timeout = TimeSpan.FromSeconds(10))
+                // The default HttpClient logging writes the request URL, and the webhook URL is a credential.
+                .RemoveAllLoggers();
+            services.AddTransient<IOtpSender, SlackOtpSender>();
+            services.AddTransient<ISmsAlertService, SlackSmsAlertService>();
+        }
+        else if (provider == OtpDeliveryProvider.Sms)
+        {
+            // Cost-controlled gateway with provider failover (Twilio accounts in Sms:Providers order). In
+            // Development with no providers configured, messages go to the local Mailpit inbox instead.
+            services.AddOptions<SmsOptions>()
+                .PostConfigure<IHostEnvironment>((options, environment) =>
+                {
+                    if (environment.IsDevelopment() && options.Providers.Count == 0)
+                    {
+                        options.Providers.Add(MailpitSmsProvider.ProviderName);
+                    }
+                });
+            services.AddScoped<IEnumerable<ISmsProvider>>(sp => SmsProviderFactory.Create(
+                sp.GetRequiredService<IOptions<SmsOptions>>(),
+                sp.GetRequiredService<IEmailSender>(),
+                sp.GetRequiredService<IHostEnvironment>().IsDevelopment()).ToList());
+            services.AddScoped<ISmsGateway, SmsGateway>();
+            services.AddScoped<IOtpSender, SmsOtpSender>();
+            services.AddScoped<ISmsAlertService, SmsSecurityAlertService>();
+        }
+        else
+        {
+            services.AddSingleton<IOtpSender, UnavailableOtpSender>();
+            services.AddSingleton<ISmsAlertService, UnavailableSmsAlertService>();
+        }
+    }
+
+    private static bool IsSlackWebhookUrl(string? url) =>
+        Uri.TryCreate(url, UriKind.Absolute, out var uri)
+        && uri.Scheme == Uri.UriSchemeHttps
+        && uri.Host == "hooks.slack.com";
 }

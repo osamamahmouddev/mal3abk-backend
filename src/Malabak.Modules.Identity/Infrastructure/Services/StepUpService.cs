@@ -2,7 +2,7 @@ using System.Security.Cryptography;
 using System.Text;
 using Malabak.Modules.Identity.Application.Common;
 using Malabak.SharedKernel;
-using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Options;
 
 namespace Malabak.Modules.Identity.Infrastructure.Services;
 
@@ -18,9 +18,12 @@ public sealed class StepUpService : IStepUpService
     private readonly byte[] _hmacKey;
     private readonly IClock _clock;
 
-    public StepUpService(IConfiguration configuration, IClock clock)
+    public StepUpService(IOptions<StepUpOptions> options, IClock clock)
     {
-        _hmacKey = SecurityConfiguration.RequireSecret(configuration, "Security:StepUp:SecretKey");
+        ArgumentNullException.ThrowIfNull(options);
+        var secret = options.Value.SecretKey;
+        ArgumentException.ThrowIfNullOrWhiteSpace(secret);
+        _hmacKey = Encoding.UTF8.GetBytes(secret);
         _clock = clock;
     }
 

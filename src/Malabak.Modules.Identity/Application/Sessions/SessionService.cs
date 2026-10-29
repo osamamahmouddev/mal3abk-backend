@@ -139,8 +139,6 @@ public sealed class SessionService
     private async Task AlertNewDeviceAsync(User user, UserSession session, CancellationToken cancellationToken)
     {
         var device = session.DeviceName ?? "a new device";
-        var message = $"New sign-in to your Malabak account from {device} at {session.CreatedAtUtc:yyyy-MM-dd HH:mm} UTC. " +
-                      "If this wasn't you, sign out all devices from your profile and contact support.";
         try
         {
             if (!string.IsNullOrWhiteSpace(user.Email))
@@ -149,7 +147,7 @@ public sealed class SessionService
             }
             else
             {
-                await _sms.SendSecurityAlertAsync(user.PhoneNumber, message, cancellationToken);
+                await _sms.SendSecurityAlertAsync(user.PhoneNumber, SecurityAlert.NewDeviceSignIn(device, session.CreatedAtUtc), cancellationToken);
             }
 
             _logger.LogInformation("AUDIT: new-device sign-in alert sent for user {UserId} (session {SessionId})", user.Id, session.Id);

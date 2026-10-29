@@ -27,7 +27,9 @@ public static class OpenTelemetryExtensions
                 metrics
                     .AddAspNetCoreInstrumentation()
                     .AddHttpClientInstrumentation()
-                    .AddRuntimeInstrumentation();
+                    .AddRuntimeInstrumentation()
+                    .AddMeter("Malabak.Hangfire")
+                    .AddMeter("Malabak.Outbox");
             });
 
         return services;

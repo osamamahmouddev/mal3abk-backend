@@ -1,0 +1,49 @@
+# Code Owners for Malabak (ملعبك)
+# See: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# Default owners for all files
+* @osamamahmouddev @saheralaa
+
+# Security & Architecture Directives
+/SECURITY.md @osamamahmouddev
+/rule.md @osamamahmouddev
+/AGENTS.md @osamamahmouddev
+/GEMINI.md @osamamahmouddev
+/.agents/ @osamamahmouddev
+
+# Backend Solution, Core & Architecture Tests
+/src/Malabak.Api/ @osamamahmouddev
+/src/Malabak.SharedKernel/ @osamamahmouddev
+/tests/ @osamamahmouddev
+/Directory.Build.props @osamamahmouddev
+/Directory.Packages.props @osamamahmouddev
+
+# Backend Modules
+/src/Malabak.Modules.Identity/ @saheralaa @osamamahmouddev
+/src/Malabak.Modules.Venues/ @saheralaa @osamamahmouddev
+/src/Malabak.Modules.Booking/ @osamamahmouddev
+/src/Malabak.Modules.Payments/ @osamamahmouddev
+/src/Malabak.Modules.Teams/ @saheralaa
+/src/Malabak.Modules.Matches/ @osamamahmouddev
+/src/Malabak.Modules.Subscriptions/ @saheralaa
+/src/Malabak.Modules.Audit/ @osamamahmouddev
+/src/Malabak.Modules.Notifications/ @osamamahmouddev
+/src/Malabak.Modules.Support/ @saheralaa
+
+# Web Dashboards (Next.js 15 Monorepo)
+/web/ @osamamahmouddev @saheralaa
+/web/apps/venue/ @saheralaa
+/web/apps/admin/ @saheralaa
+/web/apps/landing/ @osamamahmouddev
+
+# Mobile (Flutter)
+/mobile/ @saheralaa @osamamahmouddev
+
+# Documentation & Architecture Decision Records
+/docs/ @osamamahmouddev @saheralaa
+/docs/adr/ @osamamahmouddev
+
+# DevOps & CI/CD
+/.github/ @osamamahmouddev
+/docker-compose.yml @osamamahmouddev
+/docker/ @osamamahmouddev

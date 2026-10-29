@@ -332,9 +332,9 @@ States: `Draft, PendingDeposit, ProofSubmitted, UnderReview, Confirmed, Rejected
 - **Security:** CSP and security headers in `next.config`, env vars only via validated `env.ts` (no secrets in `NEXT_PUBLIC_*`), dependency audit (`pnpm audit`) in CI.
 
 ### 11.1 Design & localization rules
-- Follow the design system (PRD §12): colors from tokens (primary **navy `#071832`**, accent **red `#EB4F42`**, achievement **gold `#F6B326`**; add neutral/semantic tokens: success, warning, error, info). No hardcoded colors in components — use CSS variables.
+- Follow the design system (PRD §12): colors from tokens (primary **navy `#0F1B3D`**, accent **red `#D63B2F`**, achievement **gold `#F5B62B`** (source of truth: the approved design file); add neutral/semantic tokens: success, warning, error, info). No hardcoded colors in components — use CSS variables.
 - Brand: logo kit is in `docs/brand/` (SVG + PNG). Don't redraw or recolor the logo.
-- Fonts: Tajawal / IBM Plex Sans Arabic for Arabic, Inter for Latin.
+- Font: IBM Plex Sans Arabic (Arabic and Latin), as in the design file.
 - **RTL first:** `dir="rtl"` for Arabic, `dir="ltr"` for English, use CSS logical properties (`margin-inline-start`, not `margin-left`), mirror directional icons, keep numbers/phones/prices LTR-isolated (`<bdi>`/`unicode-bidi`).
 - Strings only from `.resx`/localizer — no hardcoded text. Arabic and English must ship together.
 - Dates/times: venue local time, Arabic locale formatting; currency `EGP` / `ج.م` consistent.

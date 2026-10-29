@@ -1,17 +1,135 @@
+// ==============================================================================
+// Malabak Design Tokens — source of truth: the approved design file (artifact)
+// Navy: #0F1B3D | Red: #D63B2F | Gold: #F5B62B | Admin ink: #0A1330
+// Typography: IBM Plex Sans Arabic (Arabic + Latin)
+// ==============================================================================
+
 export const designTokens = {
-  colors: {
-    primary: "#071832", // Navy
-    accent: "#EB4F42", // Red
-    achievement: "#F6B326", // Gold
-    semantic: {
-      success: "#10B981",
-      warning: "#F59E0B",
-      error: "#EF4444",
-      info: "#3B82F6",
+  brand: {
+    navy: {
+      DEFAULT: "#0F1B3D",
+      50: "#ECEDEF",
+      100: "#D9DBE0",
+      200: "#ADB1BD",
+      300: "#82889A",
+      400: "#49526C",
+      500: "#0F1B3D",
+      600: "#0C1632",
+      700: "#0A1127",
+      800: "#070C1C",
+      900: "#040811",
+    },
+    red: {
+      DEFAULT: "#D63B2F",
+      50: "#FCEFEE",
+      100: "#F8E0DE",
+      200: "#F1BCB8",
+      300: "#EA9993",
+      400: "#E06A61",
+      500: "#D63B2F",
+      600: "#B82E23",
+      700: "#89261E",
+      800: "#621B16",
+      900: "#3C110D",
+    },
+    gold: {
+      DEFAULT: "#F5B62B",
+      50: "#FEF9EE",
+      100: "#FDF3DD",
+      200: "#FCE6B7",
+      300: "#FAD991",
+      400: "#F7C85E",
+      500: "#F5B62B",
+      600: "#C99523",
+      700: "#9D741C",
+      800: "#715414",
+      900: "#45330C",
+    },
+    /** Admin panel sidebar and primary actions. */
+    ink: "#0A1330",
+    /** Pitch illustrations. */
+    pitch: { light: "#2E8B55", dark: "#287D4C" },
+  },
+  themes: {
+    light: {
+      background: "#F3F5F9",
+      foreground: "#0F172A",
+      card: "#FFFFFF",
+      cardForeground: "#0F172A",
+      popover: "#FFFFFF",
+      popoverForeground: "#0F172A",
+      primary: "#0F1B3D",
+      primaryForeground: "#FFFFFF",
+      secondary: "#EEF0F5",
+      secondaryForeground: "#3B4352",
+      muted: "#F3F5F9",
+      mutedForeground: "#5B6475",
+      accent: "#D63B2F",
+      accentForeground: "#FFFFFF",
+      destructive: "#A8261C",
+      destructiveForeground: "#FFFFFF",
+      border: "#EDF0F5",
+      input: "#C9CFD9",
+      ring: "#0F1B3D",
+    },
+    // The design file has no dark artboards; this theme is derived from the navy family.
+    dark: {
+      background: "#0A1330",
+      foreground: "#F3F5F9",
+      card: "#0F1B3D",
+      cardForeground: "#F3F5F9",
+      popover: "#0F1B3D",
+      popoverForeground: "#F3F5F9",
+      primary: "#D63B2F",
+      primaryForeground: "#FFFFFF",
+      secondary: "#182750",
+      secondaryForeground: "#D5DBE7",
+      muted: "#182750",
+      mutedForeground: "#AEB7CA",
+      accent: "#F5B62B",
+      accentForeground: "#0F1B3D",
+      destructive: "#A8261C",
+      destructiveForeground: "#FFFFFF",
+      border: "#223565",
+      input: "#223565",
+      ring: "#D63B2F",
     },
   },
-  fonts: {
-    arabic: "var(--font-tajawal), system-ui, sans-serif",
-    latin: "var(--font-inter), system-ui, sans-serif",
+  semantic: {
+    // Status pills in the designs: tinted background + dark text (never color alone).
+    success: { DEFAULT: "#1B6E3E", light: "#E5F5EB", dark: "#155C33", text: "#1B6E3E" },
+    warning: { DEFAULT: "#D9A21B", light: "#FEF3D6", dark: "#6B4400", text: "#7A4D00" },
+    error: { DEFAULT: "#A8261C", light: "#FDECEA", dark: "#8A1F17", text: "#A8261C" },
+    info: { DEFAULT: "#0F1B3D", light: "#E8EEF9", dark: "#0A1330", text: "#0F1B3D" },
+    neutral: { DEFAULT: "#5B6475", light: "#EEF0F5", dark: "#3B4352", text: "#3B4352" },
+  },
+  typography: {
+    fonts: {
+      arabic: "var(--font-arabic), 'IBM Plex Sans Arabic', system-ui, -apple-system, sans-serif",
+      latin: "var(--font-arabic), 'IBM Plex Sans Arabic', system-ui, -apple-system, sans-serif",
+    },
+    fontSizes: {
+      xs: ["0.75rem", { lineHeight: "1rem" }],
+      sm: ["0.875rem", { lineHeight: "1.25rem" }],
+      base: ["1rem", { lineHeight: "1.5rem" }],
+      lg: ["1.125rem", { lineHeight: "1.75rem" }],
+      xl: ["1.25rem", { lineHeight: "1.75rem" }],
+      "2xl": ["1.5rem", { lineHeight: "2rem" }],
+      "3xl": ["1.875rem", { lineHeight: "2.25rem" }],
+      "4xl": ["2.25rem", { lineHeight: "2.5rem" }],
+    },
+  },
+  radius: {
+    none: "0px",
+    sm: "0.375rem",
+    DEFAULT: "0.625rem",
+    md: "0.625rem",
+    lg: "0.75rem",
+    xl: "0.875rem",
+    "2xl": "1.125rem",
+    "3xl": "1.25rem",
+    full: "9999px",
   },
 } as const;
+
+export type DesignTokens = typeof designTokens;

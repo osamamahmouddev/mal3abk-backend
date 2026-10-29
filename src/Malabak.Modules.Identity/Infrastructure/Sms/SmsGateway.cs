@@ -45,7 +45,7 @@ public sealed class SmsGateway : ISmsGateway
         CancellationToken cancellationToken = default)
     {
         var nowUtc = _clock.UtcNow;
-        var dispatch = SmsDispatch.Create(Mask(toE164), Hash(toE164), template, channel.ToString(), nowUtc);
+        var dispatch = SmsDispatch.Create(PhoneNumberMasker.Mask(toE164), Hash(toE164), template, channel.ToString(), nowUtc);
         _dbContext.SmsDispatches.Add(dispatch);
 
         if (!_options.AllowedCountryPrefixes.Exists(prefix => toE164.StartsWith(prefix, StringComparison.Ordinal)))
@@ -119,8 +119,6 @@ public sealed class SmsGateway : ISmsGateway
 
         return true;
     }
-
-    internal static string Mask(string e164) => e164.Length <= 7 ? "****" : $"{e164[..6]}****{e164[^3..]}";
 
     internal static string Hash(string e164) => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(e164)))[..32];
 }

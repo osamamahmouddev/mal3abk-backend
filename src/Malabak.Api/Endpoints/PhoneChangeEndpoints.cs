@@ -41,6 +41,7 @@ public static class PhoneChangeEndpoints
                     "Identity.InvalidStepUpToken" => StatusCodes.Status401Unauthorized,
                     "Identity.PhoneChangeCooldownActive" => StatusCodes.Status429TooManyRequests,
                     "Identity.PhoneNumberAlreadyInUse" => StatusCodes.Status409Conflict,
+                    OtpDeliveryErrors.DeliveryFailedCode => StatusCodes.Status503ServiceUnavailable,
                     _ => StatusCodes.Status400BadRequest
                 };
 
@@ -76,7 +77,9 @@ public static class PhoneChangeEndpoints
                 return Results.Problem(
                     title: result.Error.Code,
                     detail: result.Error.Description,
-                    statusCode: StatusCodes.Status400BadRequest);
+                    statusCode: result.Error.Code == OtpDeliveryErrors.DeliveryFailedCode
+                        ? StatusCodes.Status503ServiceUnavailable
+                        : StatusCodes.Status400BadRequest);
             }
 
             return Results.Ok(new { message = "Old phone number verified. OTP sent to new phone." });

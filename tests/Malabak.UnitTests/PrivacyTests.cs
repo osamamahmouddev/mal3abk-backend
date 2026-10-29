@@ -45,7 +45,8 @@ public sealed class PrivacyTests
     [Fact]
     public async Task Anonymizer_ErasesOnlyAfterRetention_AndFreesThePhoneNumberAsync()
     {
-        await using var db = NewDb();
+        // With a clock the context runs the soft-delete interceptor and query filters, as it does in the API.
+        await using var db = NewDb(_clock);
         var user = await SeedAsync(db);
         db.UserSessions.Add(UserSession.Create(Guid.NewGuid(), user.Id, "1.2.3.4", "ua", _clock.UtcNow));
         await db.SaveChangesAsync();
@@ -66,8 +67,8 @@ public sealed class PrivacyTests
         user.City.Should().BeNull();
         user.AvatarUrl.Should().BeNull();
         user.Positions.Should().BeEmpty();
-        (await db.UserSessions.CountAsync()).Should().Be(0);
-        (await db.Users.AnyAsync(u => u.PhoneNumber == "+201001234567")).Should().BeFalse();
+        (await db.UserSessions.IgnoreQueryFilters().CountAsync()).Should().Be(0, "sessions are physically erased, not soft-deleted");
+        (await db.Users.IgnoreQueryFilters().AnyAsync(u => u.PhoneNumber == "+201001234567")).Should().BeFalse();
     }
 
     [Fact]
@@ -135,8 +136,8 @@ public sealed class PrivacyTests
         return user;
     }
 
-    private static IdentityDbContext NewDb() =>
-        new(new DbContextOptionsBuilder<IdentityDbContext>().UseInMemoryDatabase(Guid.NewGuid().ToString()).Options);
+    private static IdentityDbContext NewDb(IClock? clock = null) =>
+        new(new DbContextOptionsBuilder<IdentityDbContext>().UseInMemoryDatabase(Guid.NewGuid().ToString()).Options, clock);
 
     private sealed class FakeSessionStore : ISessionStore
     {

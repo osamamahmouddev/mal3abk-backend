@@ -1,0 +1,175 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "version": "1.0.0",
+  "title": "Malabak Error Code Catalog",
+  "errorCodes": [
+    {
+      "code": "VALIDATION_FAILED",
+      "httpStatus": 400,
+      "message": {
+        "en": "One or more validation errors occurred.",
+        "ar": "حدث خطأ في التحقق من صحة البيانات المدخلة."
+      }
+    },
+    {
+      "code": "IDEMPOTENCY_KEY_REQUIRED",
+      "httpStatus": 400,
+      "message": {
+        "en": "The Idempotency-Key header is required for this request.",
+        "ar": "مفتاح العمليات المتكررة (Idempotency-Key) مطلوب لهذا الطلب."
+      }
+    },
+    {
+      "code": "IDEMPOTENCY_CONFLICT",
+      "httpStatus": 409,
+      "message": {
+        "en": "A concurrent request with this Idempotency-Key is currently being processed.",
+        "ar": "يوجد طلب آخر قيد التنفيذ بنفس المفتاح، يرجى المحاولة بعد لحظات."
+      }
+    },
+    {
+      "code": "IDEMPOTENCY_PAYLOAD_MISMATCH",
+      "httpStatus": 422,
+      "message": {
+        "en": "Idempotency-Key already used with a different request payload.",
+        "ar": "تم استخدام هذا المفتاح مسبقاً ببيانات طلب مختلفة."
+      }
+    },
+    {
+      "code": "RATE_LIMIT_EXCEEDED",
+      "httpStatus": 429,
+      "message": {
+        "en": "Too many requests. Please try again later.",
+        "ar": "تم تجاوز الحد المسموح به من الطلبات، يرجى الانتظار والمحاولة لاحقاً."
+      }
+    },
+    {
+      "code": "UNAUTHORIZED",
+      "httpStatus": 401,
+      "message": {
+        "en": "Authentication is required to access this resource.",
+        "ar": "غير مصرح، يرجى تسجيل الدخول أولاً."
+      }
+    },
+    {
+      "code": "FORBIDDEN",
+      "httpStatus": 403,
+      "message": {
+        "en": "You do not have permission to access this resource.",
+        "ar": "ليس لديك الصلاحية الكافية للوصول إلى هذا المورد."
+      }
+    },
+    {
+      "code": "RESOURCE_NOT_FOUND",
+      "httpStatus": 404,
+      "message": {
+        "en": "The requested resource was not found.",
+        "ar": "المورد المطلوب غير موجود."
+      }
+    },
+    {
+      "code": "CONFLICT",
+      "httpStatus": 409,
+      "message": {
+        "en": "A conflict occurred with the current state of the resource.",
+        "ar": "تعارض في حالة المورد أو العملية المطلوبة."
+      }
+    },
+    {
+      "code": "INTERNAL_SERVER_ERROR",
+      "httpStatus": 500,
+      "message": {
+        "en": "An unexpected error occurred. Please try again later.",
+        "ar": "حدث خطأ غير متوقع في الخادم، يرجى المحاولة لاحقاً."
+      }
+    },
+    {
+      "code": "AUTH_INVALID_CREDENTIALS",
+      "httpStatus": 401,
+      "message": {
+        "en": "Invalid phone number or password.",
+        "ar": "بيانات الدخول غير صحيحة."
+      }
+    },
+    {
+      "code": "AUTH_USER_NOT_FOUND",
+      "httpStatus": 404,
+      "message": {
+        "en": "User account was not found.",
+        "ar": "المستخدم غير موجود."
+      }
+    },
+    {
+      "code": "AUTH_PHONE_ALREADY_EXISTS",
+      "httpStatus": 409,
+      "message": {
+        "en": "Phone number is already registered.",
+        "ar": "رقم الهاتف مسجل بالفعل مسبقاً."
+      }
+    },
+    {
+      "code": "AUTH_OTP_EXPIRED",
+      "httpStatus": 400,
+      "message": {
+        "en": "Verification code has expired.",
+        "ar": "انتهت صلاحية رمز التحقق."
+      }
+    },
+    {
+      "code": "AUTH_OTP_MAX_ATTEMPTS",
+      "httpStatus": 429,
+      "message": {
+        "en": "Maximum verification attempts exceeded.",
+        "ar": "تم استنفاد الحد الأقصى لمحاولات إدخال الرمز."
+      }
+    },
+    {
+      "code": "AUTH_REFRESH_TOKEN_REUSE",
+      "httpStatus": 401,
+      "message": {
+        "en": "Compromised refresh token reuse detected.",
+        "ar": "تم اكتشاف محاولة استخدام رمز أمان ملغي."
+      }
+    },
+    {
+      "code": "BOOKING_SLOT_UNAVAILABLE",
+      "httpStatus": 409,
+      "message": {
+        "en": "Selected pitch slot is already booked.",
+        "ar": "الفترة الزمنية المختارة محجوزة بالفعل من قبل لاعب آخر."
+      }
+    },
+    {
+      "code": "BOOKING_SLOT_LOCKED",
+      "httpStatus": 423,
+      "message": {
+        "en": "Slot is temporarily held by another customer.",
+        "ar": "الفترة محجوزة مؤقتاً للاعب آخر قيد الدفع، يرجى الانتظار 10 دقائق."
+      }
+    },
+    {
+      "code": "PhoneNumber.InvalidEgyptianNumber",
+      "httpStatus": 400,
+      "message": {
+        "en": "Phone number must be a valid Egyptian mobile number (010, 011, 012, 015).",
+        "ar": "رقم الهاتف غير صالح، يجب أن يكون رقماً مصرياً يبدأ بـ 010 أو 011 أو 012 أو 015."
+      }
+    },
+    {
+      "code": "Money.NegativeAmount",
+      "httpStatus": 400,
+      "message": {
+        "en": "Monetary amount cannot be negative.",
+        "ar": "المبلغ المالي لا يمكن أن يكون سالباً."
+      }
+    },
+    {
+      "code": "TimeSlotRange.InvalidRange",
+      "httpStatus": 400,
+      "message": {
+        "en": "Slot start time must be before end time.",
+        "ar": "وقت بداية الحجز يجب أن يكون قبل وقت النهاية."
+      }
+    }
+  ]
+}

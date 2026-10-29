@@ -1,0 +1,93 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "collapsed": false,
+      "gridPos": { "h": 8, "w": 6, "x": 0, "y": 0 },
+      "id": 1,
+      "title": "PostgreSQL Active Connections",
+      "type": "stat",
+      "targets": [
+        {
+          "expr": "sum(pg_stat_activity_count{state=\"active\"})",
+          "legendFormat": "Active Connections"
+        }
+      ]
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 8, "w": 6, "x": 6, "y": 0 },
+      "id": 2,
+      "title": "Waiting Locks / Blocked Queries",
+      "type": "stat",
+      "targets": [
+        {
+          "expr": "sum(pg_stat_activity_count{wait_event_type!=\"\"})",
+          "legendFormat": "Waiting Locks"
+        }
+      ]
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 8, "w": 6, "x": 12, "y": 0 },
+      "id": 3,
+      "title": "Transactions Committed / sec",
+      "type": "stat",
+      "targets": [
+        {
+          "expr": "sum(rate(pg_stat_database_xact_commit[1m]))",
+          "legendFormat": "Commits/sec"
+        }
+      ]
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 8, "w": 6, "x": 18, "y": 0 },
+      "id": 4,
+      "title": "Transaction Rollbacks / sec",
+      "type": "stat",
+      "targets": [
+        {
+          "expr": "sum(rate(pg_stat_database_xact_rollback[1m]))",
+          "legendFormat": "Rollbacks/sec"
+        }
+      ]
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 10, "w": 12, "x": 0, "y": 8 },
+      "id": 5,
+      "title": "PostgreSQL Active Connections by Database",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "pg_stat_database_numbackends",
+          "legendFormat": "{{datname}}"
+        }
+      ]
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 10, "w": 12, "x": 12, "y": 8 },
+      "id": 6,
+      "title": "Database Cache Hit Ratio (%)",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "(sum(rate(pg_stat_database_blks_hit[5m])) / (sum(rate(pg_stat_database_blks_hit[5m])) + sum(rate(pg_stat_database_blks_read[5m])))) * 100",
+          "legendFormat": "Cache Hit Ratio"
+        }
+      ]
+    }
+  ],
+  "schemaVersion": 39,
+  "tags": ["malabak", "database", "postgres"],
+  "title": "Malabak - PostgreSQL & Database Performance",
+  "uid": "malabak-db-perf"
+}

@@ -187,7 +187,9 @@ public sealed class AccountAnonymizer
     {
         var nowUtc = _clock.UtcNow;
         var cutoff = nowUtc - User.DeletionRetention;
+        // Deleted accounts are hidden by the soft-delete query filter; they are exactly the ones this job needs.
         var due = await _dbContext.Users
+            .IgnoreQueryFilters()
             .Where(u => u.IsDeleted && u.AnonymizedAtUtc == null && u.DeletionRequestedAtUtc != null && u.DeletionRequestedAtUtc <= cutoff)
             .OrderBy(u => u.DeletionRequestedAtUtc)
             .Take(BatchSize)
@@ -198,10 +200,12 @@ public sealed class AccountAnonymizer
             await _privacy.EraseContributorsAsync(user.Id, cancellationToken);
 
             user.Anonymize(nowUtc);
-            _dbContext.UserSessions.RemoveRange(await _dbContext.UserSessions.Where(s => s.UserId == user.Id).ToListAsync(cancellationToken));
-            _dbContext.RefreshTokens.RemoveRange(await _dbContext.RefreshTokens.Where(t => t.UserId == user.Id).ToListAsync(cancellationToken));
+
+            // Physically removed (not soft-deleted): sessions and phone-change requests hold IPs, devices and numbers.
+            _dbContext.HardDelete(await _dbContext.UserSessions.IgnoreQueryFilters().Where(s => s.UserId == user.Id).ToListAsync(cancellationToken));
+            _dbContext.HardDelete(await _dbContext.RefreshTokens.IgnoreQueryFilters().Where(t => t.UserId == user.Id).ToListAsync(cancellationToken));
             _dbContext.UserActionTokens.RemoveRange(await _dbContext.UserActionTokens.Where(t => t.UserId == user.Id).ToListAsync(cancellationToken));
-            _dbContext.PhoneChangeRequests.RemoveRange(await _dbContext.PhoneChangeRequests.Where(r => r.UserId == user.Id).ToListAsync(cancellationToken));
+            _dbContext.HardDelete(await _dbContext.PhoneChangeRequests.IgnoreQueryFilters().Where(r => r.UserId == user.Id).ToListAsync(cancellationToken));
             _dbContext.AdminRecoveryCodes.RemoveRange(await _dbContext.AdminRecoveryCodes.Where(c => c.UserId == user.Id).ToListAsync(cancellationToken));
             await _dbContext.SaveChangesAsync(cancellationToken);
         }

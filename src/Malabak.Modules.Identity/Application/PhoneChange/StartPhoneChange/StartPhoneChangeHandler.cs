@@ -17,7 +17,7 @@ public sealed class StartPhoneChangeHandler : ICommandHandler<StartPhoneChangeCo
     private readonly IStepUpService _stepUpService;
     private readonly IPhoneNumberNormalizer _normalizer;
     private readonly IOtpSecurityService _otpSecurityService;
-    private readonly ISmsAlertService _smsAlertService;
+    private readonly IOtpSender _otpSender;
     private readonly IClock _clock;
     private readonly ILogger<StartPhoneChangeHandler> _logger;
 
@@ -26,7 +26,7 @@ public sealed class StartPhoneChangeHandler : ICommandHandler<StartPhoneChangeCo
         IStepUpService stepUpService,
         IPhoneNumberNormalizer normalizer,
         IOtpSecurityService otpSecurityService,
-        ISmsAlertService smsAlertService,
+        IOtpSender otpSender,
         IClock clock,
         ILogger<StartPhoneChangeHandler> logger)
     {
@@ -34,7 +34,7 @@ public sealed class StartPhoneChangeHandler : ICommandHandler<StartPhoneChangeCo
         _stepUpService = stepUpService;
         _normalizer = normalizer;
         _otpSecurityService = otpSecurityService;
-        _smsAlertService = smsAlertService;
+        _otpSender = otpSender;
         _clock = clock;
         _logger = logger;
     }
@@ -133,11 +133,11 @@ public sealed class StartPhoneChangeHandler : ICommandHandler<StartPhoneChangeCo
         _dbContext.PhoneChangeRequests.Add(changeRequest);
         await _dbContext.SaveChangesAsync(cancellationToken);
 
-        // 8. Dispatch verification OTP SMS to old phone
-        await _smsAlertService.SendSecurityAlertAsync(
-            user.PhoneNumber,
-            $"Your verification code to start changing your Malabak phone number is: {oldOtpCode}. Valid for 15 minutes.",
-            cancellationToken);
+        // 8. Deliver the verification code to the current phone (never logged)
+        if (!await _otpSender.SendAsync(user.PhoneNumber, oldOtpCode, OtpPurpose.ChangePhoneOld, _requestTtl, cancellationToken))
+        {
+            return Result.Failure<StartPhoneChangeResponse>(OtpDeliveryErrors.DeliveryFailed);
+        }
 
         _logger.LogInformation(
             "Phone change request {RequestId} started for user {UserId}. Verification OTP sent to current phone.",

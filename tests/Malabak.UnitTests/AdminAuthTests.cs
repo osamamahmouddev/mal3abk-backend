@@ -205,11 +205,9 @@ public sealed class AdminAuthTests
 
     private AdminAuthHandlers Handlers(IdentityDbContext db)
     {
-        var stepUpConfig = new ConfigurationBuilder()
-            .AddInMemoryCollection(new Dictionary<string, string?> { ["Security:StepUp:SecretKey"] = "test-step-up-secret-0123456789" })
-            .Build();
+        var stepUp = new StepUpService(Options.Create(new StepUpOptions { SecretKey = TestSecrets.StepUpSecretKey }), _clock);
 
-        return new AdminAuthHandlers(db, _hasher, _totp, _cipher, TokenService(), TestSessions.Create(db, _clock), new StepUpService(stepUpConfig, _clock),
+        return new AdminAuthHandlers(db, _hasher, _totp, _cipher, TokenService(), TestSessions.Create(db, _clock), stepUp,
             new AllowTurnstile(), _clock, _jwtOptions, NullLogger<AdminAuthHandlers>.Instance);
     }
 

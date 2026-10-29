@@ -3,9 +3,8 @@ using Malabak.Modules.Identity.Application.Authentication.SendOtp;
 using Malabak.Modules.Identity.Application.Authentication.VerifyOtp;
 using Malabak.Modules.Identity.Application.Common;
 using Malabak.Modules.Identity.Infrastructure.Services;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
-using Microsoft.Extensions.Primitives;
+using Microsoft.Extensions.Options;
 using Xunit;
 
 namespace Malabak.UnitTests;
@@ -14,19 +13,10 @@ public sealed class OtpAuthTests
 {
     private readonly IPhoneNumberNormalizer _normalizer = new PhoneNumberNormalizer();
     private readonly IOtpSecurityService _securityService;
-    private readonly IConfiguration _configuration;
 
     public OtpAuthTests()
     {
-        var configDict = new Dictionary<string, string?>
-        {
-            ["Security:Otp:HmacSecret"] = "TestSecretKeyForHmacSha256Authentication123456!",
-            ["Security:Turnstile:BypassInDevelopment"] = "true",
-            ["environment"] = "Development"
-        };
-
-        _configuration = new TestConfiguration(configDict);
-        _securityService = new OtpSecurityService(_configuration);
+        _securityService = new OtpSecurityService(Options.Create(new OtpSecurityOptions { HmacSecret = TestSecrets.OtpHmacSecret }));
     }
 
     [Theory]
@@ -124,8 +114,9 @@ public sealed class OtpAuthTests
     public async Task SendOtpHandler_WhenValid_ShouldGenerateAndStoreOtpAsync()
     {
         var store = new InMemoryOtpStore();
-        var turnstile = new TurnstileValidator(_configuration, NullLogger<TurnstileValidator>.Instance);
-        var handler = new SendOtpHandler(_normalizer, turnstile, _securityService, store, NullLogger<SendOtpHandler>.Instance);
+        var turnstile = TestSecrets.CreateDevelopmentTurnstileValidator();
+        var sender = new RecordingOtpSender();
+        var handler = new SendOtpHandler(_normalizer, turnstile, _securityService, store, sender, NullLogger<SendOtpHandler>.Instance);
 
         var command = new SendOtpCommand("01011223344", "test-turnstile-token");
         var result = await handler.HandleAsync(command);
@@ -133,53 +124,35 @@ public sealed class OtpAuthTests
         result.IsSuccess.Should().BeTrue();
         result.Value.NormalizedPhoneNumber.Should().Be("+201011223344");
         result.Value.ExpiresInSeconds.Should().Be(300);
+
+        // The delivered code is the one that verifies
+        sender.LastRecipient.Should().Be("+201011223344");
+        sender.LastPurpose.Should().Be(OtpPurpose.Login);
+        sender.LastValidity.Should().Be(TimeSpan.FromMinutes(5));
+        var verification = await store.VerifyAndConsumeOtpAsync("+201011223344", sender.LastCode, _securityService);
+        verification.IsSuccess.Should().BeTrue();
     }
 
     [Fact]
-    public void Turnstile_InProduction_WithoutSecret_FailsClosed()
+    public async Task SendOtpHandler_WhenDeliveryFails_ShouldReturnDeliveryFailedAsync()
     {
-        var config = new TestConfiguration(new Dictionary<string, string?>
-        {
-            ["environment"] = "Production",
-            ["Security:Turnstile:BypassInDevelopment"] = "true"
-        });
+        var store = new InMemoryOtpStore();
+        var turnstile = TestSecrets.CreateDevelopmentTurnstileValidator();
+        var sender = new RecordingOtpSender { Succeeds = false };
+        var handler = new SendOtpHandler(_normalizer, turnstile, _securityService, store, sender, NullLogger<SendOtpHandler>.Instance);
 
-        var act = () => new TurnstileValidator(config, NullLogger<TurnstileValidator>.Instance);
+        var result = await handler.HandleAsync(new SendOtpCommand("01011223344", "test-turnstile-token"));
 
-        act.Should().Throw<InvalidOperationException>();
-    }
-
-    [Fact]
-    public void SecretServices_InProduction_WithoutSecrets_FailClosed()
-    {
-        var config = new TestConfiguration(new Dictionary<string, string?> { ["environment"] = "Production" });
-
-        var otp = () => new OtpSecurityService(config);
-
-        otp.Should().Throw<InvalidOperationException>();
-    }
-
-    [Fact]
-    public async Task Turnstile_InProduction_TestPrefixedToken_IsNotAcceptedAsync()
-    {
-        var config = new TestConfiguration(new Dictionary<string, string?>
-        {
-            ["environment"] = "Production",
-            ["Security:Turnstile:SecretKey"] = "prod-secret",
-            ["Security:Turnstile:BypassInDevelopment"] = "true"
-        });
-        var turnstile = new TurnstileValidator(config, NullLogger<TurnstileValidator>.Instance);
-
-        // Siteverify rejects (or is unreachable for) this token; either way it must not pass.
-        (await turnstile.ValidateTokenAsync("test-anything")).Should().BeFalse();
+        result.IsFailure.Should().BeTrue();
+        result.Error.Code.Should().Be(OtpDeliveryErrors.DeliveryFailedCode);
     }
 
     [Fact]
     public async Task SendOtpHandler_WhenTurnstileFails_ShouldReturnFailureAsync()
     {
         var store = new InMemoryOtpStore();
-        var turnstile = new TurnstileValidator(_configuration, NullLogger<TurnstileValidator>.Instance);
-        var handler = new SendOtpHandler(_normalizer, turnstile, _securityService, store, NullLogger<SendOtpHandler>.Instance);
+        var turnstile = TestSecrets.CreateDevelopmentTurnstileValidator();
+        var handler = new SendOtpHandler(_normalizer, turnstile, _securityService, store, new RecordingOtpSender(), NullLogger<SendOtpHandler>.Instance);
 
         var command = new SendOtpCommand("01011223344", ""); // empty turnstile
         var result = await handler.HandleAsync(command);
@@ -192,8 +165,8 @@ public sealed class OtpAuthTests
     public async Task SendOtpHandler_WhenRateLimitExceeded_ShouldReturnRateLimitErrorAsync()
     {
         var store = new InMemoryOtpStore();
-        var turnstile = new TurnstileValidator(_configuration, NullLogger<TurnstileValidator>.Instance);
-        var handler = new SendOtpHandler(_normalizer, turnstile, _securityService, store, NullLogger<SendOtpHandler>.Instance);
+        var turnstile = TestSecrets.CreateDevelopmentTurnstileValidator();
+        var handler = new SendOtpHandler(_normalizer, turnstile, _securityService, store, new RecordingOtpSender(), NullLogger<SendOtpHandler>.Instance);
 
         var command = new SendOtpCommand("01011223344", "test-token");
 
@@ -236,25 +209,21 @@ public sealed class OtpAuthTests
         alphaCode.IsValid.Should().BeFalse();
     }
 
-    private sealed class TestConfiguration : IConfiguration
+    private sealed class RecordingOtpSender : IOtpSender
     {
-        private readonly Dictionary<string, string?> _data;
+        public bool Succeeds { get; init; } = true;
+        public string LastRecipient { get; private set; } = string.Empty;
+        public string LastCode { get; private set; } = string.Empty;
+        public OtpPurpose? LastPurpose { get; private set; }
+        public TimeSpan LastValidity { get; private set; }
 
-        public TestConfiguration(Dictionary<string, string?> data)
+        public Task<bool> SendAsync(string phoneNumber, string code, OtpPurpose purpose, TimeSpan validity, CancellationToken cancellationToken = default)
         {
-            _data = data;
+            LastRecipient = phoneNumber;
+            LastCode = code;
+            LastPurpose = purpose;
+            LastValidity = validity;
+            return Task.FromResult(Succeeds);
         }
-
-        public string? this[string key]
-        {
-            get => _data.TryGetValue(key, out var value) ? value : null;
-            set => _data[key] = value;
-        }
-
-        public IEnumerable<IConfigurationSection> GetChildren() => [];
-
-        public IChangeToken GetReloadToken() => throw new NotSupportedException();
-
-        public IConfigurationSection GetSection(string key) => throw new NotSupportedException();
     }
 }

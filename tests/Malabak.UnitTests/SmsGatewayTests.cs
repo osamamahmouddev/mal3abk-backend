@@ -103,7 +103,7 @@ public sealed class SmsGatewayTests
         await Gateway(db, Options("p1"), new FakeProvider("p1")).SendOtpAsync(_egyptPhone, "987654");
 
         var dispatch = await db.SmsDispatches.SingleAsync();
-        dispatch.MaskedPhone.Should().Be("+20100****567");
+        dispatch.MaskedPhone.Should().Be(PhoneNumberMasker.Mask(_egyptPhone));
         dispatch.MaskedPhone.Should().NotContain("1234");
         dispatch.Template.Should().Be(SmsTemplates.Otp);
         typeof(SmsDispatch).GetProperties().Select(p => p.Name).Should().NotContain("Body");

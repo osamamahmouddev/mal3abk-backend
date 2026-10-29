@@ -56,7 +56,7 @@ public sealed class StepUpHandlers :
     private readonly IFieldCipher _cipher;
     private readonly IOtpStore _otpStore;
     private readonly IOtpSecurityService _otpSecurity;
-    private readonly ISmsAlertService _sms;
+    private readonly IOtpSender _otpSender;
     private readonly IClock _clock;
     private readonly ILogger<StepUpHandlers> _logger;
 
@@ -68,7 +68,7 @@ public sealed class StepUpHandlers :
         IFieldCipher cipher,
         IOtpStore otpStore,
         IOtpSecurityService otpSecurity,
-        ISmsAlertService sms,
+        IOtpSender otpSender,
         IClock clock,
         ILogger<StepUpHandlers> logger)
     {
@@ -79,7 +79,7 @@ public sealed class StepUpHandlers :
         _cipher = cipher;
         _otpStore = otpStore;
         _otpSecurity = otpSecurity;
-        _sms = sms;
+        _otpSender = otpSender;
         _clock = clock;
         _logger = logger;
     }
@@ -100,8 +100,11 @@ public sealed class StepUpHandlers :
 
         var code = _otpSecurity.GenerateSecureOtpCode();
         await _otpStore.SaveOtpAsync(key, _otpSecurity.ComputeHmacHash(code), _otpLifetime, maxVerificationAttempts: 5, cancellationToken);
-        await _sms.SendSecurityAlertAsync(user.PhoneNumber, $"Malabak verification code: {code}. Valid 5 minutes. Never share it.", cancellationToken);
-        return Result.Success();
+
+        // Neither the code nor the phone number is logged (SECURITY.md §15.5).
+        return await _otpSender.SendAsync(user.PhoneNumber, code, OtpPurpose.StepUp, _otpLifetime, cancellationToken)
+            ? Result.Success()
+            : Result.Failure(OtpDeliveryErrors.DeliveryFailed);
     }
 
     public async Task<Result<StepUpTokenResponse>> HandleAsync(VerifyStepUpCommand command, CancellationToken cancellationToken = default)

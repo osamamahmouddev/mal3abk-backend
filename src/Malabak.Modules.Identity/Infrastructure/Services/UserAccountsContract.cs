@@ -79,7 +79,6 @@ public sealed class UserAccountsContract : IUserAccountsContract
         CancellationToken cancellationToken = default)
     {
         var link = $"{_dashboardUrl}/accept-invitation?token={rawToken}";
-        var body = $"You've been invited to join {venueName} on Malabak as {role}. Accept within 48 hours: {link}";
 
         try
         {
@@ -89,7 +88,7 @@ public sealed class UserAccountsContract : IUserAccountsContract
             }
             else if (!string.IsNullOrWhiteSpace(normalizedPhone))
             {
-                await _sms.SendSecurityAlertAsync(normalizedPhone, body, cancellationToken);
+                await _sms.SendSecurityAlertAsync(normalizedPhone, SecurityAlert.StaffInvitation(venueName, role, link), cancellationToken);
             }
         }
         catch (Exception ex) when (ex is System.Net.Mail.SmtpException or InvalidOperationException or System.Net.Sockets.SocketException)
