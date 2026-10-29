@@ -69,7 +69,7 @@ Malabak.sln
 | Mailpit (fake SMTP UI) | http://localhost:8025 (SMTP on `1025`) | `docker compose up -d` |
 
 ### Prerequisites
-- [.NET 9 SDK](https://dotnet.microsoft.com/)
+- [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0) (LTS)
 - [Node.js 20+](https://nodejs.org/) and **pnpm 9** (the version pinned in `web/package.json`)
 - [Docker & Docker Compose](https://www.docker.com/)
 
