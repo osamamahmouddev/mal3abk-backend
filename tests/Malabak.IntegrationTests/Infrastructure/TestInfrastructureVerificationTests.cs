@@ -84,7 +84,7 @@ public sealed class TestInfrastructureVerificationTests : IClassFixture<WebAppli
             .Build();
 
         pitch.Name.Should().Be("Grand Pitch A");
-        pitch.TurfType.Should().Be("Natural Grass");
+        pitch.TurfType.Should().Be("NaturalGrass");
         pitch.VenueId.Should().Be(venue.Id);
 
         // BookingBuilder

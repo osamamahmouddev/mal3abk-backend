@@ -10,6 +10,49 @@
     "version": "v1"
   },
   "paths": {
+    "/api/v1/me/step-up": {
+      "post": {
+        "tags": [
+          "Authentication"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StepUpApiRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Bad Request (Validation failure, invalid inputs)"
+          },
+          "401": {
+            "description": "Unauthorized (Missing or expired JWT access token)"
+          },
+          "403": {
+            "description": "Forbidden (Insufficient role or permissions)"
+          },
+          "404": {
+            "description": "Not Found (Resource does not exist)"
+          },
+          "409": {
+            "description": "Conflict (Concurrent update or duplicate idempotency in flight)"
+          },
+          "422": {
+            "description": "Unprocessable Entity (Business rule violation or payload mismatch)"
+          },
+          "429": {
+            "description": "Too Many Requests (Rate limit exceeded, check Retry-After header)"
+          }
+        }
+      }
+    },
     "/api/v1/auth/otp/send": {
       "post": {
         "tags": [
@@ -485,14 +528,992 @@
           }
         }
       }
+    },
+    "/api/v1/me/phone-change/start": {
+      "post": {
+        "tags": [
+          "Phone Change"
+        ],
+        "summary": "Start multi-step phone change (requires \u003C= 5 min step-up token)",
+        "operationId": "StartPhoneChange",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StartPhoneChangeApiRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Bad Request (Validation failure, invalid inputs)"
+          },
+          "401": {
+            "description": "Unauthorized (Missing or expired JWT access token)"
+          },
+          "403": {
+            "description": "Forbidden (Insufficient role or permissions)"
+          },
+          "404": {
+            "description": "Not Found (Resource does not exist)"
+          },
+          "409": {
+            "description": "Conflict (Concurrent update or duplicate idempotency in flight)"
+          },
+          "422": {
+            "description": "Unprocessable Entity (Business rule violation or payload mismatch)"
+          },
+          "429": {
+            "description": "Too Many Requests (Rate limit exceeded, check Retry-After header)"
+          }
+        }
+      }
+    },
+    "/api/v1/me/phone-change/verify-old": {
+      "post": {
+        "tags": [
+          "Phone Change"
+        ],
+        "summary": "Verify old phone OTP code",
+        "operationId": "VerifyOldPhone",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VerifyOldPhoneApiRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Bad Request (Validation failure, invalid inputs)"
+          },
+          "401": {
+            "description": "Unauthorized (Missing or expired JWT access token)"
+          },
+          "403": {
+            "description": "Forbidden (Insufficient role or permissions)"
+          },
+          "404": {
+            "description": "Not Found (Resource does not exist)"
+          },
+          "409": {
+            "description": "Conflict (Concurrent update or duplicate idempotency in flight)"
+          },
+          "422": {
+            "description": "Unprocessable Entity (Business rule violation or payload mismatch)"
+          },
+          "429": {
+            "description": "Too Many Requests (Rate limit exceeded, check Retry-After header)"
+          }
+        }
+      }
+    },
+    "/api/v1/me/phone-change/verify-new": {
+      "post": {
+        "tags": [
+          "Phone Change"
+        ],
+        "summary": "Verify new phone OTP code in atomic transaction, rotate security stamp and revoke sessions",
+        "operationId": "VerifyNewPhone",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VerifyNewPhoneApiRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Bad Request (Validation failure, invalid inputs)"
+          },
+          "401": {
+            "description": "Unauthorized (Missing or expired JWT access token)"
+          },
+          "403": {
+            "description": "Forbidden (Insufficient role or permissions)"
+          },
+          "404": {
+            "description": "Not Found (Resource does not exist)"
+          },
+          "409": {
+            "description": "Conflict (Concurrent update or duplicate idempotency in flight)"
+          },
+          "422": {
+            "description": "Unprocessable Entity (Business rule violation or payload mismatch)"
+          },
+          "429": {
+            "description": "Too Many Requests (Rate limit exceeded, check Retry-After header)"
+          }
+        }
+      }
+    },
+    "/api/v1/me/phone-change/recover": {
+      "post": {
+        "tags": [
+          "Phone Change"
+        ],
+        "summary": "Revert unauthorized phone number change using 24-hour recovery link",
+        "operationId": "RecoverPhone",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecoverPhoneApiRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Bad Request (Validation failure, invalid inputs)"
+          },
+          "401": {
+            "description": "Unauthorized (Missing or expired JWT access token)"
+          },
+          "403": {
+            "description": "Forbidden (Insufficient role or permissions)"
+          },
+          "404": {
+            "description": "Not Found (Resource does not exist)"
+          },
+          "409": {
+            "description": "Conflict (Concurrent update or duplicate idempotency in flight)"
+          },
+          "422": {
+            "description": "Unprocessable Entity (Business rule violation or payload mismatch)"
+          },
+          "429": {
+            "description": "Too Many Requests (Rate limit exceeded, check Retry-After header)"
+          }
+        }
+      }
+    },
+    "/api/v1/venue-manager/venues": {
+      "post": {
+        "tags": [
+          "Venue Manager"
+        ],
+        "summary": "Create a new venue for the current owner",
+        "operationId": "CreateVenue",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateVenueApiRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Bad Request (Validation failure, invalid inputs)"
+          },
+          "401": {
+            "description": "Unauthorized (Missing or expired JWT access token)"
+          },
+          "403": {
+            "description": "Forbidden (Insufficient role or permissions)"
+          },
+          "404": {
+            "description": "Not Found (Resource does not exist)"
+          },
+          "409": {
+            "description": "Conflict (Concurrent update or duplicate idempotency in flight)"
+          },
+          "422": {
+            "description": "Unprocessable Entity (Business rule violation or payload mismatch)"
+          },
+          "429": {
+            "description": "Too Many Requests (Rate limit exceeded, check Retry-After header)"
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "Venue Manager"
+        ],
+        "summary": "Get all venues belonging to the current owner",
+        "operationId": "GetVenuesByOwner",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Bad Request (Validation failure, invalid inputs)"
+          },
+          "401": {
+            "description": "Unauthorized (Missing or expired JWT access token)"
+          },
+          "403": {
+            "description": "Forbidden (Insufficient role or permissions)"
+          },
+          "404": {
+            "description": "Not Found (Resource does not exist)"
+          },
+          "409": {
+            "description": "Conflict (Concurrent update or duplicate idempotency in flight)"
+          },
+          "422": {
+            "description": "Unprocessable Entity (Business rule violation or payload mismatch)"
+          },
+          "429": {
+            "description": "Too Many Requests (Rate limit exceeded, check Retry-After header)"
+          }
+        }
+      }
+    },
+    "/api/v1/venue-manager/venues/{id}": {
+      "get": {
+        "tags": [
+          "Venue Manager"
+        ],
+        "summary": "Get venue details by ID",
+        "operationId": "GetVenueById",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Bad Request (Validation failure, invalid inputs)"
+          },
+          "401": {
+            "description": "Unauthorized (Missing or expired JWT access token)"
+          },
+          "403": {
+            "description": "Forbidden (Insufficient role or permissions)"
+          },
+          "404": {
+            "description": "Not Found (Resource does not exist)"
+          },
+          "409": {
+            "description": "Conflict (Concurrent update or duplicate idempotency in flight)"
+          },
+          "422": {
+            "description": "Unprocessable Entity (Business rule violation or payload mismatch)"
+          },
+          "429": {
+            "description": "Too Many Requests (Rate limit exceeded, check Retry-After header)"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Venue Manager"
+        ],
+        "summary": "Update venue details",
+        "operationId": "UpdateVenue",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateVenueApiRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Bad Request (Validation failure, invalid inputs)"
+          },
+          "401": {
+            "description": "Unauthorized (Missing or expired JWT access token)"
+          },
+          "403": {
+            "description": "Forbidden (Insufficient role or permissions)"
+          },
+          "404": {
+            "description": "Not Found (Resource does not exist)"
+          },
+          "409": {
+            "description": "Conflict (Concurrent update or duplicate idempotency in flight)"
+          },
+          "422": {
+            "description": "Unprocessable Entity (Business rule violation or payload mismatch)"
+          },
+          "429": {
+            "description": "Too Many Requests (Rate limit exceeded, check Retry-After header)"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Venue Manager"
+        ],
+        "summary": "Soft delete a venue",
+        "operationId": "DeleteVenue",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Bad Request (Validation failure, invalid inputs)"
+          },
+          "401": {
+            "description": "Unauthorized (Missing or expired JWT access token)"
+          },
+          "403": {
+            "description": "Forbidden (Insufficient role or permissions)"
+          },
+          "404": {
+            "description": "Not Found (Resource does not exist)"
+          },
+          "409": {
+            "description": "Conflict (Concurrent update or duplicate idempotency in flight)"
+          },
+          "422": {
+            "description": "Unprocessable Entity (Business rule violation or payload mismatch)"
+          },
+          "429": {
+            "description": "Too Many Requests (Rate limit exceeded, check Retry-After header)"
+          }
+        }
+      }
+    },
+    "/api/v1/venue-manager/venues/{id}/publish": {
+      "post": {
+        "tags": [
+          "Venue Manager"
+        ],
+        "summary": "Publish or unpublish a venue (requires prior approval)",
+        "operationId": "PublishVenue",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PublishVenueApiRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Bad Request (Validation failure, invalid inputs)"
+          },
+          "401": {
+            "description": "Unauthorized (Missing or expired JWT access token)"
+          },
+          "403": {
+            "description": "Forbidden (Insufficient role or permissions)"
+          },
+          "404": {
+            "description": "Not Found (Resource does not exist)"
+          },
+          "409": {
+            "description": "Conflict (Concurrent update or duplicate idempotency in flight)"
+          },
+          "422": {
+            "description": "Unprocessable Entity (Business rule violation or payload mismatch)"
+          },
+          "429": {
+            "description": "Too Many Requests (Rate limit exceeded, check Retry-After header)"
+          }
+        }
+      }
+    },
+    "/api/v1/venue-manager/venues/{venueId}/pitches": {
+      "post": {
+        "tags": [
+          "Venue Manager"
+        ],
+        "summary": "Create a pitch under a venue",
+        "operationId": "CreatePitch",
+        "parameters": [
+          {
+            "name": "venueId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreatePitchApiRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Bad Request (Validation failure, invalid inputs)"
+          },
+          "401": {
+            "description": "Unauthorized (Missing or expired JWT access token)"
+          },
+          "403": {
+            "description": "Forbidden (Insufficient role or permissions)"
+          },
+          "404": {
+            "description": "Not Found (Resource does not exist)"
+          },
+          "409": {
+            "description": "Conflict (Concurrent update or duplicate idempotency in flight)"
+          },
+          "422": {
+            "description": "Unprocessable Entity (Business rule violation or payload mismatch)"
+          },
+          "429": {
+            "description": "Too Many Requests (Rate limit exceeded, check Retry-After header)"
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "Venue Manager"
+        ],
+        "summary": "Get all pitches for a specific venue",
+        "operationId": "GetPitchesByVenue",
+        "parameters": [
+          {
+            "name": "venueId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Bad Request (Validation failure, invalid inputs)"
+          },
+          "401": {
+            "description": "Unauthorized (Missing or expired JWT access token)"
+          },
+          "403": {
+            "description": "Forbidden (Insufficient role or permissions)"
+          },
+          "404": {
+            "description": "Not Found (Resource does not exist)"
+          },
+          "409": {
+            "description": "Conflict (Concurrent update or duplicate idempotency in flight)"
+          },
+          "422": {
+            "description": "Unprocessable Entity (Business rule violation or payload mismatch)"
+          },
+          "429": {
+            "description": "Too Many Requests (Rate limit exceeded, check Retry-After header)"
+          }
+        }
+      }
+    },
+    "/api/v1/venue-manager/pitches/{id}": {
+      "get": {
+        "tags": [
+          "Venue Manager"
+        ],
+        "summary": "Get pitch details by ID",
+        "operationId": "GetPitchById",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Bad Request (Validation failure, invalid inputs)"
+          },
+          "401": {
+            "description": "Unauthorized (Missing or expired JWT access token)"
+          },
+          "403": {
+            "description": "Forbidden (Insufficient role or permissions)"
+          },
+          "404": {
+            "description": "Not Found (Resource does not exist)"
+          },
+          "409": {
+            "description": "Conflict (Concurrent update or duplicate idempotency in flight)"
+          },
+          "422": {
+            "description": "Unprocessable Entity (Business rule violation or payload mismatch)"
+          },
+          "429": {
+            "description": "Too Many Requests (Rate limit exceeded, check Retry-After header)"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Venue Manager"
+        ],
+        "summary": "Update pitch details",
+        "operationId": "UpdatePitch",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdatePitchApiRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Bad Request (Validation failure, invalid inputs)"
+          },
+          "401": {
+            "description": "Unauthorized (Missing or expired JWT access token)"
+          },
+          "403": {
+            "description": "Forbidden (Insufficient role or permissions)"
+          },
+          "404": {
+            "description": "Not Found (Resource does not exist)"
+          },
+          "409": {
+            "description": "Conflict (Concurrent update or duplicate idempotency in flight)"
+          },
+          "422": {
+            "description": "Unprocessable Entity (Business rule violation or payload mismatch)"
+          },
+          "429": {
+            "description": "Too Many Requests (Rate limit exceeded, check Retry-After header)"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Venue Manager"
+        ],
+        "summary": "Soft delete a pitch",
+        "operationId": "DeletePitch",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Bad Request (Validation failure, invalid inputs)"
+          },
+          "401": {
+            "description": "Unauthorized (Missing or expired JWT access token)"
+          },
+          "403": {
+            "description": "Forbidden (Insufficient role or permissions)"
+          },
+          "404": {
+            "description": "Not Found (Resource does not exist)"
+          },
+          "409": {
+            "description": "Conflict (Concurrent update or duplicate idempotency in flight)"
+          },
+          "422": {
+            "description": "Unprocessable Entity (Business rule violation or payload mismatch)"
+          },
+          "429": {
+            "description": "Too Many Requests (Rate limit exceeded, check Retry-After header)"
+          }
+        }
+      }
+    },
+    "/api/v1/venue-manager/venues/{venueId}/schedules": {
+      "put": {
+        "tags": [
+          "Venue Manager"
+        ],
+        "summary": "Configure weekly operating schedules with overnight span support",
+        "operationId": "UpdateVenueSchedules",
+        "parameters": [
+          {
+            "name": "venueId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateVenueSchedulesApiRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Bad Request (Validation failure, invalid inputs)"
+          },
+          "401": {
+            "description": "Unauthorized (Missing or expired JWT access token)"
+          },
+          "403": {
+            "description": "Forbidden (Insufficient role or permissions)"
+          },
+          "404": {
+            "description": "Not Found (Resource does not exist)"
+          },
+          "409": {
+            "description": "Conflict (Concurrent update or duplicate idempotency in flight)"
+          },
+          "422": {
+            "description": "Unprocessable Entity (Business rule violation or payload mismatch)"
+          },
+          "429": {
+            "description": "Too Many Requests (Rate limit exceeded, check Retry-After header)"
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "Venue Manager"
+        ],
+        "summary": "Get weekly operating schedules for a venue",
+        "operationId": "GetVenueSchedules",
+        "parameters": [
+          {
+            "name": "venueId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Bad Request (Validation failure, invalid inputs)"
+          },
+          "401": {
+            "description": "Unauthorized (Missing or expired JWT access token)"
+          },
+          "403": {
+            "description": "Forbidden (Insufficient role or permissions)"
+          },
+          "404": {
+            "description": "Not Found (Resource does not exist)"
+          },
+          "409": {
+            "description": "Conflict (Concurrent update or duplicate idempotency in flight)"
+          },
+          "422": {
+            "description": "Unprocessable Entity (Business rule violation or payload mismatch)"
+          },
+          "429": {
+            "description": "Too Many Requests (Rate limit exceeded, check Retry-After header)"
+          }
+        }
+      }
+    },
+    "/api/v1/venue-manager/venues/{venueId}/slots": {
+      "get": {
+        "tags": [
+          "Venue Manager"
+        ],
+        "summary": "Get calculated bookable slots for a venue on a specific business date",
+        "operationId": "GetVenueSlots",
+        "parameters": [
+          {
+            "name": "venueId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "date",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Bad Request (Validation failure, invalid inputs)"
+          },
+          "401": {
+            "description": "Unauthorized (Missing or expired JWT access token)"
+          },
+          "403": {
+            "description": "Forbidden (Insufficient role or permissions)"
+          },
+          "404": {
+            "description": "Not Found (Resource does not exist)"
+          },
+          "409": {
+            "description": "Conflict (Concurrent update or duplicate idempotency in flight)"
+          },
+          "422": {
+            "description": "Unprocessable Entity (Business rule violation or payload mismatch)"
+          },
+          "429": {
+            "description": "Too Many Requests (Rate limit exceeded, check Retry-After header)"
+          }
+        }
+      }
     }
   },
   "components": {
     "schemas": {
+      "CreatePitchApiRequest": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "nullable": true
+          },
+          "turfType": {
+            "type": "string",
+            "nullable": true
+          },
+          "capacity": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "lengthMeters": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "widthMeters": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "photos": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "CreateVenueApiRequest": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "nullable": true
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "address": {
+            "type": "string",
+            "nullable": true
+          },
+          "city": {
+            "type": "string",
+            "nullable": true
+          },
+          "area": {
+            "type": "string",
+            "nullable": true
+          },
+          "latitude": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "longitude": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "phoneNumber": {
+            "type": "string",
+            "nullable": true
+          },
+          "facilities": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
+          },
+          "photos": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "DayOfWeek": {
+        "enum": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6
+        ],
+        "type": "integer",
+        "format": "int32"
+      },
       "LogoutRequest": {
         "type": "object",
         "properties": {
           "refreshToken": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "PublishVenueApiRequest": {
+        "type": "object",
+        "properties": {
+          "isPublished": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "RecoverPhoneApiRequest": {
+        "type": "object",
+        "properties": {
+          "recoveryToken": {
             "type": "string",
             "nullable": true
           }
@@ -509,6 +1530,30 @@
         },
         "additionalProperties": false
       },
+      "ScheduleItemApiRequest": {
+        "type": "object",
+        "properties": {
+          "dayOfWeek": {
+            "$ref": "#/components/schemas/DayOfWeek"
+          },
+          "openTime": {
+            "type": "string",
+            "format": "time"
+          },
+          "closeTime": {
+            "type": "string",
+            "format": "time"
+          },
+          "slotDurationMinutes": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "isActive": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
       "SendOtpRequest": {
         "type": "object",
         "properties": {
@@ -517,6 +1562,30 @@
             "nullable": true
           },
           "turnstileToken": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "StartPhoneChangeApiRequest": {
+        "type": "object",
+        "properties": {
+          "newPhoneNumber": {
+            "type": "string",
+            "nullable": true
+          },
+          "stepUpToken": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "StepUpApiRequest": {
+        "type": "object",
+        "properties": {
+          "scope": {
             "type": "string",
             "nullable": true
           }
@@ -551,6 +1620,136 @@
           "amount": {
             "type": "number",
             "format": "double"
+          }
+        },
+        "additionalProperties": false
+      },
+      "UpdatePitchApiRequest": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "nullable": true
+          },
+          "turfType": {
+            "type": "string",
+            "nullable": true
+          },
+          "capacity": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "lengthMeters": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "widthMeters": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "photos": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "UpdateVenueApiRequest": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "nullable": true
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "address": {
+            "type": "string",
+            "nullable": true
+          },
+          "city": {
+            "type": "string",
+            "nullable": true
+          },
+          "area": {
+            "type": "string",
+            "nullable": true
+          },
+          "latitude": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "longitude": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "phoneNumber": {
+            "type": "string",
+            "nullable": true
+          },
+          "facilities": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
+          },
+          "photos": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "UpdateVenueSchedulesApiRequest": {
+        "type": "object",
+        "properties": {
+          "schedules": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ScheduleItemApiRequest"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "VerifyNewPhoneApiRequest": {
+        "type": "object",
+        "properties": {
+          "requestId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "code": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "VerifyOldPhoneApiRequest": {
+        "type": "object",
+        "properties": {
+          "requestId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "code": {
+            "type": "string",
+            "nullable": true
           }
         },
         "additionalProperties": false
