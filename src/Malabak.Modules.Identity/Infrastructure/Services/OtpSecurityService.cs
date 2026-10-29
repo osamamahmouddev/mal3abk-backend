@@ -1,7 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
 using Malabak.Modules.Identity.Application.Common;
-using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Options;
 
 namespace Malabak.Modules.Identity.Infrastructure.Services;
 
@@ -9,9 +9,11 @@ public sealed class OtpSecurityService : IOtpSecurityService
 {
     private readonly byte[] _hmacKey;
 
-    public OtpSecurityService(IConfiguration configuration)
+    public OtpSecurityService(IOptions<OtpSecurityOptions> options)
     {
-        var secret = configuration["Security:Otp:HmacSecret"] ?? "Malabak-Secure-Otp-HMAC-SHA256-Key-2026-Egypt!";
+        ArgumentNullException.ThrowIfNull(options);
+        var secret = options.Value.HmacSecret;
+        ArgumentException.ThrowIfNullOrWhiteSpace(secret);
         _hmacKey = Encoding.UTF8.GetBytes(secret);
     }
 

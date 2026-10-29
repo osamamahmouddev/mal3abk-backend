@@ -1,6 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 
-namespace Malabak.Api.Infrastructure.Configuration;
+namespace Malabak.Modules.Identity.Application.Common;
 
 public sealed class TurnstileOptions
 {
@@ -13,5 +13,6 @@ public sealed class TurnstileOptions
     [Url(ErrorMessage = "VerifyUrl must be a valid URL.")]
     public string VerifyUrl { get; set; } = "https://challenges.cloudflare.com/turnstile/v0/siteverify";
 
+    /// <summary>Skips the Cloudflare call. Honoured only in Development/Testing; refused at startup elsewhere.</summary>
     public bool BypassInDevelopment { get; set; }
 }

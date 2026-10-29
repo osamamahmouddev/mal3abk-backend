@@ -1,28 +1,35 @@
 using System.Net.Http.Json;
 using System.Text.Json.Serialization;
 using Malabak.Modules.Identity.Application.Common;
-using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace Malabak.Modules.Identity.Infrastructure.Services;
 
 public sealed class TurnstileValidator : ITurnstileValidator
 {
-    private const string _siteVerifyEndpoint = "https://challenges.cloudflare.com/turnstile/v0/siteverify";
+    // Cloudflare's published Turnstile test site key, accepted as a token only with the test tokens below.
+    private const string _testSiteKey = "1x00000000000000000000AA";
     private static readonly HttpClient _httpClient = new();
-    private readonly string _secretKey;
-    private readonly bool _bypassInDev;
+    private readonly TurnstileOptions _options;
+    private readonly bool _allowTestTokens;
+    private readonly bool _bypass;
     private readonly ILogger<TurnstileValidator> _logger;
 
     public TurnstileValidator(
-        IConfiguration configuration,
+        IOptions<TurnstileOptions> options,
+        IHostEnvironment environment,
         ILogger<TurnstileValidator> logger)
     {
+        ArgumentNullException.ThrowIfNull(options);
+        _options = options.Value;
         _logger = logger;
-        _secretKey = configuration["Security:Turnstile:SecretKey"] ?? "1x0000000000000000000000000000000AA"; // Cloudflare always-pass test key
 
-        var bypassConfig = configuration["Security:Turnstile:BypassInDevelopment"];
-        _bypassInDev = string.IsNullOrEmpty(bypassConfig) || (bool.TryParse(bypassConfig, out var bypass) && bypass);
+        // Startup validation already refuses the bypass outside Development/Testing; checking the
+        // environment again here keeps a misbound option from switching Turnstile off.
+        _allowTestTokens = IdentityEnvironment.AllowsDevelopmentShortcuts(environment);
+        _bypass = _allowTestTokens && _options.BypassInDevelopment;
     }
 
     public async Task<bool> ValidateTokenAsync(
@@ -35,15 +42,12 @@ public sealed class TurnstileValidator : ITurnstileValidator
             return false;
         }
 
-        // Allow test tokens for development and unit testing
-        if (turnstileToken.StartsWith("dummy-", StringComparison.OrdinalIgnoreCase) ||
-            turnstileToken.StartsWith("test-", StringComparison.OrdinalIgnoreCase) ||
-            turnstileToken.Equals("1x00000000000000000000AA", StringComparison.OrdinalIgnoreCase))
+        if (_allowTestTokens && IsTestToken(turnstileToken))
         {
             return true;
         }
 
-        if (_bypassInDev)
+        if (_bypass)
         {
             return true;
         }
@@ -52,12 +56,12 @@ public sealed class TurnstileValidator : ITurnstileValidator
         {
             var content = new FormUrlEncodedContent(new Dictionary<string, string>
             {
-                ["secret"] = _secretKey,
+                ["secret"] = _options.SecretKey,
                 ["response"] = turnstileToken,
                 ["remoteip"] = remoteIp ?? string.Empty
             });
 
-            var response = await _httpClient.PostAsync(_siteVerifyEndpoint, content, cancellationToken);
+            var response = await _httpClient.PostAsync(_options.VerifyUrl, content, cancellationToken);
             if (!response.IsSuccessStatusCode)
             {
                 _logger.LogWarning("Turnstile API call returned non-success status code {StatusCode}", response.StatusCode);
@@ -73,6 +77,11 @@ public sealed class TurnstileValidator : ITurnstileValidator
             return false;
         }
     }
+
+    private static bool IsTestToken(string token) =>
+        token.StartsWith("dummy-", StringComparison.OrdinalIgnoreCase) ||
+        token.StartsWith("test-", StringComparison.OrdinalIgnoreCase) ||
+        token.Equals(_testSiteKey, StringComparison.OrdinalIgnoreCase);
 
     private sealed class TurnstileVerificationResponse
     {

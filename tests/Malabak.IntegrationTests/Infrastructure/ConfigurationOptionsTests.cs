@@ -1,6 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using FluentAssertions;
 using Malabak.Api.Infrastructure.Configuration;
+using Malabak.Modules.Identity.Application.Common;
 using Xunit;
 
 namespace Malabak.IntegrationTests.Infrastructure;

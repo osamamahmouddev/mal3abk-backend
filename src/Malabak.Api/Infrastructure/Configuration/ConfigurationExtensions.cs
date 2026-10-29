@@ -58,11 +58,8 @@ public static class ConfigurationExtensions
             .Validate(options => options.AccessTokenExpirationMinutes > 0 && options.AccessTokenExpirationMinutes <= 60, "Access token expiration must be between 1 and 60 minutes.")
             .ValidateOnStart();
 
-        // Cloudflare Turnstile Options
-        services.AddOptions<TurnstileOptions>()
-            .Bind(configuration.GetSection(TurnstileOptions.SectionName))
-            .ValidateDataAnnotations()
-            .ValidateOnStart();
+        // Cloudflare Turnstile, OTP and step-up secrets and the JWT signing key are validated by the
+        // Identity module (AddIdentityModule), which owns them.
 
         // CORS Options
         services.AddOptions<CorsOptions>()

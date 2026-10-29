@@ -7,8 +7,8 @@ using Malabak.Modules.Identity.Infrastructure;
 using Malabak.Modules.Identity.Infrastructure.Services;
 using Malabak.SharedKernel.Time;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 using StackExchange.Redis;
 using Xunit;
 
@@ -23,18 +23,10 @@ public sealed class OtpLogMaskingTests
 
     private readonly IPhoneNumberNormalizer _normalizer = new PhoneNumberNormalizer();
     private readonly IOtpSecurityService _securityService;
-    private readonly IConfiguration _configuration;
 
     public OtpLogMaskingTests()
     {
-        _configuration = new ConfigurationBuilder()
-            .AddInMemoryCollection(new Dictionary<string, string?>
-            {
-                ["Security:Otp:HmacSecret"] = "TestSecretKeyForHmacSha256Authentication123456!",
-                ["Security:Turnstile:BypassInDevelopment"] = "true",
-            })
-            .Build();
-        _securityService = new OtpSecurityService(_configuration);
+        _securityService = new OtpSecurityService(Options.Create(new OtpSecurityOptions { HmacSecret = TestSecrets.OtpHmacSecret }));
     }
 
     [Fact]
@@ -74,7 +66,7 @@ public sealed class OtpLogMaskingTests
     public async Task SendOtpHandler_LogsNoFullNumber_OnSuccessOrRateLimitAsync()
     {
         var store = new InMemoryOtpStore();
-        var turnstile = new TurnstileValidator(_configuration, NullLogger<TurnstileValidator>.Instance);
+        var turnstile = TestSecrets.CreateDevelopmentTurnstileValidator();
         var logger = new CapturingLogger<SendOtpHandler>();
         var handler = new SendOtpHandler(_normalizer, turnstile, _securityService, store, new AcceptingOtpSender(), logger);
         var command = new SendOtpCommand(_rawPhone, "test-turnstile-token");
