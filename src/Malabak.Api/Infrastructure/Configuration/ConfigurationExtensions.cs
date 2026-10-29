@@ -45,6 +45,9 @@ public static class ConfigurationExtensions
         services.AddOptions<RedisOptions>()
             .Bind(configuration.GetSection(RedisOptions.SectionName))
             .ValidateDataAnnotations()
+            .Validate(
+                options => string.IsNullOrWhiteSpace(options.TlsCaCertificatePath) || File.Exists(options.TlsCaCertificatePath),
+                "Redis TlsCaCertificatePath must point to an existing CA certificate file.")
             .ValidateOnStart();
 
         // JWT Options with validation

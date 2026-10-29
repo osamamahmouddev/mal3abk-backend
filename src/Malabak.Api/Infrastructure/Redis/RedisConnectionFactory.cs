@@ -34,6 +34,11 @@ public static class RedisConnectionFactory
         if (configuration.Ssl)
         {
             configuration.SslProtocols = SslProtocols.Tls12 | SslProtocols.Tls13;
+
+            if (!string.IsNullOrWhiteSpace(options.TlsCaCertificatePath))
+            {
+                configuration.TrustIssuer(options.TlsCaCertificatePath);
+            }
         }
 
         if (!string.IsNullOrWhiteSpace(options.Password))

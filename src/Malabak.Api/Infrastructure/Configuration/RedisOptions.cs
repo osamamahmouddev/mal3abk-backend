@@ -23,6 +23,13 @@ public sealed class RedisOptions
 
     public bool? Ssl { get; set; }
 
+    /// <summary>
+    /// Optional path to a PEM CA certificate that issued the Redis server certificate, for servers
+    /// whose certificate is not signed by a CA in the system trust store (e.g. the local dev CA from
+    /// <c>scripts/generate-dev-certs.sh</c>). The server certificate is still fully validated.
+    /// </summary>
+    public string? TlsCaCertificatePath { get; set; }
+
     public string? Password { get; set; }
 
     [Range(0, 15, ErrorMessage = "DefaultDatabase must be between 0 and 15.")]
