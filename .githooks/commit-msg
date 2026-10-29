@@ -1,0 +1,35 @@
+#!/bin/sh
+# Malabak Commit-Msg Hook: Conventional Commits Linter
+# Enforces: <type>(<scope>): <subject>
+
+COMMIT_MSG_FILE=$1
+COMMIT_MSG=$(head -n 1 "$COMMIT_MSG_FILE")
+
+# Allow merge commits or automated git revert/tag commits
+if echo "$COMMIT_MSG" | grep -qE '^(Merge|Revert|v[0-9]|chore\(merge\))'; then
+    exit 0
+fi
+
+# Conventional Commits Regex:
+# Type: feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert
+# Scope: optional alphanumeric or dash/comma separated e.g. (identity), (api,venues)
+# Breaking indicator: optional !
+# Subject: 1 to 100 characters
+PATTERN='^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\([a-zA-Z0-9_, -]+\))?!?: .{1,100}$'
+
+if ! echo "$COMMIT_MSG" | grep -qE "$PATTERN"; then
+    echo "❌ [CONVENTIONAL COMMIT ERROR] Invalid commit message format!"
+    echo "   Your message: \"$COMMIT_MSG\""
+    echo ""
+    echo "   Expected format: <type>(<scope>): <subject>"
+    echo "   Examples:"
+    echo "     feat(identity): implement OTP verification endpoint"
+    echo "     fix(booking): prevent concurrent slot hold race condition"
+    echo "     docs(adr): add ADR-0004 for Egyptian data residency"
+    echo "     test(venues): add unit tests for operating schedule overnight span"
+    echo ""
+    echo "   Allowed types: feat, fix, docs, style, refactor, perf, test, build, ci, chore, revert"
+    exit 1
+fi
+
+exit 0

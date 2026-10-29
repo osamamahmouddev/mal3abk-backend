@@ -1,11 +1,14 @@
 using Malabak.Modules.Venues.Domain;
+using Malabak.SharedKernel;
+using Malabak.SharedKernel.Persistence;
 using Microsoft.EntityFrameworkCore;
 
 namespace Malabak.Modules.Venues.Infrastructure;
 
-public sealed class VenuesDbContext : DbContext
+public sealed class VenuesDbContext : BaseDbContext
 {
     public const string Schema = "venues";
+    public override string ModuleSchema => Schema;
 
     public DbSet<Venue> Venues => Set<Venue>();
     public DbSet<Pitch> Pitches => Set<Pitch>();
@@ -15,14 +18,14 @@ public sealed class VenuesDbContext : DbContext
     public DbSet<VenuePolicy> Policies => Set<VenuePolicy>();
     public DbSet<VenuePaymentMethod> PaymentMethods => Set<VenuePaymentMethod>();
 
-    public VenuesDbContext(DbContextOptions<VenuesDbContext> options)
-        : base(options)
+    public VenuesDbContext(DbContextOptions<VenuesDbContext> options, IClock? clock = null)
+        : base(options, clock)
     {
     }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        modelBuilder.HasDefaultSchema(Schema);
+        base.OnModelCreating(modelBuilder);
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(VenuesDbContext).Assembly);
     }
 }

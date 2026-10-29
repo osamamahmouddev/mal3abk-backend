@@ -11,12 +11,28 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./docker/postgres/01-init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+      - ./docker/postgres:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U malabak -d malabak_dev"]
       interval: 10s
       timeout: 5s
       retries: 5
+
+  seeder:
+    image: mcr.microsoft.com/dotnet/sdk:9.0-alpine
+    container_name: malabak-seeder
+    profiles: ["tools", "seed"]
+    working_dir: /app
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ConnectionStrings__Postgres=Host=postgres;Port=5432;Database=malabak_dev;Username=malabak;Password=malabak_dev_password
+      - ConnectionStrings__Redis=redis:6379,password=malabak_dev_redis_password
+    volumes:
+      - ./:/app
+    command: ["dotnet", "run", "--project", "src/Malabak.Api/Malabak.Api.csproj", "--", "--seed-reference", "--seed-demo"]
+    depends_on:
+      postgres:
+        condition: service_healthy
 
   redis:
     image: redis:7.2-alpine

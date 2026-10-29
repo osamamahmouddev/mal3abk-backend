@@ -1,17 +1,146 @@
+// ==============================================================================
+// Malabak Design Tokens (Brand Kit & Semantic Tokens)
+// Navy: #071832 | Red: #EB4F42 | Gold: #F6B326
+// Typography: Tajawal (ar-EG) & Inter (en-US)
+// ==============================================================================
+
 export const designTokens = {
-  colors: {
-    primary: "#071832", // Navy
-    accent: "#EB4F42", // Red
-    achievement: "#F6B326", // Gold
-    semantic: {
-      success: "#10B981",
-      warning: "#F59E0B",
-      error: "#EF4444",
-      info: "#3B82F6",
+  brand: {
+    navy: {
+      DEFAULT: "#071832",
+      50: "#E6ECF5",
+      100: "#CCD9EB",
+      200: "#99B3D7",
+      300: "#668DC3",
+      400: "#3367AF",
+      500: "#071832",
+      600: "#061328",
+      700: "#040E1E",
+      800: "#030A14",
+      900: "#01050A",
+    },
+    red: {
+      DEFAULT: "#EB4F42",
+      50: "#FDEDEC",
+      100: "#FBDBD9",
+      200: "#F7B8B3",
+      300: "#F2948D",
+      400: "#EE7168",
+      500: "#EB4F42",
+      600: "#BC3F35",
+      700: "#8D2F28",
+      800: "#5E201B",
+      900: "#2F100D",
+    },
+    gold: {
+      DEFAULT: "#F6B326",
+      50: "#FEF7E9",
+      100: "#FDEFD4",
+      200: "#FBDF9F",
+      300: "#F9CF6A",
+      400: "#F8C148",
+      500: "#F6B326",
+      600: "#C58F1E",
+      700: "#946B17",
+      800: "#62480F",
+      900: "#312408",
     },
   },
-  fonts: {
-    arabic: "var(--font-tajawal), system-ui, sans-serif",
-    latin: "var(--font-inter), system-ui, sans-serif",
+  themes: {
+    light: {
+      background: "#FFFFFF",
+      foreground: "#0F172A",
+      card: "#FFFFFF",
+      cardForeground: "#0F172A",
+      popover: "#FFFFFF",
+      popoverForeground: "#0F172A",
+      primary: "#071832",
+      primaryForeground: "#FFFFFF",
+      secondary: "#F1F5F9",
+      secondaryForeground: "#0F172A",
+      muted: "#F8FAFC",
+      mutedForeground: "#64748B",
+      accent: "#EB4F42",
+      accentForeground: "#FFFFFF",
+      destructive: "#EF4444",
+      destructiveForeground: "#FFFFFF",
+      border: "#E2E8F0",
+      input: "#E2E8F0",
+      ring: "#071832",
+    },
+    dark: {
+      background: "#071832",
+      foreground: "#F8FAFC",
+      card: "#0C2344",
+      cardForeground: "#F8FAFC",
+      popover: "#0C2344",
+      popoverForeground: "#F8FAFC",
+      primary: "#EB4F42",
+      primaryForeground: "#FFFFFF",
+      secondary: "#142F55",
+      secondaryForeground: "#F8FAFC",
+      muted: "#142F55",
+      mutedForeground: "#94A3B8",
+      accent: "#F6B326",
+      accentForeground: "#071832",
+      destructive: "#7F1D1D",
+      destructiveForeground: "#F8FAFC",
+      border: "#1E3A66",
+      input: "#1E3A66",
+      ring: "#EB4F42",
+    },
+  },
+  semantic: {
+    success: {
+      DEFAULT: "#10B981",
+      light: "#D1FAE5",
+      dark: "#065F46",
+      text: "#047857",
+    },
+    warning: {
+      DEFAULT: "#F59E0B",
+      light: "#FEF3C7",
+      dark: "#92400E",
+      text: "#B45309",
+    },
+    error: {
+      DEFAULT: "#EF4444",
+      light: "#FEE2E2",
+      dark: "#991B1B",
+      text: "#B91C1C",
+    },
+    info: {
+      DEFAULT: "#3B82F6",
+      light: "#DBEAFE",
+      dark: "#1E40AF",
+      text: "#1D4ED8",
+    },
+  },
+  typography: {
+    fonts: {
+      arabic: "var(--font-tajawal), 'Tajawal', system-ui, -apple-system, sans-serif",
+      latin: "var(--font-inter), 'Inter', system-ui, -apple-system, sans-serif",
+    },
+    fontSizes: {
+      xs: ["0.75rem", { lineHeight: "1rem" }],
+      sm: ["0.875rem", { lineHeight: "1.25rem" }],
+      base: ["1rem", { lineHeight: "1.5rem" }],
+      lg: ["1.125rem", { lineHeight: "1.75rem" }],
+      xl: ["1.25rem", { lineHeight: "1.75rem" }],
+      "2xl": ["1.5rem", { lineHeight: "2rem" }],
+      "3xl": ["1.875rem", { lineHeight: "2.25rem" }],
+      "4xl": ["2.25rem", { lineHeight: "2.5rem" }],
+    },
+  },
+  radius: {
+    none: "0px",
+    sm: "0.25rem",
+    DEFAULT: "0.375rem",
+    md: "0.5rem",
+    lg: "0.75rem",
+    xl: "1rem",
+    full: "9999px",
   },
 } as const;
+
+export type DesignTokens = typeof designTokens;

@@ -1,0 +1,20 @@
+# Malabak Gitleaks Configuration
+# Enforces zero-secret policy per SECURITY.md
+
+title = "Malabak Gitleaks Configuration"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Global allowlist for dummy test seeds and sample configuration values"
+paths = [
+  '''^tests/.*''',
+  '''^docs/.*''',
+  '''^.githooks/.*'''
+]
+regexes = [
+  '''1x0000000000000000000000000000000AA''',
+  '''malabak_dev_password''',
+  '''malabak_dev_redis_password'''
+]

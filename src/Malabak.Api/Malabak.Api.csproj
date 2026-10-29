@@ -3,6 +3,7 @@
   <PropertyGroup>
     <RootNamespace>Malabak.Api</RootNamespace>
     <AssemblyName>Malabak.Api</AssemblyName>
+    <UserSecretsId>malabak-api-secrets-9a8b7c6d-5e4f-3a2b-1c0d</UserSecretsId>
   </PropertyGroup>
 
   <ItemGroup>
@@ -33,10 +34,14 @@
     </PackageReference>
     <PackageReference Include="Npgsql" />
     <PackageReference Include="StackExchange.Redis" />
+    <PackageReference Include="Hangfire.AspNetCore" />
+    <PackageReference Include="Hangfire.PostgreSql" />
     <PackageReference Include="OpenTelemetry.Extensions.Hosting" />
     <PackageReference Include="OpenTelemetry.Instrumentation.AspNetCore" />
     <PackageReference Include="OpenTelemetry.Instrumentation.Http" />
     <PackageReference Include="OpenTelemetry.Instrumentation.Runtime" />
+    <PackageReference Include="FluentValidation" />
+    <PackageReference Include="FluentValidation.DependencyInjectionExtensions" />
   </ItemGroup>
 
 </Project>
