@@ -25,6 +25,7 @@ public sealed class PhoneChangeTests
     private readonly ITokenService _tokenService;
     private readonly IStepUpService _stepUpService;
     private readonly RecordingSmsAlertService _smsAlertService = new();
+    private readonly RecordingOtpSender _otpSender = new();
 
     public PhoneChangeTests()
     {
@@ -78,7 +79,7 @@ public sealed class PhoneChangeTests
     {
         using var dbContext = CreateDbContext();
         var handler = new StartPhoneChangeHandler(
-            dbContext, _stepUpService, _normalizer, _otpSecurityService, _smsAlertService, _clock, NullLogger<StartPhoneChangeHandler>.Instance);
+            dbContext, _stepUpService, _normalizer, _otpSecurityService, _otpSender, _clock, NullLogger<StartPhoneChangeHandler>.Instance);
 
         var user = User.CreatePlayer(Guid.NewGuid(), "+201011112222", "Test Player", _clock.UtcNow);
         // Phone was changed 3 days ago
@@ -100,7 +101,7 @@ public sealed class PhoneChangeTests
     {
         using var dbContext = CreateDbContext();
         var handler = new StartPhoneChangeHandler(
-            dbContext, _stepUpService, _normalizer, _otpSecurityService, _smsAlertService, _clock, NullLogger<StartPhoneChangeHandler>.Instance);
+            dbContext, _stepUpService, _normalizer, _otpSecurityService, _otpSender, _clock, NullLogger<StartPhoneChangeHandler>.Instance);
 
         var user = User.CreatePlayer(Guid.NewGuid(), "+201011112222", "Test Player", _clock.UtcNow);
         dbContext.Users.Add(user);
@@ -118,9 +119,9 @@ public sealed class PhoneChangeTests
     {
         using var dbContext = CreateDbContext();
         var startHandler = new StartPhoneChangeHandler(
-            dbContext, _stepUpService, _normalizer, _otpSecurityService, _smsAlertService, _clock, NullLogger<StartPhoneChangeHandler>.Instance);
+            dbContext, _stepUpService, _normalizer, _otpSecurityService, _otpSender, _clock, NullLogger<StartPhoneChangeHandler>.Instance);
         var verifyOldHandler = new VerifyOldPhoneHandler(
-            dbContext, _otpSecurityService, _smsAlertService, _clock, NullLogger<VerifyOldPhoneHandler>.Instance);
+            dbContext, _otpSecurityService, _otpSender, _clock, NullLogger<VerifyOldPhoneHandler>.Instance);
         var verifyNewHandler = new VerifyNewPhoneHandler(
             dbContext, _otpSecurityService, _tokenService, _smsAlertService, _clock, NullLogger<VerifyNewPhoneHandler>.Instance);
 
@@ -145,16 +146,18 @@ public sealed class PhoneChangeTests
         var requestId = startResult.Value.RequestId;
 
         // Inspect OTP sent to old phone
-        _smsAlertService.LastRecipient.Should().Be(oldPhone);
-        var oldOtp = ExtractCodeFromMessage(_smsAlertService.LastMessage);
+        _otpSender.LastRecipient.Should().Be(oldPhone);
+        _otpSender.LastPurpose.Should().Be(OtpPurpose.ChangePhoneOld);
+        var oldOtp = _otpSender.LastCode;
 
         // 3. Verify Old Phone
         var verifyOldResult = await verifyOldHandler.HandleAsync(new VerifyOldPhoneCommand(user.Id, requestId, oldOtp));
         verifyOldResult.IsSuccess.Should().BeTrue();
 
         // Inspect OTP sent to new phone
-        _smsAlertService.LastRecipient.Should().Be(normalizedNewPhone);
-        var newOtp = ExtractCodeFromMessage(_smsAlertService.LastMessage);
+        _otpSender.LastRecipient.Should().Be(normalizedNewPhone);
+        _otpSender.LastPurpose.Should().Be(OtpPurpose.ChangePhoneNew);
+        var newOtp = _otpSender.LastCode;
 
         // 4. Verify New Phone (Completes Change)
         var verifyNewResult = await verifyNewHandler.HandleAsync(new VerifyNewPhoneCommand(user.Id, requestId, newOtp));
@@ -263,11 +266,19 @@ public sealed class PhoneChangeTests
         recoverValidator.Validate(new RecoverPhoneCommand("")).IsValid.Should().BeFalse();
     }
 
-    private static string ExtractCodeFromMessage(string message)
+    private sealed class RecordingOtpSender : IOtpSender
     {
-        // Extracts the 6-digit number in the SMS message
-        var match = System.Text.RegularExpressions.Regex.Match(message, @"\b\d{6}\b");
-        return match.Success ? match.Value : string.Empty;
+        public string LastRecipient { get; private set; } = string.Empty;
+        public string LastCode { get; private set; } = string.Empty;
+        public OtpPurpose? LastPurpose { get; private set; }
+
+        public Task<bool> SendAsync(string phoneNumber, string code, OtpPurpose purpose, TimeSpan validity, CancellationToken cancellationToken = default)
+        {
+            LastRecipient = phoneNumber;
+            LastCode = code;
+            LastPurpose = purpose;
+            return Task.FromResult(true);
+        }
     }
 
     private sealed class RecordingSmsAlertService : ISmsAlertService

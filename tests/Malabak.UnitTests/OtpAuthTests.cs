@@ -124,7 +124,8 @@ public sealed class OtpAuthTests
     {
         var store = new InMemoryOtpStore();
         var turnstile = new TurnstileValidator(_configuration, NullLogger<TurnstileValidator>.Instance);
-        var handler = new SendOtpHandler(_normalizer, turnstile, _securityService, store, NullLogger<SendOtpHandler>.Instance);
+        var sender = new RecordingOtpSender();
+        var handler = new SendOtpHandler(_normalizer, turnstile, _securityService, store, sender, NullLogger<SendOtpHandler>.Instance);
 
         var command = new SendOtpCommand("01011223344", "test-turnstile-token");
         var result = await handler.HandleAsync(command);
@@ -132,6 +133,27 @@ public sealed class OtpAuthTests
         result.IsSuccess.Should().BeTrue();
         result.Value.NormalizedPhoneNumber.Should().Be("+201011223344");
         result.Value.ExpiresInSeconds.Should().Be(300);
+
+        // The delivered code is the one that verifies
+        sender.LastRecipient.Should().Be("+201011223344");
+        sender.LastPurpose.Should().Be(OtpPurpose.Login);
+        sender.LastValidity.Should().Be(TimeSpan.FromMinutes(5));
+        var verification = await store.VerifyAndConsumeOtpAsync("+201011223344", sender.LastCode, _securityService);
+        verification.IsSuccess.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task SendOtpHandler_WhenDeliveryFails_ShouldReturnDeliveryFailedAsync()
+    {
+        var store = new InMemoryOtpStore();
+        var turnstile = new TurnstileValidator(_configuration, NullLogger<TurnstileValidator>.Instance);
+        var sender = new RecordingOtpSender { Succeeds = false };
+        var handler = new SendOtpHandler(_normalizer, turnstile, _securityService, store, sender, NullLogger<SendOtpHandler>.Instance);
+
+        var result = await handler.HandleAsync(new SendOtpCommand("01011223344", "test-turnstile-token"));
+
+        result.IsFailure.Should().BeTrue();
+        result.Error.Code.Should().Be(OtpDeliveryErrors.DeliveryFailedCode);
     }
 
     [Fact]
@@ -139,7 +161,7 @@ public sealed class OtpAuthTests
     {
         var store = new InMemoryOtpStore();
         var turnstile = new TurnstileValidator(_configuration, NullLogger<TurnstileValidator>.Instance);
-        var handler = new SendOtpHandler(_normalizer, turnstile, _securityService, store, NullLogger<SendOtpHandler>.Instance);
+        var handler = new SendOtpHandler(_normalizer, turnstile, _securityService, store, new RecordingOtpSender(), NullLogger<SendOtpHandler>.Instance);
 
         var command = new SendOtpCommand("01011223344", ""); // empty turnstile
         var result = await handler.HandleAsync(command);
@@ -153,7 +175,7 @@ public sealed class OtpAuthTests
     {
         var store = new InMemoryOtpStore();
         var turnstile = new TurnstileValidator(_configuration, NullLogger<TurnstileValidator>.Instance);
-        var handler = new SendOtpHandler(_normalizer, turnstile, _securityService, store, NullLogger<SendOtpHandler>.Instance);
+        var handler = new SendOtpHandler(_normalizer, turnstile, _securityService, store, new RecordingOtpSender(), NullLogger<SendOtpHandler>.Instance);
 
         var command = new SendOtpCommand("01011223344", "test-token");
 
@@ -216,5 +238,23 @@ public sealed class OtpAuthTests
         public IChangeToken GetReloadToken() => throw new NotSupportedException();
 
         public IConfigurationSection GetSection(string key) => throw new NotSupportedException();
+    }
+
+    private sealed class RecordingOtpSender : IOtpSender
+    {
+        public bool Succeeds { get; init; } = true;
+        public string LastRecipient { get; private set; } = string.Empty;
+        public string LastCode { get; private set; } = string.Empty;
+        public OtpPurpose? LastPurpose { get; private set; }
+        public TimeSpan LastValidity { get; private set; }
+
+        public Task<bool> SendAsync(string phoneNumber, string code, OtpPurpose purpose, TimeSpan validity, CancellationToken cancellationToken = default)
+        {
+            LastRecipient = phoneNumber;
+            LastCode = code;
+            LastPurpose = purpose;
+            LastValidity = validity;
+            return Task.FromResult(Succeeds);
+        }
     }
 }
