@@ -1,0 +1,20 @@
+# Only the .NET backend goes into the API image.
+**/bin/
+**/obj/
+**/node_modules/
+.git/
+.github/
+.claude/
+.agents/
+.vscode/
+.idea/
+web/
+docs/
+infra/
+docker/
+tests/
+scripts/
+*.md
+**/appsettings.Development.json
+**/secrets.json
+**/*.user

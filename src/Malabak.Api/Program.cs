@@ -185,6 +185,17 @@ builder.Services.AddVenuesModule();
 
 var app = builder.Build();
 
+// Applies pending EF Core migrations for every module, then exits. Run as the deploy's release step
+// (fly.toml release_command) so schema changes land once, before new instances start.
+if (args.Contains("--migrate"))
+{
+    using var scope = app.Services.CreateScope();
+    await scope.ServiceProvider.GetRequiredService<IdentityDbContext>().Database.MigrateAsync();
+    await scope.ServiceProvider.GetRequiredService<VenuesDbContext>().Database.MigrateAsync();
+    await scope.ServiceProvider.GetRequiredService<BookingDbContext>().Database.MigrateAsync();
+    return;
+}
+
 // CLI Data Seeding Commands
 if (args.Contains("--seed-reference"))
 {
@@ -234,7 +245,8 @@ var localizationOptions = new RequestLocalizationOptions()
 localizationOptions.RequestCultureProviders.Insert(0, new XLocaleRequestCultureProvider());
 app.UseRequestLocalization(localizationOptions);
 
-if (app.Environment.IsDevelopment() || app.Environment.IsEnvironment("Testing"))
+// Never in Production. Staging exposes it so the team can exercise the deployed API.
+if (app.Environment.IsDevelopment() || app.Environment.IsStaging() || app.Environment.IsEnvironment("Testing"))
 {
     app.UseSwagger();
     app.UseSwaggerUI();
