@@ -215,6 +215,11 @@ app.UseSerilogRequestLogging(options =>
             ? LogEventLevel.Error
             : LogEventLevel.Information;
     };
+    options.EnrichDiagnosticContext = (diagnosticContext, httpContext) =>
+    {
+        diagnosticContext.Set("QueryString", QueryStringRedactor.RedactQueryString(httpContext.Request.QueryString));
+        diagnosticContext.Set("ClientIp", httpContext.Connection.RemoteIpAddress?.ToString() ?? "Unknown");
+    };
 });
 
 app.UseExceptionHandler();
