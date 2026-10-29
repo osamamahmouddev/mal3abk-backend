@@ -26,7 +26,7 @@ public sealed class OtpDeliveryTests
     [InlineData("", "")]
     public void MaskPhoneNumber_KeepsPrefixAndLastThreeDigits(string phoneNumber, string expected)
     {
-        SlackOtpSender.MaskPhoneNumber(phoneNumber).Should().Be(expected);
+        PhoneNumberMasker.Mask(phoneNumber).Should().Be(expected);
     }
 
     [Fact]
