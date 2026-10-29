@@ -301,6 +301,7 @@ app.MapProfileEndpoints(apiVersionSet);
 app.MapReferenceDataEndpoints(apiVersionSet);
 app.MapMediaEndpoints(apiVersionSet);
 app.MapSpecialScheduleEndpoints(apiVersionSet);
+app.MapPlayerVenueListEndpoints(apiVersionSet);
 
 await app.RunAsync();
 

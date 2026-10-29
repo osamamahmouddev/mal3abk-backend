@@ -127,6 +127,24 @@ namespace Malabak.Modules.Venues.Infrastructure.Migrations
                     b.ToTable("booking_rules", "venues");
                 });
 
+            modelBuilder.Entity("Malabak.Modules.Venues.Domain.FavoriteVenue", b =>
+                {
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("VenueId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("UserId", "VenueId");
+
+                    b.HasIndex("UserId", "CreatedAtUtc");
+
+                    b.ToTable("favorite_venues", "venues");
+                });
+
             modelBuilder.Entity("Malabak.Modules.Venues.Domain.OperatingSchedule", b =>
                 {
                     b.Property<Guid>("Id")
@@ -342,6 +360,24 @@ namespace Malabak.Modules.Venues.Infrastructure.Migrations
                     b.HasIndex("VenueId", "PitchId");
 
                     b.ToTable("price_rules", "venues");
+                });
+
+            modelBuilder.Entity("Malabak.Modules.Venues.Domain.RecentlyViewedVenue", b =>
+                {
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("VenueId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("ViewedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("UserId", "VenueId");
+
+                    b.HasIndex("UserId", "ViewedAtUtc");
+
+                    b.ToTable("recently_viewed_venues", "venues");
                 });
 
             modelBuilder.Entity("Malabak.Modules.Venues.Domain.ScheduleOverride", b =>
