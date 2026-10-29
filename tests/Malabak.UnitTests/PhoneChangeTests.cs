@@ -1,3 +1,4 @@
+using System.Text.Json;
 using FluentAssertions;
 using Malabak.Modules.Identity.Application.Common;
 using Malabak.Modules.Identity.Application.PhoneChange.RecoverPhone;
@@ -164,7 +165,6 @@ public sealed class PhoneChangeTests
         var verifyNewResult = await verifyNewHandler.HandleAsync(new VerifyNewPhoneCommand(user.Id, requestId, newOtp));
         verifyNewResult.IsSuccess.Should().BeTrue();
         verifyNewResult.Value.NewPhoneNumber.Should().Be(normalizedNewPhone);
-        verifyNewResult.Value.RecoveryToken.Should().NotBeNullOrWhiteSpace();
 
         // Verify DB updates
         var updatedUser = await dbContext.Users.FirstAsync(u => u.Id == user.Id);
@@ -181,14 +181,25 @@ public sealed class PhoneChangeTests
         _smsAlertService.LastRecipient.Should().Be(oldPhone);
         _smsAlertService.LastAlert!.Kind.Should().Be(SecurityAlertKind.PhoneChanged);
         _smsAlertService.LastAlert.NewPhoneNumber.Should().Be(normalizedNewPhone);
-        _smsAlertService.LastAlert.RecoveryLink.Should().StartWith("https://malabak.app/recover-phone");
-        _smsAlertService.LastAlert.RecoveryLink.Should().Contain(verifyNewResult.Value.RecoveryToken);
+        _smsAlertService.LastAlert.RecoveryLink.Should().StartWith("https://malabak.app/recover-phone?token=");
+        var recoveryToken = _smsAlertService.LastAlert.RecoveryLink!["https://malabak.app/recover-phone?token=".Length..];
+        recoveryToken.Should().NotBeNullOrWhiteSpace();
+
+        // The token goes only to the old phone, never back to the session that made the change (SECURITY.md §5.5)
+        JsonSerializer.Serialize(verifyNewResult.Value).Should().NotContain(recoveryToken);
 
         // Neither number nor the recovery token reaches the logs (SECURITY.md §15.5)
         verifyNewLogger.Entries.Should().NotBeEmpty();
         verifyNewLogger.AllText.Should().NotContain(oldPhone)
             .And.NotContain(normalizedNewPhone)
-            .And.NotContain(verifyNewResult.Value.RecoveryToken);
+            .And.NotContain(recoveryToken);
+
+        // The token from the alert restores the old number
+        var recoverHandler = new RecoverPhoneHandler(
+            dbContext, _tokenService, _smsAlertService, _clock, NullLogger<RecoverPhoneHandler>.Instance);
+        var recoverResult = await recoverHandler.HandleAsync(new RecoverPhoneCommand(recoveryToken));
+        recoverResult.IsSuccess.Should().BeTrue();
+        (await dbContext.Users.FirstAsync(u => u.Id == user.Id)).PhoneNumber.Should().Be(oldPhone);
     }
 
     [Fact]
