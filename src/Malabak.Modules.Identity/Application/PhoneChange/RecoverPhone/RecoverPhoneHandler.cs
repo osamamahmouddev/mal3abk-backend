@@ -96,13 +96,13 @@ public sealed class RecoverPhoneHandler : ICommandHandler<RecoverPhoneCommand, R
 
         await _smsAlertService.SendSecurityAlertAsync(
             request.OldPhoneNumber,
-            "Your Malabak account phone number has been successfully restored. All remote sessions have been terminated.",
+            SecurityAlert.PhoneRestored(),
             cancellationToken);
 
         _logger.LogWarning(
-            "Account phone recovery executed for user {UserId}. Restored phone number to {OldPhone}.",
+            "Account phone recovery executed for user {UserId} from phone change request {RequestId}. Previous phone number restored.",
             user.Id,
-            request.OldPhoneNumber);
+            request.Id);
 
         return Result.Success();
     }

@@ -17,7 +17,7 @@ namespace Malabak.UnitTests;
 public sealed class OtpDeliveryTests
 {
     // Shape-valid but fake: only the host is checked, and tests never reach Slack.
-    private const string _webhookUrl = "https://hooks.slack.com/services/T000/B000/test";
+    internal const string WebhookUrl = "https://hooks.slack.com/services/T000/B000/test";
 
     [Theory]
     [InlineData("+201012345678", "+2010•••••678")]
@@ -51,7 +51,7 @@ public sealed class OtpDeliveryTests
         var sent = await sender.SendAsync("+201012345678", "482913", OtpPurpose.ChangePhoneNew, TimeSpan.FromMinutes(15));
 
         sent.Should().BeTrue();
-        handler.RequestUri.Should().Be(new Uri(_webhookUrl));
+        handler.RequestUri.Should().Be(new Uri(WebhookUrl));
         handler.Method.Should().Be(HttpMethod.Post);
         using var body = JsonDocument.Parse(handler.Body!);
         var text = body.RootElement.GetProperty("text").GetString();
@@ -97,7 +97,7 @@ public sealed class OtpDeliveryTests
     [InlineData("Staging")]
     public void SlackProvider_OutsideProduction_IsRegistered(string environment)
     {
-        using var provider = BuildServices(environment, SlackSettings(_webhookUrl));
+        using var provider = BuildServices(environment, SlackSettings(WebhookUrl));
 
         provider.GetRequiredService<IOptions<OtpDeliveryOptions>>().Value.Provider.Should().Be(OtpDeliveryProvider.Slack);
         provider.GetRequiredService<IOtpSender>().Should().BeOfType<SlackOtpSender>();
@@ -106,7 +106,7 @@ public sealed class OtpDeliveryTests
     [Fact]
     public void SlackProvider_InProduction_IsRefused()
     {
-        using var provider = BuildServices(Environments.Production, SlackSettings(_webhookUrl));
+        using var provider = BuildServices(Environments.Production, SlackSettings(WebhookUrl));
 
         var act = () => provider.GetRequiredService<IOptions<OtpDeliveryOptions>>().Value;
 
@@ -128,18 +128,19 @@ public sealed class OtpDeliveryTests
     }
 
     private static SlackOtpSender CreateSender(StubHandler handler) => new(
-        new HttpClient(handler),
-        Options.Create(new OtpDeliveryOptions { Provider = OtpDeliveryProvider.Slack, Slack = { WebhookUrl = _webhookUrl } }),
-        new TestHostEnvironment(Environments.Development),
-        NullLogger<SlackOtpSender>.Instance);
+        new SlackWebhookClient(
+            new HttpClient(handler),
+            Options.Create(new OtpDeliveryOptions { Provider = OtpDeliveryProvider.Slack, Slack = { WebhookUrl = WebhookUrl } }),
+            NullLogger<SlackWebhookClient>.Instance),
+        new TestHostEnvironment(Environments.Development));
 
-    private static Dictionary<string, string?> SlackSettings(string webhookUrl) => new()
+    internal static Dictionary<string, string?> SlackSettings(string webhookUrl) => new()
     {
         ["Identity:OtpDelivery:Provider"] = "Slack",
         ["Identity:OtpDelivery:Slack:WebhookUrl"] = webhookUrl,
     };
 
-    private static ServiceProvider BuildServices(string environment, Dictionary<string, string?> settings)
+    internal static ServiceProvider BuildServices(string environment, Dictionary<string, string?> settings)
     {
         var configuration = new ConfigurationBuilder().AddInMemoryCollection(settings).Build();
         var services = new ServiceCollection();
@@ -149,7 +150,7 @@ public sealed class OtpDeliveryTests
         return services.BuildServiceProvider();
     }
 
-    private sealed class StubHandler : HttpMessageHandler
+    internal sealed class StubHandler : HttpMessageHandler
     {
         private readonly HttpStatusCode _status;
         private readonly Exception? _exception;
@@ -176,7 +177,7 @@ public sealed class OtpDeliveryTests
         }
     }
 
-    private sealed class TestHostEnvironment : IHostEnvironment
+    internal sealed class TestHostEnvironment : IHostEnvironment
     {
         public TestHostEnvironment(string environmentName) => EnvironmentName = environmentName;
 

@@ -1,9 +1,6 @@
 using System.Globalization;
-using System.Net.Http.Json;
 using Malabak.Modules.Identity.Application.Common;
 using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 
 namespace Malabak.Modules.Identity.Infrastructure.Services;
 
@@ -14,50 +11,22 @@ namespace Malabak.Modules.Identity.Infrastructure.Services;
 /// </summary>
 public sealed class SlackOtpSender : IOtpSender
 {
-    private readonly HttpClient _httpClient;
-    private readonly OtpDeliveryOptions _options;
+    private readonly SlackWebhookClient _slack;
     private readonly IHostEnvironment _environment;
-    private readonly ILogger<SlackOtpSender> _logger;
 
-    public SlackOtpSender(
-        HttpClient httpClient,
-        IOptions<OtpDeliveryOptions> options,
-        IHostEnvironment environment,
-        ILogger<SlackOtpSender> logger)
+    public SlackOtpSender(SlackWebhookClient slack, IHostEnvironment environment)
     {
-        _httpClient = httpClient;
-        _options = options.Value;
+        _slack = slack;
         _environment = environment;
-        _logger = logger;
     }
 
-    public async Task<bool> SendAsync(
+    public Task<bool> SendAsync(
         string phoneNumber,
         string code,
         OtpPurpose purpose,
         TimeSpan validity,
-        CancellationToken cancellationToken = default)
-    {
-        var payload = new { text = BuildMessage(phoneNumber, code, purpose, validity, _environment.EnvironmentName) };
-
-        try
-        {
-            using var response = await _httpClient.PostAsJsonAsync(_options.Slack.WebhookUrl, payload, cancellationToken);
-            if (response.IsSuccessStatusCode)
-            {
-                return true;
-            }
-
-            _logger.LogWarning("Slack rejected the {Purpose} OTP message with status {StatusCode}.", purpose, (int)response.StatusCode);
-            return false;
-        }
-        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
-        {
-            // Connection errors name only host:port; the webhook path (the secret part) is not in them.
-            _logger.LogWarning(ex, "Posting the {Purpose} OTP message to Slack failed.", purpose);
-            return false;
-        }
-    }
+        CancellationToken cancellationToken = default) =>
+        _slack.PostAsync(BuildMessage(phoneNumber, code, purpose, validity, _environment.EnvironmentName), $"{purpose} OTP", cancellationToken);
 
     public static string BuildMessage(string phoneNumber, string code, OtpPurpose purpose, TimeSpan validity, string environmentName)
     {
