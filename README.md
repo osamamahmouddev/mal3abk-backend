@@ -101,6 +101,21 @@ Then run:
 ```bash
 dotnet run --project src/Malabak.Api
 ```
+
+#### OTP codes in Slack (until an SMS provider is integrated)
+No SMS provider is connected yet, so login and phone-change codes can be posted to a Slack channel instead. By default no channel is configured and `/auth/otp/send` returns **503** (fail closed); codes are never written to the logs.
+
+1. In Slack, create an app with an **Incoming Webhook** for a private channel (e.g. `#malabak-otp`) that only the team can see.
+2. Store the webhook in User Secrets — it is a credential, never put it in `appsettings*.json`:
+   ```bash
+   dotnet user-secrets set "Identity:OtpDelivery:Provider" "Slack" --project src/Malabak.Api
+   ```
+   ```bash
+   dotnet user-secrets set "Identity:OtpDelivery:Slack:WebhookUrl" "https://hooks.slack.com/services/…" --project src/Malabak.Api
+   ```
+   On staging, set `Identity__OtpDelivery__Provider=Slack` and `Identity__OtpDelivery__Slack__WebhookUrl` from the secret store.
+
+Each message shows the masked number (`+2010•••••678`), the purpose, the code and its validity. **The API refuses to start with the Slack provider in Production**: everyone in the channel could read every code and sign in as anyone.
 Swagger / OpenAPI: http://localhost:5000/swagger
 
 ### 4. Web apps
