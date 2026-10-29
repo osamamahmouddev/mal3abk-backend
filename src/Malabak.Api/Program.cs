@@ -209,6 +209,7 @@ builder.Services.AddFieldEncryption(builder.Configuration, postgresConnectionStr
 // 13. Dependency Injection
 builder.Services.AddSingleton<IClock, SystemClock>();
 builder.Services.AddScoped<IBookingConflictChecker, BookingConflictChecker>();
+builder.Services.AddScoped<Malabak.SharedKernel.Contracts.IUpcomingBookingsReader, UpcomingBookingsReader>();
 builder.Services.AddScoped<ICommandHandler<CreateBookingCommand, Result<CreateBookingResponse>>, CreateBookingHandler>();
 builder.Services.AddIdentityModule(builder.Configuration);
 builder.Services.AddVenuesModule();
@@ -299,6 +300,7 @@ app.MapSmsWebhookEndpoints(apiVersionSet);
 app.MapProfileEndpoints(apiVersionSet);
 app.MapReferenceDataEndpoints(apiVersionSet);
 app.MapMediaEndpoints(apiVersionSet);
+app.MapSpecialScheduleEndpoints(apiVersionSet);
 
 await app.RunAsync();
 

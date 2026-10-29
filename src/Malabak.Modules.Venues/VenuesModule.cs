@@ -107,6 +107,14 @@ public static class VenuesModule
         services.AddScoped<ICommandHandler<AcceptStaffInvitationCommand, Result<StaffMemberDto>>>(sp => sp.GetRequiredService<StaffManagementHandlers>());
 
         // Galleries (photos come from the media pipeline)
+        services.AddScoped<Application.SpecialSchedules.SpecialScheduleHandlers>();
+        services.AddScoped<Application.SpecialSchedules.SpecialScheduleQueries>();
+        services.AddScoped<IPitchAvailabilityChecker, Application.SpecialSchedules.PitchAvailabilityChecker>();
+        services.AddScoped<ICommandHandler<Application.SpecialSchedules.AddScheduleOverrideCommand, Result<Application.SpecialSchedules.ScheduleChangeOutcome>>>(sp => sp.GetRequiredService<Application.SpecialSchedules.SpecialScheduleHandlers>());
+        services.AddScoped<ICommandHandler<Application.SpecialSchedules.RemoveScheduleOverrideCommand, Result<Application.SpecialSchedules.ScheduleChangeOutcome>>>(sp => sp.GetRequiredService<Application.SpecialSchedules.SpecialScheduleHandlers>());
+        services.AddScoped<ICommandHandler<Application.SpecialSchedules.ApplyHolidayClosuresCommand, Result<Application.SpecialSchedules.ScheduleChangeOutcome>>>(sp => sp.GetRequiredService<Application.SpecialSchedules.SpecialScheduleHandlers>());
+        services.AddScoped<ICommandHandler<Application.SpecialSchedules.SetPitchWeeklyHoursCommand, Result<Application.SpecialSchedules.ScheduleChangeOutcome>>>(sp => sp.GetRequiredService<Application.SpecialSchedules.SpecialScheduleHandlers>());
+        services.AddScoped<ICommandHandler<Application.SpecialSchedules.SetBookingRulesCommand, Result<Application.SpecialSchedules.BookingRulesDto>>>(sp => sp.GetRequiredService<Application.SpecialSchedules.SpecialScheduleHandlers>());
         services.AddScoped<Application.Gallery.GalleryHandlers>();
         services.AddScoped<ICommandHandler<Application.Gallery.AddGalleryPhotoCommand, Result<IReadOnlyList<string>>>>(sp => sp.GetRequiredService<Application.Gallery.GalleryHandlers>());
         services.AddScoped<ICommandHandler<Application.Gallery.RemoveGalleryPhotoCommand, Result<IReadOnlyList<string>>>>(sp => sp.GetRequiredService<Application.Gallery.GalleryHandlers>());

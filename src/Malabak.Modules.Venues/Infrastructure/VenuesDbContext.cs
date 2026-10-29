@@ -20,6 +20,9 @@ public sealed class VenuesDbContext : DbContext
     public DbSet<VenueApprovalEvent> ApprovalEvents => Set<VenueApprovalEvent>();
     public DbSet<VenueStaffMember> StaffMembers => Set<VenueStaffMember>();
     public DbSet<VenueStaffInvitation> StaffInvitations => Set<VenueStaffInvitation>();
+    public DbSet<ScheduleOverride> ScheduleOverrides => Set<ScheduleOverride>();
+    public DbSet<PitchWeeklyHours> PitchWeeklyHours => Set<PitchWeeklyHours>();
+    public DbSet<BookingRules> BookingRules => Set<BookingRules>();
 
     public VenuesDbContext(DbContextOptions<VenuesDbContext> options)
         : base(options)
@@ -51,5 +54,8 @@ public sealed class VenuesDbContext : DbContext
         modelBuilder.Entity<VenueApprovalEvent>().HasQueryFilter(e => !IsTenantRestricted || TenantVenueIds.Contains(e.VenueId));
         modelBuilder.Entity<VenueStaffMember>().HasQueryFilter(e => !IsTenantRestricted || TenantVenueIds.Contains(e.VenueId));
         modelBuilder.Entity<VenueStaffInvitation>().HasQueryFilter(e => !IsTenantRestricted || TenantVenueIds.Contains(e.VenueId));
+        modelBuilder.Entity<ScheduleOverride>().HasQueryFilter(e => !IsTenantRestricted || TenantVenueIds.Contains(e.VenueId));
+        modelBuilder.Entity<PitchWeeklyHours>().HasQueryFilter(e => !IsTenantRestricted || TenantVenueIds.Contains(e.VenueId));
+        modelBuilder.Entity<BookingRules>().HasQueryFilter(e => !IsTenantRestricted || TenantVenueIds.Contains(e.VenueId));
     }
 }
