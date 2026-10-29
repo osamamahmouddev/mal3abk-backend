@@ -1,3 +1,4 @@
+using System.Security.Cryptography;
 using Malabak.Modules.Identity.Application.Authentication.Logout;
 using Malabak.Modules.Identity.Application.Authentication.LogoutAll;
 using Malabak.Modules.Identity.Application.Authentication.RefreshToken;
@@ -22,8 +23,9 @@ public static class IdentityModule
 
     public static IServiceCollection AddIdentityModule(this IServiceCollection services, IConfiguration configuration)
     {
-        // JWT & Token Options & Services
-        services.Configure<JwtOptions>(configuration.GetSection(JwtOptions.SectionName));
+        AddSecurityOptions(services, configuration);
+
+        // JWT & Token Services
         services.AddSingleton<IJwtKeyProvider, JwtKeyProvider>();
         services.AddSingleton<ITokenService, TokenService>();
 
@@ -54,6 +56,101 @@ public static class IdentityModule
         services.AddScoped<ICommandHandler<RecoverPhoneCommand, Result>, RecoverPhoneHandler>();
 
         return services;
+    }
+
+    // Secrets fall back to built-in values only in Development/Testing. Everywhere else, Staging included,
+    // a missing or placeholder secret fails startup instead of silently weakening auth (SECURITY.md).
+    private static void AddSecurityOptions(IServiceCollection services, IConfiguration configuration)
+    {
+        services.AddOptions<JwtOptions>()
+            .Bind(configuration.GetSection(JwtOptions.SectionName))
+            .Validate<IHostEnvironment>(
+                (options, environment) => !string.IsNullOrWhiteSpace(options.PrivateKeyPem) || IdentityEnvironment.AllowsDevelopmentShortcuts(environment),
+                $"{JwtOptions.SectionName}:PrivateKeyPem is required outside Development/Testing: without it every instance signs tokens with its own throwaway key.")
+            .Validate(
+                options => string.IsNullOrWhiteSpace(options.PrivateKeyPem) || IsP256PrivateKeyPem(options.PrivateKeyPem),
+                $"{JwtOptions.SectionName}:PrivateKeyPem must be a PEM-encoded ECDSA P-256 private key.")
+            .ValidateOnStart();
+
+        services.AddOptions<OtpSecurityOptions>()
+            .Bind(configuration.GetSection(OtpSecurityOptions.SectionName))
+            .PostConfigure<IHostEnvironment>((options, environment) =>
+            {
+                if (string.IsNullOrWhiteSpace(options.HmacSecret) && IdentityEnvironment.AllowsDevelopmentShortcuts(environment))
+                {
+                    options.HmacSecret = DevelopmentSecrets.OtpHmacSecret;
+                }
+            })
+            .Validate(
+                options => IsStrongSecret(options.HmacSecret),
+                $"{OtpSecurityOptions.SectionName}:HmacSecret is required outside Development/Testing and must be at least {_minimumSecretLength} characters.")
+            .ValidateOnStart();
+
+        services.AddOptions<StepUpOptions>()
+            .Bind(configuration.GetSection(StepUpOptions.SectionName))
+            .PostConfigure<IHostEnvironment>((options, environment) =>
+            {
+                if (string.IsNullOrWhiteSpace(options.SecretKey) && IdentityEnvironment.AllowsDevelopmentShortcuts(environment))
+                {
+                    options.SecretKey = DevelopmentSecrets.StepUpSecretKey;
+                }
+            })
+            .Validate(
+                options => IsStrongSecret(options.SecretKey),
+                $"{StepUpOptions.SectionName}:SecretKey is required outside Development/Testing and must be at least {_minimumSecretLength} characters.")
+            .ValidateOnStart();
+
+        services.AddOptions<TurnstileOptions>()
+            .Bind(configuration.GetSection(TurnstileOptions.SectionName))
+            .PostConfigure<IHostEnvironment>((options, environment) =>
+            {
+                if (string.IsNullOrWhiteSpace(options.SecretKey) && IdentityEnvironment.AllowsDevelopmentShortcuts(environment))
+                {
+                    options.SecretKey = DevelopmentSecrets.TurnstileAlwaysPassSecretKey;
+                }
+            })
+            .ValidateDataAnnotations()
+            .Validate<IHostEnvironment>(
+                (options, environment) => !options.BypassInDevelopment || IdentityEnvironment.AllowsDevelopmentShortcuts(environment),
+                $"{TurnstileOptions.SectionName}:BypassInDevelopment is strictly prohibited outside of Development/Testing.")
+            .Validate(
+                options => !string.IsNullOrWhiteSpace(options.SecretKey),
+                $"{TurnstileOptions.SectionName}:SecretKey is required outside Development/Testing.")
+            .Validate<IHostEnvironment>(
+                (options, environment) => !IsTurnstileTestSecretKey(options.SecretKey) || IdentityEnvironment.AllowsDevelopmentShortcuts(environment),
+                $"{TurnstileOptions.SectionName}:SecretKey must not be a Cloudflare test secret key outside Development/Testing.")
+            .ValidateOnStart();
+    }
+
+    private const int _minimumSecretLength = 32;
+
+    private static bool IsStrongSecret(string? secret) =>
+        !string.IsNullOrWhiteSpace(secret) && secret.Length >= _minimumSecretLength;
+
+    // Cloudflare's published test secrets: 1x always passes, 2x always fails, 3x reports the token as spent.
+    private static bool IsTurnstileTestSecretKey(string? secretKey) =>
+        secretKey is "1x0000000000000000000000000000000AA" or "2x0000000000000000000000000000000AA" or "3x0000000000000000000000000000000AA";
+
+    private static bool IsP256PrivateKeyPem(string pem)
+    {
+        try
+        {
+            using var ecdsa = ECDsa.Create();
+            ecdsa.ImportFromPem(pem);
+            return ecdsa.ExportParameters(includePrivateParameters: true).Curve.Oid.Value == ECCurve.NamedCurves.nistP256.Oid.Value;
+        }
+        catch (Exception ex) when (ex is ArgumentException or CryptographicException)
+        {
+            return false;
+        }
+    }
+
+    // Known values, so never usable outside Development/Testing (see AddSecurityOptions).
+    private static class DevelopmentSecrets
+    {
+        public const string OtpHmacSecret = "Malabak-Development-Only-Otp-HMAC-SHA256-Key!";
+        public const string StepUpSecretKey = "Malabak-Development-Only-StepUp-HMAC-SHA256-Key!";
+        public const string TurnstileAlwaysPassSecretKey = "1x0000000000000000000000000000000AA";
     }
 
     // OTP codes and security alerts share one provider switch, webhook and HttpClient.

@@ -3,9 +3,8 @@ using Malabak.Modules.Identity.Application.Authentication.SendOtp;
 using Malabak.Modules.Identity.Application.Authentication.VerifyOtp;
 using Malabak.Modules.Identity.Application.Common;
 using Malabak.Modules.Identity.Infrastructure.Services;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
-using Microsoft.Extensions.Primitives;
+using Microsoft.Extensions.Options;
 using Xunit;
 
 namespace Malabak.UnitTests;
@@ -14,18 +13,10 @@ public sealed class OtpAuthTests
 {
     private readonly IPhoneNumberNormalizer _normalizer = new PhoneNumberNormalizer();
     private readonly IOtpSecurityService _securityService;
-    private readonly IConfiguration _configuration;
 
     public OtpAuthTests()
     {
-        var configDict = new Dictionary<string, string?>
-        {
-            ["Security:Otp:HmacSecret"] = "TestSecretKeyForHmacSha256Authentication123456!",
-            ["Security:Turnstile:BypassInDevelopment"] = "true"
-        };
-
-        _configuration = new TestConfiguration(configDict);
-        _securityService = new OtpSecurityService(_configuration);
+        _securityService = new OtpSecurityService(Options.Create(new OtpSecurityOptions { HmacSecret = TestSecrets.OtpHmacSecret }));
     }
 
     [Theory]
@@ -123,7 +114,7 @@ public sealed class OtpAuthTests
     public async Task SendOtpHandler_WhenValid_ShouldGenerateAndStoreOtpAsync()
     {
         var store = new InMemoryOtpStore();
-        var turnstile = new TurnstileValidator(_configuration, NullLogger<TurnstileValidator>.Instance);
+        var turnstile = TestSecrets.CreateDevelopmentTurnstileValidator();
         var sender = new RecordingOtpSender();
         var handler = new SendOtpHandler(_normalizer, turnstile, _securityService, store, sender, NullLogger<SendOtpHandler>.Instance);
 
@@ -146,7 +137,7 @@ public sealed class OtpAuthTests
     public async Task SendOtpHandler_WhenDeliveryFails_ShouldReturnDeliveryFailedAsync()
     {
         var store = new InMemoryOtpStore();
-        var turnstile = new TurnstileValidator(_configuration, NullLogger<TurnstileValidator>.Instance);
+        var turnstile = TestSecrets.CreateDevelopmentTurnstileValidator();
         var sender = new RecordingOtpSender { Succeeds = false };
         var handler = new SendOtpHandler(_normalizer, turnstile, _securityService, store, sender, NullLogger<SendOtpHandler>.Instance);
 
@@ -160,7 +151,7 @@ public sealed class OtpAuthTests
     public async Task SendOtpHandler_WhenTurnstileFails_ShouldReturnFailureAsync()
     {
         var store = new InMemoryOtpStore();
-        var turnstile = new TurnstileValidator(_configuration, NullLogger<TurnstileValidator>.Instance);
+        var turnstile = TestSecrets.CreateDevelopmentTurnstileValidator();
         var handler = new SendOtpHandler(_normalizer, turnstile, _securityService, store, new RecordingOtpSender(), NullLogger<SendOtpHandler>.Instance);
 
         var command = new SendOtpCommand("01011223344", ""); // empty turnstile
@@ -174,7 +165,7 @@ public sealed class OtpAuthTests
     public async Task SendOtpHandler_WhenRateLimitExceeded_ShouldReturnRateLimitErrorAsync()
     {
         var store = new InMemoryOtpStore();
-        var turnstile = new TurnstileValidator(_configuration, NullLogger<TurnstileValidator>.Instance);
+        var turnstile = TestSecrets.CreateDevelopmentTurnstileValidator();
         var handler = new SendOtpHandler(_normalizer, turnstile, _securityService, store, new RecordingOtpSender(), NullLogger<SendOtpHandler>.Instance);
 
         var command = new SendOtpCommand("01011223344", "test-token");
@@ -216,28 +207,6 @@ public sealed class OtpAuthTests
 
         var alphaCode = validator.Validate(new VerifyOtpCommand("01012345678", "12345a"));
         alphaCode.IsValid.Should().BeFalse();
-    }
-
-    private sealed class TestConfiguration : IConfiguration
-    {
-        private readonly Dictionary<string, string?> _data;
-
-        public TestConfiguration(Dictionary<string, string?> data)
-        {
-            _data = data;
-        }
-
-        public string? this[string key]
-        {
-            get => _data.TryGetValue(key, out var value) ? value : null;
-            set => _data[key] = value;
-        }
-
-        public IEnumerable<IConfigurationSection> GetChildren() => [];
-
-        public IChangeToken GetReloadToken() => throw new NotSupportedException();
-
-        public IConfigurationSection GetSection(string key) => throw new NotSupportedException();
     }
 
     private sealed class RecordingOtpSender : IOtpSender

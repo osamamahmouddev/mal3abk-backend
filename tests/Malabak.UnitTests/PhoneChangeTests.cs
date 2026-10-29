@@ -11,7 +11,6 @@ using Malabak.Modules.Identity.Infrastructure.Services;
 using Malabak.SharedKernel;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Xunit;
@@ -30,15 +29,8 @@ public sealed class PhoneChangeTests
 
     public PhoneChangeTests()
     {
-        var configDict = new Dictionary<string, string?>
-        {
-            ["Security:Otp:HmacSecret"] = "TestSecretKeyForHmacSha256Authentication123456!",
-            ["Security:StepUp:SecretKey"] = "TestStepUpSecretKeyHmacSha2561234567890!",
-            ["Security:Jwt:CurrentKeyId"] = "test-key-v1"
-        };
-        var config = new TestConfiguration(configDict);
-        _otpSecurityService = new OtpSecurityService(config);
-        _stepUpService = new StepUpService(config, _clock);
+        _otpSecurityService = new OtpSecurityService(Options.Create(new OtpSecurityOptions { HmacSecret = TestSecrets.OtpHmacSecret }));
+        _stepUpService = new StepUpService(Options.Create(new StepUpOptions { SecretKey = TestSecrets.StepUpSecretKey }), _clock);
 
         var jwtOptions = new JwtOptions { CurrentKeyId = "test-key-v1" };
         var keyProvider = new JwtKeyProvider(Options.Create(jwtOptions));
@@ -338,22 +330,5 @@ public sealed class PhoneChangeTests
         public TimeZoneInfo CairoTimeZone => _cairoZone;
 
         public void Advance(TimeSpan duration) => UtcNow = UtcNow.Add(duration);
-    }
-
-    private sealed class TestConfiguration : IConfiguration
-    {
-        private readonly Dictionary<string, string?> _data;
-
-        public TestConfiguration(Dictionary<string, string?> data) => _data = data;
-
-        public string? this[string key]
-        {
-            get => _data.TryGetValue(key, out var val) ? val : null;
-            set => _data[key] = value;
-        }
-
-        public IEnumerable<IConfigurationSection> GetChildren() => [];
-        public Microsoft.Extensions.Primitives.IChangeToken GetReloadToken() => throw new NotSupportedException();
-        public IConfigurationSection GetSection(string key) => throw new NotSupportedException();
     }
 }
