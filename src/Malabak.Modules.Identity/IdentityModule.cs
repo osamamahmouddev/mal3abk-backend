@@ -12,6 +12,7 @@ using Malabak.Modules.Identity.Infrastructure.Services;
 using Malabak.SharedKernel;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 
 namespace Malabak.Modules.Identity;
 
@@ -33,6 +34,8 @@ public static class IdentityModule
         services.AddSingleton<IStepUpService, StepUpService>();
         services.AddSingleton<ISmsAlertService, LoggingSmsAlertService>();
 
+        AddOtpDelivery(services, configuration);
+
         // OTP codes live in Redis, through the host's single IConnectionMultiplexer (TLS, timeouts and
         // logging come from RedisConnectionFactory). No in-memory fallback: if Redis is down, OTP
         // requests fail closed instead of being checked per instance (SECURITY.md).
@@ -53,4 +56,34 @@ public static class IdentityModule
 
         return services;
     }
+
+    private static void AddOtpDelivery(IServiceCollection services, IConfiguration configuration)
+    {
+        services.AddOptions<OtpDeliveryOptions>()
+            .Bind(configuration.GetSection(OtpDeliveryOptions.SectionName))
+            .Validate<IHostEnvironment>(
+                (options, environment) => options.Provider != OtpDeliveryProvider.Slack || !environment.IsProduction(),
+                "OTP delivery to Slack is for testing only and is not allowed in Production: everyone in the channel could read every code.")
+            .Validate(
+                options => options.Provider != OtpDeliveryProvider.Slack || IsSlackWebhookUrl(options.Slack.WebhookUrl),
+                $"{OtpDeliveryOptions.SectionName}:Slack:WebhookUrl must be an https://hooks.slack.com/ Incoming Webhook URL.")
+            .ValidateOnStart();
+
+        var provider = configuration.GetSection(OtpDeliveryOptions.SectionName).GetValue<OtpDeliveryProvider>(nameof(OtpDeliveryOptions.Provider));
+        if (provider == OtpDeliveryProvider.Slack)
+        {
+            services.AddHttpClient<IOtpSender, SlackOtpSender>(client => client.Timeout = TimeSpan.FromSeconds(10))
+                // The default HttpClient logging writes the request URL, and the webhook URL is a credential.
+                .RemoveAllLoggers();
+        }
+        else
+        {
+            services.AddSingleton<IOtpSender, UnavailableOtpSender>();
+        }
+    }
+
+    private static bool IsSlackWebhookUrl(string? url) =>
+        Uri.TryCreate(url, UriKind.Absolute, out var uri)
+        && uri.Scheme == Uri.UriSchemeHttps
+        && uri.Host == "hooks.slack.com";
 }
