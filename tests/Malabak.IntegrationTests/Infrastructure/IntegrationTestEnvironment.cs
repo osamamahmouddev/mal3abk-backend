@@ -53,6 +53,11 @@ internal static class IntegrationTestEnvironment
         Set("Redis__ConnectionString", redis);
         Set("Security__Turnstile__SecretKey", _turnstileTestSecretKey);
         Set("Security__Turnstile__SiteKey", _turnstileTestSiteKey);
+
+        // The host runs as Development, which loads the developer's user secrets. Pin OTP delivery off so a
+        // local Slack setup can neither fail startup validation nor post test codes to a real channel. Only
+        // MALABAK_-prefixed variables are added after user secrets (ConfigureMalabakConfigurationSources).
+        Set("MALABAK_Identity__OtpDelivery__Provider", "None");
     }
 
     /// <remarks>
