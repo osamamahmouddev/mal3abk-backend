@@ -1,0 +1,2 @@
+aws_region  = "me-central-1"
+environment = "staging"
