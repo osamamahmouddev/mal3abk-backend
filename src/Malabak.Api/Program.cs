@@ -189,11 +189,14 @@ var app = builder.Build();
 // (fly.toml release_command) so schema changes land once, before new instances start.
 if (args.Contains("--migrate"))
 {
-    using var scope = app.Services.CreateScope();
-    await scope.ServiceProvider.GetRequiredService<IdentityDbContext>().Database.MigrateAsync();
-    await scope.ServiceProvider.GetRequiredService<VenuesDbContext>().Database.MigrateAsync();
-    await scope.ServiceProvider.GetRequiredService<BookingDbContext>().Database.MigrateAsync();
+    await MigrateAllModulesAsync(app.Services);
     return;
+}
+
+// Hosts without a release step (e.g. Render's free tier) migrate on startup instead; off by default.
+if (app.Configuration.GetValue<bool>("Database:MigrateOnStartup"))
+{
+    await MigrateAllModulesAsync(app.Services);
 }
 
 // CLI Data Seeding Commands
@@ -338,6 +341,14 @@ app.MapPhoneChangeEndpoints(apiVersionSet);
 app.MapVenueManagerEndpoints(apiVersionSet);
 
 await app.RunAsync();
+
+static async Task MigrateAllModulesAsync(IServiceProvider services)
+{
+    using var scope = services.CreateScope();
+    await scope.ServiceProvider.GetRequiredService<IdentityDbContext>().Database.MigrateAsync();
+    await scope.ServiceProvider.GetRequiredService<VenuesDbContext>().Database.MigrateAsync();
+    await scope.ServiceProvider.GetRequiredService<BookingDbContext>().Database.MigrateAsync();
+}
 
 // Required for WebApplicationFactory in integration tests
 public partial class Program
