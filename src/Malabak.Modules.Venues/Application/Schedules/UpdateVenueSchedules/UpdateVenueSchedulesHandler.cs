@@ -3,6 +3,7 @@ using Malabak.Modules.Venues.Application.Schedules;
 using Malabak.Modules.Venues.Domain;
 using Malabak.Modules.Venues.Infrastructure;
 using Malabak.SharedKernel;
+using Malabak.SharedKernel.Authorization;
 using Microsoft.Extensions.Logging;
 
 namespace Malabak.Modules.Venues.Application.Schedules.UpdateVenueSchedules;
@@ -36,7 +37,7 @@ public sealed class UpdateVenueSchedulesHandler : ICommandHandler<UpdateVenueSch
             return Result.Failure<IReadOnlyList<OperatingScheduleDto>>(new Error("Venue.NotFound", "Venue not found."));
         }
 
-        if (venue.OwnerId != command.OwnerId)
+        if (!await VenuePermissionCheck.CanAsync(_dbContext, command.OwnerId, venue.Id, Permissions.SchedulesManage, cancellationToken))
         {
             return Result.Failure<IReadOnlyList<OperatingScheduleDto>>(new Error("Venue.Forbidden", "You are not authorized to update schedules for this venue."));
         }

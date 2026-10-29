@@ -1,4 +1,5 @@
 using Malabak.Modules.Identity.Application.Common;
+using Malabak.Modules.Identity.Application.Sessions;
 using Malabak.Modules.Identity.Infrastructure;
 using Malabak.SharedKernel;
 using Microsoft.EntityFrameworkCore;
@@ -12,17 +13,20 @@ public sealed class LogoutHandler : ICommandHandler<LogoutCommand, Result>
     private readonly ITokenService _tokenService;
     private readonly IClock _clock;
     private readonly ILogger<LogoutHandler> _logger;
+    private readonly SessionService? _sessions;
 
     public LogoutHandler(
         IdentityDbContext dbContext,
         ITokenService tokenService,
         IClock clock,
-        ILogger<LogoutHandler> logger)
+        ILogger<LogoutHandler> logger,
+        SessionService? sessions = null)
     {
         _dbContext = dbContext;
         _tokenService = tokenService;
         _clock = clock;
         _logger = logger;
+        _sessions = sessions;
     }
 
     public async Task<Result> HandleAsync(
@@ -43,6 +47,11 @@ public sealed class LogoutHandler : ICommandHandler<LogoutCommand, Result>
             token.Revoke("user_logout", _clock.UtcNow);
             await _dbContext.SaveChangesAsync(cancellationToken);
             _logger.LogInformation("Refresh token {TokenId} revoked due to user logout", token.Id);
+
+            if (_sessions is not null)
+            {
+                await _sessions.RevokeAsync(token.UserId, token.FamilyId, "user_logout", cancellationToken);
+            }
         }
 
         return Result.Success();

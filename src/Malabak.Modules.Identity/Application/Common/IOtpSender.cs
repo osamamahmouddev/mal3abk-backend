@@ -6,6 +6,9 @@ public enum OtpPurpose
     Login,
     ChangePhoneOld,
     ChangePhoneNew,
+
+    /// <summary>Re-authentication before a sensitive action (SECURITY.md §3.8).</summary>
+    StepUp,
 }
 
 /// <summary>

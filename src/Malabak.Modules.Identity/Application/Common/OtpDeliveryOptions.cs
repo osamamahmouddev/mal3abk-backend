@@ -11,6 +11,12 @@ public enum OtpDeliveryProvider
     /// in Production.
     /// </summary>
     Slack,
+
+    /// <summary>
+    /// Sends through the cost-controlled SMS gateway (<c>Sms</c> section): country allow-list, spend caps and
+    /// failover across the configured providers. In Development with no providers configured it uses Mailpit.
+    /// </summary>
+    Sms,
 }
 
 /// <summary>Selects the channel for everything sent to a user's phone: OTP codes and security alerts.</summary>

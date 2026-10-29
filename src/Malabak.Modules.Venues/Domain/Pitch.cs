@@ -142,6 +142,33 @@ public sealed class Pitch : Entity<Guid>
         UpdatedAtUtc = nowUtc;
     }
 
+    public const int MaxPhotos = 20;
+
+    /// <summary>Adds a gallery photo (a URL produced by the media pipeline). Returns false when full or already present.</summary>
+    public bool AddPhoto(string url, DateTime nowUtc)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(url);
+        if (_photos.Count >= MaxPhotos || _photos.Contains(url, StringComparer.Ordinal))
+        {
+            return false;
+        }
+
+        _photos.Add(url);
+        UpdatedAtUtc = nowUtc;
+        return true;
+    }
+
+    public bool RemovePhoto(string url, DateTime nowUtc)
+    {
+        var removed = _photos.Remove(url);
+        if (removed)
+        {
+            UpdatedAtUtc = nowUtc;
+        }
+
+        return removed;
+    }
+
     public void MarkDeleted(DateTime nowUtc)
     {
         IsDeleted = true;

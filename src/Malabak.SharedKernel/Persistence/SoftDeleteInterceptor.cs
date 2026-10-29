@@ -35,14 +35,17 @@ public sealed class SoftDeleteInterceptor : SaveChangesInterceptor
         }
 
         var utcNow = _clock.UtcNow;
+        var baseContext = context as BaseDbContext;
 
         foreach (var entry in context.ChangeTracker.Entries<ISoftDeletable>())
         {
-            if (entry.State == EntityState.Deleted)
+            if (entry.State == EntityState.Deleted && baseContext?.IsMarkedForHardDelete(entry.Entity) != true)
             {
                 entry.State = EntityState.Modified;
                 entry.Entity.SoftDelete(utcNow);
             }
         }
+
+        baseContext?.ClearHardDeletes();
     }
 }

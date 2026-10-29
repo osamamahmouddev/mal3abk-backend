@@ -3,4 +3,4 @@ using Malabak.SharedKernel;
 
 namespace Malabak.Modules.Venues.Application.Venues.GetVenueById;
 
-public sealed record GetVenueByIdQuery(Guid VenueId) : IQuery<Result<VenueDto>>;
+public sealed record GetVenueByIdQuery(Guid VenueId, Guid UserId) : IQuery<Result<VenueDto>>;

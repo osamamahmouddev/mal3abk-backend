@@ -9,15 +9,18 @@ public sealed class DeleteVenueHandler : ICommandHandler<DeleteVenueCommand, Res
 {
     private readonly IVenueRepository _venueRepository;
     private readonly VenuesDbContext _dbContext;
+    private readonly IClock _clock;
     private readonly ILogger<DeleteVenueHandler> _logger;
 
     public DeleteVenueHandler(
         IVenueRepository venueRepository,
         VenuesDbContext dbContext,
+        IClock clock,
         ILogger<DeleteVenueHandler> logger)
     {
         _venueRepository = venueRepository;
         _dbContext = dbContext;
+        _clock = clock;
         _logger = logger;
     }
 
@@ -36,7 +39,7 @@ public sealed class DeleteVenueHandler : ICommandHandler<DeleteVenueCommand, Res
             return Result.Failure(new Error("Venue.Forbidden", "You are not authorized to delete this venue."));
         }
 
-        _venueRepository.Delete(venue);
+        _venueRepository.Delete(venue, _clock.UtcNow);
         await _dbContext.SaveChangesAsync(cancellationToken);
 
         _logger.LogInformation("Venue {VenueId} deleted by owner {OwnerId}", venue.Id, command.OwnerId);

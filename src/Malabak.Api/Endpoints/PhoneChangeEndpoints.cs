@@ -145,25 +145,7 @@ public static class PhoneChangeEndpoints
         .WithName("RecoverPhone")
         .WithSummary("Revert unauthorized phone number change using 24-hour recovery link");
 
-        // Helper endpoint for Step-Up Token generation
-        app.MapPost("/api/v{version:apiVersion}/me/step-up", (
-            ClaimsPrincipal user,
-            [FromBody] StepUpApiRequest request,
-            IStepUpService stepUpService) =>
-        {
-            var userId = GetUserId(user);
-            if (!userId.HasValue)
-            {
-                return Results.Unauthorized();
-            }
-
-            var token = stepUpService.IssueStepUpToken(userId.Value, request.Scope ?? "change_phone");
-            return Results.Ok(new { stepUpToken = token, expiresInSeconds = 300 });
-        })
-        .WithApiVersionSet(apiVersionSet)
-        .MapToApiVersion(1, 0)
-        .RequireAuthorization()
-        .WithTags("Authentication");
+        // Step-up tokens are issued only by POST /auth/step-up after real re-verification (TASK-209).
     }
 
     private static Guid? GetUserId(ClaimsPrincipal principal)
@@ -178,5 +160,4 @@ public static class PhoneChangeEndpoints
     public sealed record VerifyOldPhoneApiRequest(Guid RequestId, string Code);
     public sealed record VerifyNewPhoneApiRequest(Guid RequestId, string Code);
     public sealed record RecoverPhoneApiRequest(string RecoveryToken);
-    public sealed record StepUpApiRequest(string? Scope = null);
 }

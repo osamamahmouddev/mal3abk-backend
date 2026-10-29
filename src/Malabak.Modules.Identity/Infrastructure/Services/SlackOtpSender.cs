@@ -35,6 +35,7 @@ public sealed class SlackOtpSender : IOtpSender
             OtpPurpose.Login => "تسجيل الدخول",
             OtpPurpose.ChangePhoneOld => "تغيير الرقم (تأكيد الرقم الحالي)",
             OtpPurpose.ChangePhoneNew => "تغيير الرقم (تأكيد الرقم الجديد)",
+            OtpPurpose.StepUp => "تأكيد الهوية لعملية حساسة",
             _ => purpose.ToString(),
         };
 

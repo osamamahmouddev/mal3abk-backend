@@ -6,6 +6,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <InternalsVisibleTo Include="Malabak.UnitTests" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\Malabak.SharedKernel\Malabak.SharedKernel.csproj" />
   </ItemGroup>
 

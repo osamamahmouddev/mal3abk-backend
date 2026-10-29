@@ -58,5 +58,10 @@
 
     <!-- Phone -->
     <PackageVersion Include="libphonenumber-csharp" Version="8.13.50" />
+
+    <!-- Media: decode/re-encode uploads (strips EXIF and any embedded payload). MIT licence, maintained by
+         Microsoft/.NET Foundation, cross-platform; ImageSharp rejected (split commercial licence). -->
+    <PackageVersion Include="SkiaSharp" Version="3.116.1" />
+    <PackageVersion Include="SkiaSharp.NativeAssets.Linux.NoDependencies" Version="3.116.1" />
   </ItemGroup>
 </Project>

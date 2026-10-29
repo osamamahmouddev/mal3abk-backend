@@ -7,32 +7,52 @@ public enum SecurityAlertKind
 
     /// <summary>Sent to the restored number after a recovery link was used.</summary>
     PhoneRestored,
+
+    /// <summary>Sent when the account signs in from a device it has not used before (SECURITY.md §4.3).</summary>
+    NewDeviceSignIn,
+
+    /// <summary>Sent to an invited venue staff member who has no email, with a 48-hour invitation link.</summary>
+    StaffInvitation,
 }
 
 /// <summary>
-/// The content of a security alert; each sender renders it for its channel. <see cref="RecoveryLink"/> carries a
-/// live recovery token and <see cref="NewPhoneNumber"/> is PII, so only <see cref="Kind"/> may be logged
-/// (SECURITY.md §15.5). <see cref="ToString"/> prints the kind alone in case an instance reaches a log line.
+/// The content of a security alert; each sender renders it for its channel. <see cref="RecoveryLink"/> and
+/// <see cref="InvitationLink"/> carry live tokens and <see cref="NewPhoneNumber"/> is PII, so only <see cref="Kind"/>
+/// may be logged (SECURITY.md §15.5). <see cref="ToString"/> prints the kind alone in case an instance reaches a log line.
 /// </summary>
 public sealed record SecurityAlert
 {
-    private SecurityAlert(SecurityAlertKind kind, string? newPhoneNumber, string? recoveryLink)
+    private SecurityAlert(SecurityAlertKind kind)
     {
         Kind = kind;
-        NewPhoneNumber = newPhoneNumber;
-        RecoveryLink = recoveryLink;
     }
 
     public SecurityAlertKind Kind { get; }
 
-    public string? NewPhoneNumber { get; }
+    public string? NewPhoneNumber { get; private init; }
 
-    public string? RecoveryLink { get; }
+    public string? RecoveryLink { get; private init; }
+
+    public string? DeviceName { get; private init; }
+
+    public DateTime? OccurredAtUtc { get; private init; }
+
+    public string? VenueName { get; private init; }
+
+    public string? Role { get; private init; }
+
+    public string? InvitationLink { get; private init; }
 
     public static SecurityAlert PhoneChanged(string newPhoneNumber, string recoveryLink) =>
-        new(SecurityAlertKind.PhoneChanged, newPhoneNumber, recoveryLink);
+        new(SecurityAlertKind.PhoneChanged) { NewPhoneNumber = newPhoneNumber, RecoveryLink = recoveryLink };
 
-    public static SecurityAlert PhoneRestored() => new(SecurityAlertKind.PhoneRestored, null, null);
+    public static SecurityAlert PhoneRestored() => new(SecurityAlertKind.PhoneRestored);
+
+    public static SecurityAlert NewDeviceSignIn(string deviceName, DateTime signedInAtUtc) =>
+        new(SecurityAlertKind.NewDeviceSignIn) { DeviceName = deviceName, OccurredAtUtc = signedInAtUtc };
+
+    public static SecurityAlert StaffInvitation(string venueName, string role, string invitationLink) =>
+        new(SecurityAlertKind.StaffInvitation) { VenueName = venueName, Role = role, InvitationLink = invitationLink };
 
     public override string ToString() => $"{nameof(SecurityAlert)} {{ {nameof(Kind)} = {Kind} }}";
 }

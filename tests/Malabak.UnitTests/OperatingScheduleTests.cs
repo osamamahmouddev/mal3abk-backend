@@ -6,6 +6,7 @@ using Malabak.Modules.Venues.Application.Schedules.UpdateVenueSchedules;
 using Malabak.Modules.Venues.Domain;
 using Malabak.Modules.Venues.Infrastructure;
 using Malabak.Modules.Venues.Infrastructure.Repositories;
+using Malabak.Modules.Venues.Infrastructure.Services;
 using Malabak.SharedKernel;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
@@ -272,11 +273,11 @@ public sealed class OperatingScheduleTests
         venueRepo.Add(venue);
         await dbContext.SaveChangesAsync();
 
-        var slotsHandler = new GetVenueSlotsHandler(venueRepo, _clock);
+        var slotsHandler = new GetVenueSlotsHandler(venueRepo, new VenueAccessService(dbContext), _clock);
 
         // Query Friday 2026-05-15
         var fridayDate = new DateOnly(2026, 5, 15);
-        var slotsResult = await slotsHandler.HandleAsync(new GetVenueSlotsQuery(venue.Id, fridayDate));
+        var slotsResult = await slotsHandler.HandleAsync(new GetVenueSlotsQuery(venue.Id, fridayDate, ownerId));
 
         slotsResult.IsSuccess.Should().BeTrue();
         slotsResult.Value.Should().HaveCount(12);
@@ -287,10 +288,15 @@ public sealed class OperatingScheduleTests
 
         // Query Saturday 2026-05-16 (no schedule configured -> empty)
         var saturdayDate = new DateOnly(2026, 5, 16);
-        var saturdayResult = await slotsHandler.HandleAsync(new GetVenueSlotsQuery(venue.Id, saturdayDate));
+        var saturdayResult = await slotsHandler.HandleAsync(new GetVenueSlotsQuery(venue.Id, saturdayDate, ownerId));
 
         saturdayResult.IsSuccess.Should().BeTrue();
         saturdayResult.Value.Should().BeEmpty();
+
+        // Another owner can't read this venue's slots
+        var otherOwnerResult = await slotsHandler.HandleAsync(new GetVenueSlotsQuery(venue.Id, fridayDate, Guid.NewGuid()));
+        otherOwnerResult.IsFailure.Should().BeTrue();
+        otherOwnerResult.Error.Code.Should().Be("Venue.NotFound");
     }
 
     private sealed class TestClock : IClock

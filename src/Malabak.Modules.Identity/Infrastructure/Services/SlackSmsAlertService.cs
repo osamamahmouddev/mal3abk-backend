@@ -1,3 +1,4 @@
+using System.Globalization;
 using Malabak.Modules.Identity.Application.Common;
 using Microsoft.Extensions.Hosting;
 
@@ -5,7 +6,7 @@ namespace Malabak.Modules.Identity.Infrastructure.Services;
 
 /// <summary>
 /// Posts security alerts to the same Slack channel as OTP codes, for testing before an SMS provider is
-/// integrated. Phone numbers are masked in the message; the recovery link is shown because testers need it,
+/// integrated. Phone numbers are masked in the message; recovery and invitation links are shown because testers need them,
 /// which is one more reason the Slack provider is refused in Production. Nothing but the alert kind is logged.
 /// </summary>
 public sealed class SlackSmsAlertService : ISmsAlertService
@@ -39,6 +40,15 @@ public sealed class SlackSmsAlertService : ISmsAlertService
             SecurityAlertKind.PhoneRestored => $"""
                 {header}
                 النوع: تم استرجاع رقم الحساب وإنهاء كل الجلسات الأخرى
+                """,
+            SecurityAlertKind.NewDeviceSignIn => $"""
+                {header}
+                النوع: تسجيل دخول من جهاز جديد ({alert.DeviceName}) الساعة {alert.OccurredAtUtc?.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture)} UTC
+                """,
+            SecurityAlertKind.StaffInvitation => $"""
+                {header}
+                النوع: دعوة للانضمام إلى {alert.VenueName} بدور {alert.Role}
+                رابط الدعوة (صالح 48 ساعة): {alert.InvitationLink}
                 """,
             _ => $"""
                 {header}

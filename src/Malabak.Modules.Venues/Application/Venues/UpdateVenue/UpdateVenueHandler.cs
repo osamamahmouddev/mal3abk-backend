@@ -2,6 +2,7 @@ using Malabak.Modules.Venues.Application.Common;
 using Malabak.Modules.Venues.Application.Venues;
 using Malabak.Modules.Venues.Infrastructure;
 using Malabak.SharedKernel;
+using Malabak.SharedKernel.Authorization;
 using Microsoft.Extensions.Logging;
 
 namespace Malabak.Modules.Venues.Application.Venues.UpdateVenue;
@@ -38,7 +39,7 @@ public sealed class UpdateVenueHandler : ICommandHandler<UpdateVenueCommand, Res
         }
 
         // Tenant authorization check
-        if (venue.OwnerId != command.OwnerId)
+        if (!await VenuePermissionCheck.CanAsync(_dbContext, command.OwnerId, venue.Id, Permissions.VenueEdit, cancellationToken))
         {
             return Result.Failure<VenueDto>(new Error(
                 "Venue.Forbidden",

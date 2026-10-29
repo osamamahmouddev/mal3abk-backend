@@ -8,7 +8,7 @@ public sealed class VenuePaymentMethodConfiguration : IEntityTypeConfiguration<V
 {
     public void Configure(EntityTypeBuilder<VenuePaymentMethod> builder)
     {
-        builder.ToTable("payment_methods");
+        builder.ToTable(VenuePaymentMethod.TableName);
 
         builder.HasKey(m => m.Id);
 
@@ -19,16 +19,30 @@ public sealed class VenuePaymentMethodConfiguration : IEntityTypeConfiguration<V
             .HasMaxLength(50)
             .IsRequired();
 
-        builder.Property(m => m.AccountIdentifier)
-            .HasMaxLength(100)
+        builder.Property(m => m.RecipientName)
+            .HasMaxLength(VenuePaymentMethod.MaxRecipientNameLength)
             .IsRequired();
 
-        builder.Property(m => m.AccountName)
-            .HasMaxLength(200)
+        builder.Property(m => m.AccountDetailsCiphertext)
+            .IsRequired();
+
+        builder.Property(m => m.AccountDetailsMask)
+            .HasMaxLength(32)
             .IsRequired();
 
         builder.Property(m => m.Instructions)
-            .HasMaxLength(1000);
+            .HasMaxLength(VenuePaymentMethod.MaxInstructionsLength);
+
+        builder.Property(m => m.DepositType)
+            .HasConversion<string>()
+            .HasMaxLength(20)
+            .IsRequired();
+
+        builder.Property(m => m.DepositValue)
+            .HasColumnType("numeric(18,2)")
+            .IsRequired();
+
+        builder.Ignore(m => m.DepositRule);
 
         builder.Property(m => m.IsActive)
             .IsRequired()

@@ -14,6 +14,11 @@ public sealed class IdentityDbContext : BaseDbContext
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
     public DbSet<UserSession> UserSessions => Set<UserSession>();
     public DbSet<PhoneChangeRequest> PhoneChangeRequests => Set<PhoneChangeRequest>();
+    public DbSet<UserActionToken> UserActionTokens => Set<UserActionToken>();
+    public DbSet<AdminRecoveryCode> AdminRecoveryCodes => Set<AdminRecoveryCode>();
+    public DbSet<SmsDispatch> SmsDispatches => Set<SmsDispatch>();
+    public DbSet<EmailSuppression> EmailSuppressions => Set<EmailSuppression>();
+    public DbSet<UserConsent> UserConsents => Set<UserConsent>();
 
     public IdentityDbContext(DbContextOptions<IdentityDbContext> options, IClock? clock = null)
         : base(options, clock)

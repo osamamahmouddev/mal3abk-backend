@@ -1,3 +1,4 @@
+using Malabak.Modules.Identity.Application.Sessions;
 using Malabak.Modules.Identity.Application.Common;
 using Malabak.Modules.Identity.Domain;
 using Malabak.Modules.Identity.Infrastructure;
@@ -15,6 +16,7 @@ public sealed class VerifyOtpHandler : ICommandHandler<VerifyOtpCommand, Result<
     private readonly IdentityDbContext _dbContext;
     private readonly IClock _clock;
     private readonly ITokenService? _tokenService;
+    private readonly SessionService? _sessionService;
     private readonly ILogger<VerifyOtpHandler> _logger;
 
     public VerifyOtpHandler(
@@ -24,7 +26,8 @@ public sealed class VerifyOtpHandler : ICommandHandler<VerifyOtpCommand, Result<
         IdentityDbContext dbContext,
         IClock clock,
         ILogger<VerifyOtpHandler> logger,
-        ITokenService? tokenService = null)
+        ITokenService? tokenService = null,
+        SessionService? sessionService = null)
     {
         _normalizer = normalizer;
         _securityService = securityService;
@@ -33,6 +36,7 @@ public sealed class VerifyOtpHandler : ICommandHandler<VerifyOtpCommand, Result<
         _clock = clock;
         _logger = logger;
         _tokenService = tokenService;
+        _sessionService = sessionService;
     }
 
     public async Task<Result<VerifyOtpResponse>> HandleAsync(
@@ -82,6 +86,14 @@ public sealed class VerifyOtpHandler : ICommandHandler<VerifyOtpCommand, Result<
         var user = await _dbContext.Users
             .FirstOrDefaultAsync(u => u.PhoneNumber == normalizedPhone, cancellationToken);
 
+        // A deleted account keeps its number until anonymization; it must not sign back in or be re-created meanwhile.
+        if (user is { IsDeleted: true })
+        {
+            return Result.Failure<VerifyOtpResponse>(new Error(
+                "Identity.AccountDeleted",
+                "This account was deleted. The number can be used for a new account after the deletion period ends."));
+        }
+
         var isNewUser = false;
         if (user is null)
         {
@@ -110,14 +122,18 @@ public sealed class VerifyOtpHandler : ICommandHandler<VerifyOtpCommand, Result<
 
         if (_tokenService is not null)
         {
-            var tokenResult = _tokenService.GenerateTokens(user);
+            // The session id doubles as the refresh-token family and the access token sid claim.
+            var sessionId = _sessionService is not null
+                ? await _sessionService.StartAsync(user, isAdminSession: false, cancellationToken)
+                : Guid.NewGuid();
+            var tokenResult = _tokenService.GenerateTokens(user, sessionId);
             accessToken = tokenResult.AccessToken;
             expiresIn = tokenResult.ExpiresIn;
             rawRefreshToken = tokenResult.RefreshToken;
             refreshTokenExpiresAtUtc = tokenResult.RefreshTokenExpiresAtUtc;
 
             var newHash = _tokenService.HashRefreshToken(tokenResult.RefreshToken);
-            var initialFamilyId = Guid.NewGuid();
+            var initialFamilyId = sessionId;
 
             var refreshTokenEntity = Domain.RefreshToken.Create(
                 id: Guid.NewGuid(),

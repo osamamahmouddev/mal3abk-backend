@@ -27,8 +27,10 @@ public sealed class SecurityHeadersMiddleware
             headers["Permissions-Policy"] = "geolocation=(self), camera=(), microphone=()";
             headers["Cross-Origin-Opener-Policy"] = "same-origin";
 
-            // Private API endpoints must never be cached by shared caches or browsers
-            if (context.Request.Path.StartsWithSegments("/api", StringComparison.OrdinalIgnoreCase))
+            // API responses must never be cached by shared caches or browsers, unless the endpoint opted in
+            // explicitly for non-personal data (e.g. public reference data with an ETag).
+            if (context.Request.Path.StartsWithSegments("/api", StringComparison.OrdinalIgnoreCase)
+                && !headers.ContainsKey("Cache-Control"))
             {
                 headers["Cache-Control"] = "no-store, no-cache, max-age=0, must-revalidate";
                 headers["Pragma"] = "no-cache";

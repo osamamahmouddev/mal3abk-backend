@@ -16,5 +16,5 @@ public interface IVenueRepository
 
     void Add(Venue venue);
 
-    void Delete(Venue venue);
+    void Delete(Venue venue, DateTime nowUtc);
 }

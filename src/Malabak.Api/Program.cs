@@ -2,6 +2,8 @@ using System.Globalization;
 using System.Threading.RateLimiting;
 using Asp.Versioning;
 using Malabak.Api.Endpoints;
+using Malabak.Api.Infrastructure;
+using Malabak.Api.Infrastructure.Authorization;
 using Malabak.Api.Infrastructure.Configuration;
 using Malabak.Api.Infrastructure.Errors;
 using Malabak.Api.Infrastructure.Health;
@@ -9,6 +11,7 @@ using Malabak.Api.Infrastructure.Hangfire;
 using Malabak.Api.Infrastructure.Idempotency;
 using Malabak.Api.Infrastructure.Localization;
 using Malabak.Api.Infrastructure.Logging;
+using Malabak.Api.Infrastructure.Media;
 using Malabak.Api.Infrastructure.OpenApi;
 using Malabak.Api.Infrastructure.OpenTelemetry;
 using Malabak.Api.Infrastructure.Outbox;
@@ -20,8 +23,12 @@ using Malabak.Modules.Booking.Application.Bookings.CreateBooking;
 using Malabak.Modules.Booking.Infrastructure;
 using Malabak.Modules.Identity;
 using Malabak.Modules.Identity.Application.Common;
+using Malabak.Modules.Identity.Application.Sessions;
 using Malabak.Modules.Identity.Infrastructure;
+using Malabak.Modules.Notifications;
+using Malabak.Modules.Notifications.Infrastructure;
 using Malabak.Modules.Venues;
+using Malabak.Modules.Venues.Application.Common;
 using Malabak.Modules.Venues.Infrastructure;
 using Malabak.SharedKernel;
 using Malabak.SharedKernel.Time;
@@ -105,6 +112,10 @@ builder.Services.AddMalabakIdempotency();
 builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.AddPasswordAuthRateLimit();
+    options.AddPolicy(MediaEndpoints.UploadRateLimitPolicy, http => RateLimitPartition.GetSlidingWindowLimiter(
+        http.User.FindFirst("sub")?.Value ?? http.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+        _ => new SlidingWindowRateLimiterOptions { PermitLimit = 30, Window = TimeSpan.FromHours(1), SegmentsPerWindow = 6, QueueLimit = 0 }));
     options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(context =>
         RateLimitPartition.GetFixedWindowLimiter(
             partitionKey: context.Connection.RemoteIpAddress?.ToString() ?? "anonymous",
@@ -131,33 +142,51 @@ builder.Services.Configure<RequestLocalizationOptions>(options =>
 });
 
 // 10. Security & Fallback Authorization Policy (Deny by default with ES256 JWT)
+// Two schemes with the same signing keys but different audiences: a player/venue token is rejected on
+// /admin endpoints and an admin token is rejected everywhere else (SECURITY.md §3.9).
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-    .AddJwtBearer();
+    .AddJwtBearer()
+    .AddJwtBearer(MalabakAuthorization.AdminScheme);
 
-builder.Services.AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme)
-    .Configure<IJwtKeyProvider, IOptions<JwtOptions>>((options, keyProvider, jwtOptions) =>
-    {
-        var opts = jwtOptions.Value;
-        options.TokenValidationParameters = new TokenValidationParameters
-        {
-            ValidateIssuerSigningKey = true,
-            IssuerSigningKeys = keyProvider.GetValidationKeys(),
-            ValidateIssuer = true,
-            ValidIssuer = opts.Issuer,
-            ValidateAudience = true,
-            ValidAudience = opts.Audience,
-            ValidateLifetime = true,
-            ClockSkew = TimeSpan.FromMinutes(1),
-            ValidAlgorithms = [SecurityAlgorithms.EcdsaSha256]
-        };
-    });
-
-builder.Services.AddAuthorization(options =>
+foreach (var (scheme, isAdmin) in new[] { (JwtBearerDefaults.AuthenticationScheme, false), (MalabakAuthorization.AdminScheme, true) })
 {
-    options.FallbackPolicy = new AuthorizationPolicyBuilder()
-        .RequireAuthenticatedUser()
-        .Build();
-});
+    builder.Services.AddOptions<JwtBearerOptions>(scheme)
+        .Configure<IJwtKeyProvider, IOptions<JwtOptions>>((options, keyProvider, jwtOptions) =>
+        {
+            var opts = jwtOptions.Value;
+            options.TokenValidationParameters = new TokenValidationParameters
+            {
+                ValidateIssuerSigningKey = true,
+                IssuerSigningKeys = keyProvider.GetValidationKeys(),
+                ValidateIssuer = true,
+                ValidIssuer = opts.Issuer,
+                ValidateAudience = true,
+                ValidAudience = isAdmin ? opts.AdminAudience : opts.Audience,
+                ValidateLifetime = true,
+                ClockSkew = TimeSpan.FromSeconds(30),
+                ValidAlgorithms = [SecurityAlgorithms.EcdsaSha256]
+            };
+
+            // A revoked device session stops working immediately, not when its access token expires (SECURITY.md §3.5).
+            options.Events = new JwtBearerEvents
+            {
+                OnTokenValidated = async context =>
+                {
+                    var sessionId = context.Principal?.GetSessionId();
+                    var store = context.HttpContext.RequestServices.GetRequiredService<ISessionStore>();
+                    if (sessionId is null || !await store.IsActiveAsync(sessionId.Value, context.HttpContext.RequestAborted))
+                    {
+                        context.Fail("session_revoked");
+                    }
+                }
+            };
+        });
+}
+
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<IDeviceContext, HttpDeviceContext>();
+
+builder.Services.AddMalabakAuthorization();
 
 // 11. Database Contexts (Modular Monolith - Schema per module)
 var postgresConnectionString = builder.Configuration.GetConnectionString("Postgres");
@@ -173,15 +202,38 @@ builder.Services.AddDbContext<BookingDbContext>(options =>
     options.UseNpgsql(postgresConnectionString, npgsql =>
         npgsql.MigrationsHistoryTable("__EFMigrationsHistory", BookingDbContext.Schema)));
 
-// 12. Dependency Injection
+builder.Services.AddDbContext<MediaDbContext>(options =>
+    options.UseNpgsql(postgresConnectionString, npgsql =>
+        npgsql.MigrationsHistoryTable("__EFMigrationsHistory", MediaDbContext.Schema)));
+builder.Services.AddSingleton<IObjectStorage, LocalObjectStorage>();
+builder.Services.AddSingleton<IMalwareScanner, NoOpMalwareScanner>();
+builder.Services.AddScoped<MediaService>();
+
+builder.Services.AddDbContext<NotificationsDbContext>(options =>
+    options.UseNpgsql(postgresConnectionString, npgsql =>
+        npgsql.MigrationsHistoryTable("__EFMigrationsHistory", NotificationsDbContext.Schema)));
+
+// 12. Field-level encryption, blind indexes and the persisted Data Protection key ring
+builder.Services.AddFieldEncryption(builder.Configuration, postgresConnectionString);
+
+// 13. Dependency Injection
 builder.Services.AddSingleton<IClock, SystemClock>();
 builder.Services.AddSingleton<ITimeZoneProvider, CairoTimeZoneProvider>();
 builder.Services.AddSingleton<IErrorMessageLocalizer, ErrorMessageLocalizer>();
 builder.Services.AddMalabakValidation();
 builder.Services.AddMalabakDataSeeders();
+builder.Services.AddScoped<IBookingConflictChecker, BookingConflictChecker>();
+builder.Services.AddScoped<Malabak.SharedKernel.Contracts.IUpcomingBookingsReader, UpcomingBookingsReader>();
+builder.Services.AddScoped<Malabak.SharedKernel.Contracts.IPersonalDataContributor, BookingPersonalData>();
+builder.Services.AddHostedService<Malabak.Api.Infrastructure.AccountAnonymizationService>();
 builder.Services.AddScoped<ICommandHandler<CreateBookingCommand, Result<CreateBookingResponse>>, CreateBookingHandler>();
 builder.Services.AddIdentityModule(builder.Configuration);
 builder.Services.AddVenuesModule();
+var fcmSection = builder.Configuration.GetSection("Push:Fcm");
+builder.Services.AddNotificationsModule(string.IsNullOrWhiteSpace(fcmSection["PrivateKeyPem"])
+    ? null
+    : new FcmOptions(fcmSection["ProjectId"]!, fcmSection["ClientEmail"]!, fcmSection["PrivateKeyPem"]!));
+builder.Services.AddHostedService<NotificationDispatchService>();
 
 var app = builder.Build();
 
@@ -193,6 +245,9 @@ if (args.Contains("--migrate"))
     await scope.ServiceProvider.GetRequiredService<IdentityDbContext>().Database.MigrateAsync();
     await scope.ServiceProvider.GetRequiredService<VenuesDbContext>().Database.MigrateAsync();
     await scope.ServiceProvider.GetRequiredService<BookingDbContext>().Database.MigrateAsync();
+    await scope.ServiceProvider.GetRequiredService<MediaDbContext>().Database.MigrateAsync();
+    await scope.ServiceProvider.GetRequiredService<NotificationsDbContext>().Database.MigrateAsync();
+    await scope.ServiceProvider.GetRequiredService<SecurityDbContext>().Database.MigrateAsync();
     return;
 }
 
@@ -336,6 +391,22 @@ if (app.Environment.IsDevelopment())
 app.MapAuthEndpoints(apiVersionSet);
 app.MapPhoneChangeEndpoints(apiVersionSet);
 app.MapVenueManagerEndpoints(apiVersionSet);
+app.MapMeEndpoints(apiVersionSet);
+app.MapPaymentMethodEndpoints(apiVersionSet);
+app.MapVenueApprovalEndpoints(apiVersionSet);
+app.MapBookingPolicyEndpoints(apiVersionSet);
+app.MapPasswordAuthEndpoints(apiVersionSet);
+app.MapAdminAuthEndpoints(apiVersionSet);
+app.MapStepUpEndpoints(apiVersionSet);
+app.MapStaffEndpoints(apiVersionSet);
+app.MapNotificationEndpoints(apiVersionSet);
+app.MapSmsWebhookEndpoints(apiVersionSet);
+app.MapProfileEndpoints(apiVersionSet);
+app.MapReferenceDataEndpoints(apiVersionSet);
+app.MapMediaEndpoints(apiVersionSet);
+app.MapSpecialScheduleEndpoints(apiVersionSet);
+app.MapPlayerVenueListEndpoints(apiVersionSet);
+app.MapPrivacyEndpoints(apiVersionSet);
 
 await app.RunAsync();
 

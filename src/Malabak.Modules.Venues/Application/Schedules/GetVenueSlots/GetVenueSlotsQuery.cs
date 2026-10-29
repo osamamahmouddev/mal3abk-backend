@@ -3,4 +3,4 @@ using Malabak.SharedKernel;
 
 namespace Malabak.Modules.Venues.Application.Schedules.GetVenueSlots;
 
-public sealed record GetVenueSlotsQuery(Guid VenueId, DateOnly Date) : IQuery<Result<IReadOnlyList<ScheduleSlotDto>>>;
+public sealed record GetVenueSlotsQuery(Guid VenueId, DateOnly Date, Guid UserId) : IQuery<Result<IReadOnlyList<ScheduleSlotDto>>>;

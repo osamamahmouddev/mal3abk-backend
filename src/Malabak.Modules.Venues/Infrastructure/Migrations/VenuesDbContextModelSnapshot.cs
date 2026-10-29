@@ -18,7 +18,7 @@ namespace Malabak.Modules.Venues.Infrastructure.Migrations
 #pragma warning disable 612, 618
             modelBuilder
                 .HasDefaultSchema("venues")
-                .HasAnnotation("ProductVersion", "9.0.0")
+                .HasAnnotation("ProductVersion", "10.0.14")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
@@ -76,6 +76,79 @@ namespace Malabak.Modules.Venues.Infrastructure.Migrations
                     b.HasIndex("PitchId", "StartUtc", "EndUtc");
 
                     b.ToTable("blocked_slots", "venues");
+                });
+
+            modelBuilder.Entity("Malabak.Modules.Venues.Domain.BookingRules", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("DeletedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("IncrementMinutes")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("MaxAdvanceDays")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("MaxDurationMinutes")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("MinDurationMinutes")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("MinNoticeMinutes")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid?>("PitchId")
+                        .HasColumnType("uuid");
+
+                    b.Property<uint>("RowVersion")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
+                    b.Property<DateTime?>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("VenueId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("VenueId", "PitchId")
+                        .IsUnique();
+
+                    NpgsqlIndexBuilderExtensions.AreNullsDistinct(b.HasIndex("VenueId", "PitchId"), false);
+
+                    b.ToTable("booking_rules", "venues");
+                });
+
+            modelBuilder.Entity("Malabak.Modules.Venues.Domain.FavoriteVenue", b =>
+                {
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("VenueId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("UserId", "VenueId");
+
+                    b.HasIndex("UserId", "CreatedAtUtc");
+
+                    b.ToTable("favorite_venues", "venues");
                 });
 
             modelBuilder.Entity("Malabak.Modules.Venues.Domain.OperatingSchedule", b =>
@@ -199,6 +272,59 @@ namespace Malabak.Modules.Venues.Infrastructure.Migrations
                     b.ToTable("pitches", "venues");
                 });
 
+            modelBuilder.Entity("Malabak.Modules.Venues.Domain.PitchWeeklyHours", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<TimeOnly>("CloseTime")
+                        .HasColumnType("time without time zone");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("DayOfWeek")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("DeletedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsClosed")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<TimeOnly>("OpenTime")
+                        .HasColumnType("time without time zone");
+
+                    b.Property<Guid>("PitchId")
+                        .HasColumnType("uuid");
+
+                    b.Property<uint>("RowVersion")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
+                    b.Property<DateTime?>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("VenueId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("VenueId");
+
+                    b.HasIndex("PitchId", "DayOfWeek")
+                        .IsUnique()
+                        .HasFilter("\"IsDeleted\" = FALSE");
+
+                    b.ToTable("pitch_weekly_hours", "venues");
+                });
+
             modelBuilder.Entity("Malabak.Modules.Venues.Domain.PriceRule", b =>
                 {
                     b.Property<Guid>("Id")
@@ -254,6 +380,87 @@ namespace Malabak.Modules.Venues.Infrastructure.Migrations
                     b.ToTable("price_rules", "venues");
                 });
 
+            modelBuilder.Entity("Malabak.Modules.Venues.Domain.RecentlyViewedVenue", b =>
+                {
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("VenueId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("ViewedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("UserId", "VenueId");
+
+                    b.HasIndex("UserId", "ViewedAtUtc");
+
+                    b.ToTable("recently_viewed_venues", "venues");
+                });
+
+            modelBuilder.Entity("Malabak.Modules.Venues.Domain.ScheduleOverride", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("CreatedByUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("DeletedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateOnly>("EndDate")
+                        .HasColumnType("date");
+
+                    b.Property<TimeOnly?>("FromTime")
+                        .HasColumnType("time without time zone");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<Guid?>("PitchId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<uint>("RowVersion")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
+                    b.Property<DateOnly>("StartDate")
+                        .HasColumnType("date");
+
+                    b.Property<TimeOnly?>("ToTime")
+                        .HasColumnType("time without time zone");
+
+                    b.Property<DateTime?>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("VenueId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("VenueId", "StartDate", "EndDate")
+                        .HasFilter("\"IsDeleted\" = FALSE");
+
+                    b.ToTable("schedule_overrides", "venues");
+                });
+
             modelBuilder.Entity("Malabak.Modules.Venues.Domain.Venue", b =>
                 {
                     b.Property<Guid>("Id")
@@ -264,6 +471,13 @@ namespace Malabak.Modules.Venues.Infrastructure.Migrations
                         .IsRequired()
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)");
+
+                    b.Property<string>("ApprovalStatus")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasDefaultValue("Draft");
 
                     b.Property<string>("Area")
                         .IsRequired()
@@ -343,6 +557,8 @@ namespace Malabak.Modules.Venues.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("ApprovalStatus");
+
                     b.HasIndex("OwnerId");
 
                     b.HasIndex("Slug")
@@ -355,27 +571,75 @@ namespace Malabak.Modules.Venues.Infrastructure.Migrations
                     b.ToTable("venues", "venues");
                 });
 
+            modelBuilder.Entity("Malabak.Modules.Venues.Domain.VenueApprovalEvent", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Action")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<Guid>("ActorUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("FromStatus")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("Message")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<string>("ToStatus")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<Guid>("VenueId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("VenueId", "CreatedAtUtc");
+
+                    b.ToTable("venue_approval_events", "venues");
+                });
+
             modelBuilder.Entity("Malabak.Modules.Venues.Domain.VenuePaymentMethod", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
-                    b.Property<string>("AccountIdentifier")
+                    b.Property<byte[]>("AccountDetailsCiphertext")
                         .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
+                        .HasColumnType("bytea");
 
-                    b.Property<string>("AccountName")
+                    b.Property<string>("AccountDetailsMask")
                         .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
 
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<DateTime?>("DeletedAtUtc")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("DepositType")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<decimal>("DepositValue")
+                        .HasColumnType("numeric(18,2)");
 
                     b.Property<string>("Instructions")
                         .HasMaxLength(1000)
@@ -395,6 +659,11 @@ namespace Malabak.Modules.Venues.Infrastructure.Migrations
                         .IsRequired()
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)");
+
+                    b.Property<string>("RecipientName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
 
                     b.Property<uint>("RowVersion")
                         .IsConcurrencyToken()
@@ -421,28 +690,67 @@ namespace Malabak.Modules.Venues.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
-                    b.Property<int>("CancellationWindowHours")
+                    b.Property<bool>("AllowReschedule")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("CancellationDeadlineHours")
                         .HasColumnType("integer");
 
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<Guid>("CreatedByUserId")
+                        .HasColumnType("uuid");
+
                     b.Property<DateTime?>("DeletedAtUtc")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<decimal>("DepositPercentage")
-                        .HasPrecision(5, 2)
-                        .HasColumnType("numeric(5,2)");
+                    b.Property<string>("DepositType")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<decimal>("DepositValue")
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<DateTime>("EffectiveFromUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsCurrent")
+                        .HasColumnType("boolean");
 
                     b.Property<bool>("IsDeleted")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("boolean")
                         .HasDefaultValue(false);
 
-                    b.Property<string>("RefundPolicyType")
+                    b.Property<int>("LateArrivalGraceMinutes")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("ManualReviewWindowMinutes")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("NoShowRule")
                         .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("character varying(50)");
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)");
+
+                    b.Property<bool>("PendingBookingsBlockSlots")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("ProofSubmissionWindowMinutes")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("RefundEligibility")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<decimal>("RefundPercentage")
+                        .HasColumnType("numeric(5,2)");
+
+                    b.Property<int>("RescheduleDeadlineHours")
+                        .HasColumnType("integer");
 
                     b.Property<uint>("RowVersion")
                         .IsConcurrencyToken()
@@ -450,7 +758,10 @@ namespace Malabak.Modules.Venues.Infrastructure.Migrations
                         .HasColumnType("xid")
                         .HasColumnName("xmin");
 
-                    b.Property<string>("TermsAndConditions")
+                    b.Property<DateTime?>("SupersededAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Terms")
                         .HasMaxLength(4000)
                         .HasColumnType("character varying(4000)");
 
@@ -460,11 +771,145 @@ namespace Malabak.Modules.Venues.Infrastructure.Migrations
                     b.Property<Guid>("VenueId")
                         .HasColumnType("uuid");
 
+                    b.Property<int>("Version")
+                        .HasColumnType("integer");
+
                     b.HasKey("Id");
 
-                    b.HasIndex("VenueId");
+                    b.HasIndex("VenueId")
+                        .IsUnique()
+                        .HasDatabaseName("ux_policies_single_current")
+                        .HasFilter("\"IsCurrent\" = TRUE");
+
+                    b.HasIndex("VenueId", "Version")
+                        .IsUnique();
 
                     b.ToTable("policies", "venues");
+                });
+
+            modelBuilder.Entity("Malabak.Modules.Venues.Domain.VenueStaffInvitation", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("AcceptedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("AcceptedByUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("DeletedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Email")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<DateTime>("ExpiresAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("InvitedByUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("IsDeleted")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false);
+
+                    b.Property<string>("PhoneNumber")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<string>("Role")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<uint>("RowVersion")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("TokenHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<DateTime?>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("VenueId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TokenHash")
+                        .IsUnique();
+
+                    b.HasIndex("VenueId", "Status");
+
+                    b.ToTable("staff_invitations", "venues");
+                });
+
+            modelBuilder.Entity("Malabak.Modules.Venues.Domain.VenueStaffMember", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("AddedByUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("DeletedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsDeleted")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false);
+
+                    b.Property<string>("Role")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<uint>("RowVersion")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
+                    b.Property<DateTime?>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("VenueId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.HasIndex("VenueId", "UserId")
+                        .IsUnique()
+                        .HasFilter("\"IsDeleted\" = FALSE");
+
+                    b.ToTable("staff_members", "venues");
                 });
 
             modelBuilder.Entity("Malabak.SharedKernel.Persistence.IdempotencyRecord", b =>

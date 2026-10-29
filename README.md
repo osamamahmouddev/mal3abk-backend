@@ -117,8 +117,19 @@ No SMS provider is connected yet, so login and phone-change codes can be posted 
 
 Each message shows the masked number (`+2010•••••678`), the purpose, the code and its validity. **The API refuses to start with the Slack provider in Production**: everyone in the channel could read every code and sign in as anyone.
 
-The same setting delivers security alerts (phone changed, phone restored) to the same channel, with masked numbers and, after a phone change, the 24-hour recovery link. With no channel configured, alerts are dropped and only their kind is logged — never the number, the message or a recovery token.
+The same setting delivers security alerts (phone changed, phone restored, new-device sign-in, staff invitations without an email) to the same channel, with masked numbers and the recovery or invitation link. With no channel configured, alerts are dropped and only their kind is logged — never the number, the message or a token. Step-up codes (`POST /auth/step-up/otp`) use the same channel.
+
+#### OTP codes over SMS
+`Identity:OtpDelivery:Provider` = `Sms` sends codes and alerts through the SMS gateway (`Sms` section): Egypt-only allow-list, daily/monthly spend caps, and failover across the Twilio accounts listed in `Sms:Providers`. Twilio credentials go in the secret store, never in `appsettings*.json`. In Development with no `Sms:Providers` configured, messages are delivered to the local Mailpit inbox (http://localhost:8025) as `sms+NUMBER@malabak.local`. If every provider fails or a cap is reached, OTP requests return **503**.
 Swagger / OpenAPI: http://localhost:5000/swagger
+
+**Field-encryption keys (optional locally, required outside Development).** Without them the API generates throwaway keys on every start, so anything encrypted can't be read after a restart. To keep encrypted data across restarts, put random 32-byte keys in User Secrets (never in `appsettings`):
+```bash
+dotnet user-secrets --project src/Malabak.Api set "Security:Encryption:CurrentKeyEncryptionKeyId" "local-kek-1"
+dotnet user-secrets --project src/Malabak.Api set "Security:Encryption:KeyEncryptionKeys:local-kek-1" "$(openssl rand -base64 32)"
+dotnet user-secrets --project src/Malabak.Api set "Security:Encryption:BlindIndexKey" "$(openssl rand -base64 32)"
+```
+See [ADR-0003](docs/adr/0003-field-level-encryption-and-key-management.md) for the design and how rotation works.
 
 ### 4. Web apps
 

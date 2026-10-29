@@ -14,6 +14,7 @@ public sealed record VenueDto(
     double? Latitude,
     double? Longitude,
     string PhoneNumber,
+    string ApprovalStatus,
     bool IsApproved,
     bool IsPublished,
     IReadOnlyList<string> Facilities,

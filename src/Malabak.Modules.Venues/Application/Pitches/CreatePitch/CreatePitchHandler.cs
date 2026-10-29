@@ -3,6 +3,7 @@ using Malabak.Modules.Venues.Application.Pitches;
 using Malabak.Modules.Venues.Domain;
 using Malabak.Modules.Venues.Infrastructure;
 using Malabak.SharedKernel;
+using Malabak.SharedKernel.Authorization;
 using Microsoft.Extensions.Logging;
 
 namespace Malabak.Modules.Venues.Application.Pitches.CreatePitch;
@@ -39,7 +40,7 @@ public sealed class CreatePitchHandler : ICommandHandler<CreatePitchCommand, Res
             return Result.Failure<PitchDto>(new Error("Venue.NotFound", "Venue not found."));
         }
 
-        if (venue.OwnerId != command.OwnerId)
+        if (!await VenuePermissionCheck.CanAsync(_dbContext, command.OwnerId, venue.Id, Permissions.PitchesManage, cancellationToken))
         {
             return Result.Failure<PitchDto>(new Error("Venue.Forbidden", "You are not authorized to add pitches to this venue."));
         }

@@ -14,6 +14,7 @@ using Malabak.Modules.Venues.Application.Venues.UpdateVenue;
 using Malabak.Modules.Venues.Domain;
 using Malabak.Modules.Venues.Infrastructure;
 using Malabak.Modules.Venues.Infrastructure.Repositories;
+using Malabak.Modules.Venues.Infrastructure.Services;
 using Malabak.SharedKernel;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
@@ -237,7 +238,8 @@ public sealed class VenuePitchTests
         publishResult.Error.Code.Should().Be("Venue.NotApproved");
 
         // Approve venue
-        venue.SetApproved(true, _clock.UtcNow);
+        venue.SubmitForApproval(ownerId, null, _clock.UtcNow).IsSuccess.Should().BeTrue();
+        venue.Approve(Guid.NewGuid(), null, _clock.UtcNow).IsSuccess.Should().BeTrue();
         await dbContext.SaveChangesAsync();
 
         // Publish now succeeds
@@ -283,14 +285,15 @@ public sealed class VenuePitchTests
         createResult.Value.Format.Should().Be("5x5");
 
         // 2. Query Pitch By Id
-        var getPitchHandler = new GetPitchByIdHandler(pitchRepo);
-        var getResult = await getPitchHandler.HandleAsync(new GetPitchByIdQuery(pitchId));
+        var accessService = new VenueAccessService(dbContext);
+        var getPitchHandler = new GetPitchByIdHandler(pitchRepo, accessService);
+        var getResult = await getPitchHandler.HandleAsync(new GetPitchByIdQuery(pitchId, ownerId));
         getResult.IsSuccess.Should().BeTrue();
         getResult.Value.Name.Should().Be("Main Pitch");
 
         // 3. Query Pitches By Venue
-        var getPitchesByVenueHandler = new GetPitchesByVenueHandler(pitchRepo);
-        var pitchesResult = await getPitchesByVenueHandler.HandleAsync(new GetPitchesByVenueQuery(venue.Id));
+        var getPitchesByVenueHandler = new GetPitchesByVenueHandler(pitchRepo, accessService);
+        var pitchesResult = await getPitchesByVenueHandler.HandleAsync(new GetPitchesByVenueQuery(venue.Id, ownerId));
         pitchesResult.IsSuccess.Should().BeTrue();
         pitchesResult.Value.Should().HaveCount(1);
 

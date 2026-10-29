@@ -14,11 +14,33 @@ public abstract class BaseDbContext : DbContext, IUnitOfWork
     public DbSet<InboxMessage> InboxMessages => Set<InboxMessage>();
     public DbSet<IdempotencyRecord> IdempotencyRecords => Set<IdempotencyRecord>();
 
+    private readonly HashSet<object> _hardDeletes = new(ReferenceEqualityComparer.Instance);
+
     protected BaseDbContext(DbContextOptions options, IClock? clock = null)
         : base(options)
     {
         _clock = clock;
     }
+
+    /// <summary>
+    /// Marks entities for physical deletion on the next save, bypassing the soft-delete conversion. For data that
+    /// must really be erased, such as personal data removed when an account is anonymized.
+    /// </summary>
+    public void HardDelete<TEntity>(IEnumerable<TEntity> entities)
+        where TEntity : class
+    {
+        ArgumentNullException.ThrowIfNull(entities);
+
+        foreach (var entity in entities)
+        {
+            _hardDeletes.Add(entity);
+            Remove(entity);
+        }
+    }
+
+    internal bool IsMarkedForHardDelete(object entity) => _hardDeletes.Contains(entity);
+
+    internal void ClearHardDeletes() => _hardDeletes.Clear();
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {

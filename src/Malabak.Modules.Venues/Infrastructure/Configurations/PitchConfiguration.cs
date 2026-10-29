@@ -52,7 +52,7 @@ public sealed class PitchConfiguration : IEntityTypeConfiguration<Pitch>
         var stringListComparer = new ValueComparer<IReadOnlyCollection<string>>(
             (c1, c2) => c1 != null && c2 != null && c1.SequenceEqual(c2),
             c => c.Aggregate(0, (a, v) => HashCode.Combine(a, v.GetHashCode())),
-            c => c.ToList().AsReadOnly());
+            c => c.ToList()); // List snapshot: matches the List backing field when EF re-materializes it
 
         builder.Property(p => p.Photos)
             .HasConversion(
