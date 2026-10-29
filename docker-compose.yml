@@ -26,25 +26,39 @@ services:
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
       - ConnectionStrings__Postgres=Host=postgres;Port=5432;Database=malabak_dev;Username=malabak;Password=malabak_dev_password
-      - ConnectionStrings__Redis=redis:6379,password=malabak_dev_redis_password
+      - Redis__ConnectionString=redis:6379,password=malabak_dev_redis_password,ssl=true,abortConnect=false
+      - Redis__TlsCaCertificatePath=/app/docker/redis/tls/ca.crt
     volumes:
       - ./:/app
     command: ["dotnet", "run", "--project", "src/Malabak.Api/Malabak.Api.csproj", "--", "--seed-reference", "--seed-demo"]
     depends_on:
       postgres:
         condition: service_healthy
+      redis:
+        condition: service_healthy
 
   redis:
     image: redis:7.2-alpine
     container_name: malabak-redis
     restart: unless-stopped
-    command: ["redis-server", "--requirepass", "malabak_dev_redis_password"]
+    # TLS only (plain-text port disabled). Certificates come from ./scripts/generate-dev-certs.sh.
+    # The key is copied in and handed to the redis user, so it can stay owner-only (600) on the host.
+    entrypoint: ["sh", "-c"]
+    command:
+      - >-
+        install -o redis -g redis -m 600 /certs/redis.key /certs/redis.crt /certs/ca.crt -D -t /tls/ &&
+        exec docker-entrypoint.sh redis-server
+        --port 0 --tls-port 6379
+        --tls-cert-file /tls/redis.crt --tls-key-file /tls/redis.key --tls-ca-cert-file /tls/ca.crt
+        --tls-auth-clients no
+        --requirepass malabak_dev_redis_password
     ports:
-      - "6379:6379"
+      - "127.0.0.1:6379:6379"
     volumes:
       - redis_data:/data
+      - ./docker/redis/tls:/certs:ro
     healthcheck:
-      test: ["CMD", "redis-cli", "-a", "malabak_dev_redis_password", "ping"]
+      test: ["CMD", "redis-cli", "--tls", "--cacert", "/tls/ca.crt", "-a", "malabak_dev_redis_password", "--no-auth-warning", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5

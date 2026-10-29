@@ -1,17 +1,24 @@
 #!/bin/sh
 # Stores local development credentials in .NET User Secrets (never in the repo — see SECURITY.md).
-# Values match the local containers defined in docker-compose.yml. Run once per machine:
+# Values match the local containers defined in docker-compose.yml. Run once per machine, after
+# ./scripts/generate-dev-certs.sh (Redis only accepts TLS):
 #   ./scripts/setup-dev-secrets.sh
 set -e
 
 PROJECT=src/Malabak.Api
+REDIS_CA="$(cd "$(dirname "$0")/.." && pwd)/docker/redis/tls/ca.crt"
+if [ ! -f "$REDIS_CA" ]; then
+  echo "Missing $REDIS_CA — run ./scripts/generate-dev-certs.sh first." >&2
+  exit 1
+fi
 PG="Host=localhost;Port=5432;Database=malabak_dev;Username=malabak;Password=malabak_dev_password"
-REDIS="localhost:6379,password=malabak_dev_redis_password,abortConnect=false"
+REDIS="localhost:6379,password=malabak_dev_redis_password,ssl=true,abortConnect=false"
 
 dotnet user-secrets set "ConnectionStrings:Postgres" "$PG" --project "$PROJECT"
 dotnet user-secrets set "ConnectionStrings:Redis" "$REDIS" --project "$PROJECT"
 dotnet user-secrets set "Database:ConnectionString" "$PG" --project "$PROJECT"
 dotnet user-secrets set "Redis:ConnectionString" "$REDIS" --project "$PROJECT"
+dotnet user-secrets set "Redis:TlsCaCertificatePath" "$REDIS_CA" --project "$PROJECT"
 # Cloudflare Turnstile public test keys (always pass) — local only.
 dotnet user-secrets set "Security:Turnstile:SecretKey" "1x0000000000000000000000000000000AA" --project "$PROJECT"
 dotnet user-secrets set "Security:Turnstile:SiteKey" "1x00000000000000000000AA" --project "$PROJECT"
