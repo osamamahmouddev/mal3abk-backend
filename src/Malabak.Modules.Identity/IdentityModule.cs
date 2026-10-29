@@ -12,7 +12,6 @@ using Malabak.Modules.Identity.Infrastructure.Services;
 using Malabak.SharedKernel;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using StackExchange.Redis;
 
 namespace Malabak.Modules.Identity;
 
@@ -34,25 +33,10 @@ public static class IdentityModule
         services.AddSingleton<IStepUpService, StepUpService>();
         services.AddSingleton<ISmsAlertService, LoggingSmsAlertService>();
 
-        // Redis / In-Memory OTP Store
-        var redisConnectionString = configuration.GetConnectionString("Redis");
-        if (!string.IsNullOrWhiteSpace(redisConnectionString))
-        {
-            try
-            {
-                var redis = ConnectionMultiplexer.Connect(redisConnectionString);
-                services.AddSingleton<IConnectionMultiplexer>(redis);
-                services.AddSingleton<IOtpStore, RedisOtpStore>();
-            }
-            catch
-            {
-                services.AddSingleton<IOtpStore, InMemoryOtpStore>();
-            }
-        }
-        else
-        {
-            services.AddSingleton<IOtpStore, InMemoryOtpStore>();
-        }
+        // OTP codes live in Redis, through the host's single IConnectionMultiplexer (TLS, timeouts and
+        // logging come from RedisConnectionFactory). No in-memory fallback: if Redis is down, OTP
+        // requests fail closed instead of being checked per instance (SECURITY.md).
+        services.AddSingleton<IOtpStore, RedisOtpStore>();
 
         // Command Handlers - Authentication
         services.AddScoped<ICommandHandler<SendOtpCommand, Result<SendOtpResponse>>, SendOtpHandler>();

@@ -55,3 +55,6 @@ dist/
 # AI & IDE
 .claude/
 
+
+# Local dev TLS material from scripts/generate-dev-certs.sh (keys never go in Git)
+docker/redis/tls/
