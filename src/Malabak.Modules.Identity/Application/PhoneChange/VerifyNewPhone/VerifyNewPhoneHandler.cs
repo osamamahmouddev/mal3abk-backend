@@ -143,7 +143,7 @@ public sealed class VerifyNewPhoneHandler : ICommandHandler<VerifyNewPhoneComman
             request.Id,
             user.Id);
 
-        return Result.Success(new VerifyNewPhoneResponse(true, request.NewPhoneNumber, recoveryTokenRaw));
+        return Result.Success(new VerifyNewPhoneResponse(true, request.NewPhoneNumber));
     }
 
     private static string GenerateSecureRecoveryToken()
