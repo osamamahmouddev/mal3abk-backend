@@ -116,6 +116,8 @@ No SMS provider is connected yet, so login and phone-change codes can be posted 
    On staging, set `Identity__OtpDelivery__Provider=Slack` and `Identity__OtpDelivery__Slack__WebhookUrl` from the secret store.
 
 Each message shows the masked number (`+2010•••••678`), the purpose, the code and its validity. **The API refuses to start with the Slack provider in Production**: everyone in the channel could read every code and sign in as anyone.
+
+The same setting delivers security alerts (phone changed, phone restored) to the same channel, with masked numbers and, after a phone change, the 24-hour recovery link. With no channel configured, alerts are dropped and only their kind is logged — never the number, the message or a recovery token.
 Swagger / OpenAPI: http://localhost:5000/swagger
 
 ### 4. Web apps

@@ -32,7 +32,6 @@ public static class IdentityModule
         services.AddSingleton<ITurnstileValidator, TurnstileValidator>();
         services.AddSingleton<IOtpSecurityService, OtpSecurityService>();
         services.AddSingleton<IStepUpService, StepUpService>();
-        services.AddSingleton<ISmsAlertService, LoggingSmsAlertService>();
 
         AddOtpDelivery(services, configuration);
 
@@ -57,6 +56,7 @@ public static class IdentityModule
         return services;
     }
 
+    // OTP codes and security alerts share one provider switch, webhook and HttpClient.
     private static void AddOtpDelivery(IServiceCollection services, IConfiguration configuration)
     {
         services.AddOptions<OtpDeliveryOptions>()
@@ -72,13 +72,16 @@ public static class IdentityModule
         var provider = configuration.GetSection(OtpDeliveryOptions.SectionName).GetValue<OtpDeliveryProvider>(nameof(OtpDeliveryOptions.Provider));
         if (provider == OtpDeliveryProvider.Slack)
         {
-            services.AddHttpClient<IOtpSender, SlackOtpSender>(client => client.Timeout = TimeSpan.FromSeconds(10))
+            services.AddHttpClient<SlackWebhookClient>(client => client.Timeout = TimeSpan.FromSeconds(10))
                 // The default HttpClient logging writes the request URL, and the webhook URL is a credential.
                 .RemoveAllLoggers();
+            services.AddTransient<IOtpSender, SlackOtpSender>();
+            services.AddTransient<ISmsAlertService, SlackSmsAlertService>();
         }
         else
         {
             services.AddSingleton<IOtpSender, UnavailableOtpSender>();
+            services.AddSingleton<ISmsAlertService, UnavailableSmsAlertService>();
         }
     }
 

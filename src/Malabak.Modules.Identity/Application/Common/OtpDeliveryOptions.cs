@@ -2,16 +2,18 @@ namespace Malabak.Modules.Identity.Application.Common;
 
 public enum OtpDeliveryProvider
 {
-    /// <summary>No channel configured: OTP requests fail closed with 503.</summary>
+    /// <summary>No channel configured: OTP requests fail closed with 503 and security alerts are dropped.</summary>
     None,
 
     /// <summary>
-    /// Posts codes to a Slack channel through an Incoming Webhook. A stopgap until an SMS provider is
-    /// integrated: everyone in the channel can read every code, so it is refused in Production.
+    /// Posts codes and security alerts to a Slack channel through an Incoming Webhook. A stopgap until an SMS
+    /// provider is integrated: everyone in the channel can read every code and recovery link, so it is refused
+    /// in Production.
     /// </summary>
     Slack,
 }
 
+/// <summary>Selects the channel for everything sent to a user's phone: OTP codes and security alerts.</summary>
 public sealed class OtpDeliveryOptions
 {
     public const string SectionName = "Identity:OtpDelivery";
