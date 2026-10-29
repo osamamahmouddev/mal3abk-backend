@@ -21,6 +21,7 @@ using Malabak.Modules.Booking.Infrastructure;
 using Malabak.Modules.Identity;
 using Malabak.Modules.Identity.Application.Common;
 using Malabak.Modules.Identity.Infrastructure;
+using Malabak.Modules.Venues;
 using Malabak.Modules.Venues.Infrastructure;
 using Malabak.SharedKernel;
 using Malabak.SharedKernel.Time;
@@ -180,6 +181,7 @@ builder.Services.AddMalabakValidation();
 builder.Services.AddMalabakDataSeeders();
 builder.Services.AddScoped<ICommandHandler<CreateBookingCommand, Result<CreateBookingResponse>>, CreateBookingHandler>();
 builder.Services.AddIdentityModule(builder.Configuration);
+builder.Services.AddVenuesModule();
 
 var app = builder.Build();
 
@@ -320,6 +322,8 @@ if (app.Environment.IsDevelopment())
 }
 
 app.MapAuthEndpoints(apiVersionSet);
+app.MapPhoneChangeEndpoints(apiVersionSet);
+app.MapVenueManagerEndpoints(apiVersionSet);
 
 await app.RunAsync();
 

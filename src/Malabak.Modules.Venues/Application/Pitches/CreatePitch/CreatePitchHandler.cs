@@ -1,0 +1,66 @@
+using Malabak.Modules.Venues.Application.Common;
+using Malabak.Modules.Venues.Application.Pitches;
+using Malabak.Modules.Venues.Domain;
+using Malabak.Modules.Venues.Infrastructure;
+using Malabak.SharedKernel;
+using Microsoft.Extensions.Logging;
+
+namespace Malabak.Modules.Venues.Application.Pitches.CreatePitch;
+
+public sealed class CreatePitchHandler : ICommandHandler<CreatePitchCommand, Result<PitchDto>>
+{
+    private readonly IVenueRepository _venueRepository;
+    private readonly IPitchRepository _pitchRepository;
+    private readonly VenuesDbContext _dbContext;
+    private readonly IClock _clock;
+    private readonly ILogger<CreatePitchHandler> _logger;
+
+    public CreatePitchHandler(
+        IVenueRepository venueRepository,
+        IPitchRepository pitchRepository,
+        VenuesDbContext dbContext,
+        IClock clock,
+        ILogger<CreatePitchHandler> logger)
+    {
+        _venueRepository = venueRepository;
+        _pitchRepository = pitchRepository;
+        _dbContext = dbContext;
+        _clock = clock;
+        _logger = logger;
+    }
+
+    public async Task<Result<PitchDto>> HandleAsync(
+        CreatePitchCommand command,
+        CancellationToken cancellationToken = default)
+    {
+        var venue = await _venueRepository.GetByIdAsync(command.VenueId, cancellationToken);
+        if (venue is null)
+        {
+            return Result.Failure<PitchDto>(new Error("Venue.NotFound", "Venue not found."));
+        }
+
+        if (venue.OwnerId != command.OwnerId)
+        {
+            return Result.Failure<PitchDto>(new Error("Venue.Forbidden", "You are not authorized to add pitches to this venue."));
+        }
+
+        var pitch = Pitch.Create(
+            id: Guid.NewGuid(),
+            venueId: command.VenueId,
+            name: command.Name,
+            turfType: command.TurfType,
+            capacity: command.Capacity,
+            lengthMeters: command.LengthMeters,
+            widthMeters: command.WidthMeters,
+            photos: command.Photos,
+            createdAtUtc: _clock.UtcNow);
+
+        _pitchRepository.Add(pitch);
+        venue.AddPitch(pitch);
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        _logger.LogInformation("Pitch {PitchId} ('{PitchName}') created for venue {VenueId}", pitch.Id, pitch.Name, venue.Id);
+
+        return Result.Success(PitchMapper.ToDto(pitch));
+    }
+}

@@ -20,6 +20,10 @@ public sealed class Pitch : Entity<Guid>
 
     public IReadOnlyCollection<string> Photos => _photos.AsReadOnly();
 
+    public PitchCapacity CapacityValue => PitchCapacity.Create(Capacity).Value;
+
+    public SurfaceType Surface => SurfaceType.Create(TurfType).Value;
+
     public static Pitch Create(
         Guid id,
         Guid venueId,
@@ -34,13 +38,38 @@ public sealed class Pitch : Entity<Guid>
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         ArgumentException.ThrowIfNullOrWhiteSpace(turfType);
 
+        var surfaceResult = SurfaceType.Create(turfType);
+        if (surfaceResult.IsFailure)
+        {
+            throw new ArgumentException(surfaceResult.Error.Description, nameof(turfType));
+        }
+
+        var capacityResult = capacity <= 11
+            ? PitchCapacity.Create(capacity)
+            : PitchCapacity.FromTotalPlayers(capacity);
+
+        if (capacityResult.IsFailure)
+        {
+            throw new ArgumentException(capacityResult.Error.Description, nameof(capacity));
+        }
+
+        if (lengthMeters.HasValue && lengthMeters.Value <= 0)
+        {
+            throw new ArgumentException("Length must be greater than zero.", nameof(lengthMeters));
+        }
+
+        if (widthMeters.HasValue && widthMeters.Value <= 0)
+        {
+            throw new ArgumentException("Width must be greater than zero.", nameof(widthMeters));
+        }
+
         var pitch = new Pitch
         {
             Id = id,
             VenueId = venueId,
             Name = name.Trim(),
-            TurfType = turfType.Trim(),
-            Capacity = capacity,
+            TurfType = surfaceResult.Value.Value,
+            Capacity = capacityResult.Value.PlayersPerTeam,
             LengthMeters = lengthMeters,
             WidthMeters = widthMeters,
             IsActive = true,
@@ -67,9 +96,34 @@ public sealed class Pitch : Entity<Guid>
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         ArgumentException.ThrowIfNullOrWhiteSpace(turfType);
 
+        var surfaceResult = SurfaceType.Create(turfType);
+        if (surfaceResult.IsFailure)
+        {
+            throw new ArgumentException(surfaceResult.Error.Description, nameof(turfType));
+        }
+
+        var capacityResult = capacity <= 11
+            ? PitchCapacity.Create(capacity)
+            : PitchCapacity.FromTotalPlayers(capacity);
+
+        if (capacityResult.IsFailure)
+        {
+            throw new ArgumentException(capacityResult.Error.Description, nameof(capacity));
+        }
+
+        if (lengthMeters.HasValue && lengthMeters.Value <= 0)
+        {
+            throw new ArgumentException("Length must be greater than zero.", nameof(lengthMeters));
+        }
+
+        if (widthMeters.HasValue && widthMeters.Value <= 0)
+        {
+            throw new ArgumentException("Width must be greater than zero.", nameof(widthMeters));
+        }
+
         Name = name.Trim();
-        TurfType = turfType.Trim();
-        Capacity = capacity;
+        TurfType = surfaceResult.Value.Value;
+        Capacity = capacityResult.Value.PlayersPerTeam;
         LengthMeters = lengthMeters;
         WidthMeters = widthMeters;
 
@@ -85,6 +139,12 @@ public sealed class Pitch : Entity<Guid>
     public void SetActive(bool isActive, DateTime nowUtc)
     {
         IsActive = isActive;
+        UpdatedAtUtc = nowUtc;
+    }
+
+    public void MarkDeleted(DateTime nowUtc)
+    {
+        IsDeleted = true;
         UpdatedAtUtc = nowUtc;
     }
 }

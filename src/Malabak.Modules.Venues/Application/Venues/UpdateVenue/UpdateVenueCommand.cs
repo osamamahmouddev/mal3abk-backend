@@ -1,0 +1,17 @@
+using Malabak.SharedKernel;
+
+namespace Malabak.Modules.Venues.Application.Venues.UpdateVenue;
+
+public sealed record UpdateVenueCommand(
+    Guid VenueId,
+    Guid OwnerId,
+    string Name,
+    string? Description,
+    string Address,
+    string City,
+    string Area,
+    double? Latitude,
+    double? Longitude,
+    string PhoneNumber,
+    IEnumerable<string>? Facilities,
+    IEnumerable<string>? Photos) : ICommand<Result<VenueDto>>;
