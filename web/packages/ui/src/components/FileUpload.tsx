@@ -70,9 +70,9 @@ export const FileUpload: React.FC<FileUploadProps> = ({
         onClick={() => fileInputRef.current?.click()}
         className={`flex flex-col items-center justify-center p-6 border-2 border-dashed rounded-xl cursor-pointer transition-colors ${
           isDragging
-            ? "border-[#071832] bg-[#071832]/5 dark:border-[#EB4F42] dark:bg-[#EB4F42]/5"
+            ? "border-[#0F1B3D] bg-[#0F1B3D]/5 dark:border-[#D63B2F] dark:bg-[#D63B2F]/5"
             : error || fileError
-            ? "border-[#EB4F42] bg-[#EB4F42]/5"
+            ? "border-[#D63B2F] bg-[#D63B2F]/5"
             : "border-slate-300 hover:border-slate-400 bg-white dark:bg-slate-900 dark:border-slate-800"
         }`}
       >
@@ -115,7 +115,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({
         {isUploading && uploadProgress !== undefined && (
           <div className="w-full mt-4 bg-slate-200 rounded-full h-1.5 dark:bg-slate-700 overflow-hidden">
             <div
-              className="bg-[#071832] dark:bg-[#EB4F42] h-1.5 rounded-full transition-all duration-300"
+              className="bg-[#0F1B3D] dark:bg-[#D63B2F] h-1.5 rounded-full transition-all duration-300"
               style={{ width: `${uploadProgress}%` }}
             />
           </div>
@@ -123,7 +123,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({
       </div>
 
       {(error || fileError) && (
-        <p className="mt-1.5 text-xs text-[#EB4F42] font-medium" role="alert">
+        <p className="mt-1.5 text-xs text-[#D63B2F] font-medium" role="alert">
           {error ?? fileError}
         </p>
       )}

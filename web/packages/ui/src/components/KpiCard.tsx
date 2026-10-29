@@ -25,7 +25,7 @@ export const KpiCard: React.FC<KpiCardProps> = ({
       case "up":
         return "text-emerald-600 bg-emerald-50 dark:bg-emerald-950/40 dark:text-emerald-400";
       case "down":
-        return "text-[#EB4F42] bg-[#EB4F42]/10 dark:bg-red-950/40 dark:text-red-400";
+        return "text-[#D63B2F] bg-[#D63B2F]/10 dark:bg-red-950/40 dark:text-red-400";
       case "neutral":
       default:
         return "text-slate-600 bg-slate-100 dark:bg-slate-800 dark:text-slate-300";

@@ -45,7 +45,7 @@ export const Toast: React.FC<ToastProps> = ({
         return {
           containerClass: "border-rose-200 bg-rose-50 text-rose-900 dark:bg-rose-950/60 dark:border-rose-800 dark:text-rose-200",
           icon: (
-            <svg className="w-5 h-5 text-[#EB4F42]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg className="w-5 h-5 text-[#D63B2F]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
           ),
