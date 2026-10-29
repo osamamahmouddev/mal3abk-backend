@@ -34,11 +34,11 @@ await AuthorizationMatrixHelper
     .ExecuteAsync(factory);
 ```
 
-### C. Testcontainers Infrastructure Fixtures
-Located in `tests/Malabak.IntegrationTests/Infrastructure/Containers/`:
-- `PostgreSqlContainerFixture`: Boots an isolated PostgreSQL 16 container via `Testcontainers.PostgreSql`.
-- `RedisContainerFixture`: Boots a Redis 7 Alpine container via `DotNet.Testcontainers`.
-- Containers are isolated and clean per test fixture lifecycle.
+### C. Testcontainers Infrastructure
+- `IntegrationTestEnvironment` (module initializer) starts one PostgreSQL 17 container (with `btree_gist`) and one Redis 7.2 container per test run, each with a random password, and hands their connection strings to every `WebApplicationFactory` through environment variables. No credentials live in the repo, and the suite runs the same locally and in CI (Docker required).
+- To reuse services that are already running (e.g. `docker compose up`), set `MALABAK_TEST_POSTGRES` and `MALABAK_TEST_REDIS`.
+- Test classes run sequentially (`AssemblyInfo.cs`): they share one database, and parallel hosts race on shared state such as Hangfire's schema creation on a fresh database.
+- `PostgreSqlContainerFixture` / `RedisContainerFixture` (in `Infrastructure/Containers/`) remain available for tests that need a fully isolated instance.
 
 ### D. WebApplicationFactory & Database Reset Strategy
 Located in `MalabakWebApplicationFactory.cs` and `DatabaseResetHelper.cs`:

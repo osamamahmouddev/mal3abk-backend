@@ -85,8 +85,14 @@ dotnet restore
 dotnet build --warnaserror
 dotnet test
 ```
+Integration tests start their own throwaway PostgreSQL 17 and Redis containers (Testcontainers), so Docker must be running; they don't use the compose services or any committed credentials. To reuse already-running services instead, set `MALABAK_TEST_POSTGRES` and `MALABAK_TEST_REDIS` to their connection strings.
 
 ### 3. Backend — run the API
+Connection strings are not stored in the repo (see `SECURITY.md`). Store the local ones in .NET User Secrets once per machine — the script uses the same values as `docker-compose.yml`:
+```bash
+./scripts/setup-dev-secrets.sh
+```
+Then run:
 ```bash
 dotnet run --project src/Malabak.Api
 ```

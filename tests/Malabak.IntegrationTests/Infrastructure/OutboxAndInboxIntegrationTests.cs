@@ -97,7 +97,7 @@ public sealed class IdempotentAuditIntegrationConsumer : IdempotentDomainEventHa
 
 public sealed class OutboxAndInboxIntegrationTests
 {
-    private const string _connectionString = "Host=localhost;Port=5432;Database=malabak_dev;Username=malabak;Password=malabak_dev_password";
+    private static string ConnectionString => IntegrationTestEnvironment.PostgresConnectionString;
     private readonly IClock _clock = new SystemClock();
     private static bool _initialized;
     private static readonly object _initLock = new();
@@ -105,7 +105,7 @@ public sealed class OutboxAndInboxIntegrationTests
     private IntegrationTestDbContext CreateDbContext()
     {
         var options = new DbContextOptionsBuilder<IntegrationTestDbContext>()
-            .UseNpgsql(_connectionString)
+            .UseNpgsql(ConnectionString)
             .UseSnakeCaseNamingConvention()
             .Options;
 

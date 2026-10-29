@@ -63,25 +63,22 @@ jobs:
       - name: Check out code
         uses: actions/checkout@v4
 
+      - name: Setup pnpm (version pinned in web/package.json)
+        uses: pnpm/action-setup@v4
+        with:
+          package_json_file: web/package.json
+
       - name: Setup Node.js 20
         uses: actions/setup-node@v4
         with:
           node-version: 20
-
-      - name: Cache pnpm/node_modules
-        uses: actions/cache@v4
-        with:
-          path: |
-            web/node_modules
-            ~/.pnpm-store
-          key: ${{ runner.os }}-pnpm-${{ hashFiles('web/package.json', 'web/pnpm-lock.yaml') }}
-          restore-keys: |
-            ${{ runner.os }}-pnpm-
+          cache: pnpm
+          cache-dependency-path: web/pnpm-lock.yaml
 
       - name: Install dependencies
         working-directory: ./web
-        run: npm install
+        run: pnpm install --frozen-lockfile
 
       - name: Turbo Build
         working-directory: ./web
-        run: npm run build
+        run: pnpm build
