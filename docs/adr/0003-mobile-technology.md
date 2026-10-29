@@ -5,7 +5,7 @@
 - **Context:**
   Malabak requires a player-facing mobile application for iOS and Android targeting the Egyptian sports community. The mobile app must deliver:
   1. High performance (60–120 FPS) on mid-tier and budget Android hardware common in Egypt (e.g. Xiaomi, Realme, Samsung A-series).
-  2. First-class Arabic RTL layout rendering, custom Arabic typography (Tajawal font family), and bidirectional UI components.
+  2. First-class Arabic RTL layout rendering, custom Arabic typography (IBM Plex Sans Arabic, as in the design file and the app theme), and bidirectional UI components.
   3. Interactive features including dynamic pitch slot pickers, team tactical lineup boards, live challenge notifications, and smooth map interactions.
   4. Integration with device hardware (camera/gallery for payment receipts, biometric unlock, Firebase Cloud Messaging, local secure storage).
 

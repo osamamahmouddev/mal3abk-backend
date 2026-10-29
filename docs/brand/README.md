@@ -1,5 +1,7 @@
 # Malabak (ملعبك) — Brand Guidelines & Design Tokens
 
+> **Source of truth:** the approved design file (artifact "ملعبك — MVP"). Values below are taken from its artboards; `web/packages/ui/src/tokens.ts` and `docs/brand/tokens.json` mirror them.
+
 This document specifies the official visual identity, color palette, typography, and styling standards for all Malabak applications (Next.js 15 Web Dashboards, Flutter Mobile App, and Marketing Landing).
 
 ---
@@ -9,36 +11,38 @@ This document specifies the official visual identity, color palette, typography,
 ### Primary Brand Palette
 | Token | Hex | RGB | Purpose |
 | :--- | :---: | :---: | :--- |
-| `color-brand-navy` | `#071832` | `rgb(7, 24, 50)` | Core platform branding, primary headings, dark surfaces |
-| `color-brand-red` | `#EB4F42` | `rgb(235, 79, 66)` | Primary action buttons, badges, key accents |
-| `color-brand-gold` | `#F6B326` | `rgb(246, 179, 38)` | Ratings, VIP subscriptions, match champions, highlights |
-| `color-pitch-green` | `#10B981` | `rgb(16, 185, 129)` | Available pitch slots, confirmed bookings, success states |
+| `color-brand-navy` | `#0F1B3D` | `rgb(15, 27, 61)` | Core platform branding, primary headings, dark surfaces |
+| `color-brand-red` | `#D63B2F` | `rgb(214, 59, 47)` | Primary action buttons, badges, key accents |
+| `color-brand-gold` | `#F5B62B` | `rgb(245, 182, 43)` | Ratings, VIP subscriptions, match champions, highlights |
+| `color-brand-ink` | `#0A1330` | `rgb(10, 19, 48)` | Admin panel sidebar and primary actions |
+| `color-pitch` | `#2E8B55` / `#287D4C` | — | Pitch illustrations (alternating stripes) |
 
 ### Neutral & Surface Palette
 | Token | Hex | Purpose |
 | :--- | :---: | :--- |
-| `color-bg-light` | `#F8FAFC` | Light mode application background |
-| `color-surface-light` | `#FFFFFF` | Light mode cards, modals, popovers |
-| `color-border-light` | `#E2E8F0` | Subtle light mode borders |
-| `color-text-primary` | `#0F172A` | Primary readable high-contrast text |
-| `color-text-muted` | `#64748B` | Secondary metadata and hints |
-| `color-bg-dark` | `#0B132B` | Dark mode application canvas |
-| `color-surface-dark` | `#1C2541` | Dark mode container surfaces |
+| `color-bg` | `#F3F5F9` | Page background |
+| `color-surface` | `#FFFFFF` | Cards, dialogs, panels |
+| `color-border` | `#EDF0F5` | Card borders and dividers |
+| `color-border-strong` | `#C9CFD9` | Inputs and secondary buttons |
+| `color-text-primary` | `#0F172A` | Primary text |
+| `color-text-muted` | `#5B6475` | Secondary text and hints |
+
+### Status Colors (tinted background + dark text — never color alone)
+| Status | Background | Text |
+| :--- | :---: | :---: |
+| Success / confirmed | `#E5F5EB` | `#1B6E3E` |
+| Warning / under review | `#FEF3D6` | `#7A4D00` |
+| Error / rejected | `#FDECEA` | `#A8261C` |
+| Neutral / waiting | `#EEF0F5` | `#3B4352` |
 
 ---
 
 ## 2. Typography
 
-### Primary Font: Tajawal (عربي)
-* **Family:** `'Tajawal', sans-serif`
-* **Weights:** `300` (Light), `400` (Regular), `500` (Medium), `700` (Bold), `800` (ExtraBold)
-* **Usage:** Applied to all Arabic headers, body prose, labels, and buttons.
-* **Characteristics:** Modern geometric Arabic type with optimized horizontal proportions and distinct diacritic clarity on mobile screens.
-
-### Secondary Font: Inter (Latin & Numerals)
-* **Family:** `'Inter', sans-serif`
+### Font: IBM Plex Sans Arabic
+* **Family:** `'IBM Plex Sans Arabic', system-ui, sans-serif` (covers Arabic and Latin)
 * **Weights:** `400`, `500`, `600`, `700`
-* **Usage:** English translations, code, Latin names, and formatted currency numbers (`150.00 EGP`).
+* **Usage:** All text in the web apps and landing page, as in the design file. Load it with `next/font` and expose it as `--font-arabic`.
 
 ---
 

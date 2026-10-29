@@ -9,8 +9,8 @@ The `@malabak/ui` package provides a unified, accessible, and high-performance R
 ```mermaid
 flowchart TD
     subgraph Tokens["Brand Tokens & Design Kit"]
-        Colors["Color Palette\nNavy #071832 | Red #EB4F42 | Gold #F6B326"]
-        Typography["Typography\nTajawal (ar-EG) & Inter (en-US)"]
+        Colors["Color Palette\nNavy #0F1B3D | Red #D63B2F | Gold #F5B62B"]
+        Typography["Typography\nIBM Plex Sans Arabic"]
         Themes["Themes\nLight & Dark Theme Definitions"]
         Logical["RTL Logical Layouts\nms-*, me-*, ps-*, pe-*, start-*, end-*"]
     end
@@ -40,9 +40,9 @@ flowchart TD
 ## 2. Brand Identity & Design Tokens ([`tokens.ts`](file:///home/osama/Desktop/mal3abk-backend/web/packages/ui/src/tokens.ts))
 
 ### 2.1 Core Palette
-- **Navy (`#071832`):** Primary brand anchor, header bars, executive typography, and primary interactive surfaces in light theme.
-- **Red (`#EB4F42`):** Action accent, call-to-actions, destructive operations, and primary highlight in dark mode.
-- **Gold (`#F6B326`):** Achievement, pitch ratings, match MVP badges, loyalty rewards, and VIP highlights.
+- **Navy (`#0F1B3D`):** Primary brand anchor, header bars, executive typography, and primary interactive surfaces in light theme.
+- **Red (`#D63B2F`):** Action accent, call-to-actions, destructive operations, and primary highlight in dark mode.
+- **Gold (`#F5B62B`):** Achievement, pitch ratings, match MVP badges, loyalty rewards, and VIP highlights.
 
 ### 2.2 Semantic Colors
 - **Success (`#10B981`):** Confirmed bookings, received payments, green availability slots.
@@ -51,8 +51,7 @@ flowchart TD
 - **Info (`#3B82F6`):** Informational banners, scheduled system updates, platform tips.
 
 ### 2.3 Typography
-- **Arabic (`ar-EG`):** `Tajawal` font family with weights 400 (Regular), 500 (Medium), and 700 (Bold).
-- **Latin (`en-US`):** `Inter` font family for international users and numeric tables.
+- **Arabic and Latin:** `IBM Plex Sans Arabic` (weights 400, 500, 600, 700), loaded with `next/font` as `--font-arabic` — matching the design file.
 
 ---
 
