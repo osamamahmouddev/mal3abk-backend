@@ -14,8 +14,10 @@ using Malabak.Api.Infrastructure.OpenTelemetry;
 using Malabak.Api.Infrastructure.Outbox;
 using Malabak.Api.Infrastructure.Redis;
 using Malabak.Api.Infrastructure.Security;
+using Malabak.Api.Infrastructure.Seeding;
 using Malabak.Api.Infrastructure.Validation;
 using Malabak.Modules.Booking.Application.Bookings.CreateBooking;
+using Malabak.Modules.Booking.Infrastructure;
 using Malabak.Modules.Identity;
 using Malabak.Modules.Identity.Application.Common;
 using Malabak.Modules.Identity.Infrastructure;
@@ -166,15 +168,37 @@ builder.Services.AddDbContext<VenuesDbContext>(options =>
     options.UseNpgsql(postgresConnectionString, npgsql =>
         npgsql.MigrationsHistoryTable("__EFMigrationsHistory", VenuesDbContext.Schema)));
 
+builder.Services.AddDbContext<BookingDbContext>(options =>
+    options.UseNpgsql(postgresConnectionString, npgsql =>
+        npgsql.MigrationsHistoryTable("__EFMigrationsHistory", BookingDbContext.Schema)));
+
 // 12. Dependency Injection
 builder.Services.AddSingleton<IClock, SystemClock>();
 builder.Services.AddSingleton<ITimeZoneProvider, CairoTimeZoneProvider>();
 builder.Services.AddSingleton<IErrorMessageLocalizer, ErrorMessageLocalizer>();
 builder.Services.AddMalabakValidation();
+builder.Services.AddMalabakDataSeeders();
 builder.Services.AddScoped<ICommandHandler<CreateBookingCommand, Result<CreateBookingResponse>>, CreateBookingHandler>();
 builder.Services.AddIdentityModule(builder.Configuration);
 
 var app = builder.Build();
+
+// CLI Data Seeding Commands
+if (args.Contains("--seed-reference"))
+{
+    using var scope = app.Services.CreateScope();
+    var seeder = scope.ServiceProvider.GetRequiredService<ReferenceDataSeeder>();
+    await seeder.SeedAsync();
+    return;
+}
+
+if (args.Contains("--seed-demo"))
+{
+    using var scope = app.Services.CreateScope();
+    var seeder = scope.ServiceProvider.GetRequiredService<DemoDataSeeder>();
+    await seeder.SeedAsync();
+    return;
+}
 
 // Configure Middleware Pipeline
 app.UseSerilogRequestLogging(options =>

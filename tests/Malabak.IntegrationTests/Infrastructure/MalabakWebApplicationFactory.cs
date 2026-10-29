@@ -21,7 +21,7 @@ public class MalabakWebApplicationFactory : WebApplicationFactory<Program>
     {
         ArgumentNullException.ThrowIfNull(builder);
 
-        builder.UseEnvironment("Testing");
+        builder.UseEnvironment("Development");
 
         builder.ConfigureTestServices(services =>
         {

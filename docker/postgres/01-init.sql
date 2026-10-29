@@ -1,3 +1,15 @@
 -- Initialize database extensions for Malabak
 CREATE EXTENSION IF NOT EXISTS btree_gist;
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
+-- Initialize modular monolith bounded context schemas
+CREATE SCHEMA IF NOT EXISTS identity;
+CREATE SCHEMA IF NOT EXISTS venues;
+CREATE SCHEMA IF NOT EXISTS booking;
+CREATE SCHEMA IF NOT EXISTS audit;
+CREATE SCHEMA IF NOT EXISTS notifications;
+CREATE SCHEMA IF NOT EXISTS payments;
+CREATE SCHEMA IF NOT EXISTS subscriptions;
+CREATE SCHEMA IF NOT EXISTS support;
+CREATE SCHEMA IF NOT EXISTS teams;
+CREATE SCHEMA IF NOT EXISTS matches;
