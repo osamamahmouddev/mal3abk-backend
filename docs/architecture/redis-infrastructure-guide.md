@@ -121,8 +121,11 @@ Adhering to **SECURITY.md §1 (Fail Secure)**:
 ## 6. Connection Resiliency, TLS & Health Checks
 
 1. **TLS Configuration:**
-   - In staging and production, Redis requires TLS (`ssl=true` or `rediss://`).
+   - Every environment, local development included, connects to Redis over TLS (`ssl=true`). Locally, `docker compose` runs Redis with the plain-text port disabled (`--port 0 --tls-port 6379`), bound to `127.0.0.1` only.
    - `SslProtocols` enforced to TLS 1.2 and TLS 1.3.
+   - The server certificate is always validated. For a server whose CA is not in the system trust store (the local dev CA from `scripts/generate-dev-certs.sh`, or a private cloud CA), set `Redis:TlsCaCertificatePath` to that CA's PEM file; startup fails if the file is missing. Never disable certificate validation instead.
+   - Local certificates live in the git-ignored `docker/redis/tls/` (EC P-256, valid 825 days; regenerate with `--force`).
+   - There is exactly one `IConnectionMultiplexer`, built by `RedisConnectionFactory`. Modules must not open their own connections: the Identity OTP store uses the shared one and has no in-memory fallback, so OTP fails closed when Redis is unavailable (§5).
 2. **Lifecycle Event Monitoring:**
    - `ConnectionFailed`, `ConnectionRestored`, `ErrorMessage`, and `InternalError` events are monitored and logged to Serilog with structured metadata.
 3. **Health Check (`RedisHealthCheck`):**

@@ -64,6 +64,7 @@ Malabak.sln
 | Admin Dashboard | http://localhost:3001 | scaffold only — no pages yet |
 | Backend API + Swagger | http://localhost:5000/swagger | `dotnet run --project src/Malabak.Api` |
 | PostgreSQL | `localhost:5432` | `docker compose up -d` |
+| Redis (TLS only) | `localhost:6379` | `docker compose up -d` |
 | pgAdmin | http://localhost:5050 | `docker compose up -d` |
 | Seq (structured logs) | http://localhost:5341 | `docker compose up -d` |
 | Mailpit (fake SMTP UI) | http://localhost:8025 (SMTP on `1025`) | `docker compose up -d` |
@@ -74,6 +75,10 @@ Malabak.sln
 - [Docker & Docker Compose](https://www.docker.com/)
 
 ### 1. Start local infrastructure
+Redis only accepts TLS, also locally. Create the local dev CA and Redis certificate once per machine (they go to the git-ignored `docker/redis/tls/`), then start the containers:
+```bash
+./scripts/generate-dev-certs.sh
+```
 ```bash
 docker compose up -d
 ```
@@ -136,6 +141,10 @@ pnpm lint
 - **Pages show "Internal Server Error" or load without styles** — a `next build` was run while `next dev` was running for the same app; both write to that app's `.next/` folder. Stop the dev server, delete the app's `.next/` folder, and start it again:
   ```bash
   rm -rf web/apps/venue/.next
+  ```
+- **Redis connection fails after pulling the TLS change** — your Redis container still runs without TLS. Run `./scripts/generate-dev-certs.sh`, then `docker compose up -d redis` and `./scripts/setup-dev-secrets.sh`. Check it with:
+  ```bash
+  docker exec malabak-redis redis-cli --tls --cacert /tls/ca.crt -a malabak_dev_redis_password --no-auth-warning ping
   ```
 - **Port already in use** — another dev server is still running on that port. Stop it, or check what holds it with `ss -ltnp | grep :3000`.
 
