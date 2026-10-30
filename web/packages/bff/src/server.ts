@@ -39,8 +39,12 @@ export async function userApi(config: BffConfig, path: string, init?: RequestIni
 }
 
 export async function currentUser(config: BffConfig): Promise<SessionUser | null> {
-  const session = await getSession(config);
-  return session.refreshToken && session.user ? session.user : null;
+  try {
+    const session = await getSession(config);
+    return session.refreshToken && session.user ? session.user : null;
+  } catch {
+    return null;
+  }
 }
 
 export async function signIn(config: BffConfig, tokens: Tokens, user: SessionUser) {
