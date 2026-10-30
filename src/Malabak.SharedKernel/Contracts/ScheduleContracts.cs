@@ -12,6 +12,17 @@ public interface IUpcomingBookingsReader
         IReadOnlyCollection<Guid> pitchIds, DateTime fromUtc, DateTime toUtc, CancellationToken cancellationToken = default);
 }
 
+/// <summary>
+/// Venues-module contract to drop cached availability after a change other modules make (bookings created, holds placed
+/// or released, status changes). Call it after the change is committed.
+/// </summary>
+public interface IAvailabilityInvalidator
+{
+    Task InvalidatePitchAsync(Guid pitchId, CancellationToken cancellationToken = default);
+
+    Task InvalidateVenueAsync(Guid venueId, CancellationToken cancellationToken = default);
+}
+
 /// <summary>Venues-module contract the Booking module calls to validate a requested slot server-side.</summary>
 public interface IPitchAvailabilityChecker
 {

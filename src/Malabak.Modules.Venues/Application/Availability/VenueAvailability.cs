@@ -28,7 +28,9 @@ public sealed record SlotDto(DateTime StartUtc, DateTime EndUtc, DateTime StartL
 
 public sealed record PitchSlotsDto(Guid PitchId, string Name, int SlotMinutes, int IncrementMinutes, IReadOnlyList<SlotDto> Slots);
 
-public sealed record VenueAvailabilityDto(Guid VenueId, DateOnly BusinessDate, string Currency, IReadOnlyList<PitchSlotsDto> Pitches, DateTime GeneratedAtUtc);
+/// <param name="NextChangeUtc">Earliest moment the result changes by itself (a hold lapses or a slot passes the minimum notice).</param>
+public sealed record VenueAvailabilityDto(
+    Guid VenueId, DateOnly BusinessDate, string Currency, IReadOnlyList<PitchSlotsDto> Pitches, DateTime GeneratedAtUtc, DateTime? NextChangeUtc = null);
 
 public static class AvailabilityErrors
 {
@@ -100,6 +102,7 @@ public sealed class VenueAvailabilityQuery
             .ToListAsync(cancellationToken);
 
         var nowUtc = _clock.UtcNow;
+        DateTime? nextChange = bookings.Where(b => b.HoldExpiresAtUtc > nowUtc).Select(b => b.HoldExpiresAtUtc).Min();
         var result = new List<PitchSlotsDto>();
         foreach (var pitch in pitches)
         {
@@ -118,6 +121,12 @@ public sealed class VenueAvailabilityQuery
                     var slotState = SlotStateFor(start, nowUtc, rules,
                         bookings.Where(b => b.PitchId == pitch.Id && b.StartUtc < end && b.EndUtc > start).ToList(),
                         blocks.Exists(b => b.PitchId == pitch.Id && b.StartUtc < end && b.EndUtc > start));
+                    if (slotState == SlotState.Available)
+                    {
+                        var noticeCrossing = start.AddMinutes(-rules.MinNoticeMinutes);
+                        nextChange = nextChange is null || noticeCrossing < nextChange ? noticeCrossing : nextChange;
+                    }
+
                     var price = PricingCalculator.Quote(pitch.Id, priceRules, start, end, null, tz);
                     slots.Add(new SlotDto(start, end, TimeZoneInfo.ConvertTimeFromUtc(start, tz), TimeZoneInfo.ConvertTimeFromUtc(end, tz),
                         slotState, price.IsSuccess ? price.Value.Total : null));
@@ -128,7 +137,7 @@ public sealed class VenueAvailabilityQuery
         }
 
         var currency = priceRules.Select(r => r.Currency).FirstOrDefault() ?? Money.DefaultCurrency;
-        return Result.Success(new VenueAvailabilityDto(venueId, businessDate, currency, result, nowUtc));
+        return Result.Success(new VenueAvailabilityDto(venueId, businessDate, currency, result, nowUtc, nextChange));
     }
 
     private static SlotState SlotStateFor(DateTime start, DateTime nowUtc, BookingRules rules, List<UpcomingBookingRef> overlapping, bool blocked)
