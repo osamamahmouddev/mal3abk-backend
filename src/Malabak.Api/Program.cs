@@ -205,16 +205,16 @@ builder.Services.AddDbContext<BookingDbContext>(options =>
 builder.Services.AddDbContext<MediaDbContext>(options =>
     options.UseNpgsql(postgresConnectionString, npgsql =>
         npgsql.MigrationsHistoryTable("__EFMigrationsHistory", MediaDbContext.Schema)));
-builder.Services.AddSingleton<IObjectStorage, LocalObjectStorage>();
-builder.Services.AddSingleton<IMalwareScanner, NoOpMalwareScanner>();
+builder.Services.AddMediaStorage(builder.Configuration, builder.Environment);
 builder.Services.AddScoped<MediaService>();
+builder.Services.AddScoped<Malabak.SharedKernel.Contracts.IPersonalDataContributor, MediaPersonalData>();
 
 builder.Services.AddDbContext<NotificationsDbContext>(options =>
     options.UseNpgsql(postgresConnectionString, npgsql =>
         npgsql.MigrationsHistoryTable("__EFMigrationsHistory", NotificationsDbContext.Schema)));
 
 // 12. Field-level encryption, blind indexes and the persisted Data Protection key ring
-builder.Services.AddFieldEncryption(builder.Configuration, postgresConnectionString);
+builder.Services.AddFieldEncryption(builder.Configuration, builder.Environment, postgresConnectionString);
 
 // 13. Dependency Injection
 builder.Services.AddSingleton<IClock, SystemClock>();

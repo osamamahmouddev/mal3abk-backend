@@ -86,12 +86,20 @@ public sealed class VerifyOtpHandler : ICommandHandler<VerifyOtpCommand, Result<
         var user = await _dbContext.Users
             .FirstOrDefaultAsync(u => u.PhoneNumber == normalizedPhone, cancellationToken);
 
-        // A deleted account keeps its number until anonymization; it must not sign back in or be re-created meanwhile.
+        // ADR-0007: during the 30-day grace period the owner of the number (proven by this OTP) may cancel the
+        // deletion, but only with an explicit confirmation; otherwise the account stays closed and is never re-created.
         if (user is { IsDeleted: true })
         {
-            return Result.Failure<VerifyOtpResponse>(new Error(
-                "Identity.AccountDeleted",
-                "This account was deleted. The number can be used for a new account after the deletion period ends."));
+            if (!command.RestoreAccount || !user.CanRestore(nowUtc))
+            {
+                return Result.Failure<VerifyOtpResponse>(new Error(
+                    "Identity.AccountPendingDeletion",
+                    "This account is scheduled for deletion. Request a new code and confirm restoring the account to keep it."));
+            }
+
+            user.Restore(nowUtc);
+            await _dbContext.SaveChangesAsync(cancellationToken);
+            _logger.LogInformation("AUDIT: account {UserId} restored during the deletion grace period", user.Id);
         }
 
         var isNewUser = false;

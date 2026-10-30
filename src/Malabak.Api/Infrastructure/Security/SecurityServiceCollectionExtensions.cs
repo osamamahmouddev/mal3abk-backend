@@ -18,6 +18,7 @@ public static class SecurityServiceCollectionExtensions
     public static IServiceCollection AddFieldEncryption(
         this IServiceCollection services,
         IConfiguration configuration,
+        IHostEnvironment environment,
         string? postgresConnectionString)
     {
         services.AddOptions<EncryptionOptions>()
@@ -30,7 +31,22 @@ public static class SecurityServiceCollectionExtensions
             options.UseNpgsql(postgresConnectionString, npgsql =>
                 npgsql.MigrationsHistoryTable("__EFMigrationsHistory", SecurityDbContext.Schema)));
 
-        services.AddSingleton<IKeyEncryptionKeyProvider, LocalKeyEncryptionKeyProvider>();
+        var usesAwsKms = configuration.GetSection(EncryptionOptions.SectionName).Get<EncryptionOptions>()?.UsesAwsKms ?? false;
+        if (environment.IsProduction() && !usesAwsKms)
+        {
+            // ADR-0003 interim risk must be closed before launch: no KEK in process memory in Production.
+            throw new InvalidOperationException($"Production requires {EncryptionOptions.SectionName}:KeyProvider = AwsKms.");
+        }
+
+        if (usesAwsKms)
+        {
+            services.AddSingleton<IKmsClient, AwsKmsClient>();
+            services.AddSingleton<IKeyEncryptionKeyProvider, AwsKmsKeyEncryptionKeyProvider>();
+        }
+        else
+        {
+            services.AddSingleton<IKeyEncryptionKeyProvider, LocalKeyEncryptionKeyProvider>();
+        }
         services.AddSingleton<IDataKeyRing, DataKeyRing>();
         services.AddSingleton<IFieldCipher, AesGcmFieldCipher>();
         services.AddSingleton<IBlindIndexService, HmacBlindIndexService>();

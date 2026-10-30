@@ -44,8 +44,9 @@ public sealed class PrivacyHandlers
     }
 
     /// <summary>
-    /// Soft delete: signs out every device, blocks sign-in and removes non-essential data (favorites, devices,
-    /// notifications) now; the account's personal data is erased by <see cref="AccountAnonymizer"/> after the window.
+    /// Soft delete (ADR-0007 phase 1): signs out every device and closes the account. Nothing is erased yet because
+    /// the owner may restore the account by OTP during the grace period; <see cref="AccountAnonymizer"/> erases the
+    /// account and every module's data once the window has passed.
     /// </summary>
     public async Task<Result<AccountDeletionDto>> DeleteAccountAsync(Guid userId, CancellationToken cancellationToken = default)
     {
@@ -65,7 +66,6 @@ public sealed class PrivacyHandlers
         await _dbContext.SaveChangesAsync(cancellationToken);
         await _sessions.MarkRevokedAsync(sessions.Select(s => s.Id).ToList(), cancellationToken);
 
-        await EraseContributorsAsync(userId, cancellationToken);
         _logger.LogInformation("Account {UserId} deleted; personal data erased after {Days} days", userId, User.DeletionRetention.TotalDays);
         return Result.Success(new AccountDeletionDto(nowUtc, nowUtc + User.DeletionRetention));
     }
