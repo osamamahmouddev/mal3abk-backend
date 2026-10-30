@@ -1,31 +1,64 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { Suspense, useState, useTransition } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { muted, redShadow } from "@/components/ui";
+import { forgotPassword, login } from "@/app/auth-actions";
 
-type View = "login" | "forgot" | "pending";
+type View = "login" | "forgot";
 
 const fieldClass =
   "min-h-[48px] rounded-xl px-3.5 text-[15px] text-slate-900 focus:outline-none focus:ring-2 focus:ring-navy-900";
 
+/** Only same-site paths, so `?next=` can't send the user to another site after sign-in. */
+function safeNext(next: string | null): string {
+  return next && next.startsWith("/") && !next.startsWith("//") ? next : "/overview";
+}
+
 export default function LoginPage() {
-  const router = useRouter();
+  return (
+    <Suspense>
+      <LoginView />
+    </Suspense>
+  );
+}
+
+function LoginView() {
+  const params = useSearchParams();
   const [view, setView] = useState<View>("login");
   const [user, setUser] = useState("");
   const [pass, setPass] = useState("");
-  const [err, setErr] = useState(false);
+  const [totp, setTotp] = useState("");
+  const [needsTotp, setNeedsTotp] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
   const [sent, setSent] = useState(false);
+  const [pending, startTransition] = useTransition();
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    // TODO: replace with the auth API call; on a bad password show `err`.
-    if (!pass) {
-      setErr(true);
-      return;
-    }
-    router.push("/overview");
+    setErr(null);
+    startTransition(async () => {
+      const result = await login({ email: user.trim(), password: pass, totpCode: needsTotp ? totp.trim() : undefined });
+      if (result.ok) {
+        window.location.assign(safeNext(params.get("next")));
+        return;
+      }
+      if (result.code === "Identity.TwoFactorRequired") {
+        setNeedsTotp(true);
+        return;
+      }
+      setErr(result.message);
+    });
+  };
+
+  const handleForgot = () => {
+    setErr(null);
+    startTransition(async () => {
+      const result = await forgotPassword(user.trim());
+      if (result.ok) setSent(true);
+      else setErr(result.message);
+    });
   };
 
   return (
@@ -75,11 +108,13 @@ export default function LoginPage() {
               </div>
               <div className="flex flex-col gap-1.5">
                 <label htmlFor="em" className="text-sm font-semibold">
-                  الموبايل أو الإيميل
+                  الإيميل
                 </label>
                 <input
                   id="em"
                   dir="ltr"
+                  type="email"
+                  required
                   autoComplete="username"
                   value={user}
                   onChange={(e) => setUser(e.target.value)}
@@ -104,28 +139,48 @@ export default function LoginPage() {
                   type="password"
                   autoComplete="current-password"
                   value={pass}
+                  required
                   onChange={(e) => {
                     setPass(e.target.value);
-                    setErr(false);
+                    setErr(null);
                   }}
-                  aria-invalid={err}
+                  aria-invalid={!!err}
                   className={`${fieldClass} ${err ? "border-2 border-[#A8261C]" : "border border-[#C9CFD9]"}`}
                 />
-                {err && (
-                  <span role="alert" className="text-[13px] text-[#A8261C]">
-                    كلمة السر غلط. فاضل محاولتين قبل ما الحساب يتقفل ١٥ دقيقة.
-                  </span>
-                )}
               </div>
+              {needsTotp && (
+                <div className="flex flex-col gap-1.5">
+                  <label htmlFor="totp" className="text-sm font-semibold">
+                    كود تطبيق التحقق
+                  </label>
+                  <input
+                    id="totp"
+                    dir="ltr"
+                    inputMode="numeric"
+                    autoComplete="one-time-code"
+                    maxLength={6}
+                    autoFocus
+                    value={totp}
+                    onChange={(e) => setTotp(e.target.value.replace(/\D/g, ""))}
+                    className={`${fieldClass} border border-[#C9CFD9] text-center tracking-[0.3em]`}
+                  />
+                </div>
+              )}
+              {err && (
+                <span role="alert" className="text-[13px] text-[#A8261C]">
+                  {err}
+                </span>
+              )}
               <button
                 type="submit"
-                className={`min-h-[52px] rounded-[14px] bg-brand-red hover:bg-brand-red-hover text-white text-base font-bold ${redShadow}`}
+                disabled={pending}
+                className={`min-h-[52px] rounded-[14px] bg-brand-red hover:bg-brand-red-hover disabled:opacity-60 text-white text-base font-bold ${redShadow}`}
               >
-                دخول
+                {pending ? "جاري الدخول…" : "دخول"}
               </button>
               <div className="h-px bg-[#EEF1F5]" />
               <Link
-                href="/setup"
+                href="/register"
                 className="min-h-[48px] rounded-[14px] border border-[#C9CFD9] text-navy-900 text-[15px] font-semibold flex items-center justify-center hover:bg-slate-50"
               >
                 عندك ملعب؟ سجّله على ملعبك
@@ -136,21 +191,32 @@ export default function LoginPage() {
           {view === "forgot" && (
             <div className="flex flex-col gap-4">
               <h2 className="text-2xl font-bold">استرجاع كلمة السر</h2>
-              <span className={`text-sm leading-[22px] ${muted}`}>هنبعت كود على الموبايل المسجّل للحساب.</span>
+              <span className={`text-sm leading-[22px] ${muted}`}>هنبعتلك لينك على الإيميل تغيّر بيه كلمة السر.</span>
               <input
                 dir="ltr"
-                aria-label="رقم الموبايل"
+                type="email"
+                aria-label="الإيميل"
                 value={user}
                 onChange={(e) => setUser(e.target.value)}
                 className={`${fieldClass} border border-[#C9CFD9] text-right`}
               />
               {sent && (
                 <div role="status" className="bg-[#E5F5EB] text-[#155C33] rounded-xl px-3.5 py-2.5 text-[13px] font-semibold">
-                  ✓ الكود اتبعت. صالح ١٠ دقايق.
+                  ✓ لو الإيميل مسجّل عندنا، هيوصلك لينك تغيير كلمة السر.
                 </div>
               )}
-              <button type="button" onClick={() => setSent(true)} className="min-h-[52px] rounded-[14px] bg-navy-900 text-white text-base font-bold">
-                {sent ? "إعادة الإرسال" : "ابعت الكود"}
+              {err && (
+                <span role="alert" className="text-[13px] text-[#A8261C]">
+                  {err}
+                </span>
+              )}
+              <button
+                type="button"
+                onClick={handleForgot}
+                disabled={pending || !user.trim()}
+                className="min-h-[52px] rounded-[14px] bg-navy-900 disabled:opacity-60 text-white text-base font-bold"
+              >
+                {sent ? "إعادة الإرسال" : "ابعت اللينك"}
               </button>
               <button
                 type="button"
@@ -165,27 +231,6 @@ export default function LoginPage() {
             </div>
           )}
 
-          {view === "pending" && (
-            <div className="flex flex-col gap-3.5 text-center items-center">
-              <span className="w-16 h-16 rounded-full bg-[#FEF3D6] text-[#7A4D00] flex items-center justify-center">
-                <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
-                  <circle cx="12" cy="12" r="9" />
-                  <path d="M12 7v5l3 2" />
-                </svg>
-              </span>
-              <h2 className="text-[22px] font-bold">ملعبك تحت المراجعة</h2>
-              <span className={`text-sm leading-[23px] ${muted}`}>
-                فريق ملعبك بيراجع المستندات (عادةً خلال يومين عمل). تقدر تكمّل إعداد الملاعب والمواعيد دلوقتي، بس الملعب مش هيظهر للاعبين غير بعد
-                الموافقة.
-              </span>
-              <Link
-                href="/setup"
-                className="w-full min-h-[50px] rounded-[14px] bg-navy-900 text-white text-[15px] font-bold flex items-center justify-center"
-              >
-                كمّل الإعداد
-              </Link>
-            </div>
-          )}
         </div>
       </section>
     </div>

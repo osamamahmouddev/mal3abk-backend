@@ -3,6 +3,12 @@
 import React, { memo } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useQuery } from "@tanstack/react-query";
+import type { SessionUser } from "@malabak/bff/server";
+import { logout } from "@/app/auth-actions";
+import { api, unwrap } from "@/lib/api";
+import { useVenue } from "./Providers";
+import { toArabicDigits } from "./ui";
 
 export interface NavItem {
   title: string;
@@ -13,7 +19,7 @@ export interface NavItem {
 const NAV_ITEMS: readonly NavItem[] = [
   { title: "نظرة عامة", href: "/overview" },
   { title: "تقويم الحجوزات", href: "/calendar" },
-  { title: "الحجوزات", href: "/reservations", badge: "٥" },
+  { title: "الحجوزات", href: "/reservations" },
   { title: "الملاعب", href: "/pitches" },
   { title: "المواعيد", href: "/schedule" },
   { title: "الأسعار", href: "/pricing" },
@@ -21,18 +27,26 @@ const NAV_ITEMS: readonly NavItem[] = [
   { title: "العملاء", href: "/customers" },
   { title: "التقارير", href: "/reports" },
   { title: "الاشتراك والفواتير", href: "/subscription" },
-  { title: "الإشعارات", href: "/notifications", badge: "٣" },
+  { title: "الإشعارات", href: "/notifications" },
   { title: "الموظفين والصلاحيات", href: "/staff" },
   { title: "الإعدادات", href: "/settings" },
 ] as const;
 
 export interface SidebarProps {
+  user: SessionUser;
   /** Rendered inside the mobile drawer: adds a close button and fills the drawer height. */
   onClose?: () => void;
 }
 
-export const Sidebar: React.FC<SidebarProps> = memo(({ onClose }) => {
+export const Sidebar: React.FC<SidebarProps> = memo(({ user, onClose }) => {
   const pathname = usePathname() ?? "/";
+  const { venue, venues, selectVenue } = useVenue();
+  const unread = useQuery({
+    queryKey: ["notifications", "unread"],
+    queryFn: () => unwrap(api.GET("/api/v1/me/notifications/unread-count")),
+    refetchInterval: 60_000,
+  });
+  const unreadCount = unread.data?.unreadCount ?? 0;
 
   const checkIsActive = (href: string): boolean => {
     if (href === "/overview") {
@@ -75,7 +89,22 @@ export const Sidebar: React.FC<SidebarProps> = memo(({ onClose }) => {
 
       <div className="bg-white/[0.08] rounded-xl px-3 py-2.5 flex flex-col gap-0.5">
         <span className="text-[11px] text-[#AEB7CA]">الملعب الحالي</span>
-        <span className="text-sm font-bold">ملعب النجوم — مدينة نصر</span>
+        {venues.length > 1 ? (
+          <select
+            aria-label="الملعب الحالي"
+            value={venue?.id ?? ""}
+            onChange={(e) => selectVenue(e.target.value)}
+            className="bg-transparent text-sm font-bold text-white focus:outline-none"
+          >
+            {venues.map((v) => (
+              <option key={v.id} value={v.id} className="text-slate-900">
+                {v.name} — {v.area}
+              </option>
+            ))}
+          </select>
+        ) : (
+          <span className="text-sm font-bold">{venue ? `${venue.name} — ${venue.area}` : "—"}</span>
+        )}
       </div>
 
       <nav aria-label="أقسام اللوحة" className="flex flex-col gap-0.5">
@@ -93,6 +122,11 @@ export const Sidebar: React.FC<SidebarProps> = memo(({ onClose }) => {
               }`}
             >
               <span className="flex-1">{item.title}</span>
+              {item.href === "/notifications" && unreadCount > 0 && (
+                <span className="min-w-[20px] h-5 px-1.5 rounded-[10px] bg-brand-red text-white text-[11px] font-bold flex items-center justify-center">
+                  {toArabicDigits(unreadCount)}
+                </span>
+              )}
               {item.badge && (
                 <span className="min-w-[20px] h-5 px-1.5 rounded-[10px] bg-brand-red text-white text-[11px] font-bold flex items-center justify-center">
                   {item.badge}
@@ -103,9 +137,13 @@ export const Sidebar: React.FC<SidebarProps> = memo(({ onClose }) => {
         })}
       </nav>
 
-      <div className="mt-auto border-t border-white/[0.12] pt-4 px-2 flex flex-col gap-1">
-        <span className="text-xs text-[#AEB7CA]">باقة Growth · تتجدد ١٤ أغسطس</span>
-        <span className="text-[13px] font-semibold">٣ من ٥ ملاعب مستخدمة</span>
+      <div className="mt-auto border-t border-white/[0.12] pt-4 px-2 flex flex-col gap-2">
+        <span className="text-[13px] font-semibold">{user.name}</span>
+        <form action={logout}>
+          <button type="submit" className="min-h-[36px] px-3 rounded-[10px] bg-white/[0.08] hover:bg-white/[0.14] text-[13px] font-semibold">
+            تسجيل الخروج
+          </button>
+        </form>
       </div>
     </aside>
   );
