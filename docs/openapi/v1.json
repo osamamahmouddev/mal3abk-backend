@@ -6844,6 +6844,9 @@
           "fullName": {
             "type": "string",
             "nullable": true
+          },
+          "restoreAccount": {
+            "type": "boolean"
           }
         },
         "additionalProperties": false
