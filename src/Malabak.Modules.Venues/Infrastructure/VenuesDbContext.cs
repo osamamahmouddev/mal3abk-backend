@@ -1,12 +1,15 @@
 using Malabak.Modules.Venues.Application.Common;
 using Malabak.Modules.Venues.Domain;
+using Malabak.SharedKernel;
+using Malabak.SharedKernel.Persistence;
 using Microsoft.EntityFrameworkCore;
 
 namespace Malabak.Modules.Venues.Infrastructure;
 
-public sealed class VenuesDbContext : DbContext
+public sealed class VenuesDbContext : BaseDbContext
 {
     public const string Schema = "venues";
+    public override string ModuleSchema => Schema;
 
     private readonly IVenueTenantContext? _tenant;
 
@@ -28,13 +31,8 @@ public sealed class VenuesDbContext : DbContext
     public DbSet<FavoriteVenue> FavoriteVenues => Set<FavoriteVenue>();
     public DbSet<RecentlyViewedVenue> RecentlyViewedVenues => Set<RecentlyViewedVenue>();
 
-    public VenuesDbContext(DbContextOptions<VenuesDbContext> options)
-        : base(options)
-    {
-    }
-
-    public VenuesDbContext(DbContextOptions<VenuesDbContext> options, IVenueTenantContext tenant)
-        : base(options)
+    public VenuesDbContext(DbContextOptions<VenuesDbContext> options, IVenueTenantContext? tenant = null, IClock? clock = null)
+        : base(options, clock)
     {
         _tenant = tenant;
     }
@@ -45,7 +43,7 @@ public sealed class VenuesDbContext : DbContext
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        modelBuilder.HasDefaultSchema(Schema);
+        base.OnModelCreating(modelBuilder);
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(VenuesDbContext).Assembly);
 
         modelBuilder.Entity<Venue>().HasQueryFilter(v => !IsTenantRestricted || TenantVenueIds.Contains(v.Id));

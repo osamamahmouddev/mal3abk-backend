@@ -34,7 +34,7 @@ public sealed class RedisOtpStore : IOtpStore
         var count = await db.SortedSetLengthAsync(key);
         if (count >= maxAttempts)
         {
-            _logger.LogWarning("OTP rate limit exceeded: {Count}/{Max} attempts", count, maxAttempts);
+            _logger.LogWarning("OTP send rate limit exceeded for phone {MaskedPhone}: {Count}/{Max} attempts", PhoneNumberMasker.Mask(normalizedPhone), count, maxAttempts);
             return false;
         }
 

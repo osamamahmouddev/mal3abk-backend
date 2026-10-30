@@ -1,0 +1,93 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "collapsed": false,
+      "gridPos": { "h": 8, "w": 6, "x": 0, "y": 0 },
+      "id": 1,
+      "title": "Outbox Unprocessed Backlog",
+      "type": "stat",
+      "targets": [
+        {
+          "expr": "malabak_outbox_unprocessed_messages",
+          "legendFormat": "Backlog Count"
+        }
+      ]
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 8, "w": 6, "x": 6, "y": 0 },
+      "id": 2,
+      "title": "Hangfire Active Workers",
+      "type": "stat",
+      "targets": [
+        {
+          "expr": "malabak_hangfire_active_servers",
+          "legendFormat": "Workers"
+        }
+      ]
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 8, "w": 6, "x": 12, "y": 0 },
+      "id": 3,
+      "title": "Succeeded Jobs / min",
+      "type": "stat",
+      "targets": [
+        {
+          "expr": "sum(rate(malabak_hangfire_succeeded_jobs_total[1m])) * 60",
+          "legendFormat": "Jobs/min"
+        }
+      ]
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 8, "w": 6, "x": 18, "y": 0 },
+      "id": 4,
+      "title": "Failed Jobs / min",
+      "type": "stat",
+      "targets": [
+        {
+          "expr": "sum(rate(malabak_hangfire_failed_jobs_total[1m])) * 60",
+          "legendFormat": "Failed/min"
+        }
+      ]
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 10, "w": 12, "x": 0, "y": 8 },
+      "id": 5,
+      "title": "Outbox Dispatch Latency (Seconds)",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "malabak_outbox_dispatch_duration_seconds",
+          "legendFormat": "Dispatch Duration"
+        }
+      ]
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 10, "w": 12, "x": 12, "y": 8 },
+      "id": 6,
+      "title": "Hangfire Queue Lag (Processing Delay)",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "malabak_hangfire_queue_lag_seconds",
+          "legendFormat": "Queue {{queue}}"
+        }
+      ]
+    }
+  ],
+  "schemaVersion": 39,
+  "tags": ["malabak", "jobs", "hangfire", "outbox"],
+  "title": "Malabak - Background Jobs & Transactional Outbox",
+  "uid": "malabak-jobs-perf"
+}

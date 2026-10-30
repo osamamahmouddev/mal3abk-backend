@@ -68,7 +68,7 @@ public sealed class VerifyOtpHandler : ICommandHandler<VerifyOtpCommand, Result<
 
         if (verificationResult.IsMaxAttemptsExceeded)
         {
-            _logger.LogWarning("Max OTP verification attempts exceeded");
+            _logger.LogWarning("Max OTP verification attempts exceeded for phone {MaskedPhone}", PhoneNumberMasker.Mask(normalizedPhone));
             return Result.Failure<VerifyOtpResponse>(new Error(
                 "Identity.OtpMaxAttemptsExceeded",
                 "Maximum verification attempts exceeded. Please request a new code."));

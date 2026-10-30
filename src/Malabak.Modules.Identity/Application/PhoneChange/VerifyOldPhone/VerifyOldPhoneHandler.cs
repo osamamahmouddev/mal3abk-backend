@@ -11,20 +11,20 @@ public sealed class VerifyOldPhoneHandler : ICommandHandler<VerifyOldPhoneComman
 {
     private readonly IdentityDbContext _dbContext;
     private readonly IOtpSecurityService _otpSecurityService;
-    private readonly ISmsAlertService _smsAlertService;
+    private readonly IOtpSender _otpSender;
     private readonly IClock _clock;
     private readonly ILogger<VerifyOldPhoneHandler> _logger;
 
     public VerifyOldPhoneHandler(
         IdentityDbContext dbContext,
         IOtpSecurityService otpSecurityService,
-        ISmsAlertService smsAlertService,
+        IOtpSender otpSender,
         IClock clock,
         ILogger<VerifyOldPhoneHandler> logger)
     {
         _dbContext = dbContext;
         _otpSecurityService = otpSecurityService;
-        _smsAlertService = smsAlertService;
+        _otpSender = otpSender;
         _clock = clock;
         _logger = logger;
     }
@@ -84,11 +84,11 @@ public sealed class VerifyOldPhoneHandler : ICommandHandler<VerifyOldPhoneComman
         request.MarkOldPhoneVerified(newOtpHash, nowUtc);
         await _dbContext.SaveChangesAsync(cancellationToken);
 
-        // Dispatch OTP SMS to new phone
-        await _smsAlertService.SendSecurityAlertAsync(
-            request.NewPhoneNumber,
-            $"Your verification code to complete your phone change is: {newOtpCode}. Valid for 15 minutes.",
-            cancellationToken);
+        // Deliver the verification code to the new phone (never logged)
+        if (!await _otpSender.SendAsync(request.NewPhoneNumber, newOtpCode, OtpPurpose.ChangePhoneNew, request.ExpiresAtUtc - nowUtc, cancellationToken))
+        {
+            return Result.Failure(OtpDeliveryErrors.DeliveryFailed);
+        }
 
         _logger.LogInformation(
             "Phone change request {RequestId} old phone verified for user {UserId}. OTP sent to new phone.",

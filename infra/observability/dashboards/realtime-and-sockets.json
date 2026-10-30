@@ -1,0 +1,93 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "collapsed": false,
+      "gridPos": { "h": 8, "w": 6, "x": 0, "y": 0 },
+      "id": 1,
+      "title": "SignalR Connected Clients",
+      "type": "stat",
+      "targets": [
+        {
+          "expr": "sum(signalr_active_connections)",
+          "legendFormat": "Active Clients"
+        }
+      ]
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 8, "w": 6, "x": 6, "y": 0 },
+      "id": 2,
+      "title": "Connection Rate (Connects/sec)",
+      "type": "stat",
+      "targets": [
+        {
+          "expr": "sum(rate(signalr_connected_connections_total[1m]))",
+          "legendFormat": "Connects/sec"
+        }
+      ]
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 8, "w": 6, "x": 12, "y": 0 },
+      "id": 3,
+      "title": "Disconnect Rate (Drops/sec)",
+      "type": "stat",
+      "targets": [
+        {
+          "expr": "sum(rate(signalr_disconnected_connections_total[1m]))",
+          "legendFormat": "Drops/sec"
+        }
+      ]
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 8, "w": 6, "x": 18, "y": 0 },
+      "id": 4,
+      "title": "Messages Broadcasted / sec",
+      "type": "stat",
+      "targets": [
+        {
+          "expr": "sum(rate(signalr_broadcast_messages_total[1m]))",
+          "legendFormat": "Broadcasts/sec"
+        }
+      ]
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 10, "w": 12, "x": 0, "y": 8 },
+      "id": 5,
+      "title": "Connected Clients by Hub",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "signalr_active_connections",
+          "legendFormat": "Hub {{hub}}"
+        }
+      ]
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 10, "w": 12, "x": 12, "y": 8 },
+      "id": 6,
+      "title": "WebSocket Transport Connection Lifetime (Seconds)",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.50, sum(rate(signalr_connection_duration_seconds_bucket[5m])) by (le))",
+          "legendFormat": "Median Lifetime"
+        }
+      ]
+    }
+  ],
+  "schemaVersion": 39,
+  "tags": ["malabak", "realtime", "signalr", "websockets"],
+  "title": "Malabak - Real-Time SignalR & WebSockets",
+  "uid": "malabak-realtime-perf"
+}

@@ -2,6 +2,7 @@ using Malabak.Modules.Identity.Application.Common;
 using Malabak.Modules.Identity.Application.Sessions;
 using Malabak.Modules.Identity.Infrastructure;
 using Malabak.Modules.Identity.Infrastructure.Services;
+using Malabak.Modules.Identity.Infrastructure.Sms;
 using Malabak.SharedKernel;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -33,9 +34,9 @@ internal sealed class RecordingAlerts : ISmsAlertService, IEmailSender
 {
     public List<string> Messages { get; } = [];
 
-    public Task SendSecurityAlertAsync(string phoneNumber, string message, CancellationToken cancellationToken = default)
+    public Task SendSecurityAlertAsync(string phoneNumber, SecurityAlert alert, CancellationToken cancellationToken = default)
     {
-        Messages.Add(message);
+        Messages.Add(SmsSecurityAlertService.BuildBody(alert));
         return Task.CompletedTask;
     }
 

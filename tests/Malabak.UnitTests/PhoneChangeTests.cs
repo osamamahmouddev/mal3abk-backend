@@ -1,3 +1,4 @@
+using System.Text.Json;
 using FluentAssertions;
 using Malabak.Modules.Identity.Application.Common;
 using Malabak.Modules.Identity.Application.PhoneChange.RecoverPhone;
@@ -10,7 +11,6 @@ using Malabak.Modules.Identity.Infrastructure.Services;
 using Malabak.SharedKernel;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Xunit;
@@ -25,18 +25,12 @@ public sealed class PhoneChangeTests
     private readonly ITokenService _tokenService;
     private readonly IStepUpService _stepUpService;
     private readonly RecordingSmsAlertService _smsAlertService = new();
+    private readonly RecordingOtpSender _otpSender = new();
 
     public PhoneChangeTests()
     {
-        var configDict = new Dictionary<string, string?>
-        {
-            ["Security:Otp:HmacSecret"] = "TestSecretKeyForHmacSha256Authentication123456!",
-            ["Security:StepUp:SecretKey"] = "TestStepUpSecretKeyHmacSha2561234567890!",
-            ["Security:Jwt:CurrentKeyId"] = "test-key-v1"
-        };
-        var config = new TestConfiguration(configDict);
-        _otpSecurityService = new OtpSecurityService(config);
-        _stepUpService = new StepUpService(config, _clock);
+        _otpSecurityService = new OtpSecurityService(Options.Create(new OtpSecurityOptions { HmacSecret = TestSecrets.OtpHmacSecret }));
+        _stepUpService = new StepUpService(Options.Create(new StepUpOptions { SecretKey = TestSecrets.StepUpSecretKey }), _clock);
 
         var jwtOptions = new JwtOptions { CurrentKeyId = "test-key-v1" };
         var keyProvider = new JwtKeyProvider(Options.Create(jwtOptions));
@@ -78,7 +72,7 @@ public sealed class PhoneChangeTests
     {
         using var dbContext = CreateDbContext();
         var handler = new StartPhoneChangeHandler(
-            dbContext, _stepUpService, _normalizer, _otpSecurityService, _smsAlertService, _clock, NullLogger<StartPhoneChangeHandler>.Instance);
+            dbContext, _stepUpService, _normalizer, _otpSecurityService, _otpSender, _clock, NullLogger<StartPhoneChangeHandler>.Instance);
 
         var user = User.CreatePlayer(Guid.NewGuid(), "+201011112222", "Test Player", _clock.UtcNow);
         // Phone was changed 3 days ago
@@ -100,7 +94,7 @@ public sealed class PhoneChangeTests
     {
         using var dbContext = CreateDbContext();
         var handler = new StartPhoneChangeHandler(
-            dbContext, _stepUpService, _normalizer, _otpSecurityService, _smsAlertService, _clock, NullLogger<StartPhoneChangeHandler>.Instance);
+            dbContext, _stepUpService, _normalizer, _otpSecurityService, _otpSender, _clock, NullLogger<StartPhoneChangeHandler>.Instance);
 
         var user = User.CreatePlayer(Guid.NewGuid(), "+201011112222", "Test Player", _clock.UtcNow);
         dbContext.Users.Add(user);
@@ -118,11 +112,12 @@ public sealed class PhoneChangeTests
     {
         using var dbContext = CreateDbContext();
         var startHandler = new StartPhoneChangeHandler(
-            dbContext, _stepUpService, _normalizer, _otpSecurityService, _smsAlertService, _clock, NullLogger<StartPhoneChangeHandler>.Instance);
+            dbContext, _stepUpService, _normalizer, _otpSecurityService, _otpSender, _clock, NullLogger<StartPhoneChangeHandler>.Instance);
         var verifyOldHandler = new VerifyOldPhoneHandler(
-            dbContext, _otpSecurityService, _smsAlertService, _clock, NullLogger<VerifyOldPhoneHandler>.Instance);
+            dbContext, _otpSecurityService, _otpSender, _clock, NullLogger<VerifyOldPhoneHandler>.Instance);
+        var verifyNewLogger = new CapturingLogger<VerifyNewPhoneHandler>();
         var verifyNewHandler = new VerifyNewPhoneHandler(
-            dbContext, _otpSecurityService, _tokenService, _smsAlertService, _clock, NullLogger<VerifyNewPhoneHandler>.Instance);
+            dbContext, _otpSecurityService, _tokenService, _smsAlertService, _clock, verifyNewLogger);
 
         // 1. Arrange user and active session
         var oldPhone = "+201011112222";
@@ -145,22 +140,23 @@ public sealed class PhoneChangeTests
         var requestId = startResult.Value.RequestId;
 
         // Inspect OTP sent to old phone
-        _smsAlertService.LastRecipient.Should().Be(oldPhone);
-        var oldOtp = ExtractCodeFromMessage(_smsAlertService.LastMessage);
+        _otpSender.LastRecipient.Should().Be(oldPhone);
+        _otpSender.LastPurpose.Should().Be(OtpPurpose.ChangePhoneOld);
+        var oldOtp = _otpSender.LastCode;
 
         // 3. Verify Old Phone
         var verifyOldResult = await verifyOldHandler.HandleAsync(new VerifyOldPhoneCommand(user.Id, requestId, oldOtp));
         verifyOldResult.IsSuccess.Should().BeTrue();
 
         // Inspect OTP sent to new phone
-        _smsAlertService.LastRecipient.Should().Be(normalizedNewPhone);
-        var newOtp = ExtractCodeFromMessage(_smsAlertService.LastMessage);
+        _otpSender.LastRecipient.Should().Be(normalizedNewPhone);
+        _otpSender.LastPurpose.Should().Be(OtpPurpose.ChangePhoneNew);
+        var newOtp = _otpSender.LastCode;
 
         // 4. Verify New Phone (Completes Change)
         var verifyNewResult = await verifyNewHandler.HandleAsync(new VerifyNewPhoneCommand(user.Id, requestId, newOtp));
         verifyNewResult.IsSuccess.Should().BeTrue();
         verifyNewResult.Value.NewPhoneNumber.Should().Be(normalizedNewPhone);
-        verifyNewResult.Value.RecoveryToken.Should().NotBeNullOrWhiteSpace();
 
         // Verify DB updates
         var updatedUser = await dbContext.Users.FirstAsync(u => u.Id == user.Id);
@@ -175,16 +171,36 @@ public sealed class PhoneChangeTests
 
         // Verify alert sent to old phone with recovery link
         _smsAlertService.LastRecipient.Should().Be(oldPhone);
-        _smsAlertService.LastMessage.Should().Contain(verifyNewResult.Value.RecoveryToken);
-        _smsAlertService.LastMessage.Should().Contain("https://malabak.app/recover-phone");
+        _smsAlertService.LastAlert!.Kind.Should().Be(SecurityAlertKind.PhoneChanged);
+        _smsAlertService.LastAlert.NewPhoneNumber.Should().Be(normalizedNewPhone);
+        _smsAlertService.LastAlert.RecoveryLink.Should().StartWith("https://malabak.app/recover-phone?token=");
+        var recoveryToken = _smsAlertService.LastAlert.RecoveryLink!["https://malabak.app/recover-phone?token=".Length..];
+        recoveryToken.Should().NotBeNullOrWhiteSpace();
+
+        // The token goes only to the old phone, never back to the session that made the change (SECURITY.md §5.5)
+        JsonSerializer.Serialize(verifyNewResult.Value).Should().NotContain(recoveryToken);
+
+        // Neither number nor the recovery token reaches the logs (SECURITY.md §15.5)
+        verifyNewLogger.Entries.Should().NotBeEmpty();
+        verifyNewLogger.AllText.Should().NotContain(oldPhone)
+            .And.NotContain(normalizedNewPhone)
+            .And.NotContain(recoveryToken);
+
+        // The token from the alert restores the old number
+        var recoverHandler = new RecoverPhoneHandler(
+            dbContext, _tokenService, _smsAlertService, _clock, NullLogger<RecoverPhoneHandler>.Instance);
+        var recoverResult = await recoverHandler.HandleAsync(new RecoverPhoneCommand(recoveryToken));
+        recoverResult.IsSuccess.Should().BeTrue();
+        (await dbContext.Users.FirstAsync(u => u.Id == user.Id)).PhoneNumber.Should().Be(oldPhone);
     }
 
     [Fact]
     public async Task RecoverPhone_Within24Hours_ShouldRevertPhoneNumberAndSecurityStampAsync()
     {
         using var dbContext = CreateDbContext();
+        var recoverLogger = new CapturingLogger<RecoverPhoneHandler>();
         var recoverHandler = new RecoverPhoneHandler(
-            dbContext, _tokenService, _smsAlertService, _clock, NullLogger<RecoverPhoneHandler>.Instance);
+            dbContext, _tokenService, _smsAlertService, _clock, recoverLogger);
 
         var oldPhone = "+201011112222";
         var newPhone = "+201099998888";
@@ -213,6 +229,14 @@ public sealed class PhoneChangeTests
         var userInDb = await dbContext.Users.FirstAsync(u => u.Id == user.Id);
         userInDb.PhoneNumber.Should().Be(oldPhone);
         userInDb.SecurityStamp.Should().NotBe(postChangeSecurityStamp);
+
+        _smsAlertService.LastRecipient.Should().Be(oldPhone);
+        _smsAlertService.LastAlert!.Kind.Should().Be(SecurityAlertKind.PhoneRestored);
+
+        recoverLogger.Entries.Should().NotBeEmpty();
+        recoverLogger.AllText.Should().NotContain(oldPhone)
+            .And.NotContain(newPhone)
+            .And.NotContain(recoveryTokenRaw);
     }
 
     [Fact]
@@ -263,22 +287,30 @@ public sealed class PhoneChangeTests
         recoverValidator.Validate(new RecoverPhoneCommand("")).IsValid.Should().BeFalse();
     }
 
-    private static string ExtractCodeFromMessage(string message)
+    private sealed class RecordingOtpSender : IOtpSender
     {
-        // Extracts the 6-digit number in the SMS message
-        var match = System.Text.RegularExpressions.Regex.Match(message, @"\b\d{6}\b");
-        return match.Success ? match.Value : string.Empty;
+        public string LastRecipient { get; private set; } = string.Empty;
+        public string LastCode { get; private set; } = string.Empty;
+        public OtpPurpose? LastPurpose { get; private set; }
+
+        public Task<bool> SendAsync(string phoneNumber, string code, OtpPurpose purpose, TimeSpan validity, CancellationToken cancellationToken = default)
+        {
+            LastRecipient = phoneNumber;
+            LastCode = code;
+            LastPurpose = purpose;
+            return Task.FromResult(true);
+        }
     }
 
     private sealed class RecordingSmsAlertService : ISmsAlertService
     {
         public string LastRecipient { get; private set; } = string.Empty;
-        public string LastMessage { get; private set; } = string.Empty;
+        public SecurityAlert? LastAlert { get; private set; }
 
-        public Task SendSecurityAlertAsync(string phoneNumber, string message, CancellationToken cancellationToken = default)
+        public Task SendSecurityAlertAsync(string phoneNumber, SecurityAlert alert, CancellationToken cancellationToken = default)
         {
             LastRecipient = phoneNumber;
-            LastMessage = message;
+            LastAlert = alert;
             return Task.CompletedTask;
         }
     }
@@ -298,22 +330,5 @@ public sealed class PhoneChangeTests
         public TimeZoneInfo CairoTimeZone => _cairoZone;
 
         public void Advance(TimeSpan duration) => UtcNow = UtcNow.Add(duration);
-    }
-
-    private sealed class TestConfiguration : IConfiguration
-    {
-        private readonly Dictionary<string, string?> _data;
-
-        public TestConfiguration(Dictionary<string, string?> data) => _data = data;
-
-        public string? this[string key]
-        {
-            get => _data.TryGetValue(key, out var val) ? val : null;
-            set => _data[key] = value;
-        }
-
-        public IEnumerable<IConfigurationSection> GetChildren() => [];
-        public Microsoft.Extensions.Primitives.IChangeToken GetReloadToken() => throw new NotSupportedException();
-        public IConfigurationSection GetSection(string key) => throw new NotSupportedException();
     }
 }

@@ -64,16 +64,21 @@ Malabak.sln
 | Admin Dashboard | http://localhost:3001 | scaffold only — no pages yet |
 | Backend API + Swagger | http://localhost:5000/swagger | `dotnet run --project src/Malabak.Api` |
 | PostgreSQL | `localhost:5432` | `docker compose up -d` |
+| Redis (TLS only) | `localhost:6379` | `docker compose up -d` |
 | pgAdmin | http://localhost:5050 | `docker compose up -d` |
 | Seq (structured logs) | http://localhost:5341 | `docker compose up -d` |
 | Mailpit (fake SMTP UI) | http://localhost:8025 (SMTP on `1025`) | `docker compose up -d` |
 
 ### Prerequisites
-- [.NET 9 SDK](https://dotnet.microsoft.com/)
+- [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0) (LTS)
 - [Node.js 20+](https://nodejs.org/) and **pnpm 9** (the version pinned in `web/package.json`)
 - [Docker & Docker Compose](https://www.docker.com/)
 
 ### 1. Start local infrastructure
+Redis only accepts TLS, also locally. Create the local dev CA and Redis certificate once per machine (they go to the git-ignored `docker/redis/tls/`), then start the containers:
+```bash
+./scripts/generate-dev-certs.sh
+```
 ```bash
 docker compose up -d
 ```
@@ -85,11 +90,37 @@ dotnet restore
 dotnet build --warnaserror
 dotnet test
 ```
+Integration tests start their own throwaway PostgreSQL 17 and Redis containers (Testcontainers), so Docker must be running; they don't use the compose services or any committed credentials. To reuse already-running services instead, set `MALABAK_TEST_POSTGRES` and `MALABAK_TEST_REDIS` to their connection strings.
 
 ### 3. Backend — run the API
+Connection strings are not stored in the repo (see `SECURITY.md`). Store the local ones in .NET User Secrets once per machine — the script uses the same values as `docker-compose.yml`:
+```bash
+./scripts/setup-dev-secrets.sh
+```
+Then run:
 ```bash
 dotnet run --project src/Malabak.Api
 ```
+
+#### OTP codes in Slack (until an SMS provider is integrated)
+No SMS provider is connected yet, so login and phone-change codes can be posted to a Slack channel instead. By default no channel is configured and `/auth/otp/send` returns **503** (fail closed); codes are never written to the logs.
+
+1. In Slack, create an app with an **Incoming Webhook** for a private channel (e.g. `#malabak-otp`) that only the team can see.
+2. Store the webhook in User Secrets — it is a credential, never put it in `appsettings*.json`:
+   ```bash
+   dotnet user-secrets set "Identity:OtpDelivery:Provider" "Slack" --project src/Malabak.Api
+   ```
+   ```bash
+   dotnet user-secrets set "Identity:OtpDelivery:Slack:WebhookUrl" "https://hooks.slack.com/services/…" --project src/Malabak.Api
+   ```
+   On staging, set `Identity__OtpDelivery__Provider=Slack` and `Identity__OtpDelivery__Slack__WebhookUrl` from the secret store.
+
+Each message shows the masked number (`+2010•••••678`), the purpose, the code and its validity. **The API refuses to start with the Slack provider in Production**: everyone in the channel could read every code and sign in as anyone.
+
+The same setting delivers security alerts (phone changed, phone restored, new-device sign-in, staff invitations without an email) to the same channel, with masked numbers and the recovery or invitation link. With no channel configured, alerts are dropped and only their kind is logged — never the number, the message or a token. Step-up codes (`POST /auth/step-up/otp`) use the same channel.
+
+#### OTP codes over SMS
+`Identity:OtpDelivery:Provider` = `Sms` sends codes and alerts through the SMS gateway (`Sms` section): Egypt-only allow-list, daily/monthly spend caps, and failover across the Twilio accounts listed in `Sms:Providers`. Twilio credentials go in the secret store, never in `appsettings*.json`. In Development with no `Sms:Providers` configured, messages are delivered to the local Mailpit inbox (http://localhost:8025) as `sms+NUMBER@malabak.local`. If every provider fails or a cap is reached, OTP requests return **503**.
 Swagger / OpenAPI: http://localhost:5000/swagger
 
 **Field-encryption keys (optional locally, required outside Development).** Without them the API generates throwaway keys on every start, so anything encrypted can't be read after a restart. To keep encrypted data across restarts, put random 32-byte keys in User Secrets (never in `appsettings`):
@@ -138,6 +169,10 @@ pnpm lint
 - **Pages show "Internal Server Error" or load without styles** — a `next build` was run while `next dev` was running for the same app; both write to that app's `.next/` folder. Stop the dev server, delete the app's `.next/` folder, and start it again:
   ```bash
   rm -rf web/apps/venue/.next
+  ```
+- **Redis connection fails after pulling the TLS change** — your Redis container still runs without TLS. Run `./scripts/generate-dev-certs.sh`, then `docker compose up -d redis` and `./scripts/setup-dev-secrets.sh`. Check it with:
+  ```bash
+  docker exec malabak-redis redis-cli --tls --cacert /tls/ca.crt -a malabak_dev_redis_password --no-auth-warning ping
   ```
 - **Port already in use** — another dev server is still running on that port. Stop it, or check what holds it with `ss -ltnp | grep :3000`.
 

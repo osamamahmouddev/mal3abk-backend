@@ -8,8 +8,8 @@ using Malabak.Modules.Identity.Infrastructure.Services;
 using Malabak.SharedKernel;
 using Malabak.SharedKernel.Security;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 using Xunit;
 
 namespace Malabak.UnitTests;
@@ -20,16 +20,9 @@ public sealed class StepUpTests
 
     private readonly MutableClock _clock = new();
     private readonly Pbkdf2PasswordHasher _hasher = new();
-    private readonly CapturingSms _sms = new();
-    private readonly IConfiguration _config = new ConfigurationBuilder()
-        .AddInMemoryCollection(new Dictionary<string, string?>
-        {
-            ["Security:StepUp:SecretKey"] = "step-up-test-secret-0123456789",
-            ["Security:Otp:HmacSecret"] = "otp-test-secret-0123456789"
-        })
-        .Build();
+    private readonly CapturingOtpSender _sms = new();
 
-    private StepUpService Service() => new(_config, _clock);
+    private StepUpService Service() => new(Options.Create(new StepUpOptions { SecretKey = TestSecrets.StepUpSecretKey }), _clock);
 
     [Fact]
     public void Token_IsScopedToUserAndScope_AndExpiresAfter5Minutes()
@@ -112,6 +105,7 @@ public sealed class StepUpTests
 
         (await handlers.HandleAsync(new SendStepUpOtpCommand(user.Id))).IsSuccess.Should().BeTrue();
         _sms.LastPhone.Should().Be(user.PhoneNumber);
+        _sms.LastPurpose.Should().Be(OtpPurpose.StepUp);
         var code = _sms.LastCode();
 
         (await handlers.HandleAsync(new VerifyStepUpCommand(user.Id, StepUpScopes.ChangePhone, StepUpMethod.Otp, code))).IsSuccess.Should().BeTrue();
@@ -140,25 +134,27 @@ public sealed class StepUpTests
     }
 
     private StepUpHandlers Handlers(IdentityDbContext db) => new(
-        db, Service(), _hasher, new TotpService(), new NoCipher(), new InMemoryOtpStore(), new OtpSecurityService(_config), _sms, _clock,
+        db, Service(), _hasher, new TotpService(), new NoCipher(), new InMemoryOtpStore(), new OtpSecurityService(Options.Create(new OtpSecurityOptions { HmacSecret = TestSecrets.OtpHmacSecret })), _sms, _clock,
         NullLogger<StepUpHandlers>.Instance);
 
     private static IdentityDbContext NewDb() =>
         new(new DbContextOptionsBuilder<IdentityDbContext>().UseInMemoryDatabase(Guid.NewGuid().ToString()).Options);
 
-    private sealed class CapturingSms : ISmsAlertService
+    private sealed class CapturingOtpSender : IOtpSender
     {
         public string? LastPhone { get; private set; }
-        private string _lastMessage = string.Empty;
+        public OtpPurpose? LastPurpose { get; private set; }
+        private string _lastCode = string.Empty;
 
-        public Task SendSecurityAlertAsync(string phoneNumber, string message, CancellationToken cancellationToken = default)
+        public Task<bool> SendAsync(string phoneNumber, string code, OtpPurpose purpose, TimeSpan validity, CancellationToken cancellationToken = default)
         {
             LastPhone = phoneNumber;
-            _lastMessage = message;
-            return Task.CompletedTask;
+            LastPurpose = purpose;
+            _lastCode = code;
+            return Task.FromResult(true);
         }
 
-        public string LastCode() => new(_lastMessage.Where(char.IsAsciiDigit).Take(6).ToArray());
+        public string LastCode() => _lastCode;
     }
 
     private sealed class NoCipher : IFieldCipher

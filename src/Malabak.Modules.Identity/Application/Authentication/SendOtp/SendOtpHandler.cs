@@ -10,23 +10,23 @@ public sealed class SendOtpHandler : ICommandHandler<SendOtpCommand, Result<Send
     private readonly ITurnstileValidator _turnstileValidator;
     private readonly IOtpSecurityService _securityService;
     private readonly IOtpStore _otpStore;
+    private readonly IOtpSender _otpSender;
     private readonly ILogger<SendOtpHandler> _logger;
-    private readonly ISmsGateway? _sms;
 
     public SendOtpHandler(
         IPhoneNumberNormalizer normalizer,
         ITurnstileValidator turnstileValidator,
         IOtpSecurityService securityService,
         IOtpStore otpStore,
-        ILogger<SendOtpHandler> logger,
-        ISmsGateway? sms = null)
+        IOtpSender otpSender,
+        ILogger<SendOtpHandler> logger)
     {
         _normalizer = normalizer;
         _turnstileValidator = turnstileValidator;
         _securityService = securityService;
         _otpStore = otpStore;
+        _otpSender = otpSender;
         _logger = logger;
-        _sms = sms;
     }
 
     public async Task<Result<SendOtpResponse>> HandleAsync(
@@ -75,27 +75,21 @@ public sealed class SendOtpHandler : ICommandHandler<SendOtpCommand, Result<Send
 
         // 5. Store in Redis with 5-minute TTL and 5 verification attempts limit
         const int ttlMinutes = 5;
+        var validity = TimeSpan.FromMinutes(ttlMinutes);
         await _otpStore.SaveOtpAsync(
             normalizedPhone,
             hmacHash,
-            TimeSpan.FromMinutes(ttlMinutes),
+            validity,
             maxVerificationAttempts: 5,
             cancellationToken);
 
-        // 6. Deliver it (country allow-list, spend caps and failover live in the gateway).
-        if (_sms is not null)
+        // 6. Deliver the code. Neither the code nor the phone number is logged (SECURITY.md §13).
+        if (!await _otpSender.SendAsync(normalizedPhone, code, OtpPurpose.Login, validity, cancellationToken))
         {
-            var outcome = await _sms.SendOtpAsync(normalizedPhone, code, cancellationToken);
-            if (outcome != SmsSendOutcome.Sent)
-            {
-                return Result.Failure<SendOtpResponse>(new Error(
-                    "Identity.OtpDeliveryFailed",
-                    "We couldn't send a verification code right now. Please try again later."));
-            }
+            return Result.Failure<SendOtpResponse>(OtpDeliveryErrors.DeliveryFailed);
         }
 
-        // Never log the code itself (SECURITY.md §15.5).
-        _logger.LogInformation("Generated OTP with 5-minute validity");
+        _logger.LogInformation("Login OTP issued with {TtlMinutes}-minute validity.", ttlMinutes);
 
         return Result.Success(new SendOtpResponse(
             normalizedPhone,

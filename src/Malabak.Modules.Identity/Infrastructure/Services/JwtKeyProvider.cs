@@ -20,6 +20,8 @@ public sealed class JwtKeyProvider : IJwtKeyProvider, IDisposable
 
         _currentEcdsa = ECDsa.Create(ECCurve.NamedCurves.nistP256);
 
+        // An empty key is refused at startup outside Development/Testing (IdentityModule); locally each
+        // process signs with a throwaway key, so tokens do not survive a restart.
         if (!string.IsNullOrWhiteSpace(opts.PrivateKeyPem))
         {
             _currentEcdsa.ImportFromPem(opts.PrivateKeyPem);

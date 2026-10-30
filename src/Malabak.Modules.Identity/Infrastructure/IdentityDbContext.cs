@@ -1,11 +1,14 @@
 using Malabak.Modules.Identity.Domain;
+using Malabak.SharedKernel;
+using Malabak.SharedKernel.Persistence;
 using Microsoft.EntityFrameworkCore;
 
 namespace Malabak.Modules.Identity.Infrastructure;
 
-public sealed class IdentityDbContext : DbContext
+public sealed class IdentityDbContext : BaseDbContext
 {
     public const string Schema = "identity";
+    public override string ModuleSchema => Schema;
 
     public DbSet<User> Users => Set<User>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
@@ -17,14 +20,14 @@ public sealed class IdentityDbContext : DbContext
     public DbSet<EmailSuppression> EmailSuppressions => Set<EmailSuppression>();
     public DbSet<UserConsent> UserConsents => Set<UserConsent>();
 
-    public IdentityDbContext(DbContextOptions<IdentityDbContext> options)
-        : base(options)
+    public IdentityDbContext(DbContextOptions<IdentityDbContext> options, IClock? clock = null)
+        : base(options, clock)
     {
     }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        modelBuilder.HasDefaultSchema(Schema);
+        base.OnModelCreating(modelBuilder);
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(IdentityDbContext).Assembly);
     }
 }

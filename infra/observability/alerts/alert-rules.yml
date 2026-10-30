@@ -1,0 +1,120 @@
+# ==============================================================================
+# Malabak Alerting Rules & Security Signals
+# Every rule contains an actionable runbook_url per TASK-116 requirements.
+# ==============================================================================
+
+groups:
+  - name: MalabakApiAlerts
+    rules:
+      # 1. 5xx Server Error Rate Spike
+      - alert: High5xxErrorRate
+        expr: (sum(rate(http_server_request_duration_seconds_count{status=~"5.."}[5m])) / sum(rate(http_server_request_duration_seconds_count[5m]))) * 100 > 1
+        for: 2m
+        labels:
+          severity: critical
+          service: api
+        annotations:
+          summary: "High HTTP 5xx error rate detected (> 1% for 2m)"
+          description: "API is returning 5xx responses for {{ $value | printf \"%.2f\" }}% of requests over the last 5 minutes."
+          runbook_url: "https://github.com/osamamahmouddev/mal3abk-backend/blob/main/docs/runbooks/api-5xx-incident-runbook.md"
+
+      # 2. 401 / 403 Spike (Credential Stuffing or Token Expiration)
+      - alert: UnauthorizedOrForbiddenSpike
+        expr: sum(rate(http_server_request_duration_seconds_count{status=~"401|403"}[5m])) > 50
+        for: 2m
+        labels:
+          severity: warning
+          service: api
+          category: security
+        annotations:
+          summary: "Spike in HTTP 401/403 responses detected (> 50/min)"
+          description: "Elevated unauthorized/forbidden responses may indicate credential stuffing or an expired client signing key."
+          runbook_url: "https://github.com/osamamahmouddev/mal3abk-backend/blob/main/docs/runbooks/auth-anomaly-incident-runbook.md"
+
+      # 3. 429 Rate Limit Trigger Spike
+      - alert: RateLimitTriggerSpike
+        expr: sum(rate(http_server_request_duration_seconds_count{status="429"}[5m])) > 30
+        for: 2m
+        labels:
+          severity: warning
+          service: api
+          category: rate-limit
+        annotations:
+          summary: "Rate limiter threshold triggered frequently (> 30/min)"
+          description: "Clients are frequently hitting HTTP 429 Too Many Requests. May indicate scraper or bot crawl targeting bookings."
+          runbook_url: "https://github.com/osamamahmouddev/mal3abk-backend/blob/main/docs/runbooks/rate-limit-investigation-runbook.md"
+
+      # 4. OTP Generation Volume Spike (SMS Toll Fraud / Flooding)
+      - alert: OtpVolumeSpike
+        expr: sum(rate(http_server_request_duration_seconds_count{http_route="/api/v1/auth/send-otp"}[5m])) * 60 > 100
+        for: 1m
+        labels:
+          severity: critical
+          service: auth
+          category: fraud
+        annotations:
+          summary: "Abnormal OTP generation volume detected (> 100 OTPs/min)"
+          description: "Elevated OTP requests indicate SMS toll fraud or SMS bombing attack. Potential financial loss on SMS provider bill."
+          runbook_url: "https://github.com/osamamahmouddev/mal3abk-backend/blob/main/docs/runbooks/sms-toll-fraud-runbook.md"
+
+      # 5. Refresh Token Reuse Breach
+      - alert: RefreshTokenReuseDetected
+        expr: sum(increase(malabak_security_refresh_token_reuse_total[5m])) > 0
+        for: 0m
+        labels:
+          severity: critical
+          service: identity
+          category: breach
+        annotations:
+          summary: "Stolen refresh token reuse detected! Account family revoked."
+          description: "A revoked or previously rotated refresh token was presented by an unauthorized client. Possible token theft."
+          runbook_url: "https://github.com/osamamahmouddev/mal3abk-backend/blob/main/docs/runbooks/token-compromise-runbook.md"
+
+      # 6. Outbox Backlog Lag
+      - alert: OutboxBacklogLag
+        expr: malabak_outbox_unprocessed_messages > 500
+        for: 5m
+        labels:
+          severity: high
+          service: messaging
+        annotations:
+          summary: "Transactional Outbox backlog has exceeded 500 unprocessed events for > 5 minutes."
+          description: "Outbox publisher may be stuck, down, or facing database serialization lock contention."
+          runbook_url: "https://github.com/osamamahmouddev/mal3abk-backend/blob/main/docs/runbooks/outbox-backlog-runbook.md"
+
+      # 7. Hangfire Background Job Failures
+      - alert: HangfireJobFailures
+        expr: sum(increase(malabak_hangfire_failed_jobs_total[5m])) > 5
+        for: 2m
+        labels:
+          severity: high
+          service: hangfire
+        annotations:
+          summary: "Hangfire background jobs failing repeatedly (> 5 in 5m)"
+          description: "Scheduled recurring jobs or transactional outbox processors are encountering fatal exceptions."
+          runbook_url: "https://github.com/osamamahmouddev/mal3abk-backend/blob/main/docs/runbooks/hangfire-troubleshooting-runbook.md"
+
+      # 8. WebSocket Connection Drop Spike (SignalR)
+      - alert: WebSocketConnectionDropSpike
+        expr: sum(rate(signalr_disconnected_connections_total[5m])) > 50
+        for: 2m
+        labels:
+          severity: high
+          service: realtime
+        annotations:
+          summary: "Abnormal SignalR WebSocket disconnect rate (> 50 drops/min)"
+          description: "Mass client disconnections observed. Potential network partition or host crash."
+          runbook_url: "https://github.com/osamamahmouddev/mal3abk-backend/blob/main/docs/runbooks/signalr-reconnection-runbook.md"
+
+      # 9. High SMS Cost Rate
+      - alert: HighSmsCostRate
+        expr: sum(rate(malabak_notifications_sms_sent_total[1h])) * 3600 * 0.05 > 50 # > $50/hour
+        for: 15m
+        labels:
+          severity: high
+          service: notifications
+          category: cost
+        annotations:
+          summary: "SMS burn rate exceeds $50 USD per hour"
+          description: "SMS delivery volume has escalated rapidly, creating severe cost spikes on VictoryLink/Twilio."
+          runbook_url: "https://github.com/osamamahmouddev/mal3abk-backend/blob/main/docs/runbooks/sms-cost-containment-runbook.md"

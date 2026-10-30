@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using Asp.Versioning.Builder;
 using Malabak.Api.Infrastructure.Authorization;
+using Malabak.Modules.Identity.Application.Common;
 using Malabak.Modules.Identity.Application.StepUp;
 using Malabak.SharedKernel;
 using Microsoft.AspNetCore.Mvc;
@@ -41,6 +42,7 @@ public static class StepUpEndpoints
         {
             "Identity.LoginThrottled" or "Identity.OtpRateLimitExceeded" => StatusCodes.Status429TooManyRequests,
             "Identity.StepUpFailed" => StatusCodes.Status401Unauthorized,
+            OtpDeliveryErrors.DeliveryFailedCode => StatusCodes.Status503ServiceUnavailable,
             _ => StatusCodes.Status400BadRequest
         };
         return Results.Problem(title: error.Code, detail: error.Description, statusCode: status);

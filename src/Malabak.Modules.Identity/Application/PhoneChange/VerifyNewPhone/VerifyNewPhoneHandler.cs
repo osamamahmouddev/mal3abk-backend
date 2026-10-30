@@ -129,22 +129,21 @@ public sealed class VerifyNewPhoneHandler : ICommandHandler<VerifyNewPhoneComman
             await transaction.CommitAsync(cancellationToken);
         }
 
-        // 4. Dispatch SMS alert to OLD phone with 24-hour recovery link
+        // 4. Alert the OLD phone with a 24-hour recovery link. The link carries a live token and the
+        // numbers are PII, so neither goes to the logs (SECURITY.md §15.5).
         var recoveryLink = $"https://malabak.app/recover-phone?token={recoveryTokenRaw}";
-        var alertMessage = $"Your Malabak account phone number was changed to {request.NewPhoneNumber}. If you did not make this change, restore your account within 24 hours: {recoveryLink}";
 
         await _smsAlertService.SendSecurityAlertAsync(
             request.OldPhoneNumber,
-            alertMessage,
+            SecurityAlert.PhoneChanged(request.NewPhoneNumber, recoveryLink),
             cancellationToken);
 
         _logger.LogInformation(
-            "Phone number successfully changed for user {UserId} from {OldPhone} to {NewPhone}. Recovery link sent to old phone.",
-            user.Id,
-            request.OldPhoneNumber,
-            request.NewPhoneNumber);
+            "Phone change request {RequestId} completed for user {UserId}. Recovery alert sent to the old phone.",
+            request.Id,
+            user.Id);
 
-        return Result.Success(new VerifyNewPhoneResponse(true, request.NewPhoneNumber, recoveryTokenRaw));
+        return Result.Success(new VerifyNewPhoneResponse(true, request.NewPhoneNumber));
     }
 
     private static string GenerateSecureRecoveryToken()

@@ -5,6 +5,7 @@ using Malabak.Modules.Identity.Application.Authentication.LogoutAll;
 using Malabak.Modules.Identity.Application.Authentication.RefreshToken;
 using Malabak.Modules.Identity.Application.Authentication.SendOtp;
 using Malabak.Modules.Identity.Application.Authentication.VerifyOtp;
+using Malabak.Modules.Identity.Application.Common;
 using Malabak.SharedKernel;
 using Microsoft.AspNetCore.Mvc;
 
@@ -34,7 +35,12 @@ public static class AuthEndpoints
                 return Results.Problem(
                     title: result.Error.Code,
                     detail: result.Error.Description,
-                    statusCode: result.Error.Code.Contains("RateLimit") ? StatusCodes.Status429TooManyRequests : StatusCodes.Status400BadRequest);
+                    statusCode: result.Error.Code switch
+                    {
+                        OtpDeliveryErrors.DeliveryFailedCode => StatusCodes.Status503ServiceUnavailable,
+                        var code when code.Contains("RateLimit") => StatusCodes.Status429TooManyRequests,
+                        _ => StatusCodes.Status400BadRequest,
+                    });
             }
 
             return Results.Ok(result.Value);
