@@ -20,6 +20,9 @@ build/
 bld/
 [Bb]in/
 [Oo]bj/
+monsterasp_publish/
+publish/
+*.zip
 
 # User-specific files
 *.rsuser

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { Suspense, useState, useTransition } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { muted, redShadow } from "@/components/ui";
@@ -13,7 +14,9 @@ const fieldClass =
 
 /** Only same-site paths, so `?next=` can't send the user to another site after sign-in. */
 function safeNext(next: string | null): string {
-  return next && next.startsWith("/") && !next.startsWith("//") ? next : "/overview";
+  const fallback = "/venue/overview";
+  const target = next && next.startsWith("/") && !next.startsWith("//") ? next : fallback;
+  return target.startsWith("/venue") ? target : `/venue${target}`;
 }
 
 export default function LoginPage() {
@@ -84,8 +87,15 @@ function LoginView() {
           <rect x="705" y="200" width="45" height="120" />
         </svg>
         <div className="flex items-center gap-2.5">
-          <span className="text-[32px] font-bold">ملعبك</span>
-          <span className="text-xs font-bold text-navy-900 bg-brand-gold rounded-md px-2.5 py-[3px]">للملاعب</span>
+          <Image
+            src="/images/logo-horizontal-darkbg.svg"
+            alt="ملعبك"
+            width={140}
+            height={50}
+            className="h-10 w-auto object-contain"
+            priority
+          />
+          <span className="text-xs font-bold text-navy-900 bg-brand-gold rounded-md px-2.5 py-[3px] whitespace-nowrap">للملاعب</span>
         </div>
         <div className="flex flex-col gap-[18px] max-w-[460px]">
           <h1 className="text-[28px] leading-[40px] sm:text-[38px] sm:leading-[54px] font-bold">كل حجوزات ملعبك في مكان واحد.</h1>

@@ -16,4 +16,10 @@ public sealed class DatabaseOptions
     public int CommandTimeoutSeconds { get; set; } = 30;
 
     public bool EnableSensitiveDataLogging { get; set; }
+
+    /// <summary>
+    /// Applies pending migrations when the API starts. For hosts without a release step/terminal
+    /// (e.g. MonsterASP, Render free tier); off by default.
+    /// </summary>
+    public bool MigrateOnStartup { get; set; }
 }

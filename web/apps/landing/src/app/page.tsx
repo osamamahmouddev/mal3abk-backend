@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { Faq } from "@/components/Faq";
 import { FAQ_ITEMS } from "@/components/faqItems";
 import { JoinForm } from "@/components/JoinForm";
@@ -86,10 +87,14 @@ export default function LandingPage() {
           <div className="wrap">
             <nav className="nav" aria-label="الرئيسية">
               <a href="#" className="brand" aria-label="ملعبك — الرئيسية">
-                <span className="brand-ar">ملعبك</span>
-                <span className="brand-en" dir="ltr">
-                  Mal<span>3</span>abak
-                </span>
+                <Image
+                  src="/images/logo-horizontal-darkbg.svg"
+                  alt="ملعبك"
+                  width={150}
+                  height={54}
+                  className="h-10 w-auto object-contain"
+                  priority
+                />
               </a>
               <div className="nav-links">
                 <a href="#how">إزاي بيشتغل</a>
@@ -419,7 +424,13 @@ export default function LandingPage() {
         <div className="wrap">
           <footer className="foot">
             <span>
-              <b className="foot-brand">ملعبك</b>
+              <Image
+                src="/images/logo-horizontal-darkbg.svg"
+                alt="ملعبك"
+                width={130}
+                height={46}
+                className="h-8 w-auto object-contain mb-2"
+              />
               <span>احجز ملعبك في دقيقة. معمول في مصر للي بيلعب كورة.</span>
             </span>
             <span>

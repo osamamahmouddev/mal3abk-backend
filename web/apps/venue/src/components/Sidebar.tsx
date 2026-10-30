@@ -1,6 +1,7 @@
 "use client";
 
 import React, { memo } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
@@ -68,9 +69,16 @@ export const Sidebar: React.FC<SidebarProps> = memo(({ user, onClose }) => {
         onClose ? "h-full overflow-y-auto" : "min-h-screen"
       }`}
     >
-      <div className="flex items-center gap-2.5 px-2">
-        <span className="text-[26px] font-bold tracking-[-0.5px]">ملعبك</span>
-        <span className="text-[11px] font-semibold text-navy-900 bg-brand-gold rounded-md px-2 py-0.5">
+      <div className="flex items-center gap-2 px-2">
+        <Image
+          src="/images/logo-horizontal-darkbg.svg"
+          alt="ملعبك"
+          width={120}
+          height={44}
+          className="h-8 w-auto object-contain"
+          priority
+        />
+        <span className="text-[11px] font-semibold text-navy-900 bg-brand-gold rounded-md px-2 py-0.5 whitespace-nowrap">
           للملاعب
         </span>
         {onClose && (

@@ -10,6 +10,7 @@ const securityHeaders = [
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  basePath: "/admin",
   reactStrictMode: true,
   poweredByHeader: false,
   transpilePackages: ["@malabak/ui", "@malabak/api-client", "@malabak/i18n", "@malabak/bff"],

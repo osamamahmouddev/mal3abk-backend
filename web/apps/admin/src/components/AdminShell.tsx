@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
@@ -25,12 +26,19 @@ const NAV: { title: string; href: string; badge?: string }[] = [
   { title: "سجل التدقيق", href: "/audit" },
 ];
 
-function Brand({ size = "text-[26px]" }: { size?: string }) {
+function Brand({ height = "h-8" }: { height?: string; size?: string }) {
   return (
-    <>
-      <span className={`${size} font-bold tracking-[-0.5px]`}>ملعبك</span>
-      <span className="text-[11px] font-bold text-white bg-brand-red rounded-md px-2 py-0.5">الإدارة</span>
-    </>
+    <div className="flex items-center gap-2">
+      <Image
+        src="/images/logo-horizontal-darkbg.svg"
+        alt="ملعبك"
+        width={120}
+        height={44}
+        className={`${height} w-auto object-contain`}
+        priority
+      />
+      <span className="text-[11px] font-bold text-white bg-brand-red rounded-md px-2 py-0.5 whitespace-nowrap">الإدارة</span>
+    </div>
   );
 }
 
@@ -147,7 +155,7 @@ export function AdminShell({ children, user }: { children: React.ReactNode; user
             <path d="M4 7h16M4 12h16M4 17h16" />
           </svg>
         </button>
-        <Brand size="text-xl" />
+        <Brand height="h-7" />
       </header>
 
       {/* Mobile / tablet drawer */}

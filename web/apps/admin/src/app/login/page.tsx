@@ -1,6 +1,7 @@
 "use client";
 
 import React, { Suspense, useState, useTransition } from "react";
+import Image from "next/image";
 import { useSearchParams } from "next/navigation";
 import { QRCodeSVG } from "qrcode.react";
 import { inputClass, muted, redShadow } from "@/components/ui";
@@ -31,7 +32,9 @@ function AdminLogin() {
 
   const next = () => {
     const target = params.get("next");
-    window.location.assign(target && target.startsWith("/") && !target.startsWith("//") ? target : "/overview");
+    const fallback = "/admin/overview";
+    const dest = target && target.startsWith("/") && !target.startsWith("//") ? target : fallback;
+    window.location.assign(dest.startsWith("/admin") ? dest : `/admin${dest}`);
   };
 
   const submitCreds = (e: React.FormEvent) => {
@@ -99,8 +102,15 @@ function AdminLogin() {
     >
       <main className="w-full max-w-[440px] bg-white rounded-3xl p-8 flex flex-col gap-4 shadow-[0_30px_60px_-30px_rgba(0,0,0,0.6)]">
         <div className="flex items-center gap-2.5">
-          <span className="text-[28px] font-bold text-ink">ملعبك</span>
-          <span className="text-[11px] font-bold text-white bg-brand-red rounded-md px-2 py-0.5">الإدارة</span>
+          <Image
+            src="/images/logo-horizontal.svg"
+            alt="ملعبك"
+            width={130}
+            height={46}
+            className="h-8 w-auto object-contain"
+            priority
+          />
+          <span className="text-[11px] font-bold text-white bg-brand-red rounded-md px-2 py-0.5 whitespace-nowrap">الإدارة</span>
         </div>
 
         {step === "creds" ? (

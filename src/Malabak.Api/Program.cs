@@ -251,6 +251,18 @@ if (args.Contains("--migrate"))
     return;
 }
 
+// Hosts without a release step or terminal (e.g. MonsterASP, Render free tier) migrate on startup instead; off by default.
+if (app.Configuration.GetValue<bool>("Database:MigrateOnStartup"))
+{
+    using var scope = app.Services.CreateScope();
+    await scope.ServiceProvider.GetRequiredService<IdentityDbContext>().Database.MigrateAsync();
+    await scope.ServiceProvider.GetRequiredService<VenuesDbContext>().Database.MigrateAsync();
+    await scope.ServiceProvider.GetRequiredService<BookingDbContext>().Database.MigrateAsync();
+    await scope.ServiceProvider.GetRequiredService<MediaDbContext>().Database.MigrateAsync();
+    await scope.ServiceProvider.GetRequiredService<NotificationsDbContext>().Database.MigrateAsync();
+    await scope.ServiceProvider.GetRequiredService<SecurityDbContext>().Database.MigrateAsync();
+}
+
 // CLI Data Seeding Commands
 if (args.Contains("--seed-reference"))
 {

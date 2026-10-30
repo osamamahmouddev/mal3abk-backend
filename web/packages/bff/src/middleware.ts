@@ -12,7 +12,8 @@ export function createAuthMiddleware(config: BffConfig, publicPaths: string[]) {
       return NextResponse.next();
     }
     if (!request.cookies.has(sessionCookieName(config))) {
-      const url = new URL(config.loginPath, request.url);
+      const url = request.nextUrl.clone();
+      url.pathname = config.loginPath;
       url.searchParams.set("next", pathname + search);
       return NextResponse.redirect(url);
     }

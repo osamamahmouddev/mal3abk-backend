@@ -1,6 +1,7 @@
 "use client";
 
 import React, { Suspense, useEffect, useState } from "react";
+import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import type { SessionUser } from "@malabak/bff/server";
 import { Sidebar } from "./Sidebar";
@@ -77,8 +78,15 @@ export const AppShell: React.FC<AppShellProps> = ({ children, user }) => {
             <path d="M4 7h16M4 12h16M4 17h16" />
           </svg>
         </button>
-        <span className="text-xl font-bold">ملعبك</span>
-        <span className="text-[11px] font-semibold text-navy-900 bg-brand-gold rounded-md px-2 py-0.5">للملاعب</span>
+        <Image
+          src="/images/logo-horizontal-darkbg.svg"
+          alt="ملعبك"
+          width={110}
+          height={40}
+          className="h-7 w-auto object-contain"
+          priority
+        />
+        <span className="text-[11px] font-semibold text-navy-900 bg-brand-gold rounded-md px-2 py-0.5 whitespace-nowrap">للملاعب</span>
       </header>
 
       {/* Mobile / tablet drawer */}

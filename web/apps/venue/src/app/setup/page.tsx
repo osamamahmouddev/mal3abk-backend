@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { Schemas } from "@malabak/api-client";
@@ -93,8 +94,15 @@ export default function SetupPage() {
   return (
     <div dir="rtl" className="w-full min-h-screen bg-surface text-slate-900 flex flex-col">
       <header className="bg-white border-b border-[#EDF0F5] px-4 sm:px-8 py-4 flex items-center gap-x-4 gap-y-2 flex-wrap">
-        <span className="text-2xl font-bold">ملعبك</span>
-        <span className="text-[11px] font-bold text-navy-900 bg-brand-gold rounded-md px-2 py-0.5">للملاعب</span>
+        <Image
+          src="/images/logo-horizontal.svg"
+          alt="ملعبك"
+          width={120}
+          height={44}
+          className="h-8 w-auto object-contain"
+          priority
+        />
+        <span className="text-[11px] font-bold text-navy-900 bg-brand-gold rounded-md px-2 py-0.5 whitespace-nowrap">للملاعب</span>
         <span className="flex-1" />
         {venueId && (
           <Link href="/overview" className="text-sm font-semibold text-navy-900 underline">
