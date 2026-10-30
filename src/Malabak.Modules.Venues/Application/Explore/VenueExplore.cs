@@ -103,9 +103,14 @@ public sealed partial class VenueExplore
     public const double MaxBoundsSpanDegrees = 2;
     public const int MaxMapPins = 200;
 
+    /// <summary>Availability computations one request may trigger in total (date filter, next slot, suggestions).</summary>
+    public const int AvailabilityBudgetPerRequest = 120;
+    public const int MaxTextFilterLength = 100;
+
     private readonly VenuesDbContext _dbContext;
     private readonly CachedVenueAvailability _availability;
     private readonly IClock _clock;
+    private int _availabilityBudget = AvailabilityBudgetPerRequest;
 
     public VenueExplore(VenuesDbContext dbContext, CachedVenueAvailability availability, IClock clock)
     {
@@ -301,12 +306,16 @@ public sealed partial class VenueExplore
             .Select(g => new { VenueId = g.Key, Count = g.Count() })
             .ToListAsync(cancellationToken);
 
+        // Lookups keep assembly linear in the candidate count (was venues x pitches/rules/favorites scans).
+        var pitchesByVenue = pitches.ToLookup(p => p.VenueId);
+        var rulesByVenue = baseRules.ToLookup(r => r.VenueId);
+        var favoritesByVenue = favorites.ToDictionary(f => f.VenueId, f => f.Count);
         return list.Select(v => new VenueCandidate(
             v.Id, v.Name, v.Slug, v.City, v.Area, v.Latitude, v.Longitude, v.Facilities, v.Photos,
-            pitches.Where(p => p.VenueId == v.Id).ToList(),
-            baseRules.Where(r => r.VenueId == v.Id).Select(r => (r.PitchId, r.Amount ?? 0m)).ToList(),
-            baseRules.FirstOrDefault(r => r.VenueId == v.Id)?.Currency ?? Money.DefaultCurrency,
-            favorites.FirstOrDefault(f => f.VenueId == v.Id)?.Count ?? 0)).ToList();
+            pitchesByVenue[v.Id].ToList(),
+            rulesByVenue[v.Id].Select(r => (r.PitchId, r.Amount ?? 0m)).ToList(),
+            rulesByVenue[v.Id].FirstOrDefault()?.Currency ?? Money.DefaultCurrency,
+            favoritesByVenue.GetValueOrDefault(v.Id))).ToList();
     }
 
     /// <summary>Keeps venues with an available slot on the date (inside the optional local time range) and records the first one.</summary>
@@ -315,6 +324,11 @@ public sealed partial class VenueExplore
         var kept = new List<ExploreVenueCard>();
         foreach (var card in Sort(cards, query).Take(MaxAvailabilityChecks))
         {
+            if (!TrySpendAvailability())
+            {
+                break;
+            }
+
             var availability = await _availability.GetAsync(card.VenueId, date, null, cancellationToken);
             if (availability.IsFailure)
             {
@@ -357,7 +371,7 @@ public sealed partial class VenueExplore
         foreach (var card in cards)
         {
             DateTime? next = null;
-            for (var day = _clock.CairoToday; next is null && day <= _clock.CairoToday.AddDays(1); day = day.AddDays(1))
+            for (var day = _clock.CairoToday; next is null && day <= _clock.CairoToday.AddDays(1) && TrySpendAvailability(); day = day.AddDays(1))
             {
                 var availability = await _availability.GetAsync(card.VenueId, day, null, cancellationToken);
                 if (availability.IsSuccess)
@@ -427,6 +441,17 @@ public sealed partial class VenueExplore
         return suggestions.OrderByDescending(s => s.MatchCount).ToList();
     }
 
+    private bool TrySpendAvailability()
+    {
+        if (_availabilityBudget <= 0)
+        {
+            return false;
+        }
+
+        _availabilityBudget--;
+        return true;
+    }
+
     private static bool InTimeRange(TimeOnly time, TimeOnly? from, TimeOnly? to)
     {
         if (from is null && to is null)
@@ -467,7 +492,8 @@ public sealed partial class VenueExplore
             && (q.Latitude is null || (q.Latitude is >= -90 and <= 90 && q.Longitude is >= -180 and <= 180));
         if (!coordinatesOk || q.RadiusKm is < 1 or > 100 || q.Page < 1 || q.PageSize is < 1 or > 50
             || ((q.From is not null || q.To is not null) && q.Date is null) || q.MaxPrice is <= 0 || !Enum.IsDefined(q.Sort)
-            || (q.Facilities?.Count ?? 0) > 20 || !BoundsOk(q.Bounds))
+            || (q.Facilities?.Count ?? 0) > 20 || !BoundsOk(q.Bounds)
+            || new[] { q.City, q.Area, q.PitchType, q.Surface }.Concat(q.Facilities ?? []).Any(v => v?.Length > MaxTextFilterLength))
         {
             return ExploreErrors.InvalidQuery;
         }

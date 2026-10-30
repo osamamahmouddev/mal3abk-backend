@@ -131,6 +131,12 @@ public sealed class PricingCalculatorTests
     {
         PricingCalculator.Quote(_pitchId, [Base(400)], Local(5, 17), Local(5, 16), null, _cairo).IsFailure.Should().BeTrue();
         PricingCalculator.Quote(_pitchId, [Base(400)], Local(5, 16), Local(5, 16, 10), null, _cairo).IsFailure.Should().BeTrue("10 minutes is not a 15-minute step");
+
+        // Security: huge ranges used to spin through millions of slices (and overflow the minute count).
+        PricingCalculator.Quote(_pitchId, [Base(400)], Local(5, 16), Local(5, 16).AddDays(1).AddMinutes(15), null, _cairo).IsFailure.Should().BeTrue("over 24 hours");
+        PricingCalculator.Quote(_pitchId, [Base(400)], DateTime.MinValue, DateTime.MaxValue.AddTicks(-(DateTime.MaxValue.Ticks % TimeSpan.TicksPerHour)), null, _cairo)
+            .IsFailure.Should().BeTrue();
+        PricingCalculator.Quote(_pitchId, [Base(400)], Local(5, 16), Local(5, 16).AddDays(1), null, _cairo).IsSuccess.Should().BeTrue("exactly 24 hours is allowed");
     }
 
     [Fact]

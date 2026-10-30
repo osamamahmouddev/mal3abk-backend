@@ -54,6 +54,21 @@ public sealed class PriceRuleManagementTests
     }
 
     [Fact]
+    public async Task RulesPerVenue_AreCappedAsync()
+    {
+        await using var db = await SeedAsync();
+        var rules = Management(db, VenueAccess.Owner(_venueId));
+        for (var i = 0; i < PriceRule.MaxRulesPerVenue; i++)
+        {
+            db.PriceRules.Add(PriceRule.Create(_venueId, DiscountTerms(10), DateTime.UtcNow).Value);
+        }
+
+        await db.SaveChangesAsync();
+
+        (await rules.CreateAsync(_venueId, _userId, DiscountTerms(5))).Error.Should().Be(PriceRuleErrors.TooMany);
+    }
+
+    [Fact]
     public async Task Discounts_MayOverlapAsync()
     {
         await using var db = await SeedAsync();

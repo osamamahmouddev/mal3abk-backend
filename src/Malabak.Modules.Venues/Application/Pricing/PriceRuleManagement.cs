@@ -73,6 +73,11 @@ public sealed class PriceRuleManagement
             return Result.Failure<PriceRuleDto>(denied);
         }
 
+        if (await _dbContext.PriceRules.CountAsync(r => r.VenueId == venueId && !r.IsDeleted, cancellationToken) >= PriceRule.MaxRulesPerVenue)
+        {
+            return Result.Failure<PriceRuleDto>(PriceRuleErrors.TooMany);
+        }
+
         var created = PriceRule.Create(venueId, terms, _clock.UtcNow);
         if (created.IsFailure)
         {

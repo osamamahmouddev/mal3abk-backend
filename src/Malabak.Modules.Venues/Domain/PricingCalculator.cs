@@ -30,6 +30,9 @@ public static class PricingCalculator
 {
     public const int SliceMinutes = 15;
 
+    /// <summary>Longest range that can be priced in one call (a day); bookings are far shorter.</summary>
+    public const int MaxQuoteMinutes = 24 * 60;
+
     private static readonly PriceRuleKind[] _modifierOrder =
         [PriceRuleKind.Peak, PriceRuleKind.Weekend, PriceRuleKind.Holiday, PriceRuleKind.SpecialDate];
 
@@ -41,11 +44,13 @@ public static class PricingCalculator
         DepositRule? deposit,
         TimeZoneInfo timeZone)
     {
-        var minutes = (int)(endUtc - startUtc).TotalMinutes;
-        if (endUtc <= startUtc || (endUtc - startUtc).Ticks % TimeSpan.FromMinutes(SliceMinutes).Ticks != 0)
+        if (endUtc <= startUtc || endUtc - startUtc > TimeSpan.FromMinutes(MaxQuoteMinutes)
+            || (endUtc - startUtc).Ticks % TimeSpan.FromMinutes(SliceMinutes).Ticks != 0)
         {
             return Result.Failure<PriceQuote>(SpecialScheduleErrors.InvalidDuration);
         }
+
+        var minutes = (int)(endUtc - startUtc).TotalMinutes;
 
         var rules = venueRules.Where(r => r.IsActive && !r.IsDeleted && r.AppliesToPitch(pitchId)).ToList();
         var currencies = rules.Where(r => r.Price is not null).Select(r => r.Price!.Currency).Distinct().ToList();

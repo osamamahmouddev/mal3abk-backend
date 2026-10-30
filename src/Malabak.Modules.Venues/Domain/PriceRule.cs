@@ -78,6 +78,7 @@ public static class DaysOfWeekMaskExtensions
 public sealed class PriceRule : Entity<Guid>
 {
     public const int MaxNameLength = 100;
+    public const int MaxRulesPerVenue = 200;
     public const decimal MaxHourlyRate = 100_000m;
     public const int MaxRangeDays = 366;
 
@@ -314,5 +315,6 @@ public static class PriceRuleErrors
     public static readonly Error Overlap = new("PriceRule.Overlap", "Another active rule of the same type and pitch already covers some of these days and times.");
     public static readonly Error NotFound = new("PriceRule.NotFound", "Price rule not found.");
     public static readonly Error NoBasePrice = new("Pricing.NoBasePrice", "This pitch has no base price yet.");
+    public static readonly Error TooMany = new("PriceRule.TooMany", "A venue can have at most 200 price rules. Delete unused rules first.");
     public static readonly Error CurrencyMismatch = new("Pricing.CurrencyMismatch", "All price rules of a venue must use the same currency.");
 }

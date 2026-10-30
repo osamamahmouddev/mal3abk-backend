@@ -212,6 +212,36 @@ public sealed class VenueExploreTests
         areas.Should().Contain(a => a.CityNameEn == "Alexandria" && a.VenueCount == 1);
     }
 
+    [Fact]
+    public async Task OverlongTextFilters_AreRejectedAsync()
+    {
+        await using var db = await SeedAsync();
+
+        (await Explore(db).SearchAsync(new ExploreQuery(City: new string('x', 101)))).Error.Should().Be(ExploreErrors.InvalidQuery);
+    }
+
+    [Fact]
+    public async Task OneRequest_CannotTriggerUnboundedAvailabilityWorkAsync()
+    {
+        await using var db = await SeedAsync();
+        for (var i = 0; i < 80; i++)
+        {
+            AddVenue(db, $"Extra {i}", "Cairo", "Maadi", 29.9610, 31.2580, ["wifi"], "NaturalGrass", 7, 400, schedule: false);
+        }
+
+        await db.SaveChangesAsync();
+        var store = new CountingCache();
+        var clock = new FixedClock();
+        var explore = new VenueExplore(db,
+            new CachedVenueAvailability(new VenueAvailabilityQuery(db, new NoBookings(), clock), store, clock, NullLogger<CachedVenueAvailability>.Instance), clock);
+
+        // 81 venues match the filters but none is open at 06:00, so the result is empty and every suggestion re-runs the
+        // dated search (about 300 availability lookups without the per-request budget).
+        await explore.SearchAsync(new ExploreQuery(_originLat, _originLng, Date: _thursday, From: new TimeOnly(6, 0), To: new TimeOnly(7, 0), PitchType: "7v7", Facilities: ["wifi"]));
+
+        store.Reads.Should().BeLessThanOrEqualTo(VenueExplore.AvailabilityBudgetPerRequest);
+    }
+
     private static VenueExplore Explore(VenuesDbContext db)
     {
         var clock = new FixedClock();
@@ -269,6 +299,25 @@ public sealed class VenueExploreTests
     private sealed class NoCache : IAvailabilityCacheStore
     {
         public Task<long> GetVersionAsync(Guid venueId, CancellationToken cancellationToken = default) => Task.FromResult(0L);
+
+        public Task<long> IncrementVersionAsync(Guid venueId, CancellationToken cancellationToken = default) => Task.FromResult(1L);
+
+        public Task<string?> GetAsync(string key, CancellationToken cancellationToken = default) => Task.FromResult<string?>(null);
+
+        public Task SetAsync(string key, string value, TimeSpan ttl, CancellationToken cancellationToken = default) => Task.CompletedTask;
+    }
+
+    private sealed class CountingCache : IAvailabilityCacheStore
+    {
+        private int _reads;
+
+        public int Reads => _reads;
+
+        public Task<long> GetVersionAsync(Guid venueId, CancellationToken cancellationToken = default)
+        {
+            Interlocked.Increment(ref _reads);
+            return Task.FromResult(0L);
+        }
 
         public Task<long> IncrementVersionAsync(Guid venueId, CancellationToken cancellationToken = default) => Task.FromResult(1L);
 

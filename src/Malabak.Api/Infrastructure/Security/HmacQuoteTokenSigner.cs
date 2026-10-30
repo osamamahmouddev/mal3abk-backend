@@ -11,6 +11,8 @@ namespace Malabak.Api.Infrastructure.Security;
 /// </summary>
 public sealed class HmacQuoteTokenSigner : IQuoteTokenSigner
 {
+    public const int MinKeyBytes = 32;
+
     private readonly byte[] _key;
 
     public HmacQuoteTokenSigner(IConfiguration configuration, IHostEnvironment environment)
@@ -19,6 +21,10 @@ public sealed class HmacQuoteTokenSigner : IQuoteTokenSigner
         if (!string.IsNullOrWhiteSpace(key))
         {
             _key = Encoding.UTF8.GetBytes(key);
+            if (_key.Length < MinKeyBytes)
+            {
+                throw new InvalidOperationException($"Secret 'Booking:QuoteSigningKey' must be at least {MinKeyBytes} bytes.");
+            }
         }
         else if (environment.IsDevelopment())
         {
