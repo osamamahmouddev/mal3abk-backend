@@ -21,7 +21,7 @@ public static class ProfileEndpoints
 
         group.MapGet("/onboarding", async (ClaimsPrincipal user, ProfileHandlers profiles, CancellationToken ct) =>
             await profiles.GetOnboardingStatusAsync(user.GetUserId()!.Value, ct) is { } status ? Results.Ok(status) : Results.Unauthorized())
-        .WithName("GetOnboardingStatus").WithSummary("Whether the signed-in user still has onboarding steps left");
+        .Produces<OnboardingStatusDto>().WithName("GetOnboardingStatus").WithSummary("Whether the signed-in user still has onboarding steps left");
 
         group.MapPut("/onboarding/profile", async (ClaimsPrincipal user, [FromBody] CompleteProfileApiRequest request,
             ICommandHandler<CompleteProfileCommand, Result<MyProfileDto>> handler, CancellationToken ct) =>
@@ -42,7 +42,7 @@ public static class ProfileEndpoints
 
         group.MapGet("", async (ClaimsPrincipal user, ProfileHandlers profiles, CancellationToken ct) =>
             await profiles.GetMyProfileAsync(user.GetUserId()!.Value, ct) is { } profile ? Results.Ok(profile) : Results.Unauthorized())
-        .WithName("GetMyProfile").WithSummary("The signed-in user's own profile");
+        .Produces<MyProfileDto>().WithName("GetMyProfile").WithSummary("The signed-in user's own profile");
 
         group.MapPatch("", async (ClaimsPrincipal user, [FromBody] UpdateProfileApiRequest request,
             ICommandHandler<UpdateMyProfileCommand, Result<MyProfileDto>> handler, CancellationToken ct) =>
@@ -81,7 +81,7 @@ public static class ProfileEndpoints
             .WithTags("Profile & Onboarding")
             .MapGet("/{userId:guid}", async (Guid userId, ProfileHandlers profiles, IPlayerStatsSummaryProvider stats, CancellationToken ct) =>
                 await profiles.GetPublicProfileAsync(userId, stats, ct) is { } profile ? Results.Ok(profile) : Results.NotFound())
-            .WithName("GetPlayerProfile").WithSummary("Privacy-safe public profile (no phone, email or exact location)");
+            .Produces<PublicPlayerProfileDto>().WithName("GetPlayerProfile").WithSummary("Privacy-safe public profile (no phone, email or exact location)");
     }
 
     public sealed record UpdateProfileApiRequest(

@@ -21,11 +21,11 @@ public static class NotificationEndpoints
         group.MapGet("/notifications", async (ClaimsPrincipal user, [FromQuery] int? page, [FromQuery] int? pageSize,
             UserNotificationService notifications, CancellationToken ct) =>
             Results.Ok(await notifications.ListAsync(user.GetUserId()!.Value, page ?? 1, pageSize ?? 20, IsArabic(), ct)))
-        .WithName("GetMyNotifications").WithSummary("Paged notifications in the request language (Accept-Language ar|en)");
+        .Produces<NotificationPageDto>().WithName("GetMyNotifications").WithSummary("Paged notifications in the request language (Accept-Language ar|en)");
 
         group.MapGet("/notifications/unread-count", async (ClaimsPrincipal user, UserNotificationService notifications, CancellationToken ct) =>
-            Results.Ok(new { UnreadCount = await notifications.UnreadCountAsync(user.GetUserId()!.Value, ct) }))
-        .WithName("GetUnreadNotificationCount");
+            Results.Ok(new UnreadCountResponse(await notifications.UnreadCountAsync(user.GetUserId()!.Value, ct))))
+        .Produces<UnreadCountResponse>().WithName("GetUnreadNotificationCount");
 
         group.MapPost("/notifications/{id:guid}/read", async (Guid id, ClaimsPrincipal user, UserNotificationService notifications, CancellationToken ct) =>
             await notifications.MarkReadAsync(user.GetUserId()!.Value, id, ct)
@@ -39,12 +39,12 @@ public static class NotificationEndpoints
 
         group.MapGet("/notification-preferences", async (ClaimsPrincipal user, UserNotificationService notifications, CancellationToken ct) =>
             Results.Ok(await notifications.GetPreferencesAsync(user.GetUserId()!.Value, ct)))
-        .WithName("GetNotificationPreferences");
+        .Produces<IReadOnlyList<NotificationPreferenceDto>>().WithName("GetNotificationPreferences");
 
         group.MapPut("/notification-preferences/{category}", async (NotificationCategory category, ClaimsPrincipal user,
             [FromBody] PreferenceApiRequest request, UserNotificationService notifications, CancellationToken ct) =>
             Results.Ok(await notifications.UpdatePreferenceAsync(user.GetUserId()!.Value, category, request.InAppEnabled, request.PushEnabled, ct)))
-        .WithName("UpdateNotificationPreference").WithSummary("Security alerts stay on regardless");
+        .Produces<IReadOnlyList<NotificationPreferenceDto>>().WithName("UpdateNotificationPreference").WithSummary("Security alerts stay on regardless");
 
         // --- Push device tokens (bound to the current device session) ---
 
@@ -79,4 +79,6 @@ public static class NotificationEndpoints
     public sealed record PushTokenApiRequest(string Token, DevicePlatform Platform);
 
     public sealed record UnregisterPushTokenApiRequest(string? Token);
+
+    public sealed record UnreadCountResponse(int UnreadCount);
 }

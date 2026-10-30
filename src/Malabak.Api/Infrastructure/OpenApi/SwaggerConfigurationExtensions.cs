@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.OpenApi.Models;
 using Swashbuckle.AspNetCore.SwaggerGen;
@@ -50,6 +51,10 @@ public static class SwaggerConfigurationExtensions
                 }
             });
 
+            // Non-nullable members are required in the schema, so the generated web client types match C# nullability.
+            options.SupportNonNullableReferenceTypes();
+            options.NonNullableReferenceTypesAsRequired();
+            options.OperationFilter<HandlerResponseOperationFilter>();
             options.OperationFilter<StandardProblemDetailsOperationFilter>();
         });
 
@@ -62,6 +67,7 @@ public sealed class StandardProblemDetailsOperationFilter : IOperationFilter
     public void Apply(OpenApiOperation operation, OperationFilterContext context)
     {
         ArgumentNullException.ThrowIfNull(operation);
+        ArgumentNullException.ThrowIfNull(context);
 
         operation.Responses.TryAdd("400", new OpenApiResponse { Description = "Bad Request (Validation failure, invalid inputs)" });
         operation.Responses.TryAdd("401", new OpenApiResponse { Description = "Unauthorized (Missing or expired JWT access token)" });
@@ -70,5 +76,14 @@ public sealed class StandardProblemDetailsOperationFilter : IOperationFilter
         operation.Responses.TryAdd("409", new OpenApiResponse { Description = "Conflict (Concurrent update or duplicate idempotency in flight)" });
         operation.Responses.TryAdd("422", new OpenApiResponse { Description = "Unprocessable Entity (Business rule violation or payload mismatch)" });
         operation.Responses.TryAdd("429", new OpenApiResponse { Description = "Too Many Requests (Rate limit exceeded, check Retry-After header)" });
+
+        var problem = context.SchemaGenerator.GenerateSchema(typeof(ProblemDetails), context.SchemaRepository);
+        foreach (var (status, response) in operation.Responses)
+        {
+            if (status[0] is '4' or '5' && response.Content.Count == 0)
+            {
+                response.Content["application/problem+json"] = new OpenApiMediaType { Schema = problem };
+            }
+        }
     }
 }

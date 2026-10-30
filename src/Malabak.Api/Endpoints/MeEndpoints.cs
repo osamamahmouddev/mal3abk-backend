@@ -46,14 +46,14 @@ public static class MeEndpoints
                     v.Level.ToString(),
                     v.Permissions.Order(StringComparer.Ordinal).ToList())).ToList()));
         })
-        .WithName("GetMyPermissions")
+        .Produces<MyPermissionsResponse>().WithName("GetMyPermissions")
         .WithSummary("Get the current user's roles, platform permissions and per-venue permissions");
 
         // --- Device sessions ("signed-in devices" screen) ---
 
         group.MapGet("/sessions", async (ClaimsPrincipal user, SessionService sessions, CancellationToken cancellationToken) =>
             Results.Ok(await sessions.ListAsync(user.GetUserId()!.Value, user.GetSessionId(), cancellationToken)))
-        .WithName("GetMySessions")
+        .Produces<IReadOnlyList<SessionDto>>().WithName("GetMySessions")
         .WithSummary("Active devices signed in to this account (the current one is flagged)");
 
         group.MapDelete("/sessions/{sessionId:guid}", async (Guid sessionId, ClaimsPrincipal user, SessionService sessions,

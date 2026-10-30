@@ -19,7 +19,7 @@ public static class PlayerVenueListEndpoints
 
         me.MapGet("/favorites", async (ClaimsPrincipal user, PlayerVenueListHandlers lists, CancellationToken ct) =>
             Results.Ok(await lists.GetFavoritesAsync(user.GetUserId()!.Value, ct)))
-        .WithName("GetFavoriteVenues").WithSummary("Favorite venues with a next-available-slot hint");
+        .Produces<IReadOnlyList<VenueCardDto>>().WithName("GetFavoriteVenues").WithSummary("Favorite venues with a next-available-slot hint");
 
         me.MapPut("/favorites/{venueId:guid}", async (Guid venueId, ClaimsPrincipal user, PlayerVenueListHandlers lists, CancellationToken ct) =>
             ToResult(await lists.AddFavoriteAsync(user.GetUserId()!.Value, venueId, ct)))
@@ -34,7 +34,7 @@ public static class PlayerVenueListEndpoints
 
         me.MapGet("/recently-viewed", async (ClaimsPrincipal user, PlayerVenueListHandlers lists, CancellationToken ct) =>
             Results.Ok(await lists.GetRecentlyViewedAsync(user.GetUserId()!.Value, ct)))
-        .WithName("GetRecentlyViewedVenues").WithSummary("Up to 20 most recently viewed venues");
+        .Produces<IReadOnlyList<VenueCardDto>>().WithName("GetRecentlyViewedVenues").WithSummary("Up to 20 most recently viewed venues");
 
         me.MapPost("/recently-viewed/{venueId:guid}", async (Guid venueId, ClaimsPrincipal user, PlayerVenueListHandlers lists, CancellationToken ct) =>
             ToResult(await lists.RecordViewAsync(user.GetUserId()!.Value, venueId, ct)))
