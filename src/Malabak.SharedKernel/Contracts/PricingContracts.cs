@@ -27,3 +27,14 @@ public interface IPriceQuoteProvider
 {
     Task<Result<PriceQuoteSnapshot>> QuoteAsync(Guid pitchId, DateTime startUtc, DateTime endUtc, CancellationToken cancellationToken = default);
 }
+
+/// <summary>
+/// Venues-module contract the Booking module calls when a player submits a booking: verifies the quote token issued by
+/// the quote endpoint (signature, owner, slot, expiry), re-checks the slot, and re-prices it. A changed price fails with
+/// <c>Quote.PriceChanged</c> so the player confirms the new price instead of being charged silently.
+/// </summary>
+public interface IBookingQuoteValidator
+{
+    Task<Result<PriceQuoteSnapshot>> ValidateAsync(
+        string quoteToken, Guid playerId, Guid pitchId, DateTime startUtc, DateTime endUtc, CancellationToken cancellationToken = default);
+}
