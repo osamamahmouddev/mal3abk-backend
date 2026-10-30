@@ -84,4 +84,32 @@ public sealed class ReferenceDataTests
 
         act.Should().Throw<ArgumentOutOfRangeException>();
     }
+
+    [Fact]
+    public void IsHoliday_AgreesWithTheFullList_ForEveryDayOfTheYear()
+    {
+        var holidays = EgyptHolidayCalendar.ForYear(2027).Select(h => h.Date).ToHashSet();
+
+        for (var day = new DateOnly(2027, 1, 1); day.Year == 2027; day = day.AddDays(1))
+        {
+            EgyptHolidayCalendar.IsHoliday(day).Should().Be(holidays.Contains(day), day.ToString("O", System.Globalization.CultureInfo.InvariantCulture));
+        }
+    }
+
+    [Fact]
+    public void IsHoliday_DoesNotRebuildTheCalendarPerCall()
+    {
+        // Performance guard: pricing calls this for every 15-minute slice. Rebuilding the list cost ~4 KB per call
+        // (113 MB for one explore request); the cached lookup allocates nothing.
+        var day = new DateOnly(2026, 11, 5);
+        EgyptHolidayCalendar.IsHoliday(day);
+        var before = GC.GetAllocatedBytesForCurrentThread();
+
+        for (var i = 0; i < 10_000; i++)
+        {
+            EgyptHolidayCalendar.IsHoliday(day.AddDays(i % 50));
+        }
+
+        (GC.GetAllocatedBytesForCurrentThread() - before).Should().BeLessThan(64 * 1024);
+    }
 }
