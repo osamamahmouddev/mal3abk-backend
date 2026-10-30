@@ -1,27 +1,21 @@
-// Regenerates src/schema.d.ts from openapi.json. With --fetch, first downloads openapi.json from the
-// running API (API_URL, default http://localhost:5000). With --check, fails if schema.d.ts is stale.
+// Regenerates src/schema.d.ts from the API contract, docs/openapi/v1.json. That file is written by the
+// API's OpenApiContractIntegrationTests (dotnet test), and CI fails when it is stale. With --check, this
+// fails when schema.d.ts no longer matches it.
 import { execFileSync } from "node:child_process";
-import { readFileSync, writeFileSync, mkdtempSync } from "node:fs";
+import { readFileSync, mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
-const spec = join(root, "openapi.json");
+const spec = join(root, "..", "..", "..", "docs", "openapi", "v1.json");
 const schema = join(root, "src", "schema.d.ts");
-const args = new Set(process.argv.slice(2));
+const check = process.argv.includes("--check");
 
-if (args.has("--fetch")) {
-  const apiUrl = process.env.API_URL ?? "http://localhost:5000";
-  const response = await fetch(`${apiUrl}/swagger/v1/swagger.json`);
-  if (!response.ok) throw new Error(`GET ${apiUrl}/swagger/v1/swagger.json -> ${response.status}`);
-  writeFileSync(spec, JSON.stringify(await response.json(), null, 1) + "\n");
-}
-
-const out = args.has("--check") ? join(mkdtempSync(join(tmpdir(), "api-client-")), "schema.d.ts") : schema;
+const out = check ? join(mkdtempSync(join(tmpdir(), "api-client-")), "schema.d.ts") : schema;
 execFileSync(join(root, "node_modules", ".bin", "openapi-typescript"), [spec, "-o", out], { stdio: "inherit" });
 
-if (args.has("--check") && readFileSync(out, "utf8") !== readFileSync(schema, "utf8")) {
+if (check && readFileSync(out, "utf8") !== readFileSync(schema, "utf8")) {
   console.error("src/schema.d.ts is out of date: run `pnpm --filter @malabak/api-client generate`.");
   process.exit(1);
 }

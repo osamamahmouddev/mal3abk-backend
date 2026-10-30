@@ -2800,6 +2800,15 @@ export interface components {
             ownerId: string;
             /** Format: date-time */
             submittedAtUtc?: string | null;
+            address: string;
+            phoneNumber: string;
+            description?: string | null;
+            facilities?: string[] | null;
+            photos?: string[] | null;
+            /** Format: int32 */
+            pitchCount: number;
+            ownerName?: string | null;
+            submissionMessage?: string | null;
         };
         PitchAvailabilityDto: {
             /** Format: uuid */
@@ -2887,6 +2896,9 @@ export interface components {
         };
         RecoverPhoneApiRequest: {
             recoveryToken: string;
+        };
+        RecoveryCodesResponse: {
+            recoveryCodes: string[];
         };
         RefreshApiRequest: {
             refreshToken: string;
@@ -3491,7 +3503,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": string[];
+                    "application/json": components["schemas"]["RecoveryCodesResponse"];
                 };
             };
             /** @description Bad Request (Validation failure, invalid inputs) */
