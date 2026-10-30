@@ -3,12 +3,16 @@
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useQuery } from "@tanstack/react-query";
+import type { SessionUser } from "@malabak/bff/server";
+import { adminLogout } from "@/app/auth-actions";
+import { api, unwrap } from "@/lib/api";
 
 const NAV: { title: string; href: string; badge?: string }[] = [
   { title: "نظرة عامة", href: "/overview" },
   { title: "المستخدمين", href: "/users" },
   { title: "الملاعب", href: "/venues" },
-  { title: "موافقات الملاعب", href: "/approvals", badge: "٤" },
+  { title: "موافقات الملاعب", href: "/approvals" },
   { title: "الحجوزات", href: "/bookings" },
   { title: "إيصالات ونزاعات", href: "/disputes", badge: "٣" },
   { title: "الفرق والمجتمع", href: "/teams" },
@@ -30,7 +34,15 @@ function Brand({ size = "text-[26px]" }: { size?: string }) {
   );
 }
 
-function SideNav({ pathname, onClose }: { pathname: string; onClose?: () => void }) {
+const toArabicDigits = (n: number) => String(n).replace(/[0-9]/g, (d) => "٠١٢٣٤٥٦٧٨٩"[Number(d)]);
+
+function SideNav({ pathname, user, onClose }: { pathname: string; user: SessionUser; onClose?: () => void }) {
+  const pending = useQuery({
+    queryKey: ["approvals"],
+    queryFn: () => unwrap(api.GET("/api/v1/admin/venues/pending-approval", { params: { query: { page: 1, pageSize: 50 } } })),
+    refetchInterval: 60_000,
+  });
+  const pendingCount = pending.data?.length ?? 0;
   const isActive = (href: string) => (href === "/overview" ? pathname === "/" || pathname === "/overview" : pathname.startsWith(href));
 
   return (
@@ -66,6 +78,11 @@ function SideNav({ pathname, onClose }: { pathname: string; onClose?: () => void
               }`}
             >
               <span className="flex-1">{n.title}</span>
+              {n.href === "/approvals" && pendingCount > 0 && (
+                <span className="min-w-[20px] h-5 px-1.5 rounded-[10px] bg-brand-red text-white text-[11px] font-bold flex items-center justify-center">
+                  {toArabicDigits(pendingCount)}
+                </span>
+              )}
               {n.badge && (
                 <span className="min-w-[20px] h-5 px-1.5 rounded-[10px] bg-brand-red text-white text-[11px] font-bold flex items-center justify-center">
                   {n.badge}
@@ -76,16 +93,18 @@ function SideNav({ pathname, onClose }: { pathname: string; onClose?: () => void
         })}
       </nav>
       <div className="mt-auto pt-3 px-2 border-t border-white/[0.12] text-xs text-[#AEB7CA] flex justify-between items-center gap-2">
-        <span>سارة منصور · مشرفة عمليات</span>
-        <Link href="/login" className="text-[#AEB7CA] hover:text-white underline min-h-[32px] flex items-center">
-          خروج
-        </Link>
+        <span>{user.name}</span>
+        <form action={adminLogout}>
+          <button type="submit" className="text-[#AEB7CA] hover:text-white underline min-h-[32px] bg-transparent">
+            خروج
+          </button>
+        </form>
       </div>
     </aside>
   );
 }
 
-export function AdminShell({ children }: { children: React.ReactNode }) {
+export function AdminShell({ children, user }: { children: React.ReactNode; user: SessionUser | null }) {
   const pathname = usePathname() ?? "/";
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -105,13 +124,13 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
     };
   }, [menuOpen]);
 
-  if (pathname.startsWith("/login")) return <>{children}</>;
+  if (pathname.startsWith("/login") || !user) return <>{children}</>;
 
   return (
     <div className="lg:flex min-h-screen w-full" dir="rtl">
       {/* Desktop sidebar */}
       <div className="hidden lg:flex">
-        <SideNav pathname={pathname} />
+        <SideNav pathname={pathname} user={user} />
       </div>
 
       {/* Mobile / tablet top bar */}
@@ -136,7 +155,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
         <div className="lg:hidden fixed inset-0 z-50" role="dialog" aria-modal="true" aria-label="أقسام الإدارة">
           <button type="button" aria-label="إغلاق القائمة" onClick={() => setMenuOpen(false)} className="absolute inset-0 bg-[rgba(10,19,48,0.55)]" />
           <div className="absolute inset-y-0 right-0 max-w-[85vw] shadow-2xl">
-            <SideNav pathname={pathname} onClose={() => setMenuOpen(false)} />
+            <SideNav pathname={pathname} user={user} onClose={() => setMenuOpen(false)} />
           </div>
         </div>
       )}

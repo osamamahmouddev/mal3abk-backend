@@ -23,18 +23,27 @@ importers:
       '@malabak/api-client':
         specifier: workspace:*
         version: link:../../packages/api-client
+      '@malabak/bff':
+        specifier: workspace:*
+        version: link:../../packages/bff
       '@malabak/i18n':
         specifier: workspace:*
         version: link:../../packages/i18n
       '@malabak/ui':
         specifier: workspace:*
         version: link:../../packages/ui
+      '@tanstack/react-query':
+        specifier: ^5.105.0
+        version: 5.105.0(@types/react@19.3.0)(react@19.3.1)
       next:
         specifier: ^14.2.0 || ^15.0.0
         version: 15.5.28(@types/node@26.6.5)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
       next-intl:
         specifier: ^3.15.0
         version: 3.26.5(next@15.5.28(@types/node@26.6.5)(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(react@19.3.1)
+      qrcode.react:
+        specifier: ^4.2.0
+        version: 4.2.0(react@19.3.1)
       react:
         specifier: ^18.3.0 || ^19.0.0
         version: 19.3.1

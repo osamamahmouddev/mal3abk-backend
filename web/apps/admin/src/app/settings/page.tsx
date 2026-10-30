@@ -1,9 +1,11 @@
 "use client";
 
 import React, { useState } from "react";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { api, unwrap } from "@/lib/api";
 import { Pill, Page, Switch, Tabs, Toast, card, chip, inputClass, muted, redShadow, toArabicDigits, useRevealOnSelect } from "@/components/ui";
 
-type Tab = "booking" | "areas" | "templates" | "team";
+type Tab = "booking" | "areas" | "templates" | "team" | "sessions";
 type RuleKey = "maxDep" | "proofMin" | "proofMax" | "reviewMax" | "dispute";
 type Method = "vc" | "ip" | "bank" | "cash";
 type Role = "owner" | "ops" | "finance" | "support";
@@ -97,8 +99,11 @@ export default function SettingsPage() {
           ["areas", "المناطق"],
           ["templates", "قوالب الرسائل"],
           ["team", "فريق الإدارة"],
+          ["sessions", "جلسات الإدارة"],
         ]}
       />
+
+      {tab === "sessions" && <AdminSessions onMessage={setToast} />}
 
       {tab === "booking" && (
         <section className={`${card} rounded-[20px] px-5 pt-2 pb-3 flex flex-col`}>
@@ -300,5 +305,46 @@ export default function SettingsPage() {
 
       <Toast message={toast} onClose={() => setToast(null)} />
     </Page>
+  );
+}
+
+/** Every live admin session on the platform; revoking one signs that device out at its next request. */
+function AdminSessions({ onMessage }: { onMessage: (message: string) => void }) {
+  const sessions = useQuery({ queryKey: ["admin-sessions"], queryFn: () => unwrap(api.GET("/api/v1/admin/sessions")) });
+  const revoke = useMutation({
+    mutationFn: (sessionId: string) => unwrap(api.DELETE("/api/v1/admin/sessions/{sessionId}", { params: { path: { sessionId } } })),
+    onSuccess: async () => {
+      await sessions.refetch();
+      onMessage("الجلسة اتقفلت.");
+    },
+    onError: (e: Error) => onMessage(e.message),
+  });
+
+  const format = (iso: string) => new Date(iso).toLocaleString("ar-EG", { day: "numeric", month: "long", hour: "numeric", minute: "2-digit" });
+
+  return (
+    <section className={`${card} rounded-[18px] p-5 flex flex-col gap-2`}>
+      {(sessions.data ?? []).length === 0 && <span className={`text-sm ${muted}`}>مفيش جلسات مفتوحة.</span>}
+      {(sessions.data ?? []).map((s) => (
+        <div key={s.sessionId} className="flex flex-wrap items-center gap-3 py-2.5 border-b border-[#EEF0F5] last:border-b-0">
+          <span className="flex-1 min-w-[220px] flex flex-col">
+            <span dir="ltr" className="text-right text-[13px] font-mono">
+              {s.userId}
+            </span>
+            <span className={`text-xs ${muted}`}>
+              بدأت {format(s.createdAtUtc)} · بتنتهي {format(s.expiresAtUtc)}
+            </span>
+          </span>
+          <button
+            type="button"
+            disabled={revoke.isPending}
+            onClick={() => revoke.mutate(s.sessionId)}
+            className="min-h-[36px] px-3 rounded-[10px] border border-[#F3C4BF] bg-white text-[#A8261C] text-[13px] font-semibold"
+          >
+            إنهاء الجلسة
+          </button>
+        </div>
+      ))}
+    </section>
   );
 }
