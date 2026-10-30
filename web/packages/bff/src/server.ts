@@ -1,6 +1,7 @@
 import "server-only";
-import { headers } from "next/headers";
-import { apiUrl, type BffConfig } from "./config";
+import { sealData, unsealData } from "iron-session";
+import { cookies, headers } from "next/headers";
+import { apiUrl, isProduction, sessionSecret, type BffConfig } from "./config";
 import { clientIpHeaders } from "./client-ip";
 import { endSession, getSession, startSession, type SessionUser, type Tokens } from "./session";
 import { callApi } from "./upstream";
@@ -57,4 +58,27 @@ export async function signOut(config: BffConfig) {
     }).catch(() => undefined);
   }
   await endSession(config);
+}
+
+/** Keeps a short-lived server-only value (e.g. a sign-in step ticket) in an encrypted httpOnly cookie. */
+export async function setSealedCookie(name: string, value: string, maxAgeSeconds: number) {
+  const sealed = await sealData(value, { password: sessionSecret(), ttl: maxAgeSeconds });
+  (await cookies()).set(isProduction ? `__Host-${name}` : name, sealed, {
+    httpOnly: true,
+    secure: isProduction,
+    sameSite: "strict",
+    path: "/",
+    maxAge: maxAgeSeconds,
+  });
+}
+
+export async function getSealedCookie(name: string): Promise<string | null> {
+  const sealed = (await cookies()).get(isProduction ? `__Host-${name}` : name)?.value;
+  if (!sealed) return null;
+  const value = await unsealData<string>(sealed, { password: sessionSecret() }).catch(() => null);
+  return typeof value === "string" && value ? value : null;
+}
+
+export async function deleteSealedCookie(name: string) {
+  (await cookies()).delete(isProduction ? `__Host-${name}` : name);
 }
