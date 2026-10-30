@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Primitives;
@@ -35,6 +36,12 @@ public static partial class QueryStringRedactor
         "authorization"
     };
 
+    // Player location (explore and map): logged rounded to 2 decimals (about 1 km), never precisely.
+    private static readonly HashSet<string> _coordinateQueryKeys = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "lat", "lng", "lon", "latitude", "longitude", "south", "west", "north", "east"
+    };
+
     public static string RedactQueryString(QueryString queryString)
     {
         if (!queryString.HasValue || string.IsNullOrWhiteSpace(queryString.Value))
@@ -56,6 +63,10 @@ public static partial class QueryStringRedactor
             {
                 sanitizedParameters.Add($"{Uri.EscapeDataString(key)}=***MASKED***");
             }
+            else if (_coordinateQueryKeys.Contains(key))
+            {
+                sanitizedParameters.Add($"{Uri.EscapeDataString(key)}={string.Join(",", values.Select(RoundCoordinate))}");
+            }
             else
             {
                 var sanitizedValues = values.Select(v =>
@@ -76,6 +87,11 @@ public static partial class QueryStringRedactor
 
         return _sensitiveQueryKeys.Any(s => key.Contains(s, StringComparison.OrdinalIgnoreCase));
     }
+
+    public static string RoundCoordinate(string? raw) =>
+        double.TryParse(raw, NumberStyles.Float, CultureInfo.InvariantCulture, out var value) && double.IsFinite(value)
+            ? Math.Round(value, 2).ToString("0.00", CultureInfo.InvariantCulture)
+            : "***MASKED***";
 
     private static string MaskPiiString(string raw)
     {

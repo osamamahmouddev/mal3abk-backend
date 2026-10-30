@@ -41,18 +41,34 @@ public static class PublicVenueEndpoints
         .WithSummary("Slots per pitch for a business date with state (available, held, booked, blocked, unavailable) and price");
 
         // Anonymous browsing; a signed-in player also gets the favorite flag on each card.
-        venues.MapGet("/explore", async ([AsParameters] ExploreApiQuery query, ClaimsPrincipal user, VenueExplore explore, CancellationToken ct) =>
-            ToResult(await explore.SearchAsync(query.ToQuery(), user.GetUserId(), ct)))
+        // Location is used for this request only: responses that depend on it are never cached by browsers or proxies.
+        venues.MapGet("/explore", async ([AsParameters] ExploreApiQuery query, ClaimsPrincipal user, HttpContext http, VenueExplore explore, CancellationToken ct) =>
+        {
+            http.Response.Headers.CacheControl = "no-store";
+            return ToResult(await explore.SearchAsync(query.ToQuery(), user.GetUserId(), ct));
+        })
         .RequireDistributedRateLimiting("public-explore", permitLimit: 60, windowSeconds: 60)
         .WithName("ExploreVenues")
         .WithSummary("Search approved venues by location, area, date and time, budget, pitch type, surface and facilities");
 
         venues.MapGet("/map", async ([AsParameters] ExploreApiQuery query, [FromQuery] double south, [FromQuery] double west,
-            [FromQuery] double north, [FromQuery] double east, ClaimsPrincipal user, VenueExplore explore, CancellationToken ct) =>
-            ToResult(await explore.MapAsync(query.ToQuery() with { Bounds = new MapBounds(south, west, north, east) }, user.GetUserId(), ct)))
+            [FromQuery] double north, [FromQuery] double east, ClaimsPrincipal user, HttpContext http, VenueExplore explore, CancellationToken ct) =>
+        {
+            http.Response.Headers.CacheControl = "no-store";
+            return ToResult(await explore.MapAsync(query.ToQuery() with { Bounds = new MapBounds(south, west, north, east) }, user.GetUserId(), ct));
+        })
         .RequireDistributedRateLimiting("public-map", permitLimit: 60, windowSeconds: 60)
         .WithName("MapVenues")
         .WithSummary("Venue pins inside the visible map bounds (max 2 degrees wide) with the explore filters");
+
+        venues.MapGet("/areas", async (HttpContext http, VenueExplore explore, CancellationToken ct) =>
+        {
+            http.Response.Headers.CacheControl = "public, max-age=300";
+            return Results.Ok(await explore.AreasAsync(ct));
+        })
+        .RequireDistributedRateLimiting("public-areas", permitLimit: 60, windowSeconds: 60)
+        .WithName("ExploreAreas")
+        .WithSummary("Cities and areas that have venues, for choosing a place by hand when location is not shared");
     }
 
     private static IResult ToResult<T>(Result<T> result)

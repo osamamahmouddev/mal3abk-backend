@@ -72,6 +72,10 @@ public sealed record ExploreResult(
 public sealed record MapVenuePin(
     Guid VenueId, string Name, double Latitude, double Longitude, decimal? FromHourlyPrice, string Currency, DateTime? NextAvailableStartUtc, bool IsFavorite);
 
+/// <summary>A city/area with searchable venues (codes when the area is in the curated list, else the stored name).</summary>
+public sealed record ExploreArea(
+    string CityCode, string CityNameEn, string CityNameAr, string AreaCode, string AreaNameEn, string AreaNameAr, int VenueCount);
+
 public sealed record MapSearchResult(IReadOnlyList<MapVenuePin> Pins, int TotalCount, bool Truncated);
 
 public static class ExploreErrors
@@ -87,6 +91,8 @@ public static class ExploreErrors
 /// A date (and optional local time range) keeps venues with at least one available slot, using cached availability.
 /// Cards carry the next free slot (today or tomorrow, or on the requested date) and the player's favorite flag; an empty
 /// result lists which relaxed filter would bring venues back.
+/// Location privacy (TASK-303): player coordinates are used for this request only (never stored or logged precisely) and
+/// distances are returned approximately so several results cannot be combined to pinpoint the player.
 /// </summary>
 public sealed partial class VenueExplore
 {
@@ -151,6 +157,37 @@ public sealed partial class VenueExplore
     }
 
     /// <summary>All venues matching the query (unsorted, unpaged); used by explore, map search and suggestions.</summary>
+    /// <summary>
+    /// Areas that have searchable venues, for picking a place by hand when the player does not share their location.
+    /// </summary>
+    public async Task<IReadOnlyList<ExploreArea>> AreasAsync(CancellationToken cancellationToken = default)
+    {
+        var groups = await _dbContext.Venues.AsNoTracking()
+            .Where(v => v.ApprovalStatus == VenueApprovalStatus.Approved && v.IsPublished && !v.IsDeleted)
+            .GroupBy(v => new { v.City, v.Area })
+            .Select(g => new { g.Key.City, g.Key.Area, Count = g.Count() })
+            .ToListAsync(cancellationToken);
+
+        return groups
+            .Select(g =>
+            {
+                var governorate = EgyptReferenceData.FindGovernorate(g.City);
+                var area = governorate?.Areas.FirstOrDefault(a =>
+                    string.Equals(a.Code, g.Area, StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(a.NameEn, g.Area, StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(a.NameAr, g.Area, StringComparison.Ordinal));
+                return new ExploreArea(
+                    governorate?.Code ?? g.City, governorate?.NameEn ?? g.City, governorate?.NameAr ?? g.City,
+                    area?.Code ?? g.Area, area?.NameEn ?? g.Area, area?.NameAr ?? g.Area, g.Count);
+            })
+            .GroupBy(a => (a.CityCode, a.AreaCode))
+            .Select(g => g.First() with { VenueCount = g.Sum(a => a.VenueCount) })
+            .OrderBy(a => a.CityNameEn, StringComparer.OrdinalIgnoreCase)
+            .ThenByDescending(a => a.VenueCount)
+            .ThenBy(a => a.AreaNameEn, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
     public async Task<List<ExploreVenueCard>> FilterAsync(ExploreQuery query, CancellationToken cancellationToken)
     {
         var candidates = await LoadCandidatesAsync(query, cancellationToken);
@@ -179,7 +216,7 @@ public sealed partial class VenueExplore
 
             cards.Add(new ExploreVenueCard(
                 c.Id, c.Name, c.Slug, c.City, c.Area, c.Photos.FirstOrDefault(), c.Latitude, c.Longitude,
-                distance is { } d ? Math.Round(d, 2) : null, fromPrice, c.Currency,
+                distance is { } d ? GeoMath.ApproximateKm(d) : null, fromPrice, c.Currency,
                 pitches.Select(p => $"{p.Capacity}v{p.Capacity}").Distinct().Order().ToList(),
                 pitches.Select(p => p.TurfType).Distinct().Order().ToList(),
                 c.Facilities.ToList(), c.FavoritesCount, null));
@@ -475,6 +512,13 @@ public sealed partial class VenueExplore
 public static class GeoMath
 {
     private const double _earthRadiusKm = 6371.0088;
+
+    /// <summary>
+    /// Distance shown to players: half-kilometre steps under 10 km (never below 0.5) and whole kilometres beyond, so exact
+    /// distances to several known venues cannot be used to work out where the player is.
+    /// </summary>
+    public static double ApproximateKm(double km) =>
+        km < 10 ? Math.Max(0.5, Math.Ceiling(km * 2) / 2) : Math.Round(km, MidpointRounding.AwayFromZero);
 
     public static double HaversineKm(double lat1, double lng1, double lat2, double lng2)
     {

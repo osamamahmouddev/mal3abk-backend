@@ -1,3 +1,4 @@
+using Malabak.Api.Infrastructure.Logging;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
@@ -19,6 +20,15 @@ public static class OpenTelemetryExtensions
                     {
                         options.Filter = httpContext =>
                             !httpContext.Request.Path.StartsWithSegments("/health", StringComparison.OrdinalIgnoreCase);
+
+                        // Same redaction as the request log (tokens masked, player coordinates rounded).
+                        options.EnrichWithHttpRequest = (activity, request) =>
+                        {
+                            if (request.QueryString.HasValue)
+                            {
+                                activity.SetTag("url.query", QueryStringRedactor.RedactQueryString(request.QueryString).TrimStart('?'));
+                            }
+                        };
                     })
                     .AddHttpClientInstrumentation();
             })

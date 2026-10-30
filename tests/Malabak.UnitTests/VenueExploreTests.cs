@@ -177,6 +177,41 @@ public sealed class VenueExploreTests
         (await Explore(db).SearchAsync(new ExploreQuery(_originLat, _originLng))).Value.Suggestions.Should().BeEmpty("there were results");
     }
 
+    [Theory]
+    [InlineData(0.04, 0.5)]
+    [InlineData(0.51, 1.0)]
+    [InlineData(3.2, 3.5)]
+    [InlineData(9.99, 10.0)]
+    [InlineData(11.4, 11.0)]
+    [InlineData(11.5, 12.0)]
+    public void ApproximateDistance_HidesThePrecisePosition(double exact, double shown)
+    {
+        GeoMath.ApproximateKm(exact).Should().Be(shown);
+    }
+
+    [Fact]
+    public async Task Cards_ShowApproximateDistance_AndNeverEchoThePlayerLocationAsync()
+    {
+        await using var db = await SeedAsync();
+
+        var items = (await Explore(db).SearchAsync(new ExploreQuery(_originLat, _originLng))).Value.Items;
+
+        items.Select(v => v.DistanceKm!.Value * 2).Should().OnlyContain(d => Math.Abs(d - Math.Round(d)) < 1e-9, "half-kilometre steps at most");
+        items.Should().OnlyContain(v => Math.Abs(v.Latitude!.Value - _originLat) > 1e-6, "cards carry venue coordinates only");
+    }
+
+    [Fact]
+    public async Task Areas_ListPlacesWithVenues_ForManualSelectionAsync()
+    {
+        await using var db = await SeedAsync();
+
+        var areas = await Explore(db).AreasAsync();
+
+        areas.Should().HaveCount(3, "the unpublished venue is not counted");
+        areas.Should().Contain(a => a.CityNameEn == "Cairo" && a.AreaNameEn == "Maadi" && a.VenueCount == 1);
+        areas.Should().Contain(a => a.CityNameEn == "Alexandria" && a.VenueCount == 1);
+    }
+
     private static VenueExplore Explore(VenuesDbContext db)
     {
         var clock = new FixedClock();
