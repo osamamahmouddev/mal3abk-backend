@@ -141,6 +141,13 @@ public sealed class AdminAuthHandlers :
             return Result.Success(new AdminLoginResponse(null, _stepUp.IssueStepUpToken(user.Id, EnrollmentScope, EnrollmentLifetime)));
         }
 
+        // The password was right: asking for the second factor isn't a failed attempt.
+        if (string.IsNullOrWhiteSpace(command.TotpCode) && string.IsNullOrWhiteSpace(command.RecoveryCode))
+        {
+            await _dbContext.SaveChangesAsync(cancellationToken);
+            return Result.Failure<AdminLoginResponse>(PasswordAuthErrors.TwoFactorRequired);
+        }
+
         if (!await VerifySecondFactorAsync(user, command.TotpCode, command.RecoveryCode, nowUtc, cancellationToken))
         {
             return await FailAsync(user, nowUtc, PasswordAuthErrors.InvalidTotpCode, cancellationToken);
