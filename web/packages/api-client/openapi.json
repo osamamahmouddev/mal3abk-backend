@@ -14713,6 +14713,10 @@
      "addedAtUtc": {
       "type": "string",
       "format": "date-time"
+     },
+     "fullName": {
+      "type": "string",
+      "nullable": true
      }
     },
     "additionalProperties": false

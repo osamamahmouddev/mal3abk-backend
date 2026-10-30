@@ -113,6 +113,20 @@ public sealed class StaffManagementTests
     }
 
     [Fact]
+    public async Task GetStaff_IncludesMemberNamesAsync()
+    {
+        await using var db = NewDb();
+        var venue = await SeedVenueAsync(db);
+        db.StaffMembers.Add(VenueStaffMember.Create(venue.Id, _inviteeId, VenueStaffRole.Receptionist, _ownerId, _clock.UtcNow));
+        await db.SaveChangesAsync();
+
+        var staff = await Handlers(db).HandleAsync(new GetVenueStaffQuery(venue.Id, _ownerId));
+
+        var expectedName = $"User {_inviteeId:N}"[..9];
+        staff.Value.Members.Should().ContainSingle(m => m.UserId == _inviteeId && m.FullName == expectedName);
+    }
+
+    [Fact]
     public async Task Invite_ValidatesContact_RejectsDuplicates_AndEnforcesQuotaAsync()
     {
         await using var db = NewDb();
@@ -193,6 +207,9 @@ public sealed class StaffManagementTests
 
         public Task<bool> MatchesContactAsync(Guid userId, string? email, string? normalizedPhone, CancellationToken cancellationToken = default) =>
             Task.FromResult(Matches);
+
+        public Task<IReadOnlyDictionary<Guid, string>> GetFullNamesAsync(IReadOnlyCollection<Guid> userIds, CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyDictionary<Guid, string>>(userIds.ToDictionary(id => id, id => $"User {id:N}"[..9]));
 
         public Task GrantRoleAsync(Guid userId, string role, CancellationToken cancellationToken = default)
         {

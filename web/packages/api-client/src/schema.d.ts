@@ -3038,6 +3038,7 @@ export interface components {
             role: string;
             /** Format: date-time */
             addedAtUtc: string;
+            fullName?: string | null;
         };
         StartPhoneChangeApiRequest: {
             newPhoneNumber: string;

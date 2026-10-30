@@ -41,6 +41,18 @@ public sealed class UserAccountsContract : IUserAccountsContract
         return result.IsSuccess ? result.Value : null;
     }
 
+    public async Task<IReadOnlyDictionary<Guid, string>> GetFullNamesAsync(IReadOnlyCollection<Guid> userIds, CancellationToken cancellationToken = default)
+    {
+        if (userIds.Count == 0)
+        {
+            return new Dictionary<Guid, string>();
+        }
+
+        return await _dbContext.Users.AsNoTracking()
+            .Where(u => userIds.Contains(u.Id) && !u.IsDeleted)
+            .ToDictionaryAsync(u => u.Id, u => u.FullName, cancellationToken);
+    }
+
     public async Task<bool> MatchesContactAsync(Guid userId, string? email, string? normalizedPhone, CancellationToken cancellationToken = default)
     {
         var user = await _dbContext.Users.AsNoTracking()

@@ -9,6 +9,9 @@ public interface IUserAccountsContract
     /// <summary>True when the user's verified email or phone equals the given one (invitations are bound to an identity).</summary>
     Task<bool> MatchesContactAsync(Guid userId, string? email, string? normalizedPhone, CancellationToken cancellationToken = default);
 
+    /// <summary>Display names for the given users (deleted or unknown users are left out), e.g. for a venue's staff list.</summary>
+    Task<IReadOnlyDictionary<Guid, string>> GetFullNamesAsync(IReadOnlyCollection<Guid> userIds, CancellationToken cancellationToken = default);
+
     Task GrantRoleAsync(Guid userId, string role, CancellationToken cancellationToken = default);
 
     /// <summary>Sends the staff invitation link (email when given, otherwise SMS). The raw token is never logged.</summary>
