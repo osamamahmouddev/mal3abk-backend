@@ -146,6 +146,8 @@ namespace Malabak.Modules.Venues.Infrastructure.Migrations
 
                     b.HasKey("UserId", "VenueId");
 
+                    b.HasIndex("VenueId");
+
                     b.HasIndex("UserId", "CreatedAtUtc");
 
                     b.ToTable("favorite_venues", "venues");
@@ -606,6 +608,10 @@ namespace Malabak.Modules.Venues.Infrastructure.Migrations
                     b.HasIndex("City", "Area");
 
                     b.HasIndex("IsApproved", "IsPublished");
+
+                    b.HasIndex("Latitude", "Longitude")
+                        .HasDatabaseName("ix_venues_searchable_location")
+                        .HasFilter("\"IsPublished\" = TRUE AND \"IsDeleted\" = FALSE AND \"Latitude\" IS NOT NULL");
 
                     b.ToTable("venues", "venues");
                 });

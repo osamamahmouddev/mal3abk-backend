@@ -38,7 +38,11 @@ public sealed record ExploreQuery(
     IReadOnlyList<string>? Facilities = null,
     ExploreSort Sort = ExploreSort.Distance,
     int Page = 1,
-    int PageSize = 20);
+    int PageSize = 20,
+    MapBounds? Bounds = null);
+
+/// <summary>Visible map area in degrees (south-west and north-east corners).</summary>
+public sealed record MapBounds(double South, double West, double North, double East);
 
 public sealed record ExploreVenueCard(
     Guid VenueId,
@@ -56,14 +60,24 @@ public sealed record ExploreVenueCard(
     IReadOnlyList<string> Surfaces,
     IReadOnlyList<string> Facilities,
     int FavoritesCount,
-    DateTime? NextAvailableStartUtc);
+    DateTime? NextAvailableStartUtc,
+    bool IsFavorite = false);
 
-public sealed record ExploreResult(IReadOnlyList<ExploreVenueCard> Items, int Page, int PageSize, int TotalCount, bool HasMore);
+/// <summary>A filter the player could relax when nothing matched, and how many venues would then match.</summary>
+public sealed record ExploreSuggestion(string Code, string Message, int MatchCount);
+
+public sealed record ExploreResult(
+    IReadOnlyList<ExploreVenueCard> Items, int Page, int PageSize, int TotalCount, bool HasMore, IReadOnlyList<ExploreSuggestion> Suggestions);
+
+public sealed record MapVenuePin(
+    Guid VenueId, string Name, double Latitude, double Longitude, decimal? FromHourlyPrice, string Currency, DateTime? NextAvailableStartUtc, bool IsFavorite);
+
+public sealed record MapSearchResult(IReadOnlyList<MapVenuePin> Pins, int TotalCount, bool Truncated);
 
 public static class ExploreErrors
 {
     public static readonly Error InvalidQuery = new("Explore.InvalidQuery",
-        "Check the filters: coordinates must come together and be valid, radius 1-100 km, page size 1-50, time range needs a date.");
+        "Check the filters: coordinates must come together and be valid, radius 1-100 km, page size 1-50, time range needs a date, map bounds valid and at most 2 degrees wide.");
     public static readonly Error UnknownCode = new("Explore.UnknownCode", "Unknown pitch type, surface or facility code (see GET /reference).");
 }
 
@@ -71,23 +85,30 @@ public static class ExploreErrors
 /// Venue explore (TASK-022). Only approved and published venues. Coordinates narrow candidates with an indexable
 /// bounding box in SQL, then exact Haversine distance in memory; the other filters run on the small candidate set.
 /// A date (and optional local time range) keeps venues with at least one available slot, using cached availability.
+/// Cards carry the next free slot (today or tomorrow, or on the requested date) and the player's favorite flag; an empty
+/// result lists which relaxed filter would bring venues back.
 /// </summary>
 public sealed partial class VenueExplore
 {
     public const int MaxCandidates = 500;
     public const int MaxAvailabilityChecks = 60;
     public const double DefaultRadiusKm = 25;
+    public const double MaxBoundsSpanDegrees = 2;
+    public const int MaxMapPins = 200;
 
     private readonly VenuesDbContext _dbContext;
     private readonly CachedVenueAvailability _availability;
+    private readonly IClock _clock;
 
-    public VenueExplore(VenuesDbContext dbContext, CachedVenueAvailability availability)
+    public VenueExplore(VenuesDbContext dbContext, CachedVenueAvailability availability, IClock clock)
     {
         _dbContext = dbContext;
         _availability = availability;
+        _clock = clock;
     }
 
-    public async Task<Result<ExploreResult>> SearchAsync(ExploreQuery query, CancellationToken cancellationToken = default)
+    /// <summary>Paged venue cards. <paramref name="userId"/> (optional) adds the favorite flag.</summary>
+    public async Task<Result<ExploreResult>> SearchAsync(ExploreQuery query, Guid? userId = null, CancellationToken cancellationToken = default)
     {
         var invalid = Validate(query);
         if (invalid is not null)
@@ -98,7 +119,35 @@ public sealed partial class VenueExplore
         var matches = await FilterAsync(query, cancellationToken);
         var sorted = Sort(matches, query).ToList();
         var page = sorted.Skip((query.Page - 1) * query.PageSize).Take(query.PageSize).ToList();
-        return Result.Success(new ExploreResult(page, query.Page, query.PageSize, sorted.Count, query.Page * query.PageSize < sorted.Count));
+        page = await WithFavoritesAsync(page, userId, cancellationToken);
+        if (query.Date is null)
+        {
+            page = await WithNextAvailableAsync(page, cancellationToken);
+        }
+
+        var suggestions = sorted.Count == 0 ? await SuggestAsync(query, cancellationToken) : [];
+        return Result.Success(new ExploreResult(page, query.Page, query.PageSize, sorted.Count, query.Page * query.PageSize < sorted.Count, suggestions));
+    }
+
+    /// <summary>
+    /// Map view (TASK-302): venues with coordinates inside the visible bounds and the same filters as explore, most popular
+    /// first, capped at <see cref="MaxMapPins"/> (zoom in to see the rest).
+    /// </summary>
+    public async Task<Result<MapSearchResult>> MapAsync(ExploreQuery query, Guid? userId = null, CancellationToken cancellationToken = default)
+    {
+        var invalid = query.Bounds is null ? ExploreErrors.InvalidQuery : Validate(query);
+        if (invalid is not null)
+        {
+            return Result.Failure<MapSearchResult>(invalid);
+        }
+
+        var matches = await FilterAsync(query, cancellationToken);
+        var top = Sort(matches, query with { Sort = ExploreSort.Popularity }).Take(MaxMapPins).ToList();
+        top = await WithFavoritesAsync(top, userId, cancellationToken);
+        var pins = top
+            .Select(c => new MapVenuePin(c.VenueId, c.Name, c.Latitude!.Value, c.Longitude!.Value, c.FromHourlyPrice, c.Currency, c.NextAvailableStartUtc, c.IsFavorite))
+            .ToList();
+        return Result.Success(new MapSearchResult(pins, matches.Count, matches.Count > pins.Count));
     }
 
     /// <summary>All venues matching the query (unsorted, unpaged); used by explore, map search and suggestions.</summary>
@@ -121,7 +170,7 @@ public sealed partial class VenueExplore
             var fromPrice = FromPrice(c, pitches);
 
             if (pitches.Count == 0
-                || (query.Latitude is not null && (distance is null || distance > radius))
+                || (query.Bounds is null && query.Latitude is not null && (distance is null || distance > radius))
                 || !wantedFacilities.IsSubsetOf(c.Facilities.Select(f => f.ToLowerInvariant()))
                 || (query.MaxPrice is { } max && (fromPrice is null || fromPrice > max)))
             {
@@ -144,7 +193,13 @@ public sealed partial class VenueExplore
         var venues = _dbContext.Venues.AsNoTracking()
             .Where(v => v.ApprovalStatus == VenueApprovalStatus.Approved && v.IsPublished && !v.IsDeleted);
 
-        if (query.Latitude is { } lat && query.Longitude is { } lng)
+        if (query.Bounds is { } bounds)
+        {
+            venues = venues.Where(v => v.Latitude != null && v.Longitude != null
+                && v.Latitude >= bounds.South && v.Latitude <= bounds.North
+                && v.Longitude >= bounds.West && v.Longitude <= bounds.East);
+        }
+        else if (query.Latitude is { } lat && query.Longitude is { } lng)
         {
             var box = GeoMath.BoundingBox(lat, lng, query.RadiusKm ?? DefaultRadiusKm);
             venues = venues.Where(v => v.Latitude != null && v.Longitude != null
@@ -218,6 +273,98 @@ public sealed partial class VenueExplore
         return kept;
     }
 
+    private async Task<List<ExploreVenueCard>> WithFavoritesAsync(List<ExploreVenueCard> cards, Guid? userId, CancellationToken cancellationToken)
+    {
+        if (userId is not { } user || cards.Count == 0)
+        {
+            return cards;
+        }
+
+        var ids = cards.Select(c => c.VenueId).ToList();
+        var favorites = await _dbContext.FavoriteVenues.AsNoTracking()
+            .Where(f => f.UserId == user && ids.Contains(f.VenueId))
+            .Select(f => f.VenueId)
+            .ToListAsync(cancellationToken);
+        return cards.Select(c => c with { IsFavorite = favorites.Contains(c.VenueId) }).ToList();
+    }
+
+    /// <summary>First free slot today or tomorrow for each card on the page (served from the availability cache).</summary>
+    private async Task<List<ExploreVenueCard>> WithNextAvailableAsync(List<ExploreVenueCard> cards, CancellationToken cancellationToken)
+    {
+        var result = new List<ExploreVenueCard>(cards.Count);
+        foreach (var card in cards)
+        {
+            DateTime? next = null;
+            for (var day = _clock.CairoToday; next is null && day <= _clock.CairoToday.AddDays(1); day = day.AddDays(1))
+            {
+                var availability = await _availability.GetAsync(card.VenueId, day, null, cancellationToken);
+                if (availability.IsSuccess)
+                {
+                    next = availability.Value.Availability.Pitches.SelectMany(p => p.Slots)
+                        .Where(s => s.State == SlotState.Available)
+                        .Select(s => (DateTime?)s.StartUtc)
+                        .Min();
+                }
+            }
+
+            result.Add(card with { NextAvailableStartUtc = next });
+        }
+
+        return result;
+    }
+
+    /// <summary>When nothing matched: which single relaxed filter would bring results back, and how many.</summary>
+    private async Task<List<ExploreSuggestion>> SuggestAsync(ExploreQuery query, CancellationToken cancellationToken)
+    {
+        var options = new List<(string Code, string Message, ExploreQuery Relaxed)>();
+        if (query.Latitude is not null && query.Bounds is null && (query.RadiusKm ?? DefaultRadiusKm) < 100)
+        {
+            options.Add(("widen_radius", "Search a wider area (up to 100 km).", query with { RadiusKm = 100 }));
+        }
+
+        if (query.From is not null || query.To is not null)
+        {
+            options.Add(("any_time", "Try any time on the same day.", query with { From = null, To = null }));
+        }
+
+        if (query.Date is not null)
+        {
+            options.Add(("any_date", "Try without a date.", query with { Date = null, From = null, To = null }));
+        }
+
+        if (query.MaxPrice is not null)
+        {
+            options.Add(("any_budget", "Remove the budget limit.", query with { MaxPrice = null }));
+        }
+
+        if (query.PitchType is not null || query.Surface is not null)
+        {
+            options.Add(("any_pitch", "Try any pitch size and surface.", query with { PitchType = null, Surface = null }));
+        }
+
+        if (query.Facilities is { Count: > 0 })
+        {
+            options.Add(("fewer_facilities", "Remove the facility filters.", query with { Facilities = null }));
+        }
+
+        if (query.City is not null || query.Area is not null)
+        {
+            options.Add(("any_area", "Search all areas.", query with { City = null, Area = null }));
+        }
+
+        var suggestions = new List<ExploreSuggestion>();
+        foreach (var (code, message, relaxed) in options)
+        {
+            var count = (await FilterAsync(relaxed, cancellationToken)).Count;
+            if (count > 0)
+            {
+                suggestions.Add(new ExploreSuggestion(code, message, count));
+            }
+        }
+
+        return suggestions.OrderByDescending(s => s.MatchCount).ToList();
+    }
+
     private static bool InTimeRange(TimeOnly time, TimeOnly? from, TimeOnly? to)
     {
         if (from is null && to is null)
@@ -258,7 +405,7 @@ public sealed partial class VenueExplore
             && (q.Latitude is null || (q.Latitude is >= -90 and <= 90 && q.Longitude is >= -180 and <= 180));
         if (!coordinatesOk || q.RadiusKm is < 1 or > 100 || q.Page < 1 || q.PageSize is < 1 or > 50
             || ((q.From is not null || q.To is not null) && q.Date is null) || q.MaxPrice is <= 0 || !Enum.IsDefined(q.Sort)
-            || (q.Facilities?.Count ?? 0) > 20)
+            || (q.Facilities?.Count ?? 0) > 20 || !BoundsOk(q.Bounds))
         {
             return ExploreErrors.InvalidQuery;
         }
@@ -268,6 +415,12 @@ public sealed partial class VenueExplore
         var knownFacilities = (q.Facilities ?? []).All(EgyptReferenceData.IsKnownFacility);
         return knownPitchType && knownSurface && knownFacilities ? null : ExploreErrors.UnknownCode;
     }
+
+    private static bool BoundsOk(MapBounds? b) =>
+        b is null
+        || (b.South is >= -90 and <= 90 && b.North is >= -90 and <= 90 && b.West is >= -180 and <= 180 && b.East is >= -180 and <= 180
+            && b.South < b.North && b.West < b.East
+            && b.North - b.South <= MaxBoundsSpanDegrees && b.East - b.West <= MaxBoundsSpanDegrees);
 
     private static int? PitchCapacityFor(string? pitchType) =>
         pitchType is null ? null : int.Parse(PitchTypeRegex().Match(pitchType).Groups[1].Value, System.Globalization.CultureInfo.InvariantCulture);

@@ -114,11 +114,74 @@ public sealed class VenueExploreTests
         (await Explore(db).SearchAsync(new ExploreQuery(PageSize: 500))).Error.Should().Be(ExploreErrors.InvalidQuery);
     }
 
+    [Fact]
+    public async Task Map_ReturnsPinsInsideTheBounds_WithFavoriteFlagAsync()
+    {
+        await using var db = await SeedAsync();
+        var player = Guid.NewGuid();
+        db.FavoriteVenues.Add(FavoriteVenue.Create(player, _maadi, _now));
+        await db.SaveChangesAsync();
+
+        var southCairo = new MapBounds(29.90, 31.20, 30.00, 31.30);
+        var result = (await Explore(db).MapAsync(new ExploreQuery(Bounds: southCairo), player)).Value;
+
+        result.Pins.Should().ContainSingle().Which.Should().Match<MapVenuePin>(p => p.VenueId == _maadi && p.IsFavorite);
+        result.Truncated.Should().BeFalse();
+
+        var cairo = new MapBounds(29.90, 31.10, 30.20, 31.40);
+        (await Explore(db).MapAsync(new ExploreQuery(Bounds: cairo))).Value.Pins.Select(p => p.VenueId).Should().BeEquivalentTo([_zamalek, _maadi]);
+    }
+
+    [Theory]
+    [InlineData(30.0, 31.0, 29.0, 32.0)]
+    [InlineData(29.0, 30.0, 32.0, 31.0)]
+    [InlineData(29.0, 31.0, 30.0, 31.0)]
+    public async Task Map_RejectsMissingInvertedOrHugeBoundsAsync(double south, double west, double north, double east)
+    {
+        await using var db = await SeedAsync();
+
+        (await Explore(db).MapAsync(new ExploreQuery(Bounds: new MapBounds(south, west, north, east)))).Error.Should().Be(ExploreErrors.InvalidQuery);
+        (await Explore(db).MapAsync(new ExploreQuery())).Error.Should().Be(ExploreErrors.InvalidQuery);
+    }
+
+    [Fact]
+    public async Task Cards_CarryFavoriteFlag_AndNextFreeSlotTodayOrTomorrowAsync()
+    {
+        await using var db = await SeedAsync();
+        var player = Guid.NewGuid();
+        db.FavoriteVenues.Add(FavoriteVenue.Create(player, _zamalek, _now));
+        db.OperatingSchedules.Add(OperatingSchedule.Create(Guid.NewGuid(), _maadi, DayOfWeek.Monday, new TimeOnly(18, 0), new TimeOnly(23, 0), 60, _now));
+        await db.SaveChangesAsync();
+
+        var items = (await Explore(db).SearchAsync(new ExploreQuery(Sort: ExploreSort.Name), player)).Value.Items;
+
+        items.Single(v => v.VenueId == _zamalek).IsFavorite.Should().BeTrue();
+        items.Single(v => v.VenueId == _maadi).IsFavorite.Should().BeFalse();
+        items.Single(v => v.VenueId == _maadi).NextAvailableStartUtc
+            .Should().Be(TimeZoneInfo.ConvertTimeToUtc(new DateTime(2026, 11, 2, 18, 0, 0, DateTimeKind.Unspecified), _cairo), "Monday is tomorrow");
+        items.Single(v => v.VenueId == _alexandria).NextAvailableStartUtc.Should().BeNull("no hours today or tomorrow");
+    }
+
+    [Fact]
+    public async Task EmptyResult_SuggestsWhichFilterToRelaxAsync()
+    {
+        await using var db = await SeedAsync();
+
+        var result = (await Explore(db).SearchAsync(new ExploreQuery(_originLat, _originLng, RadiusKm: 5, PitchType: "7v7"))).Value;
+
+        result.Items.Should().BeEmpty();
+        result.Suggestions.Should().BeEquivalentTo([
+            new ExploreSuggestion("widen_radius", "Search a wider area (up to 100 km).", 1),
+            new ExploreSuggestion("any_pitch", "Try any pitch size and surface.", 1)]);
+
+        (await Explore(db).SearchAsync(new ExploreQuery(_originLat, _originLng))).Value.Suggestions.Should().BeEmpty("there were results");
+    }
+
     private static VenueExplore Explore(VenuesDbContext db)
     {
         var clock = new FixedClock();
         var query = new VenueAvailabilityQuery(db, new NoBookings(), clock);
-        return new VenueExplore(db, new CachedVenueAvailability(query, new NoCache(), clock, NullLogger<CachedVenueAvailability>.Instance));
+        return new VenueExplore(db, new CachedVenueAvailability(query, new NoCache(), clock, NullLogger<CachedVenueAvailability>.Instance), clock);
     }
 
     private async Task<VenuesDbContext> SeedAsync()

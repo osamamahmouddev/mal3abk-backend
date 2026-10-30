@@ -11,6 +11,7 @@ public sealed class FavoriteVenueConfiguration : IEntityTypeConfiguration<Favori
         builder.ToTable("favorite_venues");
         builder.HasKey(f => new { f.UserId, f.VenueId });
         builder.HasIndex(f => new { f.UserId, f.CreatedAtUtc });
+        builder.HasIndex(f => f.VenueId); // popularity counts in explore
     }
 }
 

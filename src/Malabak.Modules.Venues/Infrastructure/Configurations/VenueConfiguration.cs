@@ -47,6 +47,11 @@ public sealed class VenueConfiguration : IEntityTypeConfiguration<Venue>
 
         builder.HasIndex(v => new { v.City, v.Area });
 
+        // Explore and map search: bounding-box range scans on searchable venues (no PostGIS; Haversine runs in memory).
+        builder.HasIndex(v => new { v.Latitude, v.Longitude })
+            .HasDatabaseName("ix_venues_searchable_location")
+            .HasFilter("\"IsPublished\" = TRUE AND \"IsDeleted\" = FALSE AND \"Latitude\" IS NOT NULL");
+
         builder.Property(v => v.Latitude);
         builder.Property(v => v.Longitude);
 

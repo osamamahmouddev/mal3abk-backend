@@ -1,4 +1,6 @@
+using System.Security.Claims;
 using Asp.Versioning.Builder;
+using Malabak.Api.Infrastructure.Authorization;
 using Malabak.Api.Infrastructure.Security;
 using Malabak.Modules.Venues.Application.Availability;
 using Malabak.Modules.Venues.Application.Explore;
@@ -7,7 +9,7 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace Malabak.Api.Endpoints;
 
-/// <summary>Player-facing venue endpoints (no login needed to browse): availability and explore.</summary>
+/// <summary>Player-facing venue endpoints (no login needed to browse): availability, explore and map.</summary>
 public static class PublicVenueEndpoints
 {
     public static void MapPublicVenueEndpoints(this IEndpointRouteBuilder app, ApiVersionSet apiVersionSet)
@@ -38,11 +40,19 @@ public static class PublicVenueEndpoints
         .WithName("GetVenueAvailability")
         .WithSummary("Slots per pitch for a business date with state (available, held, booked, blocked, unavailable) and price");
 
-        venues.MapGet("/explore", async ([AsParameters] ExploreApiQuery query, VenueExplore explore, CancellationToken ct) =>
-            ToResult(await explore.SearchAsync(query.ToQuery(), ct)))
+        // Anonymous browsing; a signed-in player also gets the favorite flag on each card.
+        venues.MapGet("/explore", async ([AsParameters] ExploreApiQuery query, ClaimsPrincipal user, VenueExplore explore, CancellationToken ct) =>
+            ToResult(await explore.SearchAsync(query.ToQuery(), user.GetUserId(), ct)))
         .RequireDistributedRateLimiting("public-explore", permitLimit: 60, windowSeconds: 60)
         .WithName("ExploreVenues")
         .WithSummary("Search approved venues by location, area, date and time, budget, pitch type, surface and facilities");
+
+        venues.MapGet("/map", async ([AsParameters] ExploreApiQuery query, [FromQuery] double south, [FromQuery] double west,
+            [FromQuery] double north, [FromQuery] double east, ClaimsPrincipal user, VenueExplore explore, CancellationToken ct) =>
+            ToResult(await explore.MapAsync(query.ToQuery() with { Bounds = new MapBounds(south, west, north, east) }, user.GetUserId(), ct)))
+        .RequireDistributedRateLimiting("public-map", permitLimit: 60, windowSeconds: 60)
+        .WithName("MapVenues")
+        .WithSummary("Venue pins inside the visible map bounds (max 2 degrees wide) with the explore filters");
     }
 
     private static IResult ToResult<T>(Result<T> result)
