@@ -3,6 +3,8 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { Badge, Page, Tone, card, muted, redShadow, toArabicDigits } from "@/components/ui";
+import { useVenue } from "@/components/Providers";
+import { APPROVAL_LABELS } from "@/lib/venue-format";
 
 const rows: [string, string, string, string, string, Tone][] = [
   ["٧:٠٠ م", "ملعب ٢", "كريم عادل", "٦٠ ج.م معتمد", "✓ مؤكد", "ok"],
@@ -34,13 +36,33 @@ const finance = [
 export default function OverviewPage() {
   const [range, setRange] = useState<"this" | "last">("this");
   const vals = occupancy[range];
+  const { venue } = useVenue();
+  const today = new Date().toLocaleDateString("ar-EG", { weekday: "long", day: "numeric", month: "long" });
+  const activePitches = venue?.pitches.filter((p) => p.isActive).length ?? 0;
 
   return (
     <Page className="gap-5">
+      {venue && venue.approvalStatus !== "Approved" && (
+        <div role="status" className="bg-[#FEF3D6] text-[#7A4D00] rounded-[14px] px-4 py-3 flex flex-wrap items-center gap-3">
+          <span className="flex-[1_1_260px] text-sm leading-[1.6]">
+            <b>{APPROVAL_LABELS[venue.approvalStatus]?.label ?? venue.approvalStatus}:</b>{" "}
+            {venue.approvalStatus === "Submitted"
+              ? "فريق ملعبك بيراجع الملعب (عادةً خلال يومين عمل). الملعب مش هيظهر للاعبين غير بعد الموافقة."
+              : "الملعب لسه مش ظاهر للاعبين. كمّل البيانات وابعته للمراجعة."}
+          </span>
+          {venue.approvalStatus !== "Submitted" && (
+            <Link href="/setup" className="text-sm font-bold underline">
+              كمّل الإعداد
+            </Link>
+          )}
+        </div>
+      )}
       <div className="flex flex-wrap items-center gap-3">
         <div className="flex-[1_1_280px] flex flex-col gap-0.5">
           <h1 className="text-[26px] font-bold">نظرة عامة</h1>
-          <span className={`text-sm ${muted}`}>السبت ٢٦ يوليو · ٣ ملاعب نشطة · مفتوح ٤:٠٠ م – ٢:٠٠ ص</span>
+          <span className={`text-sm ${muted}`}>
+            {today} · {toArabicDigits(activePitches)} ملاعب نشطة
+          </span>
         </div>
         <Link
           href="/calendar?view=day"

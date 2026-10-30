@@ -1,79 +1,86 @@
 "use client";
 
 import React, { useState } from "react";
-import Link from "next/link";
-import { Page, Toast, card, chip, muted, redShadow } from "@/components/ui";
+import { useRouter } from "next/navigation";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import type { Schemas } from "@malabak/api-client";
+import { Page, Switch, Toast, card, chip, muted, toArabicDigits } from "@/components/ui";
+import { api, unwrap } from "@/lib/api";
 
-type Kind = "pay" | "book" | "warn" | "sys";
-type Category = "proof" | "book" | "sys";
-type Filter = "all" | "unread" | "proof" | "book";
+type Filter = "all" | "unread";
 
-const KIND: Record<Kind, [string, string]> = {
-  pay: ["ج", "bg-[#FEF3D6] text-[#7A4D00]"],
-  book: ["ح", "bg-[#E5F5EB] text-[#1B6E3E]"],
-  warn: ["!", "bg-[#FDECEA] text-[#A8261C]"],
-  sys: ["م", "bg-[#EEF0F5] text-[#3B4352]"],
+const CATEGORY: Record<string, { value: Schemas["NotificationCategory"]; label: string; icon: [string, string] }> = {
+  Bookings: { value: 0, label: "الحجوزات", icon: ["ح", "bg-[#E5F5EB] text-[#1B6E3E]"] },
+  Payments: { value: 1, label: "المدفوعات وإثباتات الدفع", icon: ["ج", "bg-[#FEF3D6] text-[#7A4D00]"] },
+  Venues: { value: 2, label: "الملعب والمراجعة", icon: ["م", "bg-[#E8EEF9] text-[#0F1B3D]"] },
+  Teams: { value: 3, label: "الفرق", icon: ["ف", "bg-[#EEF0F5] text-[#3B4352]"] },
+  Security: { value: 4, label: "أمان الحساب", icon: ["!", "bg-[#FDECEA] text-[#A8261C]"] },
+  Marketing: { value: 5, label: "عروض وأخبار", icon: ["ع", "bg-[#EEF0F5] text-[#3B4352]"] },
 };
 
-// kind, category, title, body, time, cta, href, unread
-const NOTIFICATIONS: [Kind, Category, string, string, string, string, string, boolean][] = [
-  ["pay", "proof", "إثبات دفع جديد — KH-2607-0145", "عمر خالد رفع صورة تحويل ٥٠ ج.م على فودافون كاش. مستني مراجعتك.", "من ٤ دقايق", "راجع الإثبات", "/reservations/proof-review", true],
-  ["warn", "proof", "مهلة المراجعة قربت تخلص", "حجز KH-2607-0142 (أحمد سامي) فاضله ١٥ دقيقة ويتلغي أوتوماتيك لو ماتراجعش.", "من ٢٠ دقيقة", "راجع دلوقتي", "/reservations/proof-review", true],
-  ["book", "book", "حجز جديد مستني عربون", "يوسف حسن حجز ملعب ٢ يوم الأحد ٩ م. لسه مادفعش العربون.", "من ساعة", "تفاصيل الحجز", "/reservations", true],
-  ["warn", "book", "حجز اتلغى", "فريق الصقور لغى حجز الخميس ٧ م قبل المهلة — العربون اترجع رصيد.", "النهارده ١١ ص", "شوف التقويم", "/calendar?view=day", false],
-  ["book", "book", "أكاديمية الدلتا أكدت الحجز الثابت", "حجز كل خميس ١٠ م على ملعب ٢ اتجدد للشهر الجاي.", "امبارح", "الحجوزات الثابتة", "/schedule", false],
-  ["sys", "sys", "فاتورة الاشتراك جاهزة", "فاتورة باقة Growth لشهر أغسطس اتصدرت.", "من يومين", "الفواتير", "/subscription", false],
-];
-
-const PREF_ROWS: [string, string][] = [
-  ["proof", "إثبات دفع اترفع / مهلة المراجعة"],
-  ["newB", "حجز جديد"],
-  ["cancel", "إلغاء حجز"],
-  ["expire", "حجز اتلغى لعدم الدفع"],
-  ["review", "تقييم جديد من لاعب"],
-  ["billing", "الاشتراك والفواتير"],
-];
-const CHANNELS = ["اللوحة", "SMS", "واتساب", "إيميل"];
+function timeAgo(iso: string) {
+  const minutes = Math.round((Date.now() - new Date(iso).getTime()) / 60_000);
+  if (minutes < 1) return "دلوقتي";
+  if (minutes < 60) return `من ${toArabicDigits(minutes)} دقيقة`;
+  const hours = Math.round(minutes / 60);
+  if (hours < 24) return `من ${toArabicDigits(hours)} ساعة`;
+  return new Date(iso).toLocaleDateString("ar-EG", { day: "numeric", month: "long" });
+}
 
 export default function NotificationsPage() {
+  const router = useRouter();
+  const queryClient = useQueryClient();
   const [tab, setTab] = useState<"inbox" | "prefs">("inbox");
   const [filter, setFilter] = useState<Filter>("all");
-  const [read, setRead] = useState<Record<string, boolean>>({});
-  const [prefs, setPrefs] = useState<Record<string, number[]>>({
-    proof: [1, 1, 1, 0],
-    newB: [1, 0, 1, 0],
-    cancel: [1, 1, 1, 0],
-    expire: [1, 0, 0, 0],
-    review: [1, 0, 0, 1],
-    billing: [1, 0, 0, 1],
-  });
   const [toast, setToast] = useState<string | null>(null);
 
-  const list = NOTIFICATIONS.filter(
-    (n) => filter === "all" || (filter === "unread" ? n[7] && !read[n[2]] : n[1] === filter)
-  );
+  const page = useQuery({
+    queryKey: ["notifications", "list"],
+    queryFn: () => unwrap(api.GET("/api/v1/me/notifications", { params: { query: { page: 1, pageSize: 50 } } })),
+  });
+  const refresh = () => queryClient.invalidateQueries({ queryKey: ["notifications"] });
+
+  const markRead = useMutation({
+    mutationFn: (id: string) => unwrap(api.POST("/api/v1/me/notifications/{id}/read", { params: { path: { id } } })),
+    onSuccess: refresh,
+  });
+  const readAll = useMutation({
+    mutationFn: () => unwrap(api.POST("/api/v1/me/notifications/read-all")),
+    onSuccess: async () => {
+      await refresh();
+      setToast("كل الإشعارات اتعلّم عليها مقروءة.");
+    },
+  });
+
+  const items = (page.data?.items ?? []).filter((n) => filter === "all" || !n.isRead);
+  const unread = page.data?.unreadCount ?? 0;
+
+  const open = (n: Schemas["NotificationDto"]) => {
+    if (!n.isRead) markRead.mutate(n.id);
+    if (n.deepLink?.startsWith("/")) router.push(n.deepLink);
+  };
 
   return (
     <Page>
       <div className="flex flex-wrap items-center gap-3">
-        <h1 className="flex-[1_1_200px] text-[26px] font-bold">الإشعارات</h1>
-        <button
-          type="button"
-          onClick={() => {
-            setRead(Object.fromEntries(NOTIFICATIONS.map((n) => [n[2], true])));
-            setToast("كل الإشعارات اتعلّمت كمقروءة.");
-          }}
-          className="min-h-[40px] px-4 rounded-[10px] border border-[#C9CFD9] bg-white text-navy-900 text-[13px] font-semibold"
-        >
-          علّم الكل كمقروء
-        </button>
+        <h1 className="flex-[1_1_240px] text-[26px] font-bold">الإشعارات</h1>
+        {tab === "inbox" && unread > 0 && (
+          <button
+            type="button"
+            disabled={readAll.isPending}
+            onClick={() => readAll.mutate()}
+            className="min-h-[40px] px-4 rounded-[10px] border border-[#C9CFD9] bg-white text-navy-900 text-[13px] font-semibold"
+          >
+            علّم الكل مقروء
+          </button>
+        )}
       </div>
 
       <div role="tablist" className="flex gap-1.5 border-b border-[#DCE0E8]">
         {(
           [
-            ["inbox", "الوارد"],
-            ["prefs", "إعدادات الإشعارات"],
+            ["inbox", `الوارد${unread ? ` (${toArabicDigits(unread)})` : ""}`],
+            ["prefs", "تفضيلات الإشعارات"],
           ] as const
         ).map(([id, label]) => (
           <button
@@ -92,121 +99,102 @@ export default function NotificationsPage() {
       </div>
 
       {tab === "inbox" && (
-        <div className="flex flex-col gap-3">
-          <div className="flex gap-1.5 flex-wrap">
+        <>
+          <div className="flex gap-1.5">
             {(
               [
                 ["all", "الكل"],
-                ["unread", "مش مقروء"],
-                ["proof", "الدفع"],
-                ["book", "الحجوزات"],
+                ["unread", "غير مقروء"],
               ] as const
             ).map(([id, label]) => (
-              <button
-                key={id}
-                type="button"
-                aria-pressed={filter === id}
-                onClick={() => setFilter(id)}
-                className={chip(filter === id, "min-h-[38px] px-3.5 rounded-[10px] text-[13px]")}
-              >
+              <button key={id} type="button" aria-pressed={filter === id} onClick={() => setFilter(id)} className={chip(filter === id, "min-h-[36px] px-3.5 rounded-[10px] text-[13px]")}>
                 {label}
               </button>
             ))}
           </div>
           <section className={`${card} rounded-[20px] overflow-hidden`}>
-            {list.map(([kind, , title, body, time, cta, href, un]) => {
-              const unread = un && !read[title];
-              const [glyph, iconCls] = KIND[kind];
+            {page.isLoading && <div className="h-20 m-4 rounded-xl bg-slate-200 animate-pulse" />}
+            {!page.isLoading && items.length === 0 && <p className={`p-8 text-center text-sm ${muted}`}>مفيش إشعارات.</p>}
+            {items.map((n) => {
+              const [letter, tone] = CATEGORY[n.category]?.icon ?? ["•", "bg-[#EEF0F5] text-[#3B4352]"];
               return (
-                <div
-                  key={title}
-                  className={`flex flex-wrap items-center gap-3.5 px-5 py-4 border-b border-[#EEF0F5] ${unread ? "bg-[#FBFCFE]" : ""}`}
+                <button
+                  key={n.id}
+                  type="button"
+                  onClick={() => open(n)}
+                  className={`w-full text-right flex gap-3 px-4 py-3.5 border-b border-[#EEF0F5] last:border-b-0 hover:bg-slate-50 ${n.isRead ? "" : "bg-[#F7F9FD]"}`}
                 >
-                  <span className={`w-10 h-10 rounded-xl shrink-0 flex items-center justify-center text-base font-bold ${iconCls}`}>{glyph}</span>
-                  <span className="flex-[1_1_260px] min-w-0 flex flex-col gap-[3px]">
-                    <span className="text-[15px] font-bold">{title}</span>
-                    <span className={`text-[13px] ${muted} leading-[1.6]`}>{body}</span>
-                    <span className="text-xs text-[#8A94AA]">{time}</span>
+                  <span className={`w-10 h-10 rounded-full shrink-0 flex items-center justify-center text-sm font-bold ${tone}`}>{letter}</span>
+                  <span className="flex-1 min-w-0 flex flex-col gap-0.5">
+                    <span className="flex items-center gap-2">
+                      <span className={`text-sm ${n.isRead ? "font-semibold" : "font-bold"}`}>{n.title}</span>
+                      {!n.isRead && <span className="w-2 h-2 rounded-full bg-brand-red" aria-label="غير مقروء" />}
+                    </span>
+                    <span className="text-[13px] text-[#333B4A] leading-[1.6]">{n.body}</span>
+                    <span className={`text-xs ${muted}`}>{timeAgo(n.createdAtUtc)}</span>
                   </span>
-                  <Link
-                    href={href}
-                    onClick={() => setRead({ ...read, [title]: true })}
-                    className="min-h-[38px] px-3.5 rounded-[10px] border border-navy-900 text-navy-900 text-[13px] font-bold flex items-center whitespace-nowrap"
-                  >
-                    {cta}
-                  </Link>
-                  {unread && <span aria-label="مش مقروء" className="w-2.5 h-2.5 rounded-full bg-brand-red shrink-0" />}
-                </div>
+                </button>
               );
             })}
-            {list.length === 0 && <p className={`p-8 text-center ${muted}`}>مفيش إشعارات هنا.</p>}
           </section>
-        </div>
+        </>
       )}
 
-      {tab === "prefs" && (
-        <section className={`${card} rounded-[20px] px-5 pt-2 pb-4 overflow-x-auto`}>
-          <table className="w-full border-collapse text-sm min-w-[560px]">
-            <thead>
-              <tr className={`${muted} text-[13px]`}>
-                <th scope="col" className="text-right px-2 py-3 font-semibold">
-                  الحدث
-                </th>
-                {["في اللوحة", "SMS", "واتساب", "إيميل"].map((c) => (
-                  <th key={c} scope="col" className="px-2 py-3 font-semibold">
-                    {c}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {PREF_ROWS.map(([k, label]) => (
-                <tr key={k} className="border-t border-[#EEF0F5]">
-                  <th scope="row" className="text-right px-2 py-3 font-semibold">
-                    {label}
-                  </th>
-                  {CHANNELS.map((c, ci) => {
-                    const on = !!prefs[k][ci];
-                    const locked = k === "proof" && ci === 0;
-                    return (
-                      <td key={c} className="px-2 py-3 text-center">
-                        <button
-                          type="button"
-                          role="checkbox"
-                          aria-checked={on}
-                          aria-label={`${label} — ${c}`}
-                          disabled={locked}
-                          onClick={() => {
-                            if (locked) return;
-                            const arr = [...prefs[k]];
-                            arr[ci] = on ? 0 : 1;
-                            setPrefs({ ...prefs, [k]: arr });
-                          }}
-                          className={`w-7 h-7 rounded-lg text-[15px] font-bold inline-flex items-center justify-center border ${
-                            on ? "bg-navy-900 text-white border-navy-900" : "bg-white text-navy-900 border-[#C9CFD9]"
-                          } ${locked ? "opacity-55 cursor-not-allowed" : ""}`}
-                        >
-                          {on ? "✓" : ""}
-                        </button>
-                      </td>
-                    );
-                  })}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          <p className={`mt-3 text-xs ${muted}`}>إشعارات اللوحة لإثباتات الدفع مش بتتقفل — دي أهم حاجة عشان الحجز مايتلغيش أوتوماتيك.</p>
-          <button
-            type="button"
-            onClick={() => setToast("اتحفظت إعدادات الإشعارات.")}
-            className={`mt-3.5 min-h-[46px] px-6 rounded-[14px] bg-brand-red hover:bg-brand-red-hover text-white text-sm font-bold ${redShadow}`}
-          >
-            حفظ
-          </button>
-        </section>
-      )}
+      {tab === "prefs" && <Preferences onMessage={setToast} />}
 
       <Toast message={toast} onClose={() => setToast(null)} />
     </Page>
+  );
+}
+
+function Preferences({ onMessage }: { onMessage: (message: string) => void }) {
+  const prefs = useQuery({
+    queryKey: ["notification-preferences"],
+    queryFn: () => unwrap(api.GET("/api/v1/me/notification-preferences")),
+  });
+  const update = useMutation({
+    mutationFn: ({ category, inAppEnabled, pushEnabled }: { category: string; inAppEnabled: boolean; pushEnabled: boolean }) =>
+      unwrap(
+        api.PUT("/api/v1/me/notification-preferences/{category}", {
+          params: { path: { category: CATEGORY[category].value } },
+          body: { inAppEnabled, pushEnabled },
+        }),
+      ),
+    onSuccess: () => prefs.refetch(),
+    onError: (e: Error) => onMessage(e.message),
+  });
+
+  return (
+    <section className={`${card} rounded-[20px] px-5 py-2`}>
+      <div className={`hidden sm:flex gap-3 py-2 text-xs font-semibold ${muted}`}>
+        <span className="flex-1">النوع</span>
+        <span className="w-24 text-center">في اللوحة</span>
+        <span className="w-24 text-center">إشعار الموبايل</span>
+      </div>
+      {(prefs.data ?? []).map((p) => (
+        <div key={p.category} className="flex flex-wrap items-center gap-3 py-3 border-t border-[#EEF0F5]">
+          <span className="flex-1 min-w-[180px] flex flex-col">
+            <span className="text-sm font-bold">{CATEGORY[p.category]?.label ?? p.category}</span>
+            {!p.canDisable && <span className={`text-xs ${muted}`}>تنبيهات الأمان بتفضل شغالة دايماً</span>}
+          </span>
+          <span className="w-24 flex justify-center">
+            <Switch
+              on={p.inAppEnabled}
+              label={`${CATEGORY[p.category]?.label} في اللوحة`}
+              disabled={!p.canDisable || update.isPending}
+              onToggle={() => update.mutate({ category: p.category, inAppEnabled: !p.inAppEnabled, pushEnabled: p.pushEnabled })}
+            />
+          </span>
+          <span className="w-24 flex justify-center">
+            <Switch
+              on={p.pushEnabled}
+              label={`${CATEGORY[p.category]?.label} على الموبايل`}
+              disabled={!p.canDisable || update.isPending}
+              onToggle={() => update.mutate({ category: p.category, inAppEnabled: p.inAppEnabled, pushEnabled: !p.pushEnabled })}
+            />
+          </span>
+        </div>
+      ))}
+    </section>
   );
 }

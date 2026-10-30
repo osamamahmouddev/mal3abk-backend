@@ -1,51 +1,27 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { Badge, Page, Switch, Toast, card, chip, inputClass, muted, redShadow, toArabicDigits } from "@/components/ui";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { QRCodeSVG } from "qrcode.react";
+import { Page, Toast, card, chip, inputClass, muted, redShadow } from "@/components/ui";
+import { useVenue } from "@/components/Providers";
+import { PaymentMethods } from "@/components/PaymentMethods";
+import { api, unwrap } from "@/lib/api";
+import { useReference } from "@/lib/reference";
+import { mediaSrc, uploadImage } from "@/lib/upload";
 
 type Tab = "info" | "pay" | "account";
 
-const AMENITIES: [string, string][] = [
-  ["park", "باركينج"],
-  ["light", "إضاءة ليلي"],
-  ["wc", "حمامات"],
-  ["cafe", "كافيتريا"],
-  ["locker", "غرف تغيير"],
-  ["ball", "كور للإيجار"],
-];
-// name, short, color, full, masked
-const PAYMENTS: [string, string, string, string, string][] = [
-  ["فودافون كاش", "VC", "bg-[#E60000]", "0100 123 4567", "0100 ••• ••67"],
-  ["إنستاباي", "IP", "bg-[#5B2C83]", "nogoom@instapay", "nog•••@instapay"],
-  ["تحويل بنكي", "BK", "bg-navy-900", "CIB · 1000 2233 4455 6677", "CIB · •••• 6677"],
-];
-
-const pitchPattern =
-  "radial-gradient(closest-side circle at 50% 50%, transparent 0 32%, rgba(255,255,255,0.55) 32% 36%, transparent 36%), linear-gradient(90deg, transparent calc(50% - 1px), rgba(255,255,255,0.55) calc(50% - 1px) calc(50% + 1px), transparent calc(50% + 1px)), repeating-linear-gradient(90deg, #2E8B55 0 12.5%, #287D4C 12.5% 25%)";
+const blank = "";
+const NO_PASSWORDS = { currentPassword: blank, newPassword: blank };
 
 const smallBtn = "min-h-[36px] px-3 rounded-[10px] border border-[#C9CFD9] bg-white text-navy-900 text-[13px] font-semibold";
 
 export default function SettingsPage() {
+  const { venueId } = useVenue();
   const [tab, setTab] = useState<Tab>("info");
-  const [vName, setVName] = useState("ملعب النجوم — مدينة نصر");
-  const [vAddr, setVAddr] = useState("شارع عباس العقاد، مدينة نصر، القاهرة");
-  const [vDesc, setVDesc] = useState("٣ ملاعب نجيل صناعي متكيفين بإضاءة ليلي، جنب سيتي ستارز.");
-  const [amen, setAmen] = useState<Record<string, boolean>>({ park: true, light: true, wc: true, cafe: false, locker: true, ball: false });
-  const [photos, setPhotos] = useState(3);
-  const [pub, setPub] = useState(true);
-  const [reveal, setReveal] = useState<Record<number, boolean>>({});
-  const [payOn, setPayOn] = useState<Record<number, boolean>>({ 0: true, 1: true, 2: false });
   const [toast, setToast] = useState<string | null>(null);
-
-  const togglePay = (i: number) => {
-    const on = !!payOn[i];
-    if (on && Object.values(payOn).filter(Boolean).length === 1) {
-      setToast("لازم طريقة دفع واحدة على الأقل تفضل شغالة.");
-      return;
-    }
-    setPayOn({ ...payOn, [i]: !on });
-  };
 
   return (
     <Page>
@@ -56,7 +32,7 @@ export default function SettingsPage() {
           [
             ["info", "بيانات الملعب"],
             ["pay", "طرق استلام العربون"],
-            ["account", "الحساب"],
+            ["account", "الحساب والأمان"],
           ] as const
         ).map(([id, label]) => (
           <button
@@ -74,169 +50,350 @@ export default function SettingsPage() {
         ))}
       </div>
 
-      {tab === "info" && (
-        <div className="flex flex-wrap gap-4 items-start">
-          <section className={`flex-[999_1_440px] min-w-0 ${card} rounded-[20px] p-5 flex flex-col gap-3.5`}>
-            <div className="flex flex-col gap-1.5">
-              <label htmlFor="vn" className="text-[13px] font-semibold">
-                اسم الملعب
-              </label>
-              <input id="vn" value={vName} onChange={(e) => setVName(e.target.value)} className={inputClass} />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <label htmlFor="va" className="text-[13px] font-semibold">
-                العنوان
-              </label>
-              <input id="va" value={vAddr} onChange={(e) => setVAddr(e.target.value)} className={inputClass} />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <label htmlFor="vd" className="text-[13px] font-semibold">
-                وصف قصير (بيظهر في صفحة الملعب)
-              </label>
-              <textarea
-                id="vd"
-                rows={3}
-                value={vDesc}
-                onChange={(e) => setVDesc(e.target.value)}
-                className="border border-[#C9CFD9] rounded-xl px-3 py-2.5 text-sm resize-y focus:outline-none focus:ring-2 focus:ring-navy-900"
-              />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <span className="text-[13px] font-semibold">المميزات</span>
-              <div className="flex gap-1.5 flex-wrap">
-                {AMENITIES.map(([k, label]) => (
-                  <button
-                    key={k}
-                    type="button"
-                    aria-pressed={!!amen[k]}
-                    onClick={() => setAmen({ ...amen, [k]: !amen[k] })}
-                    className={chip(!!amen[k], "min-h-[38px] px-3.5 rounded-[10px] text-[13px]")}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <span className="text-[13px] font-semibold">الصور</span>
-              <div className="flex gap-2 flex-wrap">
-                {Array.from({ length: photos }, (_, i) => (
-                  <span key={i} className="w-24 h-[72px] rounded-xl flex items-end justify-start p-1" style={{ background: pitchPattern }}>
-                    <span className="text-[11px] text-white bg-[rgba(15,27,61,0.6)] rounded-md px-1.5 py-px">
-                      {i === 0 ? "الغلاف" : toArabicDigits(i + 1)}
-                    </span>
-                  </span>
-                ))}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setToast(photos >= 8 ? "أقصى عدد ٨ صور." : "اتضافت صورة.");
-                    setPhotos(Math.min(8, photos + 1));
-                  }}
-                  className="w-24 h-[72px] rounded-xl border-[1.5px] border-dashed border-[#9AA3B5] bg-white text-[#3B4352] text-[13px] font-semibold"
-                >
-                  + صورة
-                </button>
-              </div>
-            </div>
-          </section>
-          <aside className={`flex-[1_1_300px] min-w-0 ${card} rounded-[20px] p-5 flex flex-col gap-3`}>
-            <h2 className="text-[17px] font-bold">حالة النشر</h2>
-            <Badge tone="ok" className="self-start !py-1 !px-3">
-              ✓ معتمد من ملعبك
-            </Badge>
-            <div className="flex items-center gap-2.5 bg-surface rounded-xl px-3 py-2.5">
-              <span className="flex-1 flex flex-col">
-                <span className="text-sm font-semibold">{pub ? "ظاهر للاعيبة" : "مخفي مؤقتاً"}</span>
-                <span className={`text-xs ${muted}`}>{pub ? "بيظهر في البحث والحجز مفتوح" : "محدش يقدر يحجز جديد"}</span>
-              </span>
-              <Switch
-                on={pub}
-                label="نشر الملعب"
-                onToggle={() => {
-                  setPub(!pub);
-                  setToast(pub ? "الملعب اتخفى. الحجوزات المأكدة زي ما هي." : "الملعب رجع ظاهر.");
-                }}
-              />
-            </div>
-            <span className={`text-xs ${muted} leading-[1.6]`}>تغيير الاسم أو العنوان بيتراجع من فريق ملعبك قبل ما يظهر للاعيبة.</span>
-          </aside>
-        </div>
-      )}
-
-      {tab === "pay" && (
-        <section className={`${card} rounded-[20px] px-5 pt-2 pb-4 flex flex-col`}>
-          {PAYMENTS.map(([name, short, color, full, masked], i) => {
-            const on = !!payOn[i];
-            const shown = !!reveal[i];
-            return (
-              <div key={name} className="flex flex-wrap items-center gap-3 py-3.5 border-b border-[#EEF0F5]">
-                <span className={`w-11 h-11 rounded-xl shrink-0 flex items-center justify-center text-[13px] font-bold text-white ${color}`}>{short}</span>
-                <span className="flex-[1_1_200px] flex flex-col gap-0.5">
-                  <span className="text-[15px] font-bold">{name}</span>
-                  <span dir="ltr" className={`text-[13px] ${muted} text-right`}>
-                    {shown ? full : masked}
-                  </span>
-                </span>
-                <button type="button" onClick={() => setReveal({ ...reveal, [i]: !shown })} className={smallBtn}>
-                  {shown ? "إخفاء" : "إظهار"}
-                </button>
-                <Switch on={on} label={`تفعيل ${name}`} onToggle={() => togglePay(i)} />
-              </div>
-            );
-          })}
-          <p className={`mt-3 text-xs ${muted}`}>البيانات دي بتظهر كاملة للاعب بس بعد ما يحجز، عشان يحوّل العربون.</p>
-        </section>
-      )}
-
-      {tab === "account" && (
-        <section className={`${card} rounded-[20px] p-5 flex flex-col gap-3.5 max-w-[640px]`}>
-          <AccountRow label="صاحب الحساب" value="محمود عبد الله">
-            <Link href="/staff" className="text-[13px] font-bold text-navy-900 underline hover:text-brand-red">
-              إدارة الموظفين
-            </Link>
-          </AccountRow>
-          <AccountRow label="الموبايل" value={<span dir="ltr">0100 123 4567</span>}>
-            <button type="button" onClick={() => setToast("هيوصلك كود على الرقم الجديد للتأكيد.")} className={smallBtn}>
-              تغيير
-            </button>
-          </AccountRow>
-          <AccountRow label="كلمة السر" value="••••••••">
-            <button type="button" onClick={() => setToast("بعتنالك لينك تغيير كلمة السر على الموبايل.")} className={smallBtn}>
-              تغيير
-            </button>
-          </AccountRow>
-          <AccountRow label="الاشتراك" value="باقة Growth">
-            <Link href="/subscription" className="text-[13px] font-bold text-navy-900 underline hover:text-brand-red">
-              تفاصيل الاشتراك
-            </Link>
-          </AccountRow>
-          <AccountRow label="المساعدة" value="فريق دعم الملاعب">
-            <button type="button" onClick={() => setToast("فتحنا محادثة مع دعم الملاعب — هيردّوا خلال ساعة.")} className={smallBtn}>
-              كلّم الدعم
-            </button>
-          </AccountRow>
-        </section>
-      )}
-
-      {tab !== "account" && (
-        <div className="flex justify-end">
-          <button
-            type="button"
-            onClick={() => setToast(tab === "info" ? "اتحفظت البيانات. تغيير الاسم والعنوان هيتراجع الأول." : "اتحفظت طرق الدفع.")}
-            className={`min-h-[46px] px-7 rounded-[14px] bg-brand-red hover:bg-brand-red-hover text-white text-sm font-bold ${redShadow}`}
-          >
-            حفظ التعديلات
-          </button>
-        </div>
-      )}
+      {tab === "info" && <VenueInfo onMessage={setToast} />}
+      {tab === "pay" && venueId && <PaymentMethods venueId={venueId} onMessage={setToast} />}
+      {tab === "account" && <Account onMessage={setToast} />}
 
       <Toast message={toast} onClose={() => setToast(null)} />
     </Page>
   );
 }
 
-function AccountRow({ label, value, children }: { label: string; value: React.ReactNode; children: React.ReactNode }) {
+function VenueInfo({ onMessage }: { onMessage: (message: string) => void }) {
+  const queryClient = useQueryClient();
+  const { venue } = useVenue();
+  const { facilities, governorates } = useReference();
+  const fileInput = useRef<HTMLInputElement>(null);
+  const [form, setForm] = useState({ name: "", phoneNumber: "", address: "", description: "", city: "", area: "", facilities: [] as string[] });
+
+  useEffect(() => {
+    if (venue) {
+      setForm({
+        name: venue.name,
+        phoneNumber: venue.phoneNumber,
+        address: venue.address,
+        description: venue.description ?? "",
+        city: venue.city,
+        area: venue.area,
+        facilities: venue.facilities,
+      });
+    }
+  }, [venue]);
+
+  const refresh = () => queryClient.invalidateQueries({ queryKey: ["venues"] });
+
+  const save = useMutation({
+    mutationFn: () =>
+      unwrap(
+        api.PUT("/api/v1/venue-manager/venues/{id}", {
+          params: { path: { id: venue!.id } },
+          body: { ...form, description: form.description.trim() || null, photos: venue!.photos },
+        }),
+      ),
+    onSuccess: async () => {
+      await refresh();
+      onMessage("اتحفظت البيانات.");
+    },
+    onError: (e: Error) => onMessage(e.message),
+  });
+
+  const upload = useMutation({
+    mutationFn: async (file: File) => {
+      const mediaId = await uploadImage(file, 0);
+      return unwrap(api.POST("/api/v1/venue-manager/venues/{venueId}/gallery", { params: { path: { venueId: venue!.id } }, body: { mediaId } }));
+    },
+    onSuccess: async () => {
+      await refresh();
+      onMessage("الصورة اترفعت.");
+    },
+    onError: (e: Error) => onMessage(e.message),
+  });
+
+  const removePhoto = useMutation({
+    mutationFn: (mediaId: string) =>
+      unwrap(api.DELETE("/api/v1/venue-manager/venues/{venueId}/gallery/{mediaId}", { params: { path: { venueId: venue!.id, mediaId } } })),
+    onSuccess: refresh,
+    onError: (e: Error) => onMessage(e.message),
+  });
+
+  if (!venue) return null;
+  const areas = governorates.find((g) => g.nameAr === form.city)?.areas ?? [];
+
+  return (
+    <div className="flex flex-wrap gap-4 items-start">
+      <section className={`flex-[999_1_460px] min-w-0 ${card} rounded-[20px] p-5 flex flex-col gap-3.5`}>
+        <label className="flex flex-col gap-1.5 text-[13px] font-semibold">
+          اسم الملعب
+          <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className={inputClass} />
+        </label>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <label className="flex flex-col gap-1.5 text-[13px] font-semibold">
+            المحافظة
+            <select value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value, area: "" })} className={inputClass}>
+              {governorates.map((g) => (
+                <option key={g.code} value={g.nameAr}>
+                  {g.nameAr}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="flex flex-col gap-1.5 text-[13px] font-semibold">
+            المنطقة
+            {areas.length > 0 ? (
+              <select value={form.area} onChange={(e) => setForm({ ...form, area: e.target.value })} className={inputClass}>
+                <option value="">اختار</option>
+                {areas.map((a) => (
+                  <option key={a.code} value={a.nameAr}>
+                    {a.nameAr}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <input value={form.area} onChange={(e) => setForm({ ...form, area: e.target.value })} className={inputClass} />
+            )}
+          </label>
+        </div>
+        <label className="flex flex-col gap-1.5 text-[13px] font-semibold">
+          العنوان
+          <input value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} className={inputClass} />
+        </label>
+        <label className="flex flex-col gap-1.5 text-[13px] font-semibold">
+          رقم التواصل
+          <input dir="ltr" value={form.phoneNumber} onChange={(e) => setForm({ ...form, phoneNumber: e.target.value })} className={`${inputClass} text-right`} />
+        </label>
+        <label className="flex flex-col gap-1.5 text-[13px] font-semibold">
+          وصف الملعب
+          <textarea rows={3} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className={`${inputClass} py-2.5`} />
+        </label>
+        <div className="flex flex-col gap-2">
+          <span className="text-[13px] font-semibold">المرافق</span>
+          <div className="flex flex-wrap gap-1.5">
+            {facilities.map((f) => {
+              const on = form.facilities.includes(f.code);
+              return (
+                <button
+                  key={f.code}
+                  type="button"
+                  aria-pressed={on}
+                  onClick={() => setForm({ ...form, facilities: on ? form.facilities.filter((c) => c !== f.code) : [...form.facilities, f.code] })}
+                  className={chip(on, "min-h-[36px] px-3 rounded-[10px] text-[13px]")}
+                >
+                  {f.nameAr}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+        <button
+          type="button"
+          disabled={save.isPending}
+          onClick={() => save.mutate()}
+          className={`self-end min-h-[46px] px-7 rounded-[14px] bg-brand-red hover:bg-brand-red-hover disabled:opacity-60 text-white text-sm font-bold ${redShadow}`}
+        >
+          {save.isPending ? "جاري الحفظ…" : "حفظ التعديلات"}
+        </button>
+      </section>
+
+      <section className={`flex-[1_1_320px] min-w-0 ${card} rounded-[20px] p-5 flex flex-col gap-3`}>
+        <h2 className="text-base font-bold">صور الملعب</h2>
+        <div className="grid grid-cols-2 gap-2">
+          {venue.photos.map((photo) => {
+            const mediaId = photo.split("/")[4];
+            return (
+              <div key={photo} className="relative">
+                {/* eslint-disable-next-line @next/next/no-img-element -- signed media from our API, already re-encoded as WebP */}
+                <img src={mediaSrc(photo)} alt="صورة الملعب" className="w-full h-24 object-cover rounded-xl" />
+                <button
+                  type="button"
+                  aria-label="مسح الصورة"
+                  onClick={() => removePhoto.mutate(mediaId)}
+                  className="absolute top-1.5 left-1.5 w-7 h-7 rounded-full bg-white/90 text-[#A8261C] text-xs font-bold"
+                >
+                  ✕
+                </button>
+              </div>
+            );
+          })}
+        </div>
+        <input
+          ref={fileInput}
+          type="file"
+          accept="image/jpeg,image/png,image/webp"
+          className="hidden"
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (file) upload.mutate(file);
+            e.target.value = "";
+          }}
+        />
+        <button type="button" disabled={upload.isPending} onClick={() => fileInput.current?.click()} className={smallBtn}>
+          {upload.isPending ? "جاري الرفع…" : "+ رفع صورة"}
+        </button>
+        <span className={`text-xs ${muted}`}>JPG أو PNG أو WebP، لحد ٨ ميجا. بنشيل بيانات الموقع من الصورة أوتوماتيك.</span>
+      </section>
+    </div>
+  );
+}
+
+function Account({ onMessage }: { onMessage: (message: string) => void }) {
+  const profile = useQuery({ queryKey: ["me"], queryFn: () => unwrap(api.GET("/api/v1/me")) });
+  const sessions = useQuery({ queryKey: ["sessions"], queryFn: () => unwrap(api.GET("/api/v1/me/sessions")) });
+  const [passwords, setPasswords] = useState(NO_PASSWORDS);
+  const [enrollment, setEnrollment] = useState<{ secret: string; provisioningUri: string } | null>(null);
+  const [totpCode, setTotpCode] = useState("");
+
+  const changePassword = useMutation({
+    mutationFn: () => unwrap(api.POST("/api/v1/auth/password/change", { body: passwords })),
+    onSuccess: () => {
+      setPasswords(NO_PASSWORDS);
+      onMessage("كلمة السر اتغيرت، والأجهزة التانية اتسجّل خروجها.");
+    },
+    onError: (e: Error) => onMessage(e.message),
+  });
+
+  const enroll = useMutation({
+    mutationFn: () => unwrap(api.POST("/api/v1/auth/2fa/totp/enroll")),
+    onSuccess: setEnrollment,
+    onError: (e: Error) => onMessage(e.message),
+  });
+
+  const confirmTotp = useMutation({
+    mutationFn: () => unwrap(api.POST("/api/v1/auth/2fa/totp/confirm", { body: { code: totpCode } })),
+    onSuccess: () => {
+      setEnrollment(null);
+      setTotpCode("");
+      onMessage("التحقق بخطوتين اتفعّل. هتحتاج الكود مع كلمة السر كل مرة تدخل.");
+    },
+    onError: (e: Error) => onMessage(e.message),
+  });
+
+  const revoke = useMutation({
+    mutationFn: (sessionId: string) => unwrap(api.DELETE("/api/v1/me/sessions/{sessionId}", { params: { path: { sessionId } } })),
+    onSuccess: () => sessions.refetch(),
+    onError: (e: Error) => onMessage(e.message),
+  });
+  const revokeOthers = useMutation({
+    mutationFn: () => unwrap(api.POST("/api/v1/me/sessions/revoke-others")),
+    onSuccess: async () => {
+      await sessions.refetch();
+      onMessage("اتسجّل الخروج من كل الأجهزة التانية.");
+    },
+    onError: (e: Error) => onMessage(e.message),
+  });
+
+  return (
+    <div className="flex flex-wrap gap-4 items-start">
+      <div className="flex-[999_1_460px] min-w-0 flex flex-col gap-4">
+        <section className={`${card} rounded-[20px] p-5 flex flex-col gap-3.5`}>
+          <AccountRow label="صاحب الحساب" value={profile.data?.fullName ?? "…"}>
+            <Link href="/staff" className="text-[13px] font-bold text-navy-900 underline hover:text-brand-red">
+              إدارة الموظفين
+            </Link>
+          </AccountRow>
+          <AccountRow label="الإيميل" value={<span dir="ltr">{profile.data?.email ?? "—"}</span>} />
+          <AccountRow label="الموبايل" value={<span dir="ltr">{profile.data?.phoneNumber ?? "—"}</span>} />
+        </section>
+
+        <section className={`${card} rounded-[20px] p-5 flex flex-col gap-3`}>
+          <h2 className="text-base font-bold">تغيير كلمة السر</h2>
+          <input
+            type="password"
+            autoComplete="current-password"
+            aria-label="كلمة السر الحالية"
+            placeholder="كلمة السر الحالية"
+            value={passwords.currentPassword}
+            onChange={(e) => setPasswords({ ...passwords, currentPassword: e.target.value })}
+            className={inputClass}
+          />
+          <input
+            type="password"
+            autoComplete="new-password"
+            aria-label="كلمة السر الجديدة"
+            placeholder="كلمة السر الجديدة (١٠ حروف على الأقل)"
+            minLength={10}
+            value={passwords.newPassword}
+            onChange={(e) => setPasswords({ ...passwords, newPassword: e.target.value })}
+            className={inputClass}
+          />
+          <button
+            type="button"
+            disabled={changePassword.isPending || !passwords.currentPassword || passwords.newPassword.length < 10}
+            onClick={() => changePassword.mutate()}
+            className={`self-start ${smallBtn} disabled:opacity-60`}
+          >
+            تغيير
+          </button>
+        </section>
+
+        <section className={`${card} rounded-[20px] p-5 flex flex-col gap-3`}>
+          <h2 className="text-base font-bold">التحقق بخطوتين</h2>
+          <span className={`text-[13px] ${muted} leading-[1.6]`}>
+            بعد التفعيل هتحتاج كود من تطبيق زي Google Authenticator مع كلمة السر. مطلوب للمالك عشان يحمي فلوس الملعب.
+          </span>
+          {enrollment ? (
+            <div className="flex flex-wrap gap-4 items-center">
+              <QRCodeSVG value={enrollment.provisioningUri} size={148} className="border border-[#EDF0F5] rounded-xl p-2" />
+              <div className="flex-1 min-w-[200px] flex flex-col gap-2">
+                <span className="text-[13px]">امسح الكود بالتطبيق، أو اكتب المفتاح ده:</span>
+                <code dir="ltr" className="text-[13px] bg-surface rounded-lg px-2 py-1 break-all">
+                  {enrollment.secret}
+                </code>
+                <input
+                  dir="ltr"
+                  inputMode="numeric"
+                  maxLength={6}
+                  aria-label="الكود من التطبيق"
+                  placeholder="123456"
+                  value={totpCode}
+                  onChange={(e) => setTotpCode(e.target.value.replace(/\D/g, ""))}
+                  className={`${inputClass} text-center tracking-[0.3em]`}
+                />
+                <button
+                  type="button"
+                  disabled={totpCode.length !== 6 || confirmTotp.isPending}
+                  onClick={() => confirmTotp.mutate()}
+                  className={`min-h-[42px] rounded-xl bg-navy-900 disabled:opacity-60 text-white text-sm font-bold`}
+                >
+                  تأكيد وتفعيل
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button type="button" disabled={enroll.isPending} onClick={() => enroll.mutate()} className={`self-start ${smallBtn}`}>
+              تفعيل التحقق بخطوتين
+            </button>
+          )}
+        </section>
+      </div>
+
+      <section className={`flex-[1_1_320px] min-w-0 ${card} rounded-[20px] p-5 flex flex-col gap-3`}>
+        <h2 className="text-base font-bold">الأجهزة المسجّل منها</h2>
+        {(sessions.data ?? []).map((s) => (
+          <div key={s.sessionId} className="flex items-center gap-2.5 border-b border-[#EEF0F5] last:border-b-0 pb-2.5">
+            <span className="flex-1 min-w-0 flex flex-col">
+              <span className="text-sm font-bold truncate">
+                {s.deviceName || "جهاز"} {s.isCurrent && <span className="text-xs text-[#1B6E3E]">· الجهاز ده</span>}
+              </span>
+              <span className={`text-xs ${muted}`}>آخر نشاط {new Date(s.lastActivityAtUtc).toLocaleString("ar-EG", { day: "numeric", month: "long", hour: "numeric", minute: "2-digit" })}</span>
+            </span>
+            {!s.isCurrent && (
+              <button type="button" disabled={revoke.isPending} onClick={() => revoke.mutate(s.sessionId)} className={smallBtn}>
+                خروج
+              </button>
+            )}
+          </div>
+        ))}
+        {(sessions.data?.length ?? 0) > 1 && (
+          <button type="button" disabled={revokeOthers.isPending} onClick={() => revokeOthers.mutate()} className={`${smallBtn} text-[#A8261C]`}>
+            اخرج من كل الأجهزة التانية
+          </button>
+        )}
+      </section>
+    </div>
+  );
+}
+
+function AccountRow({ label, value, children }: { label: string; value: React.ReactNode; children?: React.ReactNode }) {
   return (
     <div className="flex justify-between items-center gap-2.5">
       <span className="flex flex-col">

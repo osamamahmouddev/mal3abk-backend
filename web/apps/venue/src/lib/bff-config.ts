@@ -12,7 +12,7 @@ export const bffConfig: BffConfig = {
     /^\/api\/v1\/venue-manager\/venues$/,
     /^\/api\/v1\/me(\/|$)/,
     /^\/api\/v1\/reference\//,
-    /^\/api\/v1\/media\/uploads(\/|$)/,
+    /^\/api\/v1\/media\//,
     /^\/api\/v1\/auth\/(password\/change|2fa\/totp\/(enroll|confirm)|step-up(\/otp)?)$/,
     /^\/api\/v1\/venue-invitations\/accept$/,
   ],

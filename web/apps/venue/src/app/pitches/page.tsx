@@ -1,131 +1,120 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import type { Schemas } from "@malabak/api-client";
 import { Page, Switch, Toast, cardShadow, chip, toArabicDigits, useRevealOnSelect } from "@/components/ui";
+import { useVenue } from "@/components/Providers";
+import { api, unwrap } from "@/lib/api";
+import { useReference } from "@/lib/reference";
+import { APPROVAL_LABELS, CAPACITIES } from "@/lib/venue-format";
 
-type Size = "5" | "7" | "11";
-type Surface = "artificial" | "natural";
-type Duration = "1" | "1.5" | "2";
-
-interface PitchItem {
-  id: string;
-  name: string;
-  size: Size;
-  surface: Surface;
-  durations: Duration[];
-  pricePerHour: number;
-  isActive: boolean;
-}
-
-interface VenueItem {
-  id: string;
-  name: string;
-  meta: string;
-  approved: boolean;
-}
-
-const PLAN_LIMIT = 5;
-
-const SIZES: { val: Size; label: string }[] = [
-  { val: "5", label: "٥ لاعب" },
-  { val: "7", label: "٧ لاعب" },
-  { val: "11", label: "١١ لاعب" },
-];
-
-const SURFACES: { val: Surface; label: string }[] = [
-  { val: "artificial", label: "نجيل صناعي" },
-  { val: "natural", label: "نجيل طبيعي" },
-];
-
-const DURATIONS: { val: Duration; label: string }[] = [
-  { val: "1", label: "ساعة" },
-  { val: "1.5", label: "ساعة ونص" },
-  { val: "2", label: "ساعتين" },
-];
-
-const initialPitches: PitchItem[] = [
-  { id: "1", name: "ملعب ١", size: "5", surface: "artificial", durations: ["1", "2"], pricePerHour: 150, isActive: true },
-  { id: "2", name: "ملعب ٢", size: "7", surface: "artificial", durations: ["1", "2"], pricePerHour: 220, isActive: true },
-  { id: "3", name: "ملعب ٣", size: "5", surface: "artificial", durations: ["1"], pricePerHour: 150, isActive: true },
-];
-
-const venues: VenueItem[] = [
-  { id: "1", name: "ملعب النجوم — مدينة نصر", meta: "٣ ملاعب · شارع عباس العقاد", approved: true },
-  { id: "2", name: "ملعب النجوم — التجمع", meta: "ملعبين · لسه بيتجهّز", approved: false },
-];
+type Pitch = Schemas["PitchDto"];
 
 const pitchPattern =
   "radial-gradient(closest-side circle at 50% 50%, transparent 0 32%, rgba(255,255,255,0.55) 32% 36%, transparent 36%), linear-gradient(90deg, transparent calc(50% - 1px), rgba(255,255,255,0.55) calc(50% - 1px) calc(50% + 1px), transparent calc(50% + 1px)), repeating-linear-gradient(90deg, #2E8B55 0 12.5%, #287D4C 12.5% 25%)";
 
-const chipClass = (on: boolean) => chip(on, "flex-1 min-h-[40px] rounded-[10px] text-[13px]");
+const chipClass = (on: boolean) => chip(on, "min-h-[40px] px-3 rounded-[10px] text-[13px]");
+const field = "min-h-[44px] px-3 rounded-xl border border-[#C9CFD9] text-sm text-slate-900 bg-white focus:outline-none focus:ring-2 focus:ring-navy-900";
 
 export default function PitchesPage() {
+  const queryClient = useQueryClient();
+  const { venue, venues, venueId } = useVenue();
+  const { surfaces } = useReference();
   const [tab, setTab] = useState<"pitches" | "venues">("pitches");
-  const [pitches, setPitches] = useState<PitchItem[]>(initialPitches);
-  const [selectedId, setSelectedId] = useState<string>(initialPitches[0].id);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [draft, setDraft] = useState<Pitch | null>(null);
   const detailsRef = useRevealOnSelect<HTMLElement>(selectedId);
-  const [published, setPublished] = useState<Record<string, boolean>>({ "1": true, "2": false });
   const [toast, setToast] = useState<string | null>(null);
 
-  const selected = pitches.find((p) => p.id === selectedId) ?? pitches[0];
-  const atLimit = pitches.length >= PLAN_LIMIT;
+  const pitches = useQuery({
+    queryKey: ["pitches", venueId],
+    enabled: !!venueId,
+    queryFn: () => unwrap(api.GET("/api/v1/venue-manager/venues/{venueId}/pitches", { params: { path: { venueId: venueId! } } })),
+  });
+  const list = pitches.data ?? [];
+  const selected = list.find((p) => p.id === selectedId) ?? list[0] ?? null;
 
-  const updateSelected = (patch: Partial<PitchItem>) =>
-    setPitches((prev) => prev.map((p) => (p.id === selected.id ? { ...p, ...patch } : p)));
+  useEffect(() => {
+    setDraft(selected ? { ...selected } : null);
+  }, [selected]);
 
-  const addPitch = () => {
-    if (atLimit) return;
-    const id = String(Date.now());
-    const newPitch: PitchItem = {
-      id,
-      name: `ملعب ${toArabicDigits(pitches.length + 1)}`,
-      size: "5",
-      surface: "artificial",
-      durations: ["1"],
-      pricePerHour: 150,
-      isActive: false,
-    };
-    setPitches([...pitches, newPitch]);
-    setSelectedId(id);
-    setTab("pitches");
-  };
+  const refresh = () => Promise.all([pitches.refetch(), queryClient.invalidateQueries({ queryKey: ["venues"] })]);
 
-  const toggleDuration = (d: Duration) =>
-    updateSelected({
-      durations: selected.durations.includes(d)
-        ? selected.durations.filter((x) => x !== d)
-        : [...selected.durations, d],
-    });
+  const add = useMutation({
+    mutationFn: () =>
+      unwrap(
+        api.POST("/api/v1/venue-manager/venues/{venueId}/pitches", {
+          params: { path: { venueId: venueId! } },
+          body: { name: `ملعب ${toArabicDigits(list.length + 1)}`, turfType: "ArtificialTurf", capacity: 5, photos: [] },
+        }),
+      ),
+    onSuccess: async (pitch) => {
+      await refresh();
+      setSelectedId(pitch.id);
+      setTab("pitches");
+    },
+    onError: (e: Error) => setToast(e.message),
+  });
 
-  const durationsLabel = (p: PitchItem) =>
-    DURATIONS.filter((d) => p.durations.includes(d.val))
-      .map((d) => d.label)
-      .join("، ");
+  const save = useMutation({
+    mutationFn: (p: Pitch) =>
+      unwrap(
+        api.PUT("/api/v1/venue-manager/pitches/{id}", {
+          params: { path: { id: p.id } },
+          body: {
+            name: p.name.trim(),
+            turfType: p.turfType,
+            capacity: p.capacity,
+            lengthMeters: p.lengthMeters ?? null,
+            widthMeters: p.widthMeters ?? null,
+            photos: p.photos,
+          },
+        }),
+      ),
+    onSuccess: async (p) => {
+      await refresh();
+      setToast(`اتحفظت بيانات ${p.name}. التغيير بيظهر في التطبيق فوراً.`);
+    },
+    onError: (e: Error) => setToast(e.message),
+  });
+
+  const remove = useMutation({
+    mutationFn: (id: string) => unwrap(api.DELETE("/api/v1/venue-manager/pitches/{id}", { params: { path: { id } } })),
+    onSuccess: async () => {
+      setSelectedId(null);
+      await refresh();
+      setToast("الملعب اتمسح.");
+    },
+    onError: (e: Error) => setToast(e.message),
+  });
+
+  const publish = useMutation({
+    mutationFn: ({ id, isPublished }: { id: string; isPublished: boolean }) =>
+      unwrap(api.POST("/api/v1/venue-manager/venues/{id}/publish", { params: { path: { id } }, body: { isPublished } })),
+    onSuccess: async (_, { isPublished }) => {
+      await queryClient.invalidateQueries({ queryKey: ["venues"] });
+      setToast(isPublished ? "الفرع بقى ظاهر للاعبين." : "الفرع اتخفى من التطبيق. الحجوزات الحالية زي ما هي.");
+    },
+    onError: (e: Error) => setToast(e.message),
+  });
 
   return (
     <Page>
-      {/* Header */}
       <div className="flex flex-wrap items-center gap-3">
         <h1 className="flex-[1_1_240px] text-[26px] font-bold text-slate-900">الفروع والملاعب</h1>
-        <span className="text-[13px] text-[#5B6475]">
-          {toArabicDigits(pitches.length)} من {toArabicDigits(PLAN_LIMIT)} ملاعب في باقة Growth
-        </span>
+        <span className="text-[13px] text-[#5B6475]">{toArabicDigits(list.length)} ملاعب في {venue?.name ?? "الفرع"}</span>
         <button
           type="button"
-          onClick={addPitch}
-          disabled={atLimit}
-          className={`min-h-[44px] px-[18px] rounded-xl text-sm font-bold transition ${
-            atLimit
-              ? "bg-[#E4E7EC] text-[#6B7383] cursor-not-allowed"
-              : "bg-brand-red hover:bg-brand-red-hover text-white shadow-[0_10px_22px_-10px_rgba(214,59,47,0.65)]"
-          }`}
+          onClick={() => add.mutate()}
+          disabled={!venueId || add.isPending}
+          className="min-h-[44px] px-[18px] rounded-xl text-sm font-bold transition bg-brand-red hover:bg-brand-red-hover disabled:opacity-60 text-white shadow-[0_10px_22px_-10px_rgba(214,59,47,0.65)]"
         >
-          {atLimit ? "وصلت للحد — رقّي الباقة" : "+ إضافة ملعب"}
+          + إضافة ملعب
         </button>
       </div>
 
-      {/* Tabs */}
       <div role="tablist" className="flex gap-1.5">
         {(
           [
@@ -140,9 +129,7 @@ export default function PitchesPage() {
             aria-selected={tab === id}
             onClick={() => setTab(id)}
             className={`min-h-[42px] px-[18px] rounded-xl text-sm font-semibold border transition ${
-              tab === id
-                ? "bg-navy-900 text-white border-navy-900"
-                : "bg-white text-slate-900 border-[#DCE0E8] hover:bg-slate-50"
+              tab === id ? "bg-navy-900 text-white border-navy-900" : "bg-white text-slate-900 border-[#DCE0E8] hover:bg-slate-50"
             }`}
           >
             {label}
@@ -150,53 +137,43 @@ export default function PitchesPage() {
         ))}
       </div>
 
-      {/* Venues tab */}
       {tab === "venues" && (
         <div className="grid gap-4 grid-cols-[repeat(auto-fit,minmax(min(320px,100%),1fr))]">
           {venues.map((v) => {
-            const on = !!published[v.id];
+            const approved = v.isApproved;
+            const status = APPROVAL_LABELS[v.approvalStatus] ?? { label: v.approvalStatus, tone: "bg-[#EEF0F5] text-[#3B4352]" };
             return (
-              <article
-                key={v.id}
-                className={`bg-white border border-[#EDF0F5] rounded-[20px] overflow-hidden flex flex-col ${cardShadow}`}
-              >
+              <article key={v.id} className={`bg-white border border-[#EDF0F5] rounded-[20px] overflow-hidden flex flex-col ${cardShadow}`}>
                 <div className="h-[120px]" style={{ background: pitchPattern }} />
                 <div className="p-4 flex flex-col gap-2.5">
                   <div className="flex justify-between items-center gap-2">
-                    <span className="text-[17px] font-bold">{v.name}</span>
-                    <span
-                      className={`text-xs font-bold rounded-full px-2.5 py-[3px] whitespace-nowrap ${
-                        v.approved ? "bg-[#E5F5EB] text-[#1B6E3E]" : "bg-[#FEF3D6] text-[#7A4D00]"
-                      }`}
-                    >
-                      {v.approved ? "✓ معتمد من ملعبك" : "تحت المراجعة"}
+                    <span className="text-[17px] font-bold">
+                      {v.name} — {v.area}
                     </span>
+                    <span className={`text-xs font-bold rounded-full px-2.5 py-[3px] whitespace-nowrap ${status.tone}`}>{status.label}</span>
                   </div>
-                  <span className="text-[13px] text-[#5B6475]">{v.meta}</span>
+                  <span className="text-[13px] text-[#5B6475]">
+                    {toArabicDigits(v.pitches.length)} ملاعب · {v.address}
+                  </span>
                   <div className="flex items-center gap-2.5 bg-surface rounded-xl px-3 py-2.5">
                     <span className="flex-1 flex flex-col">
                       <span className="text-sm font-semibold">ظاهر للاعبين</span>
                       <span className="text-xs text-[#5B6475]">
-                        {v.approved
-                          ? on
-                            ? "اللاعبين شايفينه ويقدروا يحجزوا"
-                            : "مخفي — مش بيظهر في البحث"
-                          : "هيتاح النشر بعد الموافقة"}
+                        {approved ? (v.isPublished ? "اللاعبين شايفينه ويقدروا يحجزوا" : "مخفي — مش بيظهر في البحث") : "هيتاح النشر بعد الموافقة"}
                       </span>
                     </span>
                     <Switch
-                      on={on}
+                      on={v.isPublished}
                       label="نشر الفرع"
-                      disabled={!v.approved}
-                      onToggle={() => {
-                        if (!v.approved) return;
-                        setPublished({ ...published, [v.id]: !on });
-                        setToast(
-                          on ? "الفرع اتخفى من التطبيق. الحجوزات الحالية زي ما هي." : "الفرع بقى ظاهر للاعبين."
-                        );
-                      }}
+                      disabled={!approved || publish.isPending}
+                      onToggle={() => approved && publish.mutate({ id: v.id, isPublished: !v.isPublished })}
                     />
                   </div>
+                  {v.approvalStatus !== "Approved" && v.approvalStatus !== "Submitted" && (
+                    <Link href="/setup" className="text-sm font-semibold text-navy-900 underline">
+                      كمّل البيانات وابعت للمراجعة
+                    </Link>
+                  )}
                 </div>
               </article>
             );
@@ -204,12 +181,15 @@ export default function PitchesPage() {
         </div>
       )}
 
-      {/* Pitches tab */}
       {tab === "pitches" && (
         <div className="flex flex-wrap gap-4 items-start">
           <section className="flex-[999_1_460px] min-w-0 flex flex-col gap-3">
-            {pitches.map((item) => {
-              const isSelected = item.id === selected.id;
+            {pitches.isLoading && <div className="h-24 rounded-[18px] bg-slate-200 animate-pulse" />}
+            {!pitches.isLoading && list.length === 0 && (
+              <div className="bg-white rounded-[18px] p-6 text-center text-sm text-[#5B6475]">مفيش ملاعب لسه. اضغط «إضافة ملعب».</div>
+            )}
+            {list.map((item) => {
+              const isSelected = item.id === selected?.id;
               return (
                 <article
                   key={item.id}
@@ -217,27 +197,17 @@ export default function PitchesPage() {
                     isSelected ? "border-2 border-navy-900" : "border border-[#EDF0F5]"
                   }`}
                 >
-                  <span
-                    className={`w-[72px] h-[72px] shrink-0 rounded-[14px] ${item.isActive ? "" : "opacity-45"}`}
-                    style={{ background: pitchPattern }}
-                  />
+                  <span className={`w-[72px] h-[72px] shrink-0 rounded-[14px] ${item.isActive ? "" : "opacity-45"}`} style={{ background: pitchPattern }} />
                   <span className="flex-1 min-w-[150px] flex flex-col gap-[3px]">
                     <span className="text-base font-bold">{item.name}</span>
                     <span className="text-[13px] text-[#5B6475]">
-                      {SIZES.find((s) => s.val === item.size)?.label} ·{" "}
-                      {item.surface === "artificial" ? "نجيل صناعي" : "نجيل طبيعي"} · مدد: {durationsLabel(item)}
+                      {toArabicDigits(item.capacity)} لاعب · {item.surfaceArabicDisplayName}
                     </span>
-                    <span
-                      className={`text-xs font-bold ${item.isActive ? "text-[#1B6E3E]" : "text-[#8A94AA]"}`}
-                    >
+                    <span className={`text-xs font-bold ${item.isActive ? "text-[#1B6E3E]" : "text-[#8A94AA]"}`}>
                       {item.isActive ? "● شغال" : "● متوقف"}
                     </span>
                   </span>
-                  {/* Phones: price and action move to their own row under the details */}
-                  <span className="w-full sm:w-auto flex items-center justify-between sm:justify-start gap-3.5 pt-3 sm:pt-0 border-t sm:border-t-0 border-[#EEF0F5]">
-                    <span className="text-[15px] font-bold whitespace-nowrap">
-                      {toArabicDigits(item.pricePerHour)} ج.م/ساعة
-                    </span>
+                  <span className="w-full sm:w-auto flex items-center justify-end gap-3.5 pt-3 sm:pt-0 border-t sm:border-t-0 border-[#EEF0F5]">
                     <button
                       type="button"
                       onClick={() => setSelectedId(item.id)}
@@ -251,109 +221,95 @@ export default function PitchesPage() {
             })}
           </section>
 
-          <aside
-            ref={detailsRef}
-            aria-label="تعديل الملعب"
-            className={`flex-[1_1_340px] min-w-0 bg-white border border-[#EDF0F5] rounded-[20px] p-5 flex flex-col gap-3.5 ${cardShadow}`}
-          >
-            <h2 className="text-lg font-bold">تعديل {selected.name}</h2>
-
-            <div className="flex flex-col gap-1.5">
-              <label htmlFor="pitch-name" className="text-[13px] font-semibold">
-                اسم الملعب
-              </label>
-              <input
-                id="pitch-name"
-                type="text"
-                value={selected.name}
-                onChange={(e) => updateSelected({ name: e.target.value })}
-                className="min-h-[44px] px-3 rounded-xl border border-[#C9CFD9] text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-navy-900"
-              />
-            </div>
-
-            <div className="flex flex-col gap-1.5">
-              <span className="text-[13px] font-semibold">المقاس</span>
-              <div className="flex gap-1.5">
-                {SIZES.map((s) => (
-                  <button
-                    key={s.val}
-                    type="button"
-                    aria-pressed={selected.size === s.val}
-                    onClick={() => updateSelected({ size: s.val })}
-                    className={chipClass(selected.size === s.val)}
-                  >
-                    {s.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="flex flex-col gap-1.5">
-              <span className="text-[13px] font-semibold">الأرضية</span>
-              <div className="flex gap-1.5">
-                {SURFACES.map((t) => (
-                  <button
-                    key={t.val}
-                    type="button"
-                    aria-pressed={selected.surface === t.val}
-                    onClick={() => updateSelected({ surface: t.val })}
-                    className={chipClass(selected.surface === t.val)}
-                  >
-                    {t.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="flex flex-col gap-1.5">
-              <span className="text-[13px] font-semibold">مدد الحجز المسموحة</span>
-              <div className="flex gap-1.5">
-                {DURATIONS.map((d) => {
-                  const on = selected.durations.includes(d.val);
-                  return (
-                    <button
-                      key={d.val}
-                      type="button"
-                      aria-pressed={on}
-                      onClick={() => toggleDuration(d.val)}
-                      className={chipClass(on)}
-                    >
-                      {d.label}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between bg-surface rounded-xl px-3 py-2.5">
-              <span className="text-sm">السعر الأساسي</span>
-              <Link href="/pricing" className="text-sm font-bold text-navy-900 hover:text-brand-red">
-                {toArabicDigits(selected.pricePerHour)} ج.م — من قواعد الأسعار
-              </Link>
-            </div>
-
-            <div className="flex items-center gap-2.5">
-              <span className="flex-1 flex flex-col">
-                <span className="text-sm font-semibold">الملعب شغال</span>
-                <span className="text-xs text-[#5B6475]">
-                  لو قفلته، الحجوزات الجاية مش بتتلغي — بس مش هيتحجز جديد.
-                </span>
-              </span>
-              <Switch
-                on={selected.isActive}
-                label="تشغيل الملعب"
-                onToggle={() => updateSelected({ isActive: !selected.isActive })}
-              />
-            </div>
-
-            <button
-              type="button"
-              onClick={() => setToast(`اتحفظت بيانات ${selected.name}. التغيير بيظهر في التطبيق فوراً.`)}
-              className="min-h-[48px] rounded-[14px] bg-brand-red hover:bg-brand-red-hover text-white text-[15px] font-bold shadow-[0_10px_22px_-10px_rgba(214,59,47,0.65)] transition"
+          {draft && (
+            <aside
+              ref={detailsRef}
+              aria-label="تعديل الملعب"
+              className={`flex-[1_1_340px] min-w-0 bg-white border border-[#EDF0F5] rounded-[20px] p-5 flex flex-col gap-3.5 ${cardShadow}`}
             >
-              حفظ
-            </button>
-          </aside>
+              <h2 className="text-lg font-bold">تعديل {selected?.name}</h2>
+
+              <label className="flex flex-col gap-1.5 text-[13px] font-semibold">
+                اسم الملعب
+                <input value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} className={field} />
+              </label>
+
+              <div className="flex flex-col gap-1.5">
+                <span className="text-[13px] font-semibold">لاعب في كل فريق</span>
+                <div className="flex flex-wrap gap-1.5">
+                  {CAPACITIES.map((c) => (
+                    <button
+                      key={c}
+                      type="button"
+                      aria-pressed={draft.capacity === c}
+                      onClick={() => setDraft({ ...draft, capacity: c })}
+                      className={chipClass(draft.capacity === c)}
+                    >
+                      {toArabicDigits(c)}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <label className="flex flex-col gap-1.5 text-[13px] font-semibold">
+                الأرضية
+                <select value={draft.turfType} onChange={(e) => setDraft({ ...draft, turfType: e.target.value })} className={field}>
+                  {surfaces.map((s) => (
+                    <option key={s.code} value={s.code}>
+                      {s.nameAr}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <div className="grid grid-cols-2 gap-2.5">
+                <label className="flex flex-col gap-1.5 text-[13px] font-semibold">
+                  الطول (متر)
+                  <input
+                    type="number"
+                    min={10}
+                    value={draft.lengthMeters ?? ""}
+                    onChange={(e) => setDraft({ ...draft, lengthMeters: e.target.value ? Number(e.target.value) : null })}
+                    className={field}
+                  />
+                </label>
+                <label className="flex flex-col gap-1.5 text-[13px] font-semibold">
+                  العرض (متر)
+                  <input
+                    type="number"
+                    min={5}
+                    value={draft.widthMeters ?? ""}
+                    onChange={(e) => setDraft({ ...draft, widthMeters: e.target.value ? Number(e.target.value) : null })}
+                    className={field}
+                  />
+                </label>
+              </div>
+
+              <div className="flex items-center justify-between bg-surface rounded-xl px-3 py-2.5 gap-2">
+                <span className="text-sm">مدد الحجز والإشعار المسبق</span>
+                <Link href="/schedule" className="text-sm font-bold text-navy-900 hover:text-brand-red">
+                  من صفحة المواعيد
+                </Link>
+              </div>
+
+              <button
+                type="button"
+                disabled={save.isPending || !draft.name.trim()}
+                onClick={() => save.mutate(draft)}
+                className="min-h-[48px] rounded-[14px] bg-brand-red hover:bg-brand-red-hover disabled:opacity-60 text-white text-[15px] font-bold shadow-[0_10px_22px_-10px_rgba(214,59,47,0.65)] transition"
+              >
+                {save.isPending ? "جاري الحفظ…" : "حفظ"}
+              </button>
+              <button
+                type="button"
+                disabled={remove.isPending}
+                onClick={() => window.confirm(`تمسح ${draft.name}؟`) && remove.mutate(draft.id)}
+                className="min-h-[44px] rounded-[12px] border border-[#F3C4BF] bg-white text-[#A8261C] text-sm font-semibold"
+              >
+                مسح الملعب
+              </button>
+            </aside>
+          )}
         </div>
       )}
 

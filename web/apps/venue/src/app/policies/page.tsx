@@ -1,79 +1,211 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import type { Schemas } from "@malabak/api-client";
 import { Page, Toast, card, chip, muted, redShadow } from "@/components/ui";
+import { useVenue } from "@/components/Providers";
+import { PaymentMethods } from "@/components/PaymentMethods";
+import { api, unwrap } from "@/lib/api";
 
-type Value = string | number;
-type Item = [key: string, label: string, hint: string, options: [Value, string][]];
+type Policy = Schemas["BookingPolicyApiRequest"];
+type Option = [label: string, patch: Partial<Policy>];
+type Item = [label: string, hint: string, options: Option[]];
 
 const GROUPS: [string, Item[]][] = [
   [
     "العربون والتأكيد",
     [
-      ["dep", "قيمة العربون", "بيتحسب من سعر الحجز", [["p25", "٢٥٪"], ["p33", "تلت السعر"], ["p50", "النص"], ["fixed", "٥٠ ج.م ثابت"]]],
-      ["proof", "مهلة رفع إثبات الدفع", "لو اللاعب مارفعش في المهلة الحجز بيتلغي", [[15, "١٥ دقيقة"], [30, "٣٠ دقيقة"], [60, "ساعة"]]],
-      ["review", "مهلة مراجعة الإثبات", "وقت الملعب يأكد أو يرفض", [[30, "٣٠ دقيقة"], [60, "ساعة"], [180, "٣ ساعات"]]],
-      ["block", "الحجز المستني بيقفل الميعاد؟", 'لو "أيوه" محدش تاني يقدر يحجزه وقت المراجعة', [["yes", "أيوه"], ["no", "لأ"]]],
+      [
+        "قيمة العربون",
+        "بيتحسب من سعر الحجز",
+        [
+          ["٢٥٪", { depositType: 0, depositValue: 25 }],
+          ["تلت السعر", { depositType: 0, depositValue: 33 }],
+          ["النص", { depositType: 0, depositValue: 50 }],
+          ["٥٠ ج.م ثابت", { depositType: 1, depositValue: 50 }],
+          ["المبلغ كامل", { depositType: 2, depositValue: 100 }],
+        ],
+      ],
+      [
+        "مهلة رفع إثبات الدفع",
+        "لو اللاعب مارفعش في المهلة الحجز بيتلغي",
+        [
+          ["١٥ دقيقة", { proofSubmissionWindowMinutes: 15 }],
+          ["٣٠ دقيقة", { proofSubmissionWindowMinutes: 30 }],
+          ["ساعة", { proofSubmissionWindowMinutes: 60 }],
+        ],
+      ],
+      [
+        "مهلة مراجعة الإثبات",
+        "وقت الملعب يأكد أو يرفض",
+        [
+          ["٣٠ دقيقة", { manualReviewWindowMinutes: 30 }],
+          ["ساعة", { manualReviewWindowMinutes: 60 }],
+          ["٣ ساعات", { manualReviewWindowMinutes: 180 }],
+        ],
+      ],
+      [
+        "الحجز المستني بيقفل الميعاد؟",
+        'لو "أيوه" محدش تاني يقدر يحجزه وقت المراجعة',
+        [
+          ["أيوه", { pendingBookingsBlockSlots: true }],
+          ["لأ", { pendingBookingsBlockSlots: false }],
+        ],
+      ],
     ],
   ],
   [
     "الإلغاء والاسترداد",
     [
-      ["cancel", "آخر ميعاد للإلغاء المجاني", "قبل الماتش بـ", [[6, "٦ ساعات"], [12, "١٢ ساعة"], [24, "٢٤ ساعة"], [48, "يومين"]]],
-      ["refund", "الاسترداد في الإلغاء المجاني", "بيترجع من العربون", [["full", "العربون كله"], ["half", "النص"], ["credit", "رصيد للحجز الجاي"]]],
-      ["late", "الإلغاء المتأخر", "بعد آخر ميعاد", [["none", "مفيش استرداد"], ["half", "نص العربون"]]],
+      [
+        "آخر ميعاد للإلغاء المجاني",
+        "قبل الماتش بـ",
+        [
+          ["٦ ساعات", { cancellationDeadlineHours: 6 }],
+          ["١٢ ساعة", { cancellationDeadlineHours: 12 }],
+          ["٢٤ ساعة", { cancellationDeadlineHours: 24 }],
+          ["يومين", { cancellationDeadlineHours: 48 }],
+        ],
+      ],
+      [
+        "الاسترداد في الإلغاء المجاني",
+        "بيترجع من العربون",
+        [
+          ["العربون كله", { refundEligibility: 0, refundPercentage: 100 }],
+          ["النص", { refundEligibility: 1, refundPercentage: 50 }],
+          ["مفيش استرداد", { refundEligibility: 2, refundPercentage: 0 }],
+        ],
+      ],
     ],
   ],
   [
     "الحضور والتغيير",
     [
-      ["noshow", "لو الفريق ماجاش", "No-show", [["keep", "العربون بيتخصم"], ["keep_flag", "يتخصم + علامة على العميل"]]],
-      ["lateArr", "التأخير المسموح", "بعده الملعب يقدر يدّي الميعاد لحد تاني", [[10, "١٠ دقايق"], [15, "١٥ دقيقة"], [30, "٣٠ دقيقة"]]],
-      ["resch", "تغيير الميعاد", "قبل آخر ميعاد إلغاء", [["none", "مش مسموح"], ["once", "مرة واحدة"], ["free", "مفتوح"]]],
+      [
+        "لو الفريق ماجاش",
+        "No-show",
+        [
+          ["العربون بيتخصم", { noShowRule: 0 }],
+          ["المبلغ كله", { noShowRule: 1 }],
+          ["مفيش خصم", { noShowRule: 2 }],
+        ],
+      ],
+      [
+        "التأخير المسموح",
+        "بعده الملعب يقدر يدّي الميعاد لحد تاني",
+        [
+          ["١٠ دقايق", { lateArrivalGraceMinutes: 10 }],
+          ["١٥ دقيقة", { lateArrivalGraceMinutes: 15 }],
+          ["٣٠ دقيقة", { lateArrivalGraceMinutes: 30 }],
+        ],
+      ],
+      [
+        "تغيير الميعاد",
+        "قبل الماتش بـ",
+        [
+          ["مش مسموح", { allowReschedule: false, rescheduleDeadlineHours: 0 }],
+          ["لحد ١٢ ساعة", { allowReschedule: true, rescheduleDeadlineHours: 12 }],
+          ["لحد ٢٤ ساعة", { allowReschedule: true, rescheduleDeadlineHours: 24 }],
+        ],
+      ],
     ],
   ],
 ];
 
-const INITIAL: Record<string, Value> = {
-  dep: "p33",
-  proof: 30,
-  review: 60,
-  block: "yes",
-  cancel: 24,
-  refund: "full",
-  late: "half",
-  noshow: "keep",
-  resch: "once",
-  lateArr: 15,
+const DEFAULT_POLICY: Policy = {
+  depositType: 0,
+  depositValue: 33,
+  proofSubmissionWindowMinutes: 30,
+  manualReviewWindowMinutes: 60,
+  pendingBookingsBlockSlots: true,
+  cancellationDeadlineHours: 24,
+  refundEligibility: 0,
+  refundPercentage: 100,
+  noShowRule: 0,
+  lateArrivalGraceMinutes: 15,
+  allowReschedule: true,
+  rescheduleDeadlineHours: 24,
+  terms: null,
+};
+
+/** The policy snapshot reports enums by name; the update takes their numbers. */
+const ENUM_VALUES = {
+  deposit: { Percentage: 0, FixedAmount: 1, Full: 2 } as Record<string, Schemas["DepositType"]>,
+  refund: { FullRefund: 0, PartialRefund: 1, NoRefund: 2 } as Record<string, Schemas["RefundEligibility"]>,
+  noShow: { ForfeitDeposit: 0, ForfeitFullAmount: 1, NoPenalty: 2 } as Record<string, Schemas["NoShowRule"]>,
+};
+
+const matches = (policy: Policy, patch: Partial<Policy>) =>
+  Object.entries(patch).every(([key, value]) => policy[key as keyof Policy] === value);
+
+const labelOf = (policy: Policy, label: string) => {
+  for (const [, items] of GROUPS) for (const [itemLabel, , options] of items) if (itemLabel === label) return options.find(([, p]) => matches(policy, p))?.[0] ?? "—";
+  return "—";
 };
 
 export default function PoliciesPage() {
-  const [v, setV] = useState<Record<string, Value>>(INITIAL);
+  const { venue, venueId } = useVenue();
+  const [policy, setPolicy] = useState<Policy>(DEFAULT_POLICY);
   const [dirty, setDirty] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
 
-  const lbl = (k: string) => {
-    for (const [, items] of GROUPS)
-      for (const it of items) if (it[0] === k) return it[3].find((o) => o[0] === v[k])?.[1] ?? "";
-    return "";
-  };
+  const current = useQuery({
+    queryKey: ["booking-policy", venueId],
+    enabled: !!venueId,
+    retry: false,
+    queryFn: async () => {
+      const { data, response } = await api.GET("/api/v1/venue-manager/venues/{venueId}/booking-policy", { params: { path: { venueId: venueId! } } });
+      return response.status === 404 ? null : (data?.find((v) => v.isCurrent) ?? null);
+    },
+  });
+
+  useEffect(() => {
+    const snapshot = current.data?.policy;
+    if (snapshot) {
+      setPolicy({
+        depositType: ENUM_VALUES.deposit[snapshot.depositType] ?? 0,
+        depositValue: snapshot.depositValue,
+        proofSubmissionWindowMinutes: snapshot.proofSubmissionWindowMinutes,
+        manualReviewWindowMinutes: snapshot.manualReviewWindowMinutes,
+        pendingBookingsBlockSlots: snapshot.pendingBookingsBlockSlots,
+        cancellationDeadlineHours: snapshot.cancellationDeadlineHours,
+        refundEligibility: ENUM_VALUES.refund[snapshot.refundEligibility] ?? 0,
+        refundPercentage: snapshot.refundPercentage,
+        noShowRule: ENUM_VALUES.noShow[snapshot.noShowRule] ?? 0,
+        lateArrivalGraceMinutes: snapshot.lateArrivalGraceMinutes,
+        allowReschedule: snapshot.allowReschedule,
+        rescheduleDeadlineHours: snapshot.rescheduleDeadlineHours,
+        terms: snapshot.terms ?? null,
+      });
+    }
+  }, [current.data]);
+
+  const save = useMutation({
+    mutationFn: () =>
+      unwrap(api.PUT("/api/v1/venue-manager/venues/{venueId}/booking-policy", { params: { path: { venueId: venueId! } }, body: policy })),
+    onSuccess: async () => {
+      setDirty(false);
+      await current.refetch();
+      setToast("اتحفظت السياسات. هتطبّق على الحجوزات الجديدة من دلوقتي.");
+    },
+    onError: (e: Error) => setToast(e.message),
+  });
 
   const preview = [
-    `العربون: ${lbl("dep")} — ادفع وارفع الإثبات خلال ${lbl("proof")}.`,
-    `الملعب بيراجع الإثبات خلال ${lbl("review")}${v.block === "yes" ? "، والميعاد محجوزلك لحد ما يتراجع." : "."}`,
-    `تقدر تلغي مجاناً لحد ${lbl("cancel")} قبل الماتش، وبيرجعلك ${lbl("refund")}.`,
-    `بعد كده: ${lbl("late")}.`,
-    `لو اتأخرت أكتر من ${lbl("lateArr")} الملعب ممكن يدّي الميعاد لحد تاني، ولو ماجيتش ${lbl("noshow")}.`,
-    `تغيير الميعاد: ${lbl("resch")}.`,
+    `العربون: ${labelOf(policy, "قيمة العربون")} — ادفع وارفع الإثبات خلال ${labelOf(policy, "مهلة رفع إثبات الدفع")}.`,
+    `الملعب بيراجع الإثبات خلال ${labelOf(policy, "مهلة مراجعة الإثبات")}${policy.pendingBookingsBlockSlots ? "، والميعاد محجوزلك لحد ما يتراجع." : "."}`,
+    `تقدر تلغي مجاناً لحد ${labelOf(policy, "آخر ميعاد للإلغاء المجاني")} قبل الماتش، والاسترداد: ${labelOf(policy, "الاسترداد في الإلغاء المجاني")}.`,
+    `لو اتأخرت أكتر من ${labelOf(policy, "التأخير المسموح")} الملعب ممكن يدّي الميعاد لحد تاني، ولو ماجيتش: ${labelOf(policy, "لو الفريق ماجاش")}.`,
+    `تغيير الميعاد: ${labelOf(policy, "تغيير الميعاد")}.`,
   ];
 
   return (
     <Page>
       <div className="flex flex-wrap items-center gap-3">
         <h1 className="flex-[1_1_240px] text-[26px] font-bold">سياسات الحجز</h1>
-        {dirty && (
-          <span className="text-[13px] font-bold bg-[#FEF3D6] text-[#7A4D00] rounded-full px-3 py-1">فيه تعديلات مش محفوظة</span>
-        )}
+        {current.data && <span className={`text-[13px] ${muted}`}>النسخة الحالية: {current.data.version}</span>}
+        {dirty && <span className="text-[13px] font-bold bg-[#FEF3D6] text-[#7A4D00] rounded-full px-3 py-1">فيه تعديلات مش محفوظة</span>}
       </div>
 
       <div className="flex flex-wrap gap-4 items-start">
@@ -81,38 +213,57 @@ export default function PoliciesPage() {
           {GROUPS.map(([title, items]) => (
             <section key={title} className={`${card} rounded-[20px] px-5 py-[18px] flex flex-col`}>
               <h2 className="mb-1.5 text-[17px] font-bold">{title}</h2>
-              {items.map(([k, label, hint, opts]) => (
-                <div key={k} className="flex flex-wrap items-center gap-2.5 py-3 border-b border-[#EEF0F5] last:border-b-0">
+              {items.map(([label, hint, options]) => (
+                <div key={label} className="flex flex-wrap items-center gap-2.5 py-3 border-b border-[#EEF0F5] last:border-b-0">
                   <span className="flex-[1_1_220px] flex flex-col gap-0.5">
                     <span className="text-sm font-bold">{label}</span>
                     <span className={`text-xs ${muted}`}>{hint}</span>
                   </span>
                   <div className="flex gap-1.5 flex-wrap">
-                    {opts.map(([val, olabel]) => (
-                      <button
-                        key={String(val)}
-                        type="button"
-                        aria-pressed={v[k] === val}
-                        onClick={() => {
-                          setV({ ...v, [k]: val });
-                          setDirty(true);
-                        }}
-                        className={chip(v[k] === val, "min-h-[36px] px-3 rounded-[10px] text-[13px]")}
-                      >
-                        {olabel}
-                      </button>
-                    ))}
+                    {options.map(([optionLabel, patch]) => {
+                      const on = matches(policy, patch);
+                      return (
+                        <button
+                          key={optionLabel}
+                          type="button"
+                          aria-pressed={on}
+                          onClick={() => {
+                            setPolicy({ ...policy, ...patch });
+                            setDirty(true);
+                          }}
+                          className={chip(on, "min-h-[36px] px-3 rounded-[10px] text-[13px]")}
+                        >
+                          {optionLabel}
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
               ))}
             </section>
           ))}
+
+          <section className={`${card} rounded-[20px] px-5 py-[18px] flex flex-col gap-2`}>
+            <h2 className="text-[17px] font-bold">شروط إضافية</h2>
+            <textarea
+              rows={3}
+              value={policy.terms ?? ""}
+              onChange={(e) => {
+                setPolicy({ ...policy, terms: e.target.value || null });
+                setDirty(true);
+              }}
+              placeholder="مثلاً: ممنوع الحذاء الحديد"
+              className="border border-[#C9CFD9] rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-navy-900"
+            />
+          </section>
+
+          {venueId && <PaymentMethods venueId={venueId} onMessage={setToast} />}
         </div>
 
         <aside aria-label="معاينة اللاعب" className="flex-[1_1_320px] min-w-0 flex flex-col gap-3 sticky top-4">
           <div className={`${card} rounded-[20px] p-[18px] flex flex-col gap-2.5`}>
             <span className={`text-xs font-bold ${muted}`}>كده هتظهر للاعب قبل ما يحجز</span>
-            <h2 className="text-base font-bold">سياسة ملعب النجوم</h2>
+            <h2 className="text-base font-bold">سياسة {venue?.name ?? "الملعب"}</h2>
             {preview.map((p) => (
               <div key={p} className="flex gap-2 items-start text-[13px] leading-[1.6]">
                 <span className="w-1.5 h-1.5 rounded-full bg-brand-red mt-2 shrink-0" />
@@ -125,13 +276,11 @@ export default function PoliciesPage() {
           </div>
           <button
             type="button"
-            onClick={() => {
-              setDirty(false);
-              setToast("اتحفظت السياسات. هتطبّق على الحجوزات الجديدة من دلوقتي.");
-            }}
-            className={`min-h-[48px] rounded-[14px] bg-brand-red hover:bg-brand-red-hover text-white text-[15px] font-bold ${redShadow}`}
+            disabled={save.isPending || !venueId}
+            onClick={() => save.mutate()}
+            className={`min-h-[48px] rounded-[14px] bg-brand-red hover:bg-brand-red-hover disabled:opacity-60 text-white text-[15px] font-bold ${redShadow}`}
           >
-            حفظ السياسات
+            {save.isPending ? "جاري الحفظ…" : "حفظ السياسات"}
           </button>
         </aside>
       </div>
