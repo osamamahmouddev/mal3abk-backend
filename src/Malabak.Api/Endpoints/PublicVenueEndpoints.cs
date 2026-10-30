@@ -1,17 +1,22 @@
 using System.Security.Claims;
+using System.Security.Cryptography;
+using System.Text.Json;
 using Asp.Versioning.Builder;
 using Malabak.Api.Infrastructure.Authorization;
 using Malabak.Api.Infrastructure.Security;
 using Malabak.Modules.Venues.Application.Availability;
+using Malabak.Modules.Venues.Application.Details;
 using Malabak.Modules.Venues.Application.Explore;
 using Malabak.SharedKernel;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Malabak.Api.Endpoints;
 
-/// <summary>Player-facing venue endpoints (no login needed to browse): availability, explore and map.</summary>
+/// <summary>Player-facing venue endpoints (no login needed to browse): venue profile, pitches, availability, explore and map.</summary>
 public static class PublicVenueEndpoints
 {
+    private static readonly JsonSerializerOptions _etagJson = new(JsonSerializerDefaults.Web);
+
     public static void MapPublicVenueEndpoints(this IEndpointRouteBuilder app, ApiVersionSet apiVersionSet)
     {
         var venues = app.MapGroup("/api/v{version:apiVersion}/venues")
@@ -61,6 +66,18 @@ public static class PublicVenueEndpoints
         .WithName("MapVenues")
         .WithSummary("Venue pins inside the visible map bounds (max 2 degrees wide) with the explore filters");
 
+        venues.MapGet("/{venueId:guid}", async (Guid venueId, HttpContext http, VenueDetailsQuery details, CancellationToken ct) =>
+            PublicCached(http, await details.GetAsync(venueId, ct)))
+        .RequireDistributedRateLimiting("public-venue-details", permitLimit: 120, windowSeconds: 60)
+        .WithName("GetPublicVenue")
+        .WithSummary("Venue profile: gallery, facilities, opening hours, starting price and deposit/cancellation policy");
+
+        venues.MapGet("/{venueId:guid}/pitches", async (Guid venueId, HttpContext http, VenueDetailsQuery details, CancellationToken ct) =>
+            PublicCached(http, await details.GetPitchesAsync(venueId, ct)))
+        .RequireDistributedRateLimiting("public-venue-details", permitLimit: 120, windowSeconds: 60)
+        .WithName("GetPublicVenuePitches")
+        .WithSummary("Active pitches with size, surface, dimensions, photos, base hourly price and custom hours");
+
         venues.MapGet("/areas", async (HttpContext http, VenueExplore explore, CancellationToken ct) =>
         {
             http.Response.Headers.CacheControl = "public, max-age=300";
@@ -69,6 +86,25 @@ public static class PublicVenueEndpoints
         .RequireDistributedRateLimiting("public-areas", permitLimit: 60, windowSeconds: 60)
         .WithName("ExploreAreas")
         .WithSummary("Cities and areas that have venues, for choosing a place by hand when location is not shared");
+    }
+
+    /// <summary>
+    /// Public, user-independent data: shared caches may keep it for a minute; clients revalidate with If-None-Match.
+    /// </summary>
+    private static IResult PublicCached<T>(HttpContext http, Result<T> result)
+    {
+        if (result.IsFailure)
+        {
+            return ToResult(result);
+        }
+
+        var hash = SHA256.HashData(JsonSerializer.SerializeToUtf8Bytes(result.Value, _etagJson));
+        var etag = $"\"{Convert.ToHexString(hash, 0, 16).ToLowerInvariant()}\"";
+        http.Response.Headers.ETag = etag;
+        http.Response.Headers.CacheControl = "public, max-age=60, stale-while-revalidate=300";
+        return http.Request.Headers.IfNoneMatch.ToString() == etag
+            ? Results.StatusCode(StatusCodes.Status304NotModified)
+            : Results.Ok(result.Value);
     }
 
     private static IResult ToResult<T>(Result<T> result)
