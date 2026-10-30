@@ -5,6 +5,7 @@ using Malabak.Modules.Venues.Domain;
 using Malabak.Modules.Venues.Infrastructure;
 using Malabak.Modules.Venues.Infrastructure.Services;
 using Malabak.SharedKernel;
+using Malabak.SharedKernel.Contracts;
 using Microsoft.EntityFrameworkCore;
 using Xunit;
 
@@ -153,12 +154,15 @@ public sealed class VenueApprovalTests
         db.ApprovalEvents.Add(venue.SubmitForApproval(_ownerId, null, _now).Value);
         await db.SaveChangesAsync();
 
-        var pending = await new GetPendingVenueApprovalsHandler(db).HandleAsync(new GetPendingVenueApprovalsQuery(1, 20));
+        var pending = await new GetPendingVenueApprovalsHandler(db, new OwnerNames()).HandleAsync(new GetPendingVenueApprovalsQuery(1, 20));
         var decided = await new DecideVenueApprovalHandler(new NoopAudit(), db, _clock)
             .HandleAsync(new DecideVenueApprovalCommand(venue.Id, _adminId, VenueApprovalDecision.Approve, "Looks good"));
-        var pendingAfter = await new GetPendingVenueApprovalsHandler(db).HandleAsync(new GetPendingVenueApprovalsQuery(1, 20));
+        var pendingAfter = await new GetPendingVenueApprovalsHandler(db, new OwnerNames()).HandleAsync(new GetPendingVenueApprovalsQuery(1, 20));
 
-        pending.Value.Should().ContainSingle().Which.VenueId.Should().Be(venue.Id);
+        var item = pending.Value.Should().ContainSingle().Which;
+        item.VenueId.Should().Be(venue.Id);
+        item.OwnerName.Should().Be("Owner");
+        item.Address.Should().Be(venue.Address);
         decided.Value.ApprovalStatus.Should().Be("Approved");
         decided.Value.History.Should().HaveCount(2);
         pendingAfter.Value.Should().BeEmpty();
@@ -166,6 +170,22 @@ public sealed class VenueApprovalTests
 
     private static VenuesDbContext NewDb() =>
         new(new DbContextOptionsBuilder<VenuesDbContext>().UseInMemoryDatabase(Guid.NewGuid().ToString()).Options);
+
+    private sealed class OwnerNames : IUserAccountsContract
+    {
+        public string? NormalizePhone(string phoneNumber) => phoneNumber;
+
+        public Task<bool> MatchesContactAsync(Guid userId, string? email, string? normalizedPhone, CancellationToken cancellationToken = default) =>
+            Task.FromResult(false);
+
+        public Task<IReadOnlyDictionary<Guid, string>> GetFullNamesAsync(IReadOnlyCollection<Guid> userIds, CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyDictionary<Guid, string>>(userIds.ToDictionary(id => id, _ => "Owner"));
+
+        public Task GrantRoleAsync(Guid userId, string role, CancellationToken cancellationToken = default) => Task.CompletedTask;
+
+        public Task SendStaffInvitationAsync(string? email, string? normalizedPhone, string venueName, string role, string rawToken,
+            CancellationToken cancellationToken = default) => Task.CompletedTask;
+    }
 
     private sealed class NoopAudit : IVenueAuditLogger
     {

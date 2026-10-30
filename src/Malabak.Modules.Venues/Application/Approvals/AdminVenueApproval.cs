@@ -95,10 +95,12 @@ public sealed class GetPendingVenueApprovalsHandler : IQueryHandler<GetPendingVe
     public const int MaxPageSize = 50;
 
     private readonly VenuesDbContext _dbContext;
+    private readonly IUserAccountsContract _accounts;
 
-    public GetPendingVenueApprovalsHandler(VenuesDbContext dbContext)
+    public GetPendingVenueApprovalsHandler(VenuesDbContext dbContext, IUserAccountsContract accounts)
     {
         _dbContext = dbContext;
+        _accounts = accounts;
     }
 
     public async Task<Result<IReadOnlyList<PendingVenueApprovalDto>>> HandleAsync(GetPendingVenueApprovalsQuery query, CancellationToken cancellationToken = default)
@@ -107,17 +109,32 @@ public sealed class GetPendingVenueApprovalsHandler : IQueryHandler<GetPendingVe
         var page = Math.Max(query.Page, 1);
 
         // Oldest submissions first so nothing waits indefinitely.
-        IReadOnlyList<PendingVenueApprovalDto> pending = await _dbContext.Venues.AsNoTracking()
+        var pending = await _dbContext.Venues.AsNoTracking()
             .Where(v => v.ApprovalStatus == VenueApprovalStatus.Submitted && !v.IsDeleted)
-            .Select(v => new PendingVenueApprovalDto(
-                v.Id, v.Name, v.City, v.Area, v.OwnerId,
-                _dbContext.ApprovalEvents.Where(e => e.VenueId == v.Id && e.Action == VenueApprovalAction.Submitted)
-                    .Max(e => (DateTime?)e.CreatedAtUtc)))
-            .OrderBy(p => p.SubmittedAtUtc)
+            .Select(v => new
+            {
+                Venue = v,
+                PitchCount = v.Pitches.Count(p => !p.IsDeleted),
+                Submission = _dbContext.ApprovalEvents
+                    .Where(e => e.VenueId == v.Id && e.Action == VenueApprovalAction.Submitted)
+                    .OrderByDescending(e => e.CreatedAtUtc)
+                    .Select(e => new { e.CreatedAtUtc, e.Message })
+                    .FirstOrDefault(),
+            })
+            .OrderBy(p => p.Submission!.CreatedAtUtc)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
             .ToListAsync(cancellationToken);
 
-        return Result.Success(pending);
+        var owners = await _accounts.GetFullNamesAsync(pending.Select(p => p.Venue.OwnerId).Distinct().ToList(), cancellationToken);
+
+        IReadOnlyList<PendingVenueApprovalDto> result = pending
+            .Select(p => new PendingVenueApprovalDto(
+                p.Venue.Id, p.Venue.Name, p.Venue.City, p.Venue.Area, p.Venue.OwnerId, p.Submission?.CreatedAtUtc,
+                p.Venue.Address, p.Venue.PhoneNumber, p.Venue.Description, p.Venue.Facilities.ToList(), p.Venue.Photos.ToList(),
+                p.PitchCount, owners.GetValueOrDefault(p.Venue.OwnerId), p.Submission?.Message))
+            .ToList();
+
+        return Result.Success(result);
     }
 }
