@@ -39,7 +39,7 @@ Malabak.sln
 ├─ web/                                # pnpm + Turborepo monorepo
 │  ├─ apps/landing/                    # Next.js App Router — Public landing page (SEO, static)
 │  ├─ apps/venue/                      # Next.js App Router — Venue Dashboard
-│  ├─ apps/admin/                      # Next.js App Router — Admin Dashboard (scaffold only)
+│  ├─ apps/admin/                      # Next.js App Router — Admin Dashboard
 │  ├─ packages/ui/                     # Shared design tokens, RTL helpers, components
 │  ├─ packages/api-client/             # TypeScript client GENERATED from OpenAPI
 │  └─ packages/i18n/                   # Arabic (RTL, primary) & English messages
@@ -55,13 +55,37 @@ Malabak.sln
 
 ## 🚀 Getting Started
 
+### Quick start: everything in one command
+```bash
+./scripts/run-local.sh
+```
+It creates the local certificates and secrets (once per machine), starts the containers, migrates and seeds the database, writes the web apps' `.env.local`, then runs the API and the three web apps together. Ctrl+C stops them; the containers keep running. `--prepare` does everything except starting the apps.
+
+| Account | Where | Sign in with |
+|---|---|---|
+| `owner.ahly@malabak.app` (demo venue owner) | Venue — http://localhost:3000 | dev password |
+| `admin@malabak.app` | Admin — http://localhost:3001 | dev password, then enroll 2FA in any authenticator app on first sign-in |
+| Your own owner account | Venue → "سجّل ملعبك" | confirm the email from Mailpit (http://localhost:8025) |
+
+The dev password is random per machine:
+```bash
+dotnet user-secrets list --project src/Malabak.Api | grep Seed:DevAccountPassword
+```
+`./scripts/run-local.sh` re-applies it and resets the dev accounts' 2FA each time it runs.
+
+### How the dashboards talk to the API
+The browser never sees a token. Each dashboard's Next.js server keeps the session in an encrypted httpOnly cookie and forwards allow-listed calls from `/bff/...` to the API with the user's access token (`web/packages/bff`). Writes need a same-origin request and the CSRF token. Types are generated from the API contract `docs/openapi/v1.json` (`web/packages/api-client`). After changing an endpoint, `dotnet test` refreshes the contract; then regenerate the types (CI fails if either is stale):
+```bash
+cd web && pnpm --filter @malabak/api-client generate
+```
+
 ### Ports at a glance
 
 | What | URL | Started by |
 |---|---|---|
 | Landing page (public) | http://localhost:3002 | `pnpm --filter @malabak/landing dev` |
 | Venue Dashboard | http://localhost:3000 | `pnpm --filter @malabak/venue-dashboard dev` |
-| Admin Dashboard | http://localhost:3001 | scaffold only — no pages yet |
+| Admin Dashboard | http://localhost:3001 | `pnpm --filter @malabak/admin-dashboard dev` |
 | Backend API + Swagger | http://localhost:5000/swagger | `dotnet run --project src/Malabak.Api` |
 | PostgreSQL | `localhost:5432` | `docker compose up -d` |
 | Redis (TLS only) | `localhost:6379` | `docker compose up -d` |
@@ -145,13 +169,13 @@ pnpm --filter @malabak/landing dev           # http://localhost:3002
 pnpm --filter @malabak/venue-dashboard dev   # http://localhost:3000
 ```
 
-Or run every app at once with Turborepo: `pnpm dev` (this also starts the admin scaffold on 3001, which has no pages yet).
+Or run every app at once with Turborepo: `pnpm dev`. The venue and admin apps need `.env.local` (see their `.env.example`); `./scripts/run-local.sh --prepare` creates it.
 
 | App | Folder | Notes |
 |---|---|---|
 | Landing | `web/apps/landing` | Public marketing page for players and venue owners. Fully static (good for SEO). See [its README](./web/apps/landing/README.md). |
-| Venue Dashboard | `web/apps/venue` | Overview, calendar (day / week / month), reservations & deposit-proof review, pitches, schedule, pricing, policies, customers, reports, subscription, notifications, staff, settings, login, setup wizard. Uses sample data until the API is wired. |
-| Admin Dashboard | `web/apps/admin` | Package scaffold only. |
+| Venue Dashboard | `web/apps/venue` | Overview, calendar (day / week / month), reservations & deposit-proof review, pitches, schedule, pricing, policies, customers, reports, subscription, notifications, staff, settings, login, setup wizard. Sign-in, registration, setup, pitches, schedule, policies, staff, notifications and settings use the API; bookings, calendar, customers, reports and subscription still use sample data until their backend phases. |
+| Admin Dashboard | `web/apps/admin` | Sign-in with mandatory 2FA, venue approvals and admin sessions use the API; the other pages still use sample data until their backend phases. |
 
 Other useful commands (from `web/`):
 ```bash
