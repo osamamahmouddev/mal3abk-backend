@@ -1,12 +1,13 @@
 using Asp.Versioning.Builder;
 using Malabak.Api.Infrastructure.Security;
 using Malabak.Modules.Venues.Application.Availability;
+using Malabak.Modules.Venues.Application.Explore;
 using Malabak.SharedKernel;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Malabak.Api.Endpoints;
 
-/// <summary>Player-facing venue endpoints (no login needed to browse): availability, and later explore and details.</summary>
+/// <summary>Player-facing venue endpoints (no login needed to browse): availability and explore.</summary>
 public static class PublicVenueEndpoints
 {
     public static void MapPublicVenueEndpoints(this IEndpointRouteBuilder app, ApiVersionSet apiVersionSet)
@@ -36,6 +37,12 @@ public static class PublicVenueEndpoints
         .RequireDistributedRateLimiting("public-availability", permitLimit: 120, windowSeconds: 60)
         .WithName("GetVenueAvailability")
         .WithSummary("Slots per pitch for a business date with state (available, held, booked, blocked, unavailable) and price");
+
+        venues.MapGet("/explore", async ([AsParameters] ExploreApiQuery query, VenueExplore explore, CancellationToken ct) =>
+            ToResult(await explore.SearchAsync(query.ToQuery(), ct)))
+        .RequireDistributedRateLimiting("public-explore", permitLimit: 60, windowSeconds: 60)
+        .WithName("ExploreVenues")
+        .WithSummary("Search approved venues by location, area, date and time, budget, pitch type, surface and facilities");
     }
 
     private static IResult ToResult<T>(Result<T> result)
@@ -48,4 +55,28 @@ public static class PublicVenueEndpoints
         var status = result.Error.Code.EndsWith("NotFound", StringComparison.Ordinal) ? StatusCodes.Status404NotFound : StatusCodes.Status400BadRequest;
         return Results.Problem(title: result.Error.Code, detail: result.Error.Description, statusCode: status);
     }
+}
+
+/// <summary>Query string for GET /venues/explore. <c>facilities</c> is comma separated; times are Cairo local (HH:mm).</summary>
+public sealed record ExploreApiQuery(
+    [FromQuery] double? Lat,
+    [FromQuery] double? Lng,
+    [FromQuery] double? RadiusKm,
+    [FromQuery] string? City,
+    [FromQuery] string? Area,
+    [FromQuery] DateOnly? Date,
+    [FromQuery] TimeOnly? From,
+    [FromQuery] TimeOnly? To,
+    [FromQuery] decimal? MaxPrice,
+    [FromQuery] string? PitchType,
+    [FromQuery] string? Surface,
+    [FromQuery] string? Facilities,
+    [FromQuery] ExploreSort? Sort,
+    [FromQuery] int? Page,
+    [FromQuery] int? PageSize)
+{
+    public ExploreQuery ToQuery() => new(
+        Lat, Lng, RadiusKm, City, Area, Date, From, To, MaxPrice, PitchType, Surface,
+        Facilities?.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries),
+        Sort ?? ExploreSort.Distance, Page ?? 1, PageSize ?? 20);
 }
