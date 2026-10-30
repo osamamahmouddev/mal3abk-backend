@@ -1,0 +1,26 @@
+{
+  "name": "@malabak/bff",
+  "version": "1.0.0",
+  "private": true,
+  "exports": {
+    "./server": "./src/server.ts",
+    "./client": "./src/client.ts",
+    "./middleware": "./src/middleware.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@malabak/api-client": "workspace:*",
+    "iron-session": "^9.0.1",
+    "server-only": "^0.0.1"
+  },
+  "peerDependencies": {
+    "next": "^15.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.5",
+    "next": "^15.5.0",
+    "typescript": "^5.5.0"
+  }
+}

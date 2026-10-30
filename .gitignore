@@ -36,6 +36,8 @@ TestResults/
 # Secrets & Environment
 appsettings.*.local.json
 .env
+.env.local
+.env.*.local
 secrets.json
 
 # Docker & local data
