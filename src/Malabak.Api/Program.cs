@@ -195,8 +195,7 @@ builder.Services.AddDbContext<BookingDbContext>(options =>
 builder.Services.AddDbContext<MediaDbContext>(options =>
     options.UseNpgsql(postgresConnectionString, npgsql =>
         npgsql.MigrationsHistoryTable("__EFMigrationsHistory", MediaDbContext.Schema)));
-builder.Services.AddSingleton<IObjectStorage, LocalObjectStorage>();
-builder.Services.AddSingleton<IMalwareScanner, NoOpMalwareScanner>();
+builder.Services.AddMediaStorage(builder.Configuration, builder.Environment);
 builder.Services.AddScoped<MediaService>();
 builder.Services.AddScoped<Malabak.SharedKernel.Contracts.IPersonalDataContributor, MediaPersonalData>();
 

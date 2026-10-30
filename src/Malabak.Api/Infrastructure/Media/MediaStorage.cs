@@ -1,6 +1,6 @@
 namespace Malabak.Api.Infrastructure.Media;
 
-/// <summary>Object storage for media variants. Local disk in development; an S3/Azure Blob adapter plugs in with the hosting ADR.</summary>
+/// <summary>Object storage for media variants: local disk in development, the private S3 bucket otherwise (ADR-0004).</summary>
 public interface IObjectStorage
 {
     Task PutAsync(string key, byte[] content, string contentType, CancellationToken cancellationToken = default);

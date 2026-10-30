@@ -57,5 +57,9 @@
          Microsoft/.NET Foundation, cross-platform; ImageSharp rejected (split commercial licence). -->
     <PackageVersion Include="SkiaSharp" Version="3.116.1" />
     <PackageVersion Include="SkiaSharp.NativeAssets.Linux.NoDependencies" Version="3.116.1" />
+    <!-- Hosting (ADR-0004: AWS me-central-1): private S3 media storage and KMS-wrapped encryption keys.
+         Official AWS SDK, Apache-2.0; only the two service clients we use, credentials from the default chain. -->
+    <PackageVersion Include="AWSSDK.S3" Version="4.0.104.3" />
+    <PackageVersion Include="AWSSDK.KeyManagementService" Version="4.0.100.17" />
   </ItemGroup>
 </Project>
