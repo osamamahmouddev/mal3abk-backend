@@ -7,6 +7,7 @@ using Malabak.Api.Infrastructure.Security;
 using Malabak.Modules.Venues.Application.Availability;
 using Malabak.Modules.Venues.Application.Details;
 using Malabak.Modules.Venues.Application.Explore;
+using Malabak.Modules.Venues.Application.Home;
 using Malabak.SharedKernel;
 using Microsoft.AspNetCore.Mvc;
 
@@ -77,6 +78,21 @@ public static class PublicVenueEndpoints
         .RequireDistributedRateLimiting("public-venue-details", permitLimit: 120, windowSeconds: 60)
         .WithName("GetPublicVenuePitches")
         .WithSummary("Active pitches with size, surface, dimensions, photos, base hourly price and custom hours");
+
+        app.MapGet("/api/v{version:apiVersion}/home", async ([FromQuery] double? lat, [FromQuery] double? lng, [FromQuery] string? city,
+            [FromQuery] string? area, ClaimsPrincipal user, HttpContext http, HomeFeed feed, CancellationToken ct) =>
+        {
+            // Personal (recently viewed, favorites) and possibly location-based: never stored by shared caches.
+            http.Response.Headers.CacheControl = lat is null && user.GetUserId() is null ? "public, max-age=30" : "private, no-store";
+            return ToResult(await feed.GetAsync(new HomeFeedQuery(lat, lng, city, area), user.GetUserId(), ct));
+        })
+        .WithApiVersionSet(apiVersionSet)
+        .MapToApiVersion(1, 0)
+        .AllowAnonymous()
+        .WithTags("Home")
+        .RequireDistributedRateLimiting("public-home", permitLimit: 60, windowSeconds: 60)
+        .WithName("GetHomeFeed")
+        .WithSummary("Home screen in one call: nearby, popular near you, recently viewed, upcoming booking, team activity, sponsored");
 
         venues.MapGet("/areas", async (HttpContext http, VenueExplore explore, CancellationToken ct) =>
         {

@@ -39,7 +39,8 @@ public sealed record ExploreQuery(
     ExploreSort Sort = ExploreSort.Distance,
     int Page = 1,
     int PageSize = 20,
-    MapBounds? Bounds = null);
+    MapBounds? Bounds = null,
+    IReadOnlyCollection<Guid>? VenueIds = null);
 
 /// <summary>Visible map area in degrees (south-west and north-east corners).</summary>
 public sealed record MapBounds(double South, double West, double North, double East);
@@ -158,6 +159,25 @@ public sealed partial class VenueExplore
 
     /// <summary>All venues matching the query (unsorted, unpaged); used by explore, map search and suggestions.</summary>
     /// <summary>
+    /// Several rankings of the same filtered venues in one pass (home feed sections): the top <paramref name="take"/> cards
+    /// per sort, with favorite flags and next free slot. Unknown filters are the caller's responsibility (no validation).
+    /// </summary>
+    public async Task<IReadOnlyList<List<ExploreVenueCard>>> RankAsync(
+        ExploreQuery query, IReadOnlyList<ExploreSort> sorts, int take, Guid? userId, CancellationToken cancellationToken = default)
+    {
+        var matches = await FilterAsync(query, cancellationToken);
+        var sections = new List<List<ExploreVenueCard>>(sorts.Count);
+        foreach (var sort in sorts)
+        {
+            var top = Sort(matches, query with { Sort = sort }).Take(take).ToList();
+            top = await WithFavoritesAsync(top, userId, cancellationToken);
+            sections.Add(await WithNextAvailableAsync(top, cancellationToken));
+        }
+
+        return sections;
+    }
+
+    /// <summary>
     /// Areas that have searchable venues, for picking a place by hand when the player does not share their location.
     /// </summary>
     public async Task<IReadOnlyList<ExploreArea>> AreasAsync(CancellationToken cancellationToken = default)
@@ -242,6 +262,11 @@ public sealed partial class VenueExplore
             venues = venues.Where(v => v.Latitude != null && v.Longitude != null
                 && v.Latitude >= box.MinLatitude && v.Latitude <= box.MaxLatitude
                 && v.Longitude >= box.MinLongitude && v.Longitude <= box.MaxLongitude);
+        }
+
+        if (query.VenueIds is { } venueIds)
+        {
+            venues = venues.Where(v => venueIds.Contains(v.Id));
         }
 
         var (cities, areas) = PlaceVariants(query.City, query.Area);

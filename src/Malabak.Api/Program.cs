@@ -226,6 +226,7 @@ builder.Services.AddScoped<IBookingConflictChecker, BookingConflictChecker>();
 builder.Services.AddScoped<Malabak.SharedKernel.Contracts.IUpcomingBookingsReader, UpcomingBookingsReader>();
 builder.Services.AddSingleton<Malabak.Modules.Venues.Application.Availability.IAvailabilityCacheStore, Malabak.Api.Infrastructure.Caching.RedisAvailabilityCacheStore>();
 builder.Services.AddSingleton<Malabak.Modules.Venues.Application.Quotes.IQuoteTokenSigner, Malabak.Api.Infrastructure.Security.HmacQuoteTokenSigner>();
+builder.Services.AddSingleton(new Malabak.Modules.Venues.Application.Home.HomeFeedSettings(builder.Configuration.GetValue<bool>("Features:SponsoredHomeItems")));
 builder.Services.AddScoped<Malabak.SharedKernel.Contracts.IPersonalDataContributor, BookingPersonalData>();
 builder.Services.AddHostedService<Malabak.Api.Infrastructure.AccountAnonymizationService>();
 builder.Services.AddScoped<ICommandHandler<CreateBookingCommand, Result<CreateBookingResponse>>, CreateBookingHandler>();
