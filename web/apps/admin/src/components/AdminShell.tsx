@@ -132,6 +132,12 @@ export function AdminShell({ children, user }: { children: React.ReactNode; user
     };
   }, [menuOpen]);
 
+  useEffect(() => {
+    if (!user && !pathname.startsWith("/login")) {
+      window.location.href = `/admin/login?next=${encodeURIComponent(pathname)}`;
+    }
+  }, [user, pathname]);
+
   if (pathname.startsWith("/login") || !user) return <>{children}</>;
 
   return (

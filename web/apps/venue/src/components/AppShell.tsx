@@ -52,6 +52,12 @@ export const AppShell: React.FC<AppShellProps> = ({ children, user }) => {
     };
   }, [menuOpen]);
 
+  useEffect(() => {
+    if (!user && !isAuthOrSetupRoute) {
+      window.location.href = `/venue/login?next=${encodeURIComponent(pathname || "/")}`;
+    }
+  }, [user, isAuthOrSetupRoute, pathname]);
+
   if (isAuthOrSetupRoute || !user) {
     return <main className="min-h-screen w-full">{children}</main>;
   }
