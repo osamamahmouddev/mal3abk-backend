@@ -10,7 +10,8 @@ namespace Malabak.Api.Infrastructure.Seeding;
 
 /// <summary>
 /// Development only: gives the seeded admin and demo venue owner a real password so the dashboards
-/// can be signed into locally. The password comes from configuration (User Secrets), never from code.
+/// can be signed into locally, and clears their 2FA so the admin enrolls their own authenticator on the
+/// next sign-in. The password comes from configuration (User Secrets), never from code.
 /// </summary>
 public sealed class DevAccountsSeeder
 {
@@ -59,6 +60,7 @@ public sealed class DevAccountsSeeder
         foreach (var user in users)
         {
             user.SetPassword(_hasher.Hash(password), now);
+            user.SetTwoFactorEnabled(false, now);
             if (!user.IsEmailConfirmed)
             {
                 user.ConfirmEmail(now);
