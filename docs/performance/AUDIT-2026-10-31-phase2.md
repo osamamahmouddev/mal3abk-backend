@@ -16,8 +16,8 @@ Public availability, explore with a date, and the home feed all price every slot
 | PERF-01 | High | Holiday calendar rebuilt for every priced slice | Fixed |
 | PERF-02 | Medium | Explore candidate assembly was O(venues × pitches) | Fixed |
 | PERF-03 | Medium | Unbounded availability work per explore request | Fixed (shared with SEC-02) |
-| PERF-04 | Low | Two sequential Redis round trips per availability read | Recommendation |
-| PERF-05 | Low | Case-insensitive city/area filters cannot use the (City, Area) index | Recommendation |
+| PERF-04 | Low | Two sequential Redis round trips per availability read | Fixed |
+| PERF-05 | Low | Case-insensitive city/area filters cannot use the (City, Area) index | Fixed |
 
 ### PERF-01: Holiday calendar rebuilt per slice (High)
 
@@ -48,13 +48,19 @@ Public availability, explore with a date, and the home feed all price every slot
 
 `CachedVenueAvailability` reads the venue version and then the entry, which is 2 round trips per venue. Explore checks up to 60 venues one after another.
 
-**Recommendation:** batch the version reads (MGET) for all candidate venues before the loop. That would remove about 60 round trips per dated explore.
+**Fix:** `CachedVenueAvailability.PrefetchVersionsAsync` reads all candidate versions with one Redis MGET before the loop. That removes up to 60 round trips per dated explore and up to 20 per explore page or home feed. If the prefetch fails, it falls back to per-venue reads.
+
+**Guards:**
+- `AvailabilityCacheTests.PrefetchedVersions_ReplacePerVenueRoundTripsAsync`: one batch read, zero single reads.
+- `AvailabilityCacheTests.PrefetchFailure_FallsBackToPerVenueReadsAsync`.
 
 ### PERF-05: City/area index unused (Low)
 
 Filters use `lower("City")` and `lower("Area")`, which the plain `(City, Area)` btree cannot serve. This is fine at the current venue counts (hundreds).
 
-**Recommendation:** past about 10k venues, add an expression index on `(lower("City"), lower("Area"))` with `EXPLAIN ANALYZE` before and after.
+**Fix:** migration `VenueCityAreaSearchIndex` adds the partial expression index `ix_venues_searchable_city_area_lower` on `(lower("City"), lower("Area"))` for published, non-deleted venues. That matches the `lower(...) = ANY(...)` predicates that explore generates.
+
+**Still to do:** confirm the plan with `EXPLAIN ANALYZE` on staging data, since no local Postgres was available.
 
 ## Verified as fine
 
@@ -71,4 +77,4 @@ Filters use `lower("City")` and `lower("Area")`, which the plain `(City, Area)` 
 
 1. Run a k6 test on staging. Mix: 70% availability, 20% explore, 10% home. Targets: p95 under 300 ms at 200 RPS, and an availability cache hit ratio of at least 80% (log it).
 2. Add a query-count assertion test once the integration suite runs in CI. Targets: explore without a date at 4 queries or fewer, details at 6 or fewer.
-3. Track the availability cache hit/miss ratio as a metric (`Malabak.Availability` meter).
+3. ~~Track the availability cache hit/miss ratio.~~ Done: the `Malabak.Availability` meter exports the counter `malabak.availability.cache.lookups{result=hit|miss|error}` through OpenTelemetry. Alert if the hit ratio stays below 80%.

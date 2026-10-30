@@ -79,5 +79,6 @@ The four findings are all resource exhaustion (OWASP API4) or key strength. All 
 ## Systemic recommendations
 
 1. Run the integration suite in CI with Docker. The quote-signer and query-redaction tests live there and could not run locally during this audit.
-2. Add a CI secret scan (for example gitleaks) and `dotnet list package --vulnerable`. No secrets were found in the diff by manual review.
+2. Secret scanning already runs in CI ("Gitleaks Secret Detection", which passed on this branch). Consider adding `dotnet list package --vulnerable` as a CI step.
+4. The OpenAPI contract (`docs/openapi/v1.json`) and the generated web client were stale for the new endpoints, which failed the "Web Monorepo Verification" check. Both are now regenerated, and the change only adds the 11 new paths and 6 schemas.
 3. Consider a global per-IP budget for anonymous search endpoints on top of the per-route limits.
