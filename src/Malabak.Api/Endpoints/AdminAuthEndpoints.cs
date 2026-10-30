@@ -42,9 +42,9 @@ public static class AdminAuthEndpoints
             ICommandHandler<AdminConfirmTotpCommand, Result<IReadOnlyList<string>>> handler, CancellationToken ct) =>
         {
             var result = await handler.HandleAsync(new AdminConfirmTotpCommand(request.EnrollmentToken, request.Code), ct);
-            return NoStore(http, result.IsSuccess ? Results.Ok(new { RecoveryCodes = result.Value }) : ToProblem(result.Error));
+            return NoStore(http, result.IsSuccess ? Results.Ok(new RecoveryCodesResponse(result.Value)) : ToProblem(result.Error));
         })
-        .AllowAnonymous().WithName("AdminConfirmTotp").WithSummary("Turn on TOTP; returns one-time recovery codes (shown once)");
+        .AllowAnonymous().Produces<RecoveryCodesResponse>().WithName("AdminConfirmTotp").WithSummary("Turn on TOTP; returns one-time recovery codes (shown once)");
 
         auth.MapPost("/refresh", async ([FromBody] RefreshApiRequest request, HttpContext http,
             ICommandHandler<AdminRefreshCommand, Result<AdminTokens>> handler, CancellationToken ct) =>
@@ -93,7 +93,7 @@ public static class AdminAuthEndpoints
         {
             "Identity.LoginThrottled" => StatusCodes.Status429TooManyRequests,
             "Identity.SessionNotFound" => StatusCodes.Status404NotFound,
-            "Identity.CaptchaRequired" => StatusCodes.Status403Forbidden,
+            "Identity.CaptchaRequired" or "Identity.TwoFactorRequired" => StatusCodes.Status403Forbidden,
             "Identity.InvalidCredentials" or "Identity.InvalidTotpCode" or "Identity.InvalidRefreshToken" => StatusCodes.Status401Unauthorized,
             _ => StatusCodes.Status400BadRequest
         };
@@ -107,4 +107,6 @@ public static class AdminAuthEndpoints
     public sealed record ConfirmApiRequest(string EnrollmentToken, string Code);
 
     public sealed record RefreshApiRequest(string RefreshToken);
+
+    public sealed record RecoveryCodesResponse(IReadOnlyList<string> RecoveryCodes);
 }

@@ -268,6 +268,13 @@ if (args.Contains("--seed-demo"))
     return;
 }
 
+if (args.Contains("--seed-dev-accounts"))
+{
+    using var scope = app.Services.CreateScope();
+    await scope.ServiceProvider.GetRequiredService<DevAccountsSeeder>().SeedAsync();
+    return;
+}
+
 // Configure Middleware Pipeline
 app.UseSerilogRequestLogging(options =>
 {

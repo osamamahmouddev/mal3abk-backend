@@ -2,6 +2,9 @@ import type { Metadata } from "next";
 import { IBM_Plex_Sans_Arabic, Tajawal, Inter } from "next/font/google";
 import "./globals.css";
 import { AppShell } from "@/components/AppShell";
+import { Providers } from "@/components/Providers";
+import { currentUser } from "@malabak/bff/server";
+import { bffConfig } from "@/lib/bff-config";
 
 const arabic = IBM_Plex_Sans_Arabic({
   subsets: ["arabic"],
@@ -29,15 +32,18 @@ export const metadata: Metadata = {
   description: "نظام إدارة الملاعب والحجوزات الرياضية في مصر",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const user = await currentUser(bffConfig);
   return (
     <html lang="ar" dir="rtl" className={`${arabic.variable} ${tajawal.variable} ${inter.variable}`}>
       <body className="bg-[#F3F5F9] text-[#0F172A] antialiased">
-        <AppShell>{children}</AppShell>
+        <Providers signedIn={user !== null}>
+          <AppShell user={user}>{children}</AppShell>
+        </Providers>
       </body>
     </html>
   );

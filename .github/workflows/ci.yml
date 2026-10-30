@@ -10,6 +10,10 @@ jobs:
   secret-scan:
     name: Gitleaks Secret Detection
     runs-on: ubuntu-latest
+    # gitleaks-action lists the pull request's commits, which needs pull-requests: read.
+    permissions:
+      contents: read
+      pull-requests: read
     steps:
       - name: Check out code
         uses: actions/checkout@v4
@@ -78,6 +82,10 @@ jobs:
       - name: Install dependencies
         working-directory: ./web
         run: pnpm install --frozen-lockfile
+
+      - name: API client is generated from the committed OpenAPI snapshot
+        working-directory: ./web
+        run: pnpm --filter @malabak/api-client check
 
       - name: Turbo Build
         working-directory: ./web

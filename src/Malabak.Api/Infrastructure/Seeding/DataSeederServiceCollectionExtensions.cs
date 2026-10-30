@@ -8,6 +8,7 @@ public static class DataSeederServiceCollectionExtensions
     {
         services.AddScoped<ReferenceDataSeeder>();
         services.AddScoped<DemoDataSeeder>();
+        services.AddScoped<DevAccountsSeeder>();
         return services;
     }
 }

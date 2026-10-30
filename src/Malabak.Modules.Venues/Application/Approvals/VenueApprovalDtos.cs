@@ -23,7 +23,15 @@ public sealed record PendingVenueApprovalDto(
     string City,
     string Area,
     Guid OwnerId,
-    DateTime? SubmittedAtUtc);
+    DateTime? SubmittedAtUtc,
+    string Address = "",
+    string PhoneNumber = "",
+    string? Description = null,
+    IReadOnlyList<string>? Facilities = null,
+    IReadOnlyList<string>? Photos = null,
+    int PitchCount = 0,
+    string? OwnerName = null,
+    string? SubmissionMessage = null);
 
 public enum VenueApprovalDecision
 {

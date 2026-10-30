@@ -26,7 +26,7 @@ public static class MediaEndpoints
                 : Results.Problem(title: "Media.InvalidPurpose", statusCode: StatusCodes.Status400BadRequest))
         .RequireAuthorization()
         .RequireRateLimiting(UploadRateLimitPolicy)
-        .WithName("CreateMediaUpload").WithSummary("Get a single-use upload URL valid for 5 minutes");
+        .Produces<UploadTicket>().WithName("CreateMediaUpload").WithSummary("Get a single-use upload URL valid for 5 minutes");
 
         media.MapPut("/uploads/{id:guid}", async (Guid id, [FromQuery] string token, ClaimsPrincipal user, HttpRequest request,
             MediaService service, CancellationToken ct) =>

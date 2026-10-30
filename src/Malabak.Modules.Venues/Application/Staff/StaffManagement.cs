@@ -10,7 +10,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Malabak.Modules.Venues.Application.Staff;
 
-public sealed record StaffMemberDto(Guid MemberId, Guid UserId, string Role, DateTime AddedAtUtc);
+public sealed record StaffMemberDto(Guid MemberId, Guid UserId, string Role, DateTime AddedAtUtc, string? FullName = null);
 
 public sealed record StaffInvitationDto(Guid InvitationId, string? Email, string? PhoneNumber, string Role, string Status, DateTime ExpiresAtUtc);
 
@@ -180,7 +180,9 @@ public sealed class StaffManagementHandlers :
             .OrderBy(i => i.CreatedAtUtc)
             .ToListAsync(cancellationToken);
 
-        return Result.Success(new VenueStaffDto(members.Select(ToDto).ToList(), invitations.Select(ToDto).ToList()));
+        var names = await _accounts.GetFullNamesAsync(members.Select(m => m.UserId).ToList(), cancellationToken);
+        var memberDtos = members.Select(m => ToDto(m) with { FullName = names.GetValueOrDefault(m.UserId) }).ToList();
+        return Result.Success(new VenueStaffDto(memberDtos, invitations.Select(ToDto).ToList()));
     }
 
     public async Task<Result<StaffMemberDto>> HandleAsync(ChangeStaffRoleCommand command, CancellationToken cancellationToken = default)

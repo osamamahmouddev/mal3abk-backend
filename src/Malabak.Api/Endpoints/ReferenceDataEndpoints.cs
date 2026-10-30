@@ -19,13 +19,13 @@ public static class ReferenceDataEndpoints
             .WithTags("Reference Data");
 
         group.MapGet("/governorates", (HttpContext http) => Cached(http, EgyptReferenceData.Governorates))
-            .WithName("GetGovernorates").WithSummary("Egyptian governorates with curated areas for launch cities");
+            .Produces<IReadOnlyList<Governorate>>().WithName("GetGovernorates").WithSummary("Egyptian governorates with curated areas for launch cities");
 
-        group.MapGet("/facilities", (HttpContext http) => Cached(http, EgyptReferenceData.Facilities)).WithName("GetFacilities");
+        group.MapGet("/facilities", (HttpContext http) => Cached(http, EgyptReferenceData.Facilities)).Produces<IReadOnlyList<LocalizedItem>>().WithName("GetFacilities");
 
-        group.MapGet("/pitch-types", (HttpContext http) => Cached(http, EgyptReferenceData.PitchTypes)).WithName("GetPitchTypes");
+        group.MapGet("/pitch-types", (HttpContext http) => Cached(http, EgyptReferenceData.PitchTypes)).Produces<IReadOnlyList<LocalizedItem>>().WithName("GetPitchTypes");
 
-        group.MapGet("/surfaces", (HttpContext http) => Cached(http, EgyptReferenceData.Surfaces)).WithName("GetSurfaces");
+        group.MapGet("/surfaces", (HttpContext http) => Cached(http, EgyptReferenceData.Surfaces)).Produces<IReadOnlyList<LocalizedItem>>().WithName("GetSurfaces");
 
         group.MapGet("/holidays", (HttpContext http, [FromQuery] int? year) =>
         {
@@ -34,7 +34,7 @@ public static class ReferenceDataEndpoints
                 ? Results.Problem(title: "Reference.InvalidYear", statusCode: StatusCodes.Status400BadRequest)
                 : Cached(http, EgyptHolidayCalendar.ForYear(target), $"-{target}");
         })
-        .WithName("GetHolidays").WithSummary("Egyptian public holidays; Islamic dates are flagged as estimates");
+        .Produces<IReadOnlyList<Holiday>>().WithName("GetHolidays").WithSummary("Egyptian public holidays; Islamic dates are flagged as estimates");
     }
 
     private static IResult Cached<T>(HttpContext http, T payload, string etagSuffix = "")

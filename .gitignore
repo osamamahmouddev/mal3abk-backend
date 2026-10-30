@@ -36,6 +36,8 @@ TestResults/
 # Secrets & Environment
 appsettings.*.local.json
 .env
+.env.local
+.env.*.local
 secrets.json
 
 # Docker & local data
@@ -58,3 +60,6 @@ dist/
 
 # Local dev TLS material from scripts/generate-dev-certs.sh (keys never go in Git)
 docker/redis/tls/
+
+# Local object storage for uploaded media (Development)
+src/Malabak.Api/App_Data/

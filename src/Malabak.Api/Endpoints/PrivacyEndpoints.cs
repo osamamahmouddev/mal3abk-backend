@@ -34,7 +34,7 @@ public static class PrivacyEndpoints
 
         me.MapGet("/consents", async (ClaimsPrincipal user, PrivacyHandlers privacy, CancellationToken ct) =>
             Results.Ok(await privacy.GetConsentsAsync(user.GetUserId()!.Value, ct)))
-        .WithName("GetMyConsents");
+        .Produces<ConsentsDto>().WithName("GetMyConsents");
 
         me.MapPost("/consents", async (ClaimsPrincipal user, [FromBody] ConsentApiRequest request, PrivacyHandlers privacy, CancellationToken ct) =>
         {
@@ -43,7 +43,7 @@ public static class PrivacyEndpoints
                 ? Results.Ok(result.Value)
                 : Results.Problem(title: result.Error.Code, detail: result.Error.Description, statusCode: StatusCodes.Status400BadRequest);
         })
-        .WithName("RecordConsent").WithSummary("Grant or withdraw terms/privacy/notifications/location/marketing consent");
+        .Produces<ConsentsDto>().WithName("RecordConsent").WithSummary("Grant or withdraw terms/privacy/notifications/location/marketing consent");
 
         me.MapGet("/data-export", async (ClaimsPrincipal user, HttpContext http, PrivacyHandlers privacy, CancellationToken ct) =>
         {

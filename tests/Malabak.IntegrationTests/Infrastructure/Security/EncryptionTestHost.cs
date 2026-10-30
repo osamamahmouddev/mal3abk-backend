@@ -31,7 +31,7 @@ internal sealed class EncryptionTestHost : IDisposable
 
         var wrapped = Microsoft.Extensions.Options.Options.Create(options);
         KekProvider = new LocalKeyEncryptionKeyProvider(wrapped, NullLogger<LocalKeyEncryptionKeyProvider>.Instance);
-        KeyRing = new DataKeyRing(_provider.GetRequiredService<IServiceScopeFactory>(), KekProvider, clock, wrapped);
+        KeyRing = new DataKeyRing(_provider.GetRequiredService<IServiceScopeFactory>(), KekProvider, clock, wrapped, NullLogger<DataKeyRing>.Instance);
         Cipher = new AesGcmFieldCipher(KeyRing);
     }
 

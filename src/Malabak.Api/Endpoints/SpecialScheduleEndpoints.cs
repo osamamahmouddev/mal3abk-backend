@@ -26,7 +26,7 @@ public static class SpecialScheduleEndpoints
 
         group.MapGet("/special-schedules", async (Guid venueId, ClaimsPrincipal user, SpecialScheduleQueries queries, CancellationToken ct) =>
             ToResult(await queries.GetAsync(venueId, user.GetUserId()!.Value, ct)))
-        .WithName("GetSpecialSchedules").WithSummary("Upcoming exceptions, per-pitch weekly hours and booking rules");
+        .Produces<SpecialSchedulesDto>().WithName("GetSpecialSchedules").WithSummary("Upcoming exceptions, per-pitch weekly hours and booking rules");
 
         group.MapPost("/schedule-overrides", async (Guid venueId, ClaimsPrincipal user, [FromBody] ScheduleOverrideApiRequest request,
             ICommandHandler<AddScheduleOverrideCommand, Result<ScheduleChangeOutcome>> handler, CancellationToken ct) =>
@@ -54,9 +54,9 @@ public static class SpecialScheduleEndpoints
             SpecialScheduleQueries queries, CancellationToken ct) =>
         {
             var result = await queries.PreviewVenueWeeklyChangeAsync(venueId, user.GetUserId()!.Value, request.Days, ct);
-            return result.IsSuccess ? Results.Ok(new { AffectedBookings = result.Value }) : Problem(result.Error);
+            return result.IsSuccess ? Results.Ok(new ScheduleImpactResponse(result.Value)) : Problem(result.Error);
         })
-        .WithName("PreviewVenueScheduleImpact").WithSummary("Future bookings a change to the venue weekly hours would leave outside the schedule");
+        .Produces<ScheduleImpactResponse>().WithName("PreviewVenueScheduleImpact").WithSummary("Future bookings a change to the venue weekly hours would leave outside the schedule");
 
         group.MapPut("/booking-rules", async (Guid venueId, ClaimsPrincipal user, [FromBody] BookingRulesApiRequest request,
             ICommandHandler<SetBookingRulesCommand, Result<BookingRulesDto>> handler, CancellationToken ct) =>
@@ -68,7 +68,7 @@ public static class SpecialScheduleEndpoints
         group.MapGet("/pitches/{pitchId:guid}/availability", async (Guid venueId, Guid pitchId, [FromQuery] DateOnly date, ClaimsPrincipal user,
             SpecialScheduleQueries queries, CancellationToken ct) =>
             ToResult(await queries.GetPitchAvailabilityAsync(venueId, pitchId, date, user.GetUserId()!.Value, ct)))
-        .WithName("GetPitchAvailability").WithSummary("Open windows and bookable start times for a business date");
+        .Produces<PitchAvailabilityDto>().WithName("GetPitchAvailability").WithSummary("Open windows and bookable start times for a business date");
     }
 
     private static IResult ToResult(Result<ScheduleChangeOutcome> result)
@@ -100,4 +100,6 @@ public static class SpecialScheduleEndpoints
 
     public sealed record BookingRulesApiRequest(
         Guid? PitchId, int MinDurationMinutes, int MaxDurationMinutes, int IncrementMinutes, int MinNoticeMinutes, int MaxAdvanceDays);
+
+    public sealed record ScheduleImpactResponse(IReadOnlyList<Malabak.SharedKernel.Contracts.UpcomingBookingRef> AffectedBookings);
 }

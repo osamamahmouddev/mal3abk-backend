@@ -11,11 +11,14 @@
   },
   "dependencies": {
     "@malabak/api-client": "workspace:*",
+    "@malabak/bff": "workspace:*",
     "@malabak/i18n": "workspace:*",
     "@malabak/ui": "workspace:*",
+    "@tanstack/react-query": "^5.105.0",
     "lucide-react": "^1.61.0",
     "next": "^14.2.0 || ^15.0.0",
     "next-intl": "^3.15.0",
+    "qrcode.react": "^4.2.0",
     "react": "^18.3.0 || ^19.0.0",
     "react-dom": "^18.3.0 || ^19.0.0",
     "zod": "^4.6.7"

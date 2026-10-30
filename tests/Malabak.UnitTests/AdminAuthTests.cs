@@ -52,7 +52,9 @@ public sealed class AdminAuthTests
         codes.Should().HaveCount(AdminRecoveryCode.CodesPerUser).And.OnlyHaveUniqueItems();
         (await db.AdminRecoveryCodes.Select(c => c.CodeHash).ToListAsync()).Should().NotContain(codes);
 
-        (await handlers.HandleAsync(Login())).Error.Should().Be(PasswordAuthErrors.InvalidTotpCode);
+        (await handlers.HandleAsync(Login())).Error.Should().Be(PasswordAuthErrors.TwoFactorRequired);
+        (await db.Users.SingleAsync()).FailedLoginCount.Should().Be(0, "a correct password without the code isn't a failed attempt");
+        (await handlers.HandleAsync(Login() with { TotpCode = "000000" })).Error.Should().Be(PasswordAuthErrors.InvalidTotpCode);
         var login = await handlers.HandleAsync(Login() with { TotpCode = CurrentCode(secret) });
 
         login.Value.Tokens.Should().NotBeNull();
