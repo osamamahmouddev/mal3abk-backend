@@ -22,9 +22,10 @@ public sealed class UpcomingBookingsReader : IUpcomingBookingsReader
         var bookings = await _dbContext.Bookings.AsNoTracking()
             .Where(b => pitchIds.Contains(b.PitchId) && b.EndUtc > fromUtc && b.StartUtc < toUtc && _slotHoldingStatuses.Contains(b.Status))
             .OrderBy(b => b.StartUtc)
-            .Select(b => new { b.Id, b.BookingReference, b.PitchId, b.StartUtc, b.EndUtc, b.Status })
+            .Select(b => new { b.Id, b.BookingReference, b.PitchId, b.StartUtc, b.EndUtc, b.Status, b.HoldExpiresAtUtc })
             .ToListAsync(cancellationToken);
 
-        return bookings.Select(b => new UpcomingBookingRef(b.Id, b.BookingReference, b.PitchId, b.StartUtc, b.EndUtc, b.Status.ToString())).ToList();
+        return bookings.Select(b => new UpcomingBookingRef(b.Id, b.BookingReference, b.PitchId, b.StartUtc, b.EndUtc, b.Status.ToString(),
+            b.Status == BookingStatus.PendingDeposit ? b.HoldExpiresAtUtc : null)).ToList();
     }
 }

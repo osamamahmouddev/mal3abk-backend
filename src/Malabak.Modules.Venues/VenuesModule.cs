@@ -112,6 +112,7 @@ public static class VenuesModule
         services.AddScoped<IPitchAvailabilityChecker, Application.SpecialSchedules.PitchAvailabilityChecker>();
         services.AddScoped<Application.Pricing.PricingService>();
         services.AddScoped<Application.Pricing.PriceRuleManagement>();
+        services.AddScoped<Application.Availability.VenueAvailabilityQuery>();
         services.AddScoped<IPriceQuoteProvider>(sp => sp.GetRequiredService<Application.Pricing.PricingService>());
         services.AddScoped<ICommandHandler<Application.SpecialSchedules.AddScheduleOverrideCommand, Result<Application.SpecialSchedules.ScheduleChangeOutcome>>>(sp => sp.GetRequiredService<Application.SpecialSchedules.SpecialScheduleHandlers>());
         services.AddScoped<ICommandHandler<Application.SpecialSchedules.RemoveScheduleOverrideCommand, Result<Application.SpecialSchedules.ScheduleChangeOutcome>>>(sp => sp.GetRequiredService<Application.SpecialSchedules.SpecialScheduleHandlers>());

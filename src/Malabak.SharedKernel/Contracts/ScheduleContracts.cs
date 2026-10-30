@@ -1,6 +1,8 @@
 namespace Malabak.SharedKernel.Contracts;
 
-public sealed record UpcomingBookingRef(Guid BookingId, string Reference, Guid PitchId, DateTime StartUtc, DateTime EndUtc, string Status);
+/// <param name="HoldExpiresAtUtc">For bookings still awaiting the deposit: when the hold lapses and the slot frees up.</param>
+public sealed record UpcomingBookingRef(
+    Guid BookingId, string Reference, Guid PitchId, DateTime StartUtc, DateTime EndUtc, string Status, DateTime? HoldExpiresAtUtc = null);
 
 /// <summary>Booking-module contract Venues uses to warn which future bookings a schedule change would affect.</summary>
 public interface IUpcomingBookingsReader

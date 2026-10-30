@@ -413,6 +413,7 @@ app.MapReferenceDataEndpoints(apiVersionSet);
 app.MapMediaEndpoints(apiVersionSet);
 app.MapSpecialScheduleEndpoints(apiVersionSet);
 app.MapPriceRuleEndpoints(apiVersionSet);
+app.MapPublicVenueEndpoints(apiVersionSet);
 app.MapPlayerVenueListEndpoints(apiVersionSet);
 app.MapPrivacyEndpoints(apiVersionSet);
 
