@@ -322,7 +322,9 @@ public sealed partial class VenueExplore
     private async Task<List<ExploreVenueCard>> KeepAvailableAsync(List<ExploreVenueCard> cards, DateOnly date, ExploreQuery query, CancellationToken cancellationToken)
     {
         var kept = new List<ExploreVenueCard>();
-        foreach (var card in Sort(cards, query).Take(MaxAvailabilityChecks))
+        var toCheck = Sort(cards, query).Take(Math.Min(MaxAvailabilityChecks, _availabilityBudget)).ToList();
+        await _availability.PrefetchVersionsAsync(toCheck.Select(c => c.VenueId).ToList(), cancellationToken);
+        foreach (var card in toCheck)
         {
             if (!TrySpendAvailability())
             {
@@ -368,6 +370,7 @@ public sealed partial class VenueExplore
     private async Task<List<ExploreVenueCard>> WithNextAvailableAsync(List<ExploreVenueCard> cards, CancellationToken cancellationToken)
     {
         var result = new List<ExploreVenueCard>(cards.Count);
+        await _availability.PrefetchVersionsAsync(cards.Select(c => c.VenueId).ToList(), cancellationToken);
         foreach (var card in cards)
         {
             DateTime? next = null;

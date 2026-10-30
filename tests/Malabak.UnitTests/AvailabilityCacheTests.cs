@@ -39,6 +39,33 @@ public sealed class AvailabilityCacheTests
     }
 
     [Fact]
+    public async Task PrefetchedVersions_ReplacePerVenueRoundTripsAsync()
+    {
+        await using var db = await SeedAsync();
+        var cache = Cache(db);
+
+        await cache.PrefetchVersionsAsync([_venueId, Guid.NewGuid(), Guid.NewGuid()]);
+        await cache.GetAsync(_venueId, _thursday, null);
+        await cache.GetAsync(_venueId, _thursday.AddDays(1), null);
+
+        _store.BatchVersionReads.Should().Be(1);
+        _store.SingleVersionReads.Should().Be(0, "the prefetched version is reused");
+    }
+
+    [Fact]
+    public async Task PrefetchFailure_FallsBackToPerVenueReadsAsync()
+    {
+        await using var db = await SeedAsync();
+        var cache = Cache(db);
+        _store.Broken = true;
+        await cache.PrefetchVersionsAsync([_venueId]);
+        _store.Broken = false;
+
+        (await cache.GetAsync(_venueId, _thursday, null)).IsSuccess.Should().BeTrue();
+        _store.SingleVersionReads.Should().Be(1);
+    }
+
+    [Fact]
     public async Task VenueChanges_InvalidateOnSave_SoABlockIsNeverShownAsFreeAsync()
     {
         await using var db = await SeedAsync();
@@ -129,11 +156,27 @@ public sealed class AvailabilityCacheTests
         private readonly ConcurrentDictionary<Guid, long> _versions = new();
         private readonly ConcurrentDictionary<string, string> _entries = new();
 
+        private int _singleVersionReads;
+        private int _batchVersionReads;
+
         public bool Broken { get; set; }
         public TimeSpan? LastTtl { get; private set; }
+        public int SingleVersionReads => _singleVersionReads;
+        public int BatchVersionReads => _batchVersionReads;
 
-        public Task<long> GetVersionAsync(Guid venueId, CancellationToken cancellationToken = default) =>
-            Broken ? throw new InvalidOperationException("store down") : Task.FromResult(_versions.GetValueOrDefault(venueId));
+        public Task<long> GetVersionAsync(Guid venueId, CancellationToken cancellationToken = default)
+        {
+            Interlocked.Increment(ref _singleVersionReads);
+            return Broken ? throw new InvalidOperationException("store down") : Task.FromResult(_versions.GetValueOrDefault(venueId));
+        }
+
+        public Task<IReadOnlyDictionary<Guid, long>> GetVersionsAsync(IReadOnlyCollection<Guid> venueIds, CancellationToken cancellationToken = default)
+        {
+            Interlocked.Increment(ref _batchVersionReads);
+            return Broken
+                ? throw new InvalidOperationException("store down")
+                : Task.FromResult<IReadOnlyDictionary<Guid, long>>(venueIds.ToDictionary(id => id, id => _versions.GetValueOrDefault(id)));
+        }
 
         public Task<long> IncrementVersionAsync(Guid venueId, CancellationToken cancellationToken = default) =>
             Broken ? throw new InvalidOperationException("store down") : Task.FromResult(_versions.AddOrUpdate(venueId, 1, (_, v) => v + 1));

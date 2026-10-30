@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Diagnostics.Metrics;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -14,6 +15,18 @@ namespace Malabak.Modules.Venues.Application.Availability;
 public interface IAvailabilityCacheStore
 {
     Task<long> GetVersionAsync(Guid venueId, CancellationToken cancellationToken = default);
+
+    /// <summary>Versions of several venues in one round trip (venues never invalidated read as 0).</summary>
+    async Task<IReadOnlyDictionary<Guid, long>> GetVersionsAsync(IReadOnlyCollection<Guid> venueIds, CancellationToken cancellationToken = default)
+    {
+        var versions = new Dictionary<Guid, long>(venueIds.Count);
+        foreach (var venueId in venueIds)
+        {
+            versions[venueId] = await GetVersionAsync(venueId, cancellationToken);
+        }
+
+        return versions;
+    }
 
     Task<long> IncrementVersionAsync(Guid venueId, CancellationToken cancellationToken = default);
 
@@ -33,14 +46,19 @@ public sealed record CachedAvailability(VenueAvailabilityDto Availability, strin
 public sealed class CachedVenueAvailability
 {
     public static readonly TimeSpan MaxTtl = TimeSpan.FromSeconds(30);
+    public const string MeterName = "Malabak.Availability";
 
     private static readonly ConcurrentDictionary<string, SemaphoreSlim> _locks = new(StringComparer.Ordinal);
+    private static readonly Meter _meter = new(MeterName);
+    private static readonly Counter<long> _lookups = _meter.CreateCounter<long>(
+        "malabak.availability.cache.lookups", description: "Availability cache lookups by result (hit, miss, error).");
     private static readonly JsonSerializerOptions _json = new(JsonSerializerDefaults.Web);
 
     private readonly VenueAvailabilityQuery _query;
     private readonly IAvailabilityCacheStore _store;
     private readonly IClock _clock;
     private readonly ILogger<CachedVenueAvailability> _logger;
+    private readonly Dictionary<Guid, long> _prefetchedVersions = [];
 
     public CachedVenueAvailability(VenueAvailabilityQuery query, IAvailabilityCacheStore store, IClock clock, ILogger<CachedVenueAvailability> logger)
     {
@@ -50,24 +68,55 @@ public sealed class CachedVenueAvailability
         _logger = logger;
     }
 
+    /// <summary>
+    /// Reads the cache versions of many venues in one round trip ahead of a loop of <see cref="GetAsync"/> calls (explore,
+    /// map, home). Versions are only reused within this request (the service is scoped); failures fall back to per-call reads.
+    /// </summary>
+    public async Task PrefetchVersionsAsync(IReadOnlyCollection<Guid> venueIds, CancellationToken cancellationToken = default)
+    {
+        var missing = venueIds.Where(id => !_prefetchedVersions.ContainsKey(id)).Distinct().ToList();
+        if (missing.Count == 0)
+        {
+            return;
+        }
+
+        try
+        {
+            foreach (var (venueId, version) in await _store.GetVersionsAsync(missing, cancellationToken))
+            {
+                _prefetchedVersions[venueId] = version;
+            }
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogWarning(ex, "Could not prefetch availability cache versions");
+        }
+    }
+
     public async Task<Result<CachedAvailability>> GetAsync(Guid venueId, DateOnly businessDate, Guid? pitchId, CancellationToken cancellationToken = default)
     {
         string? key = null;
         try
         {
-            var version = await _store.GetVersionAsync(venueId, cancellationToken);
+            var version = _prefetchedVersions.TryGetValue(venueId, out var prefetched)
+                ? prefetched
+                : await _store.GetVersionAsync(venueId, cancellationToken);
             key = $"{venueId:N}:v{version}:{businessDate:yyyyMMdd}:{pitchId?.ToString("N") ?? "all"}";
             var hit = await ReadAsync(key, cancellationToken);
             if (hit is not null)
             {
+                _lookups.Add(1, new KeyValuePair<string, object?>("result", "hit"));
                 return Result.Success(hit);
             }
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
+            _lookups.Add(1, new KeyValuePair<string, object?>("result", "error"));
             _logger.LogWarning(ex, "Availability cache unavailable; computing directly");
             return await ComputeAsync(venueId, businessDate, pitchId, null, cancellationToken);
         }
+
+        _lookups.Add(1, new KeyValuePair<string, object?>("result", "miss"));
 
         var gate = _locks.GetOrAdd(key, _ => new SemaphoreSlim(1, 1));
         await gate.WaitAsync(cancellationToken);

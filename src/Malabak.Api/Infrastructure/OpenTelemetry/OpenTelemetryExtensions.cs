@@ -39,7 +39,8 @@ public static class OpenTelemetryExtensions
                     .AddHttpClientInstrumentation()
                     .AddRuntimeInstrumentation()
                     .AddMeter("Malabak.Hangfire")
-                    .AddMeter("Malabak.Outbox");
+                    .AddMeter("Malabak.Outbox")
+                    .AddMeter(Malabak.Modules.Venues.Application.Availability.CachedVenueAvailability.MeterName);
             });
 
         return services;

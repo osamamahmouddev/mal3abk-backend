@@ -22,6 +22,19 @@ public sealed class RedisAvailabilityCacheStore : IAvailabilityCacheStore
         return value.HasValue && long.TryParse(value.ToString(), out var version) ? version : 0;
     }
 
+    public async Task<IReadOnlyDictionary<Guid, long>> GetVersionsAsync(IReadOnlyCollection<Guid> venueIds, CancellationToken cancellationToken = default)
+    {
+        var ids = venueIds.ToArray();
+        var values = await _redis.GetDatabase().StringGetAsync(ids.Select(VersionKey).ToArray()); // one MGET
+        var versions = new Dictionary<Guid, long>(ids.Length);
+        for (var i = 0; i < ids.Length; i++)
+        {
+            versions[ids[i]] = values[i].HasValue && long.TryParse(values[i].ToString(), out var version) ? version : 0;
+        }
+
+        return versions;
+    }
+
     public Task<long> IncrementVersionAsync(Guid venueId, CancellationToken cancellationToken = default) =>
         _redis.GetDatabase().StringIncrementAsync(VersionKey(venueId));
 
