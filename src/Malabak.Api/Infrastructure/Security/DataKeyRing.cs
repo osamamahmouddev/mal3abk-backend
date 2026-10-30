@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using Malabak.SharedKernel;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 namespace Malabak.Api.Infrastructure.Security;
@@ -14,6 +15,7 @@ public sealed class DataKeyRing : IDataKeyRing, IDisposable
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly IKeyEncryptionKeyProvider _kekProvider;
     private readonly IClock _clock;
+    private readonly ILogger<DataKeyRing> _logger;
     private readonly TimeSpan _refreshInterval;
     private readonly SemaphoreSlim _gate = new(1, 1);
     private volatile Snapshot? _snapshot;
@@ -22,11 +24,13 @@ public sealed class DataKeyRing : IDataKeyRing, IDisposable
         IServiceScopeFactory scopeFactory,
         IKeyEncryptionKeyProvider kekProvider,
         IClock clock,
-        IOptions<EncryptionOptions> options)
+        IOptions<EncryptionOptions> options,
+        ILogger<DataKeyRing> logger)
     {
         _scopeFactory = scopeFactory;
         _kekProvider = kekProvider;
         _clock = clock;
+        _logger = logger;
         _refreshInterval = TimeSpan.FromMinutes(options.Value.KeyRingRefreshMinutes);
     }
 
@@ -141,8 +145,23 @@ public sealed class DataKeyRing : IDataKeyRing, IDisposable
                 rows = await CreateInitialKeyAsync(db, cancellationToken);
             }
 
-            var keys = rows.ToDictionary(k => k.Id, k => _kekProvider.UnwrapKey(k.KeyEncryptionKeyId, k.WrappedKey));
-            var currentId = rows.Find(k => k.IsActive)?.Id;
+            // A key that can't be unwrapped (its KEK is gone) only makes its own values unreadable. It must
+            // not stop the rest of the ring from encrypting and decrypting.
+            var keys = new Dictionary<int, byte[]>();
+            foreach (var row in rows)
+            {
+                try
+                {
+                    keys[row.Id] = _kekProvider.UnwrapKey(row.KeyEncryptionKeyId, row.WrappedKey);
+                }
+                catch (CryptographicException ex)
+                {
+                    _logger.LogError(ex, "Data encryption key {KeyId} can't be unwrapped with key-encryption key {KeyEncryptionKeyId}; values encrypted with it stay unreadable.",
+                        row.Id, row.KeyEncryptionKeyId);
+                }
+            }
+
+            var currentId = rows.Find(k => k.IsActive && keys.ContainsKey(k.Id))?.Id;
             var snapshot = new Snapshot(keys, currentId, _clock.UtcNow);
             _snapshot = snapshot;
             return snapshot;

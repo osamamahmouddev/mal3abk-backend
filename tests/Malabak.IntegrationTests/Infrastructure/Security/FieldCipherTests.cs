@@ -149,6 +149,23 @@ public sealed class FieldCipherTests : IDisposable
     }
 
     [Fact]
+    public async Task KeyUnderMissingKek_OnlyItsValuesAreUnreadable_NewValuesStillEncryptAsync()
+    {
+        var lost = await _host.Cipher.EncryptAsync("under the old KEK", _context);
+
+        // A node that no longer has kek-1 (e.g. it was never persisted) retires the unreadable key.
+        const string newKekId = "kek-2";
+        using var node = new EncryptionTestHost(_databaseName, EncryptionTestHost.OptionsWith(newKekId, (newKekId, EncryptionTestHost.NewKey())), _host.Clock);
+        await node.KeyRing.RotateAsync();
+
+        var fresh = await node.Cipher.EncryptAsync("new value", _context);
+
+        (await node.Cipher.DecryptAsync(fresh, _context)).Should().Be("new value");
+        var readLost = async () => await node.Cipher.DecryptAsync(lost, _context);
+        await readLost.Should().ThrowAsync<CryptographicException>();
+    }
+
+    [Fact]
     public async Task RotationOnAnotherNode_IsPickedUpAfterRefreshIntervalAsync()
     {
         var clock = _host.Clock;
