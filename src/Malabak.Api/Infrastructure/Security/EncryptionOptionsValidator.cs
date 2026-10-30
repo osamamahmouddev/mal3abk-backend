@@ -9,7 +9,14 @@ public sealed class EncryptionOptionsValidator : IValidateOptions<EncryptionOpti
     {
         var failures = new List<string>();
 
-        if (string.IsNullOrWhiteSpace(options.CurrentKeyEncryptionKeyId)
+        if (options.UsesAwsKms)
+        {
+            if (string.IsNullOrWhiteSpace(options.KmsKeyId))
+            {
+                failures.Add($"{EncryptionOptions.SectionName}:KmsKeyId is required when KeyProvider is AwsKms.");
+            }
+        }
+        else if (string.IsNullOrWhiteSpace(options.CurrentKeyEncryptionKeyId)
             || !options.KeyEncryptionKeys.ContainsKey(options.CurrentKeyEncryptionKeyId))
         {
             failures.Add($"{EncryptionOptions.SectionName}:CurrentKeyEncryptionKeyId must name an entry in KeyEncryptionKeys.");

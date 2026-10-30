@@ -204,7 +204,7 @@ builder.Services.AddDbContext<NotificationsDbContext>(options =>
         npgsql.MigrationsHistoryTable("__EFMigrationsHistory", NotificationsDbContext.Schema)));
 
 // 12. Field-level encryption, blind indexes and the persisted Data Protection key ring
-builder.Services.AddFieldEncryption(builder.Configuration, postgresConnectionString);
+builder.Services.AddFieldEncryption(builder.Configuration, builder.Environment, postgresConnectionString);
 
 // 13. Dependency Injection
 builder.Services.AddSingleton<IClock, SystemClock>();

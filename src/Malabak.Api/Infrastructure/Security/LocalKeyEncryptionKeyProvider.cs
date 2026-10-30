@@ -5,9 +5,9 @@ using Microsoft.Extensions.Options;
 namespace Malabak.Api.Infrastructure.Security;
 
 /// <summary>
-/// KEKs supplied through the secret store (User Secrets / environment / secret manager).
-/// Pending hosting ADR: add a KMS-backed provider (Azure Key Vault or AWS KMS) once the hosting ADR is decided;
-/// until then the KEK is held in process memory, which ADR-0003 records as an accepted interim risk.
+/// KEKs supplied through the secret store (User Secrets / environment / secret manager), for development and
+/// tests. Production uses <see cref="AwsKmsKeyEncryptionKeyProvider"/> (ADR-0004), which still unwraps keys
+/// wrapped here so they can be re-wrapped under KMS.
 /// </summary>
 public sealed class LocalKeyEncryptionKeyProvider : IKeyEncryptionKeyProvider
 {

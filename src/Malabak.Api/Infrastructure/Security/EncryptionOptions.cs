@@ -21,6 +21,17 @@ public sealed class EncryptionOptions
     /// <summary>How long a node trusts its cached key ring before reloading it (picks up rotations by other nodes).</summary>
     public int KeyRingRefreshMinutes { get; set; } = 10;
 
+    /// <summary>"Local" (KEKs from the secret store) or "AwsKms" (KEK in AWS KMS; required in Production).</summary>
+    public string KeyProvider { get; set; } = "Local";
+
+    /// <summary>KMS key id, ARN or alias used as the KEK when <see cref="KeyProvider"/> is AwsKms.</summary>
+    public string? KmsKeyId { get; set; }
+
+    /// <summary>KMS region (e.g. me-central-1); the default AWS region chain is used when empty.</summary>
+    public string? KmsRegion { get; set; }
+
+    public bool UsesAwsKms => string.Equals(KeyProvider, "AwsKms", StringComparison.OrdinalIgnoreCase);
+
     /// <summary>Set only when Development started without configured keys and random ones were generated.</summary>
     public bool UsesEphemeralDevelopmentKeys { get; set; }
 }
