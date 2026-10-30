@@ -23,4 +23,10 @@ dotnet user-secrets set "Redis:TlsCaCertificatePath" "$REDIS_CA" --project "$PRO
 dotnet user-secrets set "Security:Turnstile:SecretKey" "1x0000000000000000000000000000000AA" --project "$PROJECT"
 dotnet user-secrets set "Security:Turnstile:SiteKey" "1x00000000000000000000AA" --project "$PROJECT"
 
+# Password for the seeded admin and demo owner (./scripts/run-local.sh applies it). Random per machine.
+if ! dotnet user-secrets list --project "$PROJECT" | grep -q "^Seed:DevAccountPassword"; then
+  dotnet user-secrets set "Seed:DevAccountPassword" "$(openssl rand -base64 18)" --project "$PROJECT"
+fi
+
 echo "Local development secrets stored in User Secrets for $PROJECT."
+echo "Dev account password: dotnet user-secrets list --project $PROJECT | grep Seed:DevAccountPassword"
