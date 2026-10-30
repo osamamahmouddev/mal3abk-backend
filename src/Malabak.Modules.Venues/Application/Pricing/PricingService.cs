@@ -1,0 +1,59 @@
+using Malabak.Modules.Venues.Application.Common;
+using Malabak.Modules.Venues.Domain;
+using Malabak.Modules.Venues.Infrastructure;
+using Malabak.SharedKernel;
+using Malabak.SharedKernel.Contracts;
+using Microsoft.EntityFrameworkCore;
+
+namespace Malabak.Modules.Venues.Application.Pricing;
+
+/// <summary>
+/// Loads a pitch's price rules and the venue's current booking policy (deposit) and asks <see cref="PricingCalculator"/>
+/// for the price. This is the single pricing entry point for quotes, availability and booking creation.
+/// </summary>
+public sealed class PricingService : IPriceQuoteProvider
+{
+    private readonly VenuesDbContext _dbContext;
+    private readonly IClock _clock;
+
+    public PricingService(VenuesDbContext dbContext, IClock clock)
+    {
+        _dbContext = dbContext;
+        _clock = clock;
+    }
+
+    public async Task<Result<PriceQuoteSnapshot>> QuoteAsync(Guid pitchId, DateTime startUtc, DateTime endUtc, CancellationToken cancellationToken = default)
+    {
+        var venueId = await _dbContext.Pitches.AsNoTracking()
+            .Where(p => p.Id == pitchId && p.IsActive && !p.IsDeleted)
+            .Select(p => (Guid?)p.VenueId)
+            .FirstOrDefaultAsync(cancellationToken);
+        if (venueId is null)
+        {
+            return Result.Failure<PriceQuoteSnapshot>(VenueAccessErrors.PitchNotFound);
+        }
+
+        var rules = await LoadRulesAsync(venueId.Value, cancellationToken);
+        var deposit = await LoadDepositAsync(venueId.Value, cancellationToken);
+        var quote = PricingCalculator.Quote(pitchId, rules, startUtc, endUtc, deposit, _clock.CairoTimeZone);
+        return quote.IsFailure ? Result.Failure<PriceQuoteSnapshot>(quote.Error) : Result.Success(ToSnapshot(venueId.Value, quote.Value));
+    }
+
+    public Task<List<PriceRule>> LoadRulesAsync(Guid venueId, CancellationToken cancellationToken) =>
+        _dbContext.PriceRules.AsNoTracking().Where(r => r.VenueId == venueId && r.IsActive && !r.IsDeleted).ToListAsync(cancellationToken);
+
+    public async Task<DepositRule?> LoadDepositAsync(Guid venueId, CancellationToken cancellationToken)
+    {
+        var policy = await _dbContext.Policies.AsNoTracking()
+            .Where(p => p.VenueId == venueId && p.IsCurrent)
+            .Select(p => new { p.DepositType, p.DepositValue })
+            .FirstOrDefaultAsync(cancellationToken);
+        return policy is null ? null : DepositRule.Create(policy.DepositType, policy.DepositValue);
+    }
+
+    public PriceQuoteSnapshot ToSnapshot(Guid venueId, PriceQuote quote) => new(
+        venueId, quote.PitchId, quote.StartUtc, quote.EndUtc, quote.DurationMinutes, quote.Currency, quote.Subtotal, quote.Discount,
+        quote.DiscountRule, quote.Total, quote.Deposit, quote.DepositType.ToString(),
+        quote.Lines.Select(l => new PriceLineSnapshot(l.StartUtc, l.EndUtc, l.HourlyRate, l.Amount, l.AppliedRules)).ToList(),
+        _clock.UtcNow);
+}

@@ -118,19 +118,14 @@ public sealed class VenuesEntityTests
     public void PriceRule_ShouldCorrectlyHoldMoneyValue()
     {
         // Arrange
-        var price = new Money(350.00m, "EGP");
         var rule = PriceRule.Create(
             Guid.NewGuid(),
-            Guid.NewGuid(),
-            null,
-            DayOfWeek.Friday,
-            new TimeOnly(18, 0),
-            new TimeOnly(23, 59),
-            price,
-            DateTime.UtcNow);
+            new PriceRuleTerms(PriceRuleKind.Peak, PriceAdjustment.FixedHourlyRate, null, "Friday nights", 350.00m, null,
+                DaysOfWeekMask.Friday, new TimeOnly(18, 0), new TimeOnly(23, 59), null, null, null),
+            DateTime.UtcNow).Value;
 
         // Assert
-        rule.Price.Amount.Should().Be(350.00m);
-        rule.Price.Currency.Should().Be("EGP");
+        rule.Price!.Amount.Should().Be(350.00m);
+        rule.Price!.Currency.Should().Be("EGP");
     }
 }

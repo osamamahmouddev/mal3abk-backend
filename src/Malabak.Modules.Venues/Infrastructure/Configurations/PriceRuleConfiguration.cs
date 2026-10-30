@@ -17,24 +17,46 @@ public sealed class PriceRuleConfiguration : IEntityTypeConfiguration<PriceRule>
 
         builder.Property(r => r.PitchId);
 
-        builder.Property(r => r.DayOfWeek);
+        builder.Property(r => r.Kind)
+            .HasConversion<string>()
+            .HasMaxLength(20)
+            .IsRequired();
+
+        builder.Property(r => r.Adjustment)
+            .HasConversion<string>()
+            .HasMaxLength(20)
+            .IsRequired();
+
+        builder.Property(r => r.Name)
+            .HasMaxLength(PriceRule.MaxNameLength)
+            .IsRequired();
+
+        builder.Property(r => r.Amount)
+            .HasPrecision(18, 2)
+            .HasColumnName("price_amount");
+
+        builder.Property(r => r.Currency)
+            .HasMaxLength(3)
+            .HasColumnName("price_currency")
+            .IsRequired();
+
+        builder.Ignore(r => r.Price);
+
+        builder.Property(r => r.Percent)
+            .HasPrecision(9, 2);
+
+        builder.Property(r => r.Days)
+            .HasConversion<int?>();
 
         builder.Property(r => r.StartTime);
 
         builder.Property(r => r.EndTime);
 
-        builder.OwnsOne(r => r.Price, money =>
-        {
-            money.Property(m => m.Amount)
-                .HasPrecision(18, 2)
-                .HasColumnName("price_amount")
-                .IsRequired();
+        builder.Property(r => r.StartDate);
 
-            money.Property(m => m.Currency)
-                .HasMaxLength(3)
-                .HasColumnName("price_currency")
-                .IsRequired();
-        });
+        builder.Property(r => r.EndDate);
+
+        builder.Property(r => r.MinDurationMinutes);
 
         builder.Property(r => r.IsActive)
             .IsRequired()
@@ -51,7 +73,7 @@ public sealed class PriceRuleConfiguration : IEntityTypeConfiguration<PriceRule>
 
         builder.Property(x => x.RowVersion).IsRowVersion();
 
+        builder.HasIndex(r => new { r.VenueId, r.Kind });
         builder.HasIndex(r => new { r.VenueId, r.PitchId });
-        builder.HasIndex(r => new { r.VenueId, r.DayOfWeek });
     }
 }
