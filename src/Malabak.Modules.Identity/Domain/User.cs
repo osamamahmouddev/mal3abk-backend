@@ -150,7 +150,7 @@ public sealed class User : Entity<Guid>
     /// <summary>How long a deleted account is kept (disputes, refunds, fraud checks) before its personal data is erased.</summary>
     public static readonly TimeSpan DeletionRetention = TimeSpan.FromDays(30);
 
-    public const string AnonymizedName = "Deleted user";
+    public const string AnonymizedName = "لاعب محذوف / Deleted Player";
 
     public DateTime? DeletionRequestedAtUtc { get; private set; }
     public DateTime? AnonymizedAtUtc { get; private set; }
@@ -166,6 +166,22 @@ public sealed class User : Entity<Guid>
         IsDeleted = true;
         DeletionRequestedAtUtc = nowUtc;
         UpdateSecurityStamp(nowUtc);
+    }
+
+    /// <summary>A deleted account can be restored by its owner until the retention window ends (ADR-0007).</summary>
+    public bool CanRestore(DateTime nowUtc) =>
+        IsDeleted && AnonymizedAtUtc is null && DeletionRequestedAtUtc is { } requested && nowUtc < requested + DeletionRetention;
+
+    public void Restore(DateTime nowUtc)
+    {
+        if (!CanRestore(nowUtc))
+        {
+            throw new InvalidOperationException("The account can no longer be restored.");
+        }
+
+        IsDeleted = false;
+        DeletionRequestedAtUtc = null;
+        UpdatedAtUtc = nowUtc;
     }
 
     /// <summary>

@@ -19,7 +19,7 @@ public sealed class PrivacyTests
     private readonly FakeContributor _contributor = new();
 
     [Fact]
-    public async Task DeleteAccount_SoftDeletes_RevokesSessions_AndErasesNonEssentialDataAsync()
+    public async Task DeleteAccount_SoftDeletes_RevokesSessions_AndKeepsDataForTheGracePeriodAsync()
     {
         await using var db = NewDb();
         var user = await SeedAsync(db);
@@ -38,7 +38,7 @@ public sealed class PrivacyTests
         (await db.UserSessions.SingleAsync()).IsRevoked.Should().BeTrue();
         (await db.RefreshTokens.SingleAsync()).IsRevoked.Should().BeTrue();
         _store.Revoked.Should().Contain(session.Id);
-        _contributor.Erased.Should().Contain(user.Id);
+        _contributor.Erased.Should().BeEmpty("the account can still be restored");
         (await Privacy(db).DeleteAccountAsync(user.Id)).Error.Should().Be(PrivacyErrors.NotFound);
     }
 
@@ -60,6 +60,7 @@ public sealed class PrivacyTests
         (await anonymizer.RunAsync()).Should().Be(1);
         (await anonymizer.RunAsync()).Should().Be(0, "idempotent");
 
+        _contributor.Erased.Should().ContainSingle().Which.Should().Be(user.Id);
         user.FullName.Should().Be(User.AnonymizedName);
         user.PhoneNumber.Should().NotContain("+20");
         user.Email.Should().BeNull();
@@ -68,6 +69,26 @@ public sealed class PrivacyTests
         user.Positions.Should().BeEmpty();
         (await db.UserSessions.CountAsync()).Should().Be(0);
         (await db.Users.AnyAsync(u => u.PhoneNumber == "+201001234567")).Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task Restore_WorksOnlyWithinTheGracePeriodAsync()
+    {
+        await using var db = NewDb();
+        var user = await SeedAsync(db);
+        await Privacy(db).DeleteAccountAsync(user.Id);
+
+        user.CanRestore(_clock.UtcNow + User.DeletionRetention - TimeSpan.FromMinutes(1)).Should().BeTrue();
+        user.CanRestore(_clock.UtcNow + User.DeletionRetention).Should().BeFalse();
+
+        user.Restore(_clock.UtcNow.AddDays(1));
+        user.IsDeleted.Should().BeFalse();
+        user.DeletionRequestedAtUtc.Should().BeNull();
+        user.FullName.Should().Be("Omar Khaled");
+
+        user.RequestDeletion(_clock.UtcNow);
+        user.Anonymize(_clock.UtcNow.AddDays(31));
+        user.CanRestore(_clock.UtcNow.AddDays(31)).Should().BeFalse("anonymization is irreversible");
     }
 
     [Fact]

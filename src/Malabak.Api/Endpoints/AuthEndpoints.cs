@@ -48,7 +48,7 @@ public static class AuthEndpoints
             ICommandHandler<VerifyOtpCommand, Result<VerifyOtpResponse>> handler,
             CancellationToken cancellationToken) =>
         {
-            var command = new VerifyOtpCommand(request.PhoneNumber, request.Code, request.FullName);
+            var command = new VerifyOtpCommand(request.PhoneNumber, request.Code, request.FullName, request.RestoreAccount);
 
             var result = await handler.HandleAsync(command, cancellationToken);
             if (result.IsFailure)
@@ -131,7 +131,7 @@ public static class AuthEndpoints
     }
 
     public sealed record SendOtpRequest(string PhoneNumber, string TurnstileToken);
-    public sealed record VerifyOtpRequest(string PhoneNumber, string Code, string? FullName = null);
+    public sealed record VerifyOtpRequest(string PhoneNumber, string Code, string? FullName = null, bool RestoreAccount = false);
     public sealed record RefreshTokenRequest(string RefreshToken);
     public sealed record LogoutRequest(string RefreshToken);
 }

@@ -198,6 +198,7 @@ builder.Services.AddDbContext<MediaDbContext>(options =>
 builder.Services.AddSingleton<IObjectStorage, LocalObjectStorage>();
 builder.Services.AddSingleton<IMalwareScanner, NoOpMalwareScanner>();
 builder.Services.AddScoped<MediaService>();
+builder.Services.AddScoped<Malabak.SharedKernel.Contracts.IPersonalDataContributor, MediaPersonalData>();
 
 builder.Services.AddDbContext<NotificationsDbContext>(options =>
     options.UseNpgsql(postgresConnectionString, npgsql =>

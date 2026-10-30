@@ -6,6 +6,9 @@ public interface IObjectStorage
     Task PutAsync(string key, byte[] content, string contentType, CancellationToken cancellationToken = default);
 
     Task<byte[]?> GetAsync(string key, CancellationToken cancellationToken = default);
+
+    /// <summary>Removes the object; succeeds when it does not exist.</summary>
+    Task DeleteAsync(string key, CancellationToken cancellationToken = default);
 }
 
 /// <summary>
@@ -33,6 +36,12 @@ public sealed class LocalObjectStorage : IObjectStorage
     {
         var path = Resolve(key);
         return File.Exists(path) ? await File.ReadAllBytesAsync(path, cancellationToken) : null;
+    }
+
+    public Task DeleteAsync(string key, CancellationToken cancellationToken = default)
+    {
+        File.Delete(Resolve(key));
+        return Task.CompletedTask;
     }
 
     private string Resolve(string key)

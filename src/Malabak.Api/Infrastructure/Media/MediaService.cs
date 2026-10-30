@@ -150,7 +150,19 @@ public sealed class MediaService
     private string Sign(Guid mediaId, string variant, string expires) =>
         Convert.ToHexString(HMACSHA256.HashData(_signingKey, Encoding.UTF8.GetBytes($"{mediaId:N}:{variant}:{expires}"))).ToLowerInvariant();
 
-    private static string StorageKey(MediaAsset asset, string variant) =>
+    /// <summary>Deletes every stored variant and the asset record (account erasure, ADR-0007).</summary>
+    public async Task DeleteAsync(MediaAsset asset, CancellationToken cancellationToken = default)
+    {
+        foreach (var (name, _) in ImageProcessor.Variants)
+        {
+            await _storage.DeleteAsync(StorageKey(asset, name), cancellationToken);
+        }
+
+        _dbContext.Assets.Remove(asset);
+        await _dbContext.SaveChangesAsync(cancellationToken);
+    }
+
+    internal static string StorageKey(MediaAsset asset, string variant) =>
         $"{asset.Visibility.ToString().ToLowerInvariant()}/{asset.Id:N}/{variant}.webp";
 
     private static string Hash(string raw) => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(raw)));
