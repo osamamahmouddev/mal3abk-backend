@@ -90,3 +90,19 @@ jobs:
       - name: Turbo Build
         working-directory: ./web
         run: pnpm build
+
+      - name: Install Playwright browser
+        working-directory: ./web/apps/venue
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Venue dashboard E2E (Flows B and C, accessibility)
+        working-directory: ./web/apps/venue
+        run: pnpm e2e
+
+      - name: Upload Playwright traces on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: venue-e2e-traces
+          path: web/apps/venue/test-results
+          retention-days: 7
