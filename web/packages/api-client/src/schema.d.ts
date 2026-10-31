@@ -2217,6 +2217,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/venue-manager/venues/{venueId}/bookings/{id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Cancel a booking as venue staff (reason required; any paid deposit is owed back in full) */
+        post: operations["VenueCancelBooking"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/venue-manager/venues/{venueId}/bookings/{id}/no-show": {
         parameters: {
             query?: never;
@@ -4334,6 +4351,7 @@ export interface components {
             customerPhone?: string | null;
             /** Format: date-time */
             createdAtUtc: string;
+            isManual: boolean;
         };
         VenueBookingItemDtoPagedList: {
             items: components["schemas"]["VenueBookingItemDto"][];
@@ -4343,6 +4361,9 @@ export interface components {
             page: number;
             /** Format: int32 */
             pageSize: number;
+        };
+        VenueCancelApiRequest: {
+            reason: string;
         };
         VenueCardDto: {
             /** Format: uuid */
@@ -12359,6 +12380,8 @@ export interface operations {
                 search?: string;
                 page?: number;
                 pageSize?: number;
+                statuses?: components["schemas"]["BookingStatus"][];
+                sort?: string;
             };
             header?: never;
             path: {
@@ -12900,6 +12923,94 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["ManualBookingResponse"];
                 };
+            };
+            /** @description Bad Request (Validation failure, invalid inputs) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Unauthorized (Missing or expired JWT access token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Forbidden (Insufficient role or permissions) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Not Found (Resource does not exist) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Conflict (Concurrent update or duplicate idempotency in flight) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Unprocessable Entity (Business rule violation or payload mismatch) */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Too Many Requests (Rate limit exceeded, check Retry-After header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    VenueCancelBooking: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                venueId: string;
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VenueCancelApiRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Bad Request (Validation failure, invalid inputs) */
             400: {

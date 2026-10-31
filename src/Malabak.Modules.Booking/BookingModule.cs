@@ -40,6 +40,7 @@ public static class BookingModule
         services.AddScoped<ICommandHandler<SubmitProofCommand, Result>, SubmitProofHandler>();
         services.AddScoped<ICommandHandler<ReviewProofCommand, Result>, ReviewProofHandler>();
         services.AddScoped<ICommandHandler<CancelBookingCommand, Result>, CancelBookingHandler>();
+        services.AddScoped<ICommandHandler<VenueCancelBookingCommand, Result>, VenueCancelBookingHandler>();
         services.AddScoped<IQueryHandler<GetCancelPreviewQuery, Result<CancelPreviewResponse>>, GetCancelPreviewHandler>();
         services.AddScoped<ICommandHandler<CreateManualBookingCommand, Result<ManualBookingResponse>>, CreateManualBookingHandler>();
         services.AddScoped<ICommandHandler<RecordManualRefundCommand, Result>, RecordManualRefundHandler>();

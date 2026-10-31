@@ -291,10 +291,15 @@ public static class BookingEndpoints
             [FromQuery] string? search,
             [FromQuery] int? page,
             [FromQuery] int? pageSize,
+            [FromQuery] BookingStatus[]? statuses,
+            [FromQuery] string? sort,
             IQueryHandler<GetVenueBookingsQuery, Result<PagedList<VenueBookingItemDto>>> handler,
             CancellationToken ct) =>
         {
-            var result = await handler.HandleAsync(new GetVenueBookingsQuery(venueId, status, startDateUtc, endDateUtc, pitchId, search, page ?? 1, pageSize ?? 0), ct);
+            var safeSort = sort is not null && VenueBookingQueriesHandler.SortKeys.Contains(sort) ? sort : null;
+            var result = await handler.HandleAsync(new GetVenueBookingsQuery(
+                venueId, status, startDateUtc, endDateUtc, pitchId, search?.Length > 100 ? search[..100] : search, page ?? 1, pageSize ?? 0,
+                statuses?.Distinct().Take(10).ToList(), safeSort), ct);
             return Results.Ok(result.Value);
         })
         .RequireVenuePermission(Permissions.BookingsView)
@@ -431,6 +436,24 @@ public static class BookingEndpoints
         .WithName("CreateManualBooking")
         .WithSummary("Create manual phone/walk-in reservation directly into Confirmed state under GiST protection");
 
+        // Staff cancellation (TASK-502): reason required, full deposit refund owed.
+        venueManager.MapPost("/bookings/{id:guid}/cancel", async (
+            Guid venueId,
+            Guid id,
+            ClaimsPrincipal user,
+            [FromBody] VenueCancelApiRequest request,
+            HttpContext httpContext,
+            ICommandHandler<VenueCancelBookingCommand, Result> handler,
+            CancellationToken ct) =>
+        {
+            var result = await handler.HandleAsync(new VenueCancelBookingCommand(id, venueId, user.GetUserId()!.Value, request.Reason), ct);
+            return result.ToHttpResult(httpContext: httpContext, onSuccess: () => Results.Ok(new { message = "Booking cancelled", bookingId = id }));
+        })
+        .RequireVenuePermission(Permissions.BookingsApprove)
+        .RequireDistributedRateLimiting("booking-venue-cancel", permitLimit: 30, windowSeconds: 60)
+        .WithName("VenueCancelBooking")
+        .WithSummary("Cancel a booking as venue staff (reason required; any paid deposit is owed back in full)");
+
         // Mark No-Show (TASK-405)
         venueManager.MapPost("/bookings/{id:guid}/no-show", async (
             Guid venueId,
@@ -499,6 +522,8 @@ public static class BookingEndpoints
         string? Notes = null);
 
     public sealed record NoShowApiRequest(string? Reason = null);
+
+    public sealed record VenueCancelApiRequest(string Reason);
 
     public sealed record RecordRefundApiRequest(decimal Amount, string? Notes = null);
 }
