@@ -15,6 +15,7 @@ using Malabak.Modules.Booking.Application.Bookings.Refunds;
 using Malabak.Modules.Booking.Application.Bookings.ReviewProof;
 using Malabak.Modules.Booking.Application.Bookings.SubmitProof;
 using Malabak.Modules.Booking.Application.Bookings.VenueQueries;
+using Malabak.Modules.Booking.Application.Dashboard;
 using Malabak.Modules.Booking.Domain;
 using Malabak.Modules.Venues.Application.Common;
 using Malabak.SharedKernel;
@@ -299,6 +300,27 @@ public static class BookingEndpoints
         .RequireVenuePermission(Permissions.BookingsView)
         .WithName("GetVenueBookings")
         .WithSummary("List venue bookings with status, date, pitch and customer filters");
+
+        // Dashboard overview (TASK-501): KPIs, occupancy, timeline, proofs to review, recent activity.
+        venueManager.MapGet("/dashboard", async (
+            Guid venueId,
+            [FromQuery] DateOnly? date,
+            ClaimsPrincipal user,
+            HttpContext httpContext,
+            IVenueAccessService access,
+            IQueryHandler<GetVenueDashboardQuery, Result<VenueDashboardDto>> handler,
+            CancellationToken ct) =>
+        {
+            // Money is only shown to roles that may see reports; other staff get counts and lists.
+            var canSeeRevenue = (await access.GetAccessAsync(user.GetUserId()!.Value, venueId, ct)).Can(Permissions.ReportsView);
+            var result = await handler.HandleAsync(new GetVenueDashboardQuery(venueId, date, canSeeRevenue), ct);
+            httpContext.Response.Headers.CacheControl = "private, no-store";
+            return result.ToHttpResult(httpContext: httpContext);
+        })
+        .RequireVenuePermission(Permissions.BookingsView)
+        .RequireDistributedRateLimiting("venue-dashboard", permitLimit: 60, windowSeconds: 60)
+        .WithName("GetVenueDashboard")
+        .WithSummary("Dashboard overview: today's counts, revenue (reports permission), occupancy, timeline, proofs awaiting review and activity");
 
         // Pending bookings awaiting review
         venueManager.MapGet("/bookings/pending", async (

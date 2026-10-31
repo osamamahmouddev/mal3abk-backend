@@ -53,6 +53,7 @@ public static class BookingModule
         services.AddScoped<IQueryHandler<GetVenuePendingBookingsQuery, Result<IReadOnlyList<VenueBookingItemDto>>>, VenueBookingQueriesHandler>();
         services.AddScoped<IQueryHandler<GetVenueBookingDetailQuery, Result<VenueBookingDetailDto>>, VenueBookingQueriesHandler>();
         services.AddScoped<IQueryHandler<GetVenueCalendarQuery, Result<IReadOnlyList<CalendarSlotDto>>>, VenueBookingQueriesHandler>();
+        services.AddScoped<IQueryHandler<Application.Dashboard.GetVenueDashboardQuery, Result<Application.Dashboard.VenueDashboardDto>>, Application.Dashboard.GetVenueDashboardHandler>();
 
         services.AddScoped<IQueryHandler<GetBookingProofsQuery, Result<IReadOnlyList<BookingProofDto>>>, GetBookingProofsHandler>();
 
