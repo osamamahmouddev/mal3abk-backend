@@ -2,7 +2,7 @@
 
 import { redirect } from "next/navigation";
 import type { Schemas } from "@malabak/api-client";
-import { anonymousApi, deleteSealedCookie, getSealedCookie, setSealedCookie, signIn, signOut } from "@malabak/bff/server";
+import { anonymousApi, apiUrl, deleteSealedCookie, getSealedCookie, setSealedCookie, signIn, signOut } from "@malabak/bff/server";
 import { bffConfig } from "@/lib/bff-config";
 
 export interface ActionResult {
@@ -47,7 +47,7 @@ export async function adminLogin(input: { email: string; password: string; totpC
   }
   if (!tokens) return { ok: false, code: "TotpRequired", message: "اكتب الكود من تطبيق التحقق." };
 
-  const me = await fetch(`${process.env.API_URL}/api/v1/me`, { headers: { authorization: `Bearer ${tokens.accessToken}` }, cache: "no-store" });
+  const me = await fetch(`${apiUrl()}/api/v1/me`, { headers: { authorization: `Bearer ${tokens.accessToken}` }, cache: "no-store" });
   const profile = me.ok ? ((await me.json()) as Schemas["MyProfileDto"]) : null;
   await signIn(bffConfig, tokens, { id: profile?.userId ?? "", name: profile?.fullName ?? input.email, roles: [] });
   return { ok: true };
