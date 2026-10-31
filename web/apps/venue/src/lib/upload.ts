@@ -12,7 +12,7 @@ export async function uploadImage(file: File, purpose: Schemas["MediaPurpose"]):
     .split("; ")
     .find((c) => c.startsWith("malabak-csrf="))
     ?.slice("malabak-csrf=".length);
-  const response = await fetch(`/bff${ticket.uploadUrl}`, {
+  const response = await fetch(`/venue/bff${ticket.uploadUrl}`, {
     method: "PUT",
     headers: { "content-type": file.type || "application/octet-stream", "x-csrf-token": decodeURIComponent(csrf ?? "") },
     body: file,
@@ -22,4 +22,4 @@ export async function uploadImage(file: File, purpose: Schemas["MediaPurpose"]):
 }
 
 /** Media paths from the API ("/api/v1/media/...") load through the dashboard's proxy. */
-export const mediaSrc = (path: string) => `/bff${path}`;
+export const mediaSrc = (path: string) => `/venue/bff${path}`;

@@ -172,7 +172,7 @@ export default function ApprovalsPage() {
               {(cur.photos ?? []).length === 0 && <span className={`text-xs ${muted} col-span-full`}>المالك مارفعش صور لسه.</span>}
               {(cur.photos ?? []).map((photo) => (
                 // eslint-disable-next-line @next/next/no-img-element -- re-encoded WebP from our media API
-                <img key={photo} src={`/bff${photo}`} alt={`صورة ${cur.name}`} className="aspect-[4/3] w-full object-cover rounded-[10px]" />
+                <img key={photo} src={`/admin/bff${photo}`} alt={`صورة ${cur.name}`} className="aspect-[4/3] w-full object-cover rounded-[10px]" />
               ))}
             </div>
 
