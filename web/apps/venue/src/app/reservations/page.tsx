@@ -1,52 +1,28 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
-import { Badge, Page, Toast, Tone, card, chip, muted, primaryBtn, secondaryBtn, toArabicDigits, useRevealOnSelect } from "@/components/ui";
+import { keepPreviousData, useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
+import type { Schemas } from "@malabak/api-client";
+import { Badge, Page, Toast, card, chip, muted, primaryBtn, secondaryBtn, toArabicDigits, useRevealOnSelect } from "@/components/ui";
+import { useVenue } from "@/components/Providers";
+import { api, unwrap } from "@/lib/api";
+import { BOOKING_STATUS, type BookingStatus, cairoDateTime, money, timeLeft } from "@/lib/booking-format";
+import { downloadCsv } from "@/lib/csv";
+import { P } from "@/lib/permissions";
+import { ReasonDialog } from "@/components/ReasonDialog";
 
-type Status = "proof" | "wait" | "ok" | "expired" | "cancel";
+type Item = Schemas["VenueBookingItemDto"];
 type Tab = "pending" | "ok" | "closed" | "all";
+type Sort = "start_desc" | "start_asc" | "created_desc" | "price_desc";
 
-interface Booking {
-  id: string;
-  ref: string;
-  who: string;
-  src: string;
-  pitch: number;
-  slot: string;
-  dep: string;
-  st: Status;
-  price: string;
-  phone: string;
-}
+const PAGE_SIZE = 20;
 
-const bookings: Booking[] = [
-  { id: "b1", ref: "KH-2607-0142", who: "أحمد سامي", src: "من التطبيق", pitch: 1, slot: "ملعب ١ · السبت ٢٦ · ٨:٠٠ م", dep: "٥٠ ج.م — إيصال مرفوع", st: "proof", price: "١٥٠ ج.م", phone: "٠١٠١٢٣٤٥٦٧٨" },
-  { id: "b2", ref: "KH-2607-0147", who: "يوسف حسن", src: "من التطبيق", pitch: 1, slot: "ملعب ١ · السبت ٢٦ · ٩:٠٠ م", dep: "لم يُرفع — ينتهي ٧:٣٨ م", st: "wait", price: "١٥٠ ج.م", phone: "٠١٢٢٣٣٤٤٥٥٦" },
-  { id: "b3", ref: "KH-2607-0145", who: "عمر خالد", src: "من التطبيق", pitch: 2, slot: "ملعب ٢ · السبت ٢٦ · ١١:٠٠ م", dep: "٦٠ ج.م — إيصال مرفوع", st: "proof", price: "٢٢٠ ج.م", phone: "٠١١٤٤٣٣٢٢١١" },
-  { id: "b4", ref: "KH-2907-0158", who: "مصطفى رمضان", src: "من التطبيق", pitch: 1, slot: "ملعب ١ · الثلاثاء ٢٩ · ١١:٠٠ م", dep: "لم يُرفع — ينتهي ٨:١٠ م", st: "wait", price: "١٥٠ ج.م", phone: "٠١١٥٥٦٦٧٧٨٨" },
-  { id: "b5", ref: "KH-3107-0107", who: "هاني سعيد", src: "من التطبيق", pitch: 1, slot: "ملعب ١ · الخميس ٣١ · ١:٠٠ ص", dep: "٥٠ ج.م — إيصال مرفوع", st: "proof", price: "١٥٠ ج.م", phone: "٠١٠٤٤٥٥٦٦٧٧" },
-  { id: "b6", ref: "KH-2607-0139", who: "فريق الصقور", src: "من التطبيق", pitch: 1, slot: "ملعب ١ · السبت ٢٦ · ١٢:٠٠ ص", dep: "٥٠ ج.م معتمد", st: "ok", price: "١٥٠ ج.م", phone: "٠١٠٩٨٧٦٥٤٣٢" },
-  { id: "b7", ref: "KH-2807-M004", who: "م. فتحي", src: "حجز يدوي — محمود", pitch: 3, slot: "ملعب ٣ · السبت ٢٦ · ٨:٠٠ م", dep: "نقدي في الملعب", st: "ok", price: "١٥٠ ج.م", phone: "٠١٠١١١٢٢٢٣٣" },
-  { id: "b8", ref: "KH-2607-0131", who: "كريم عادل", src: "من التطبيق", pitch: 2, slot: "ملعب ٢ · السبت ٢٦ · ٧:٠٠ م", dep: "٦٠ ج.م معتمد", st: "ok", price: "٢٢٠ ج.م", phone: "٠١٠٢٢٣٣٤٤٥٥" },
-  { id: "b9", ref: "KH-2407-0133", who: "أحمد سامي", src: "من التطبيق", pitch: 2, slot: "ملعب ٢ · الخميس ٢٤ · ١١:٠٠ م", dep: "ماتحوّلش", st: "expired", price: "٢٢٠ ج.م", phone: "٠١٠١٢٣٤٥٦٧٨" },
-  { id: "b10", ref: "KH-2507-0121", who: "زياد طارق", src: "من التطبيق", pitch: 3, slot: "ملعب ٣ · الجمعة ٢٥ · ٩:٠٠ م", dep: "اترد ٥٠ ج.م", st: "cancel", price: "١٥٠ ج.م", phone: "٠١٢٧٧٨٨٩٩٠٠" },
-];
-
-const STATUS: Record<Status, [string, Tone]> = {
-  proof: ["إيصال للمراجعة", "warn"],
-  wait: ["بانتظار العربون", "wait"],
-  ok: ["✓ مؤكد", "ok"],
-  expired: ["انتهت المهلة", "wait"],
-  cancel: ["ملغي", "bad"],
-};
-
-const LOGS: Record<Status, string[]> = {
-  proof: ["طلب من التطبيق", "رُفع إيصال — بانتظار مراجعتك"],
-  wait: ["طلب من التطبيق", "الميعاد محجوز مؤقتاً لحد رفع الإيصال"],
-  ok: ["طلب أو حجز يدوي", "العربون اتعمد — الحجز مؤكد"],
-  expired: ["طلب من التطبيق", "مارفعش إيصال خلال ٣٠ دقيقة — الميعاد اتاح"],
-  cancel: ["حجز مؤكد", "اتلغى — العربون مستحق الاسترداد"],
+const TAB_STATUSES: Record<Tab, BookingStatus[]> = {
+  pending: [2, 3, 4],
+  ok: [5, 9],
+  closed: [6, 7, 8, 10],
+  all: [],
 };
 
 const TABS: [Tab, string][] = [
@@ -56,65 +32,113 @@ const TABS: [Tab, string][] = [
   ["all", "الكل"],
 ];
 
-const REASONS: [string, string][] = [
-  ["maint", "صيانة طارئة"],
-  ["dup", "حجز مكرر"],
-  ["other", "سبب تاني"],
+const SORTS: [Sort, string][] = [
+  ["start_desc", "الأحدث ميعاداً"],
+  ["start_asc", "الأقرب ميعاداً"],
+  ["created_desc", "الأحدث طلباً"],
+  ["price_desc", "الأعلى سعراً"],
 ];
 
-const inTab = (tab: Tab, st: Status) =>
-  tab === "all" ||
-  (tab === "pending" && (st === "proof" || st === "wait")) ||
-  (tab === "ok" && st === "ok") ||
-  (tab === "closed" && (st === "cancel" || st === "expired"));
+const REASONS = ["صيانة طارئة", "حجز مكرر", "الملعب مقفول للظروف الجوية"];
+
+const depositText = (b: Item) => {
+  if (b.isManual) return "الدفع في الملعب";
+  if (b.status === 2) return "لم يُرفع بعد";
+  if (b.status === 3 || b.status === 4) return `${money(b.depositAmount, b.currency)} — إيصال مرفوع`;
+  if (b.status === 5 || b.status === 9 || b.status === 10) return `${money(b.depositAmount, b.currency)} معتمد`;
+  return "—";
+};
 
 export default function ReservationsPage() {
+  const queryClient = useQueryClient();
+  const { venue, venueId, can } = useVenue();
   const [tab, setTab] = useState<Tab>("pending");
   const [q, setQ] = useState("");
-  const [pitch, setPitch] = useState<"all" | number>("all");
+  const [search, setSearch] = useState("");
+  const [pitchId, setPitchId] = useState("");
+  const [sort, setSort] = useState<Sort>("start_asc");
   const [page, setPage] = useState(1);
-  const [selId, setSelId] = useState<string | null>("b2");
+  const [selId, setSelId] = useState<string | null>(null);
   const detailsRef = useRevealOnSelect<HTMLElement>(selId);
-  const [cancelOpen, setCancelOpen] = useState(false);
-  const [reason, setReason] = useState<string | null>(null);
-  const [cancelled, setCancelled] = useState<Record<string, boolean>>({});
   const [toast, setToast] = useState<string | null>(null);
 
-  const rows = bookings.map((r) => (cancelled[r.id] ? { ...r, st: "cancel" as Status, dep: "استرداد مستحق" } : r));
-  const query = q.trim();
-  const list = rows.filter(
-    (r) =>
-      inTab(tab, r.st) &&
-      (pitch === "all" || r.pitch === pitch) &&
-      (!query || r.who.includes(query) || r.ref.includes(query.toUpperCase()))
-  );
-  const sel = rows.find((r) => r.id === selId);
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setSearch(q.trim());
+      setPage(1);
+    }, 300);
+    return () => clearTimeout(t);
+  }, [q]);
 
-  const confirmCancel = () => {
-    if (!reason || !sel) return;
-    setCancelled({ ...cancelled, [sel.id]: true });
-    setCancelOpen(false);
-    setToast(`اتلغى حجز ${sel.who} ووصله إشعار بالسبب. سجّل الاسترداد بعد التحويل.`);
+  const filters = (statuses: BookingStatus[], p: number, size: number) => ({
+    path: { venueId: venueId! },
+    query: {
+      statuses: statuses.length ? statuses : undefined,
+      search: search || undefined,
+      pitchId: pitchId || undefined,
+      sort,
+      page: p,
+      pageSize: size,
+    },
+  });
+
+  const bookings = useQuery({
+    queryKey: ["bookings", venueId, tab, search, pitchId, sort, page],
+    enabled: !!venueId,
+    placeholderData: keepPreviousData,
+    refetchInterval: 30_000,
+    queryFn: () => unwrap(api.GET("/api/v1/venue-manager/venues/{venueId}/bookings", { params: filters(TAB_STATUSES[tab], page, PAGE_SIZE) })),
+  });
+
+  // Tab badges: one tiny request per tab for its total.
+  const counts = useQueries({
+    queries: TABS.map(([id]) => ({
+      queryKey: ["bookings-count", venueId, id, search, pitchId],
+      enabled: !!venueId,
+      queryFn: () => unwrap(api.GET("/api/v1/venue-manager/venues/{venueId}/bookings", { params: filters(TAB_STATUSES[id], 1, 1) })),
+    })),
+  });
+
+  const list = bookings.data?.items ?? [];
+  const total = bookings.data?.totalCount ?? 0;
+  const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const pitchName = (id: string) => venue?.pitches.find((p) => p.id === id)?.name ?? "ملعب";
+  const refresh = () => queryClient.invalidateQueries({ predicate: (query) => String(query.queryKey[0]).startsWith("booking") || query.queryKey[0] === "dashboard" });
+
+  const exportList = () => {
+    downloadCsv(
+      "reservations.csv",
+      ["رقم الحجز", "العميل", "الموبايل", "الملعب", "الميعاد", "السعر", "العربون", "الحالة"],
+      list.map((b) => [
+        b.reference,
+        b.customerName ?? "",
+        b.customerPhone ?? "",
+        pitchName(b.pitchId),
+        cairoDateTime(b.startUtc),
+        String(b.totalPrice),
+        String(b.depositAmount),
+        BOOKING_STATUS[b.status].label,
+      ]),
+    );
+    setToast(`اتنزّل ملف بـ ${toArabicDigits(list.length)} حجز. للفترات الطويلة استخدم تصدير التقارير.`);
   };
 
   return (
     <Page className="gap-[18px]">
       <div className="flex flex-wrap items-center gap-3">
         <h1 className="flex-[1_1_240px] text-[26px] font-bold">الحجوزات</h1>
-        <button
-          type="button"
-          onClick={() => setToast(`اتجهّز ملف Excel بـ ${toArabicDigits(list.length)} حجز — هيتحمّل على جهازك.`)}
-          className={`${secondaryBtn} rounded-xl`}
-        >
-          تصدير Excel
+        <button type="button" onClick={exportList} disabled={list.length === 0} className={`${secondaryBtn} rounded-xl disabled:opacity-50`}>
+          تصدير الصفحة
         </button>
-        <Link href="/reservations/manual" className={primaryBtn}>
-          + حجز يدوي
-        </Link>
+        {can(P.bookingsApprove) && (
+          <Link href="/reservations/manual" className={primaryBtn}>
+            + حجز يدوي
+          </Link>
+        )}
       </div>
 
-      <div role="tablist" className="flex gap-1.5 flex-wrap">
-        {TABS.map(([id, label]) => (
+      <div role="tablist" aria-label="حالة الحجز" className="flex gap-1.5 flex-wrap">
+        {TABS.map(([id, label], i) => (
           <button
             key={id}
             type="button"
@@ -127,12 +151,8 @@ export default function ReservationsPage() {
             className={`${chip(tab === id, "min-h-[42px] px-4 rounded-xl text-sm")} flex items-center gap-2`}
           >
             {label}
-            <span
-              className={`min-w-[22px] h-[22px] px-1.5 rounded-[11px] text-xs inline-flex items-center justify-center ${
-                tab === id ? "bg-white/[0.18]" : "bg-[#EEF0F5]"
-              }`}
-            >
-              {toArabicDigits(rows.filter((r) => inTab(id, r.st)).length)}
+            <span className={`min-w-[22px] h-[22px] px-1.5 rounded-[11px] text-xs inline-flex items-center justify-center ${tab === id ? "bg-white/[0.18]" : "bg-[#EEF0F5]"}`}>
+              {counts[i].data ? toArabicDigits(counts[i].data!.totalCount) : "…"}
             </span>
           </button>
         ))}
@@ -147,149 +167,121 @@ export default function ReservationsPage() {
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="ابحث باسم العميل أو رقم الحجز"
+            placeholder="ابحث باسم العميل أو رقم الحجز أو الموبايل"
             aria-label="بحث"
+            maxLength={100}
             className="flex-1 min-w-0 border-none outline-none text-sm bg-transparent text-slate-900"
           />
         </div>
-        <div role="group" aria-label="الملعب" className="flex gap-1 bg-white border border-[#DCE0E8] rounded-xl p-[3px]">
-          {(
-            [
-              ["all", "كل الملاعب"],
-              [1, "ملعب ١"],
-              [2, "ملعب ٢"],
-              [3, "ملعب ٣"],
-            ] as const
-          ).map(([id, label]) => (
-            <button
-              key={id}
-              type="button"
-              aria-pressed={pitch === id}
-              onClick={() => setPitch(id)}
-              className={`min-h-[36px] px-3 rounded-[9px] text-[13px] ${
-                pitch === id ? "bg-navy-900 text-white font-bold" : "bg-transparent text-[#3B4352]"
-              }`}
-            >
-              {label}
-            </button>
+        <select
+          aria-label="الملعب"
+          value={pitchId}
+          onChange={(e) => {
+            setPitchId(e.target.value);
+            setPage(1);
+          }}
+          className="min-h-[44px] px-3 rounded-xl border border-[#DCE0E8] bg-white text-sm"
+        >
+          <option value="">كل الملاعب</option>
+          {venue?.pitches.map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.name}
+            </option>
           ))}
-        </div>
+        </select>
+        <select aria-label="الترتيب" value={sort} onChange={(e) => setSort(e.target.value as Sort)} className="min-h-[44px] px-3 rounded-xl border border-[#DCE0E8] bg-white text-sm">
+          {SORTS.map(([id, label]) => (
+            <option key={id} value={id}>
+              {label}
+            </option>
+          ))}
+        </select>
       </div>
 
+      {bookings.isError && (
+        <div role="alert" className="bg-[#FDECEA] text-[#A8261C] rounded-[14px] px-4 py-3 text-sm flex gap-3">
+          <span className="flex-1">{(bookings.error as Error).message}</span>
+          <button type="button" className="font-bold underline" onClick={() => bookings.refetch()}>
+            جرّب تاني
+          </button>
+        </div>
+      )}
+
       <div className="flex flex-wrap gap-4 items-start">
-        <section className={`flex-[999_1_600px] min-w-0 ${card} rounded-[18px] overflow-hidden`}>
-          {/* Phones: one card per booking */}
+        <section className={`flex-[999_1_600px] min-w-0 ${card} rounded-[18px] overflow-hidden`} aria-busy={bookings.isFetching}>
           <ul className="md:hidden divide-y divide-[#EEF1F5]">
-            {list.map((r) => (
-              <li key={r.id} className={`p-4 flex flex-col gap-2 ${r.id === selId ? "bg-[#F5F7FB]" : ""}`}>
+            {list.map((b) => (
+              <li key={b.id} className={`p-4 flex flex-col gap-2 ${b.id === selId ? "bg-[#F5F7FB]" : ""}`}>
                 <div className="flex items-start gap-2">
                   <div className="flex-1 min-w-0 flex flex-col">
-                    <span className="font-semibold">{r.who}</span>
-                    <span className={`text-xs ${muted}`}>{r.src}</span>
+                    <span className="font-semibold">{b.customerName || "—"}</span>
+                    <span className={`text-xs ${muted}`}>{b.isManual ? "حجز يدوي" : "من التطبيق"}</span>
                   </div>
-                  <Badge tone={STATUS[r.st][1]}>{STATUS[r.st][0]}</Badge>
+                  <Badge tone={BOOKING_STATUS[b.status].tone}>{BOOKING_STATUS[b.status].label}</Badge>
                 </div>
-                <div className="text-sm">{r.slot}</div>
+                <div className="text-sm">
+                  {pitchName(b.pitchId)} · {cairoDateTime(b.startUtc)}
+                </div>
                 <div className={`flex flex-wrap gap-x-3 gap-y-1 text-xs ${muted}`}>
-                  <span dir="ltr">{r.ref}</span>
-                  <span>{r.dep}</span>
+                  <span dir="ltr">{b.reference}</span>
+                  <span>{depositText(b)}</span>
                 </div>
-                <div className="flex flex-wrap gap-2 pt-1">
-                  {r.st === "proof" && (
-                    <Link href="/reservations/proof-review" className="min-h-[40px] px-3.5 rounded-[10px] bg-navy-900 text-white text-[13px] font-bold inline-flex items-center">
-                      مراجعة الإيصال
-                    </Link>
-                  )}
-                  {r.st === "wait" && (
-                    <button
-                      type="button"
-                      onClick={() => setToast(`اتبعت تذكير لـ${r.who} يرفع إيصال العربون.`)}
-                      className="min-h-[40px] px-3.5 rounded-[10px] border border-[#C9CFD9] bg-white text-navy-900 text-[13px] font-semibold"
-                    >
-                      تذكير
-                    </button>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => setSelId(r.id)}
-                    className="min-h-[40px] px-3.5 rounded-[10px] bg-[#EEF1F7] text-navy-900 text-[13px] font-semibold"
-                  >
-                    التفاصيل
-                  </button>
-                </div>
+                <RowActions b={b} canReview={can(P.proofsReview)} onDetails={() => setSelId(b.id)} compact={false} />
               </li>
             ))}
           </ul>
 
-          {/* Tablet and up: table */}
           <div className="hidden md:block overflow-x-auto">
             <table className="w-full min-w-[760px] border-collapse text-sm">
               <thead>
                 <tr className={`bg-[#F8F9FB] ${muted} text-xs text-right`}>
-                  <th className="px-[18px] py-3 font-semibold">رقم الحجز</th>
-                  <th className="p-3 font-semibold">العميل</th>
-                  <th className="p-3 font-semibold">الملعب والميعاد</th>
-                  <th className="p-3 font-semibold">العربون</th>
-                  <th className="p-3 font-semibold">الحالة</th>
-                  <th className="px-[18px] py-3 font-semibold" />
+                  <th scope="col" className="px-[18px] py-3 font-semibold">رقم الحجز</th>
+                  <th scope="col" className="p-3 font-semibold">العميل</th>
+                  <th scope="col" className="p-3 font-semibold">الملعب والميعاد</th>
+                  <th scope="col" className="p-3 font-semibold">العربون</th>
+                  <th scope="col" className="p-3 font-semibold">الحالة</th>
+                  <th scope="col" className="px-[18px] py-3 font-semibold">
+                    <span className="sr-only">إجراءات</span>
+                  </th>
                 </tr>
               </thead>
               <tbody>
-                {list.map((r) => (
-                  <tr key={r.id} className={`border-t border-[#EEF1F5] ${r.id === selId ? "bg-[#F5F7FB]" : ""}`}>
+                {list.map((b) => (
+                  <tr key={b.id} className={`border-t border-[#EEF1F5] ${b.id === selId ? "bg-[#F5F7FB]" : ""}`}>
                     <td dir="ltr" className="px-[18px] py-3 text-right text-[13px] text-[#3B4352]">
-                      {r.ref}
+                      {b.reference}
                     </td>
                     <td className="p-3">
                       <div className="flex flex-col">
-                        <span className="font-semibold">{r.who}</span>
-                        <span className={`text-xs ${muted}`}>{r.src}</span>
+                        <span className="font-semibold">{b.customerName || "—"}</span>
+                        <span className={`text-xs ${muted}`}>{b.isManual ? "حجز يدوي" : "من التطبيق"}</span>
                       </div>
                     </td>
-                    <td className="p-3 whitespace-nowrap">{r.slot}</td>
-                    <td className="p-3 whitespace-nowrap text-[13px] text-[#333B4A]">{r.dep}</td>
+                    <td className="p-3 whitespace-nowrap">
+                      {pitchName(b.pitchId)} · {cairoDateTime(b.startUtc)}
+                    </td>
+                    <td className="p-3 whitespace-nowrap text-[13px] text-[#333B4A]">{depositText(b)}</td>
                     <td className="p-3">
-                      <Badge tone={STATUS[r.st][1]}>{STATUS[r.st][0]}</Badge>
+                      <Badge tone={BOOKING_STATUS[b.status].tone}>{BOOKING_STATUS[b.status].label}</Badge>
                     </td>
                     <td className="px-[18px] py-2 whitespace-nowrap">
-                      {r.st === "proof" && (
-                        <Link
-                          href="/reservations/proof-review"
-                          className="min-h-[34px] px-3 rounded-[9px] bg-navy-900 text-white text-xs font-bold inline-flex items-center ml-1.5"
-                        >
-                          مراجعة الإيصال
-                        </Link>
-                      )}
-                      {r.st === "wait" && (
-                        <button
-                          type="button"
-                          onClick={() => setToast(`اتبعت تذكير لـ${r.who} يرفع إيصال العربون.`)}
-                          className="min-h-[34px] px-3 rounded-[9px] border border-[#C9CFD9] bg-white text-navy-900 text-xs font-semibold ml-1.5"
-                        >
-                          تذكير
-                        </button>
-                      )}
-                      <button
-                        type="button"
-                        onClick={() => setSelId(r.id)}
-                        className="min-h-[34px] px-3 rounded-[9px] bg-[#EEF1F7] text-navy-900 text-xs font-semibold"
-                      >
-                        التفاصيل
-                      </button>
+                      <RowActions b={b} canReview={can(P.proofsReview)} onDetails={() => setSelId(b.id)} compact />
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-          {list.length === 0 && (
+
+          {bookings.isLoading && <div className={`p-10 text-center text-sm ${muted}`}>جاري التحميل…</div>}
+          {!bookings.isLoading && list.length === 0 && (
             <div className={`p-10 text-center text-sm ${muted}`}>
               مفيش حجوزات بالبحث والفلاتر دي.{" "}
               <button
                 type="button"
                 onClick={() => {
                   setQ("");
-                  setPitch("all");
+                  setPitchId("");
                   setTab("all");
                 }}
                 className="bg-transparent text-navy-900 font-bold underline text-sm"
@@ -298,130 +290,195 @@ export default function ReservationsPage() {
               </button>
             </div>
           )}
-          <div className={`px-[18px] py-3 border-t border-[#EEF1F5] flex items-center gap-2 text-[13px] ${muted}`}>
+          <nav aria-label="صفحات الحجوزات" className={`px-[18px] py-3 border-t border-[#EEF1F5] flex items-center gap-2 text-[13px] ${muted}`}>
             <span className="flex-1">
-              عرض {toArabicDigits(list.length)} من {toArabicDigits(list.length + (tab === "all" ? 128 : 0))} حجز
+              عرض {toArabicDigits(list.length)} من {toArabicDigits(total)} حجز
             </span>
-            {[1, 2, 3].map((n) => (
-              <button
-                key={n}
-                type="button"
-                aria-current={n === page ? "page" : undefined}
-                onClick={() => setPage(n)}
-                className={`min-w-[34px] min-h-[34px] rounded-[9px] text-[13px] ${
-                  n === page ? "bg-navy-900 text-white" : "bg-white text-slate-900 border border-[#DCE0E8]"
-                }`}
-              >
-                {toArabicDigits(n)}
-              </button>
-            ))}
-          </div>
+            <button type="button" disabled={page <= 1} onClick={() => setPage(page - 1)} className="min-h-[34px] px-3 rounded-[9px] border border-[#DCE0E8] bg-white disabled:opacity-40">
+              السابق
+            </button>
+            <span>
+              {toArabicDigits(page)} / {toArabicDigits(pages)}
+            </span>
+            <button type="button" disabled={page >= pages} onClick={() => setPage(page + 1)} className="min-h-[34px] px-3 rounded-[9px] border border-[#DCE0E8] bg-white disabled:opacity-40">
+              التالي
+            </button>
+          </nav>
         </section>
 
-        {sel && (
-          <aside ref={detailsRef} aria-label="تفاصيل الحجز" className={`scroll-mt-20 flex-[1_1_320px] min-w-0 ${card} rounded-[18px] p-5 flex flex-col gap-3.5`}>
-            <div className="flex justify-between items-center">
-              <h2 className="text-lg font-bold">{sel.who}</h2>
-              <button
-                type="button"
-                onClick={() => setSelId(null)}
-                aria-label="إغلاق"
-                className="min-w-[36px] min-h-[36px] rounded-[10px] bg-surface text-navy-900"
-              >
-                ✕
-              </button>
-            </div>
-            <Badge tone={STATUS[sel.st][1]} className="self-start">
-              {STATUS[sel.st][0]}
-            </Badge>
-            <div className="flex flex-col gap-2 text-sm">
-              {[
-                ["رقم الحجز", <span key="r" dir="ltr">{sel.ref}</span>],
-                ["الميعاد", sel.slot],
-                ["السعر", sel.price],
-                ["العربون", sel.dep],
-                ["الهاتف", sel.phone],
-              ].map(([k, v]) => (
-                <div key={k as string} className="flex justify-between">
-                  <span className={muted}>{k}</span>
-                  <span>{v}</span>
-                </div>
-              ))}
-            </div>
-            <div className="flex flex-col gap-1.5 border-t border-[#EEF1F5] pt-3">
-              <span className="text-[13px] font-bold">سجل الحالة</span>
-              {LOGS[sel.st].map((l) => (
-                <span key={l} className="text-[13px] text-[#333B4A]">
-                  • {l}
-                </span>
-              ))}
-            </div>
-            <Link href="/customers" className="text-[13px] font-semibold text-navy-900 underline hover:text-brand-red">
-              ملف العميل وسجل حجوزاته
-            </Link>
-            {sel.st !== "cancel" && sel.st !== "expired" && (
-              <button
-                type="button"
-                onClick={() => {
-                  setReason(null);
-                  setCancelOpen(true);
-                }}
-                className="min-h-[44px] rounded-xl border border-[#F3C4BF] bg-white text-[#A8261C] text-sm font-bold"
-              >
-                إلغاء الحجز (يتطلب سبب)
-              </button>
-            )}
-          </aside>
+        {selId && venueId && (
+          <BookingDrawer
+            key={selId}
+            venueId={venueId}
+            bookingId={selId}
+            panelRef={detailsRef}
+            pitchName={pitchName}
+            onClose={() => setSelId(null)}
+            onChanged={async (message) => {
+              await refresh();
+              setToast(message);
+            }}
+            onError={setToast}
+          />
         )}
       </div>
 
-      {cancelOpen && sel && (
-        <div className="fixed inset-0 bg-[rgba(15,27,61,0.55)] flex items-center justify-center p-4 z-50">
-          <div role="dialog" aria-modal="true" aria-labelledby="cx-t" className="w-full max-w-[460px] bg-white rounded-[20px] p-6 flex flex-col gap-3">
-            <h2 id="cx-t" className="text-[19px] font-bold">
-              إلغاء حجز {sel.who}
-            </h2>
-            <span className="text-sm font-semibold">السبب (مطلوب — بيوصل للاعب)</span>
-            <div className="flex flex-wrap gap-2">
-              {REASONS.map(([id, label]) => (
-                <button
-                  key={id}
-                  type="button"
-                  aria-pressed={reason === id}
-                  onClick={() => setReason(id)}
-                  className={chip(reason === id, "min-h-[40px] px-3.5 rounded-[10px] text-[13px]")}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-            <div className="bg-[#FEF3D6] text-[#6B4400] rounded-xl px-3 py-2.5 text-[13px] leading-5">
-              الإلغاء من الملعب = استرداد العربون كامل للاعب. هتسجّل الاسترداد يدوي بعد التحويل.
-            </div>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={confirmCancel}
-                disabled={!reason}
-                className={`min-h-[46px] px-5 rounded-xl text-[15px] font-bold ${
-                  reason ? "bg-[#A8261C] text-white" : "bg-[#E4E7EC] text-[#6B7383] cursor-not-allowed"
-                }`}
-              >
-                تأكيد الإلغاء
-              </button>
-              <button
-                type="button"
-                onClick={() => setCancelOpen(false)}
-                className="min-h-[46px] px-5 rounded-xl border border-[#C9CFD9] bg-white text-navy-900 text-[15px] font-semibold"
-              >
-                رجوع
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       <Toast message={toast} onClose={() => setToast(null)} />
     </Page>
+  );
+}
+
+function RowActions({ b, canReview, onDetails, compact }: { b: Item; canReview: boolean; onDetails: () => void; compact: boolean }) {
+  const size = compact ? "min-h-[34px] px-3 rounded-[9px] text-xs" : "min-h-[40px] px-3.5 rounded-[10px] text-[13px]";
+  return (
+    <div className="flex flex-wrap gap-1.5">
+      {canReview && (b.status === 3 || b.status === 4) && (
+        <Link href={`/reservations/proof-review?booking=${b.id}`} className={`${size} bg-navy-900 text-white font-bold inline-flex items-center`}>
+          مراجعة الإيصال
+        </Link>
+      )}
+      <button type="button" onClick={onDetails} className={`${size} bg-[#EEF1F7] text-navy-900 font-semibold`}>
+        التفاصيل
+      </button>
+    </div>
+  );
+}
+
+function BookingDrawer({
+  venueId,
+  bookingId,
+  panelRef,
+  pitchName,
+  onClose,
+  onChanged,
+  onError,
+}: {
+  venueId: string;
+  bookingId: string;
+  panelRef: React.Ref<HTMLElement>;
+  pitchName: (id: string) => string;
+  onClose: () => void;
+  onChanged: (message: string) => Promise<void>;
+  onError: (message: string) => void;
+}) {
+  const { can } = useVenue();
+  const [cancelOpen, setCancelOpen] = useState(false);
+  const [noShowOpen, setNoShowOpen] = useState(false);
+  const path = { venueId, id: bookingId };
+
+  const detail = useQuery({
+    queryKey: ["booking", venueId, bookingId],
+    queryFn: () => unwrap(api.GET("/api/v1/venue-manager/venues/{venueId}/bookings/{id}", { params: { path } })),
+  });
+
+  const cancel = useMutation({
+    mutationFn: (reason: string) => unwrap(api.POST("/api/v1/venue-manager/venues/{venueId}/bookings/{id}/cancel", { params: { path }, body: { reason } })),
+    onSuccess: async () => {
+      setCancelOpen(false);
+      await onChanged("اتلغى الحجز ووصل للاعب إشعار بالسبب. سجّل الاسترداد بعد التحويل.");
+    },
+    onError: (e: Error) => onError(e.message),
+  });
+
+  const noShow = useMutation({
+    mutationFn: (reason: string) => unwrap(api.POST("/api/v1/venue-manager/venues/{venueId}/bookings/{id}/no-show", { params: { path }, body: { reason } })),
+    onSuccess: async () => {
+      setNoShowOpen(false);
+      await onChanged("اتسجل عدم الحضور.");
+    },
+    onError: (e: Error) => onError(e.message),
+  });
+
+  const b = detail.data;
+  const canCancel = b && [2, 3, 4, 5].includes(b.status) && can(P.bookingsApprove);
+  const canNoShow = b && b.status === 5 && new Date(b.startUtc).getTime() <= Date.now() && can(P.bookingsApprove);
+
+  return (
+    <aside ref={panelRef} aria-label="تفاصيل الحجز" className={`scroll-mt-20 flex-[1_1_320px] min-w-0 ${card} rounded-[18px] p-5 flex flex-col gap-3.5`}>
+      <div className="flex justify-between items-center">
+        <h2 className="text-lg font-bold">{b?.customerName || "تفاصيل الحجز"}</h2>
+        <button type="button" onClick={onClose} aria-label="إغلاق" className="min-w-[36px] min-h-[36px] rounded-[10px] bg-surface text-navy-900">
+          ✕
+        </button>
+      </div>
+      {detail.isLoading && <span className={`text-sm ${muted}`}>جاري التحميل…</span>}
+      {detail.isError && <span className="text-sm text-[#A8261C]">{(detail.error as Error).message}</span>}
+      {b && (
+        <>
+          <Badge tone={BOOKING_STATUS[b.status].tone} className="self-start">
+            {BOOKING_STATUS[b.status].label}
+          </Badge>
+          <dl className="flex flex-col gap-2 text-sm">
+            {(
+              [
+                ["رقم الحجز", <span key="r" dir="ltr">{b.reference}</span>],
+                ["الملعب", pitchName(b.pitchId)],
+                ["الميعاد", `${cairoDateTime(b.startUtc)} – ${cairoDateTime(b.endUtc)}`],
+                ["السعر", money(b.totalPrice, b.currency)],
+                ["العربون", money(b.depositAmount, b.currency)],
+                ["الهاتف", b.customerPhone ? <span key="p" dir="ltr">{b.customerPhone}</span> : "—"],
+                ...(b.status === 2 && b.holdExpiresAtUtc ? [["مهلة العربون", timeLeft(b.holdExpiresAtUtc)]] : []),
+              ] as [string, React.ReactNode][]
+            ).map(([k, v]) => (
+              <div key={k} className="flex justify-between gap-3">
+                <dt className={muted}>{k}</dt>
+                <dd>{v}</dd>
+              </div>
+            ))}
+          </dl>
+          {b.notes && <p className="text-[13px] bg-surface rounded-xl px-3 py-2 whitespace-pre-wrap">{b.notes}</p>}
+          <div className="flex flex-col gap-1.5 border-t border-[#EEF1F5] pt-3">
+            <span className="text-[13px] font-bold">سجل الحالة</span>
+            {b.statusHistory.map((h, i) => (
+              <span key={`${h.changedAtUtc}-${i}`} className="text-[13px] text-[#333B4A]">
+                • {BOOKING_STATUS[h.status as BookingStatus]?.label ?? String(h.status)} — {cairoDateTime(h.changedAtUtc)}
+                {h.reason ? ` (${h.reason})` : ""}
+              </span>
+            ))}
+          </div>
+          <Link href="/customers" className="text-[13px] font-semibold text-navy-900 underline hover:text-brand-red">
+            ملف العميل وسجل حجوزاته
+          </Link>
+          {(b.status === 3 || b.status === 4) && can(P.proofsReview) && (
+            <Link href={`/reservations/proof-review?booking=${b.id}`} className="min-h-[44px] rounded-xl bg-navy-900 text-white text-sm font-bold flex items-center justify-center">
+              مراجعة الإيصال
+            </Link>
+          )}
+          {canNoShow && (
+            <button type="button" onClick={() => setNoShowOpen(true)} className="min-h-[44px] rounded-xl border border-[#C9CFD9] bg-white text-navy-900 text-sm font-bold">
+              تسجيل عدم حضور
+            </button>
+          )}
+          {canCancel && (
+            <button type="button" onClick={() => setCancelOpen(true)} className="min-h-[44px] rounded-xl border border-[#F3C4BF] bg-white text-[#A8261C] text-sm font-bold">
+              إلغاء الحجز (يتطلب سبب)
+            </button>
+          )}
+        </>
+      )}
+
+      {cancelOpen && b && (
+        <ReasonDialog
+          title={`إلغاء حجز ${b.customerName || b.reference}`}
+          presets={REASONS}
+          note="الإلغاء من الملعب = استرداد العربون كامل للاعب. هتسجّل الاسترداد يدوي بعد التحويل."
+          confirmLabel="تأكيد الإلغاء"
+          busy={cancel.isPending}
+          onConfirm={(reason) => cancel.mutate(reason)}
+          onClose={() => setCancelOpen(false)}
+        />
+      )}
+      {noShowOpen && b && (
+        <ReasonDialog
+          title="تسجيل عدم حضور"
+          presets={["محدش حضر", "الفريق اتأخر أكتر من فترة السماح"]}
+          note="العربون بيتحجز حسب سياسة الإلغاء، واللاعب بيوصله إشعار."
+          confirmLabel="تأكيد"
+          busy={noShow.isPending}
+          onConfirm={(reason) => noShow.mutate(reason)}
+          onClose={() => setNoShowOpen(false)}
+        />
+      )}
+    </aside>
   );
 }

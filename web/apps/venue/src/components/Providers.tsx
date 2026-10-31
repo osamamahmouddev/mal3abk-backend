@@ -23,6 +23,8 @@ interface VenueContextValue {
     venueId: string | null;
     isLoading: boolean;
     selectVenue: (id: string) => void;
+    /** True when the signed-in user's role at the selected venue includes the permission (e.g. "venue.bookings.approve"). */
+    can: (permission: string) => boolean;
 }
 
 const defaultVenueContext: VenueContextValue = {
@@ -31,6 +33,7 @@ const defaultVenueContext: VenueContextValue = {
     venueId: null,
     isLoading: false,
     selectVenue: () => {},
+    can: () => false,
 };
 
 const VenueContext = createContext<VenueContextValue>(defaultVenueContext);
@@ -50,6 +53,14 @@ function VenueProvider({
         queryFn: () => unwrap(api.GET("/api/v1/venue-manager/venues")),
     });
 
+    // The API enforces every permission; this only hides actions the role cannot take.
+    const permissions = useQuery({
+        queryKey: ["my-permissions"],
+        enabled: signedIn,
+        staleTime: 5 * 60_000,
+        queryFn: () => unwrap(api.GET("/api/v1/me/permissions")),
+    });
+
     useEffect(() => {
         try {
             setSelected(window.localStorage.getItem(STORAGE_KEY));
@@ -61,11 +72,13 @@ function VenueProvider({
     const value = useMemo<VenueContextValue>(() => {
         const list = venues.data ?? [];
         const venue = list.find((v) => v.id === selected) ?? list[0] ?? null;
+        const granted = new Set(permissions.data?.venues.find((v) => v.venueId === venue?.id)?.permissions ?? []);
         return {
             venues: list,
             venue,
             venueId: venue?.id ?? null,
             isLoading: signedIn ? venues.isLoading : false,
+            can: (permission) => granted.has(permission),
             selectVenue: (id) => {
                 setSelected(id);
                 try {
@@ -75,7 +88,7 @@ function VenueProvider({
                 }
             },
         };
-    }, [venues.data, venues.isLoading, selected, signedIn]);
+    }, [venues.data, venues.isLoading, selected, signedIn, permissions.data]);
 
     return (
         <VenueContext.Provider value={value}>{children}</VenueContext.Provider>
