@@ -21,6 +21,7 @@ public sealed class CreateManualBookingHandler : ICommandHandler<CreateManualBoo
     private readonly IBookingReferenceGenerator _refGenerator;
     private readonly IAvailabilityInvalidator _availabilityInvalidator;
     private readonly IBookingRealtimeBroadcaster _broadcaster;
+    private readonly IVenueDirectory _venues;
     private readonly ILogger<CreateManualBookingHandler> _logger;
 
     public CreateManualBookingHandler(
@@ -29,6 +30,7 @@ public sealed class CreateManualBookingHandler : ICommandHandler<CreateManualBoo
         IBookingReferenceGenerator refGenerator,
         IAvailabilityInvalidator availabilityInvalidator,
         IBookingRealtimeBroadcaster broadcaster,
+        IVenueDirectory venues,
         ILogger<CreateManualBookingHandler> logger)
     {
         _dbContext = dbContext;
@@ -36,6 +38,7 @@ public sealed class CreateManualBookingHandler : ICommandHandler<CreateManualBoo
         _refGenerator = refGenerator;
         _availabilityInvalidator = availabilityInvalidator;
         _broadcaster = broadcaster;
+        _venues = venues;
         _logger = logger;
     }
 
@@ -52,6 +55,13 @@ public sealed class CreateManualBookingHandler : ICommandHandler<CreateManualBoo
         if (!Guid.TryParse(command.ActorUserId, out var staffUserId))
         {
             return Result.Failure<ManualBookingResponse>(BookingErrors.UnauthorizedAccess);
+        }
+
+        // The venue in the URL was authorised for this user; the pitch id came from the body. A pitch of another venue looks like
+        // one that does not exist, so staff of one venue can neither book nor probe another venue's pitches.
+        if (await _venues.GetVenueIdOfPitchAsync(command.PitchId, cancellationToken) != command.VenueId)
+        {
+            return Result.Failure<ManualBookingResponse>(BookingErrors.PitchNotFound);
         }
 
         var price = new Money(command.Price, command.Currency);
@@ -108,7 +118,7 @@ public sealed class CreateManualBookingHandler : ICommandHandler<CreateManualBoo
             command.StartUtc,
             command.EndUtc,
             price,
-            price,
+            new Money(command.Price, command.Currency), // a walk-in pays in full; EF cannot share one owned instance between two properties
             confirmedImmediately: true,
             holdExpiresAtUtc: null,
             nowUtc: nowUtc,

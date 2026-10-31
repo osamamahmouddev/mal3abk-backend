@@ -383,6 +383,7 @@ public static class BookingEndpoints
             Guid venueId,
             ClaimsPrincipal user,
             [FromBody] CreateManualBookingApiRequest request,
+            HttpContext httpContext,
             ICommandHandler<CreateManualBookingCommand, Result<ManualBookingResponse>> handler,
             CancellationToken ct) =>
         {
@@ -400,16 +401,9 @@ public static class BookingEndpoints
                 request.Notes);
 
             var result = await handler.HandleAsync(command, ct);
-            if (result.IsSuccess)
-            {
-                return Results.Created($"/api/v1/venue-manager/venues/{venueId}/bookings/{result.Value.BookingId}", result.Value);
-            }
-
-            return result.Error.Code switch
-            {
-                "Booking.SlotOverlap" => Results.Problem(title: result.Error.Code, detail: result.Error.Description, statusCode: StatusCodes.Status409Conflict),
-                _ => Results.Problem(title: result.Error.Code, detail: result.Error.Description, statusCode: StatusCodes.Status400BadRequest)
-            };
+            return result.ToHttpResult(
+                httpContext: httpContext,
+                onSuccess: created => Results.Created($"/api/v1/venue-manager/venues/{venueId}/bookings/{created.BookingId}", created));
         })
         .WithName("CreateManualBooking")
         .WithSummary("Create manual phone/walk-in reservation directly into Confirmed state under GiST protection");

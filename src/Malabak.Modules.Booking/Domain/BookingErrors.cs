@@ -20,6 +20,7 @@ public static class BookingErrors
     public static readonly Error CannotMarkNoShowBeforeStart = Error.Conflict("Booking.CannotMarkNoShowBeforeStart", "Cannot mark a booking as no-show before its scheduled kickoff time.");
     public static readonly Error MaxPendingBookingsExceeded = Error.Conflict("Booking.MaxPendingBookingsExceeded", "You already have the maximum allowed number (2) of pending booking holds.");
     public static readonly Error DuplicateProof = Error.Conflict("Booking.DuplicateProof", "This payment receipt has already been submitted for another booking.");
+    public static readonly Error PitchNotFound = Error.NotFound("Booking.PitchNotFound", "The pitch was not found at this venue.");
     public static readonly Error ProofNotFound = Error.NotFound("Booking.ProofNotFound", "The payment proof was not found.");
     public static readonly Error UnauthorizedAccess = Error.Unauthorized("Booking.Unauthorized", "You are not authorized to access or modify this booking.");
     public static readonly Error InvalidProofFile = Error.Validation("Booking.InvalidProofFile", "The uploaded file is invalid, exceeds 5MB, or is not an allowed image/PDF.");
