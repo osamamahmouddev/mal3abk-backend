@@ -11,13 +11,14 @@ public static class ResultExtensions
     public static IResult ToHttpResult(
         this Result result,
         HttpContext? httpContext = null,
-        IErrorMessageLocalizer? localizer = null)
+        IErrorMessageLocalizer? localizer = null,
+        Func<IResult>? onSuccess = null)
     {
         ArgumentNullException.ThrowIfNull(result);
 
         if (result.IsSuccess)
         {
-            return Results.NoContent();
+            return onSuccess is not null ? onSuccess() : Results.NoContent();
         }
 
         return ToProblemHttpResult(result.Error, httpContext, localizer);

@@ -49,29 +49,61 @@ public sealed class BookingRefund : Entity<Guid>
         };
     }
 
-    public void RecordManualRefund(
+    /// <summary>
+    /// Records the refund the venue paid by hand. Only a pending refund can be recorded, once: a recorded or denied refund is a
+    /// financial record and is never overwritten. The amount must be positive and no more than <paramref name="maxAmount"/> (the deposit).
+    /// </summary>
+    public Result RecordManualRefund(
         decimal actualAmount,
+        decimal maxAmount,
         string notes,
         string recordedByUserId,
         DateTime nowUtc)
     {
+        if (Status != RefundStatus.Pending)
+        {
+            return Result.Failure(Status == RefundStatus.None ? BookingErrors.NoRefundDue : BookingErrors.RefundAlreadyDecided);
+        }
+
+        if (actualAmount <= 0 || actualAmount > maxAmount)
+        {
+            return Result.Failure(BookingErrors.RefundAmountInvalid);
+        }
+
+        if (string.IsNullOrWhiteSpace(notes))
+        {
+            return Result.Failure(BookingErrors.RefundNotesRequired);
+        }
+
         Status = RefundStatus.Refunded;
         ActualRefundAmount = actualAmount;
-        Notes = notes;
+        Notes = notes.Trim();
         RecordedByUserId = recordedByUserId;
         RecordedAtUtc = nowUtc;
         UpdatedAtUtc = nowUtc;
+        return Result.Success();
     }
 
-    public void DenyRefund(
+    public Result DenyRefund(
         string reason,
         string deniedByUserId,
         DateTime nowUtc)
     {
+        if (Status != RefundStatus.Pending)
+        {
+            return Result.Failure(Status == RefundStatus.None ? BookingErrors.NoRefundDue : BookingErrors.RefundAlreadyDecided);
+        }
+
+        if (string.IsNullOrWhiteSpace(reason))
+        {
+            return Result.Failure(BookingErrors.ReasonRequired);
+        }
+
         Status = RefundStatus.Denied;
-        Notes = reason;
+        Notes = reason.Trim();
         RecordedByUserId = deniedByUserId;
         RecordedAtUtc = nowUtc;
         UpdatedAtUtc = nowUtc;
+        return Result.Success();
     }
 }

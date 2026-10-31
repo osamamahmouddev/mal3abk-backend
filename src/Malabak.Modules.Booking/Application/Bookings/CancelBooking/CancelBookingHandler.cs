@@ -76,7 +76,7 @@ public sealed class CancelBookingHandler : ICommandHandler<CancelBookingCommand,
         }
 
         // If deposit was submitted or confirmed, track expected refund
-        if (oldStatus is BookingStatus.Confirmed or BookingStatus.ProofSubmitted)
+        if (oldStatus is BookingStatus.Confirmed or BookingStatus.ProofSubmitted or BookingStatus.UnderReview)
         {
             var refundPercentage = booking.PolicySnapshot?.RefundPercentage ?? 100;
             var refundAmount = booking.DepositAmount.Amount * (refundPercentage / 100m);

@@ -9,6 +9,10 @@ public static class BookingErrors
     public static readonly Error ReasonRequired = Error.Validation("Booking.ReasonRequired", "A reason is mandatory for this state change.");
     public static readonly Error SlotOverlap = Error.Conflict("Booking.SlotOverlap", "The selected pitch time slot is already booked or held.");
     public static readonly Error ReferenceUnavailable = Error.Failure("Booking.ReferenceUnavailable", "The booking could not be created right now. Please try again.");
+    public static readonly Error NoRefundDue = Error.Conflict("Refund.NoneDue", "No refund is due for this booking: only a cancelled booking with a submitted deposit has one.");
+    public static readonly Error RefundAlreadyDecided = Error.Conflict("Refund.AlreadyDecided", "This refund has already been recorded or denied and cannot be changed.");
+    public static readonly Error RefundAmountInvalid = Error.Validation("Refund.InvalidAmount", "The refunded amount must be greater than zero and cannot exceed the deposit.");
+    public static readonly Error RefundNotesRequired = Error.Validation("Refund.NotesRequired", "Record how the refund was paid (for example the transfer reference).");
     public static readonly Error HoldExpired = Error.Conflict("Booking.HoldExpired", "The temporary hold on this booking slot has expired.");
     public static readonly Error CannotCancelPastBooking = Error.Conflict("Booking.CannotCancelPastBooking", "Cannot cancel a booking that has already started or completed.");
     public static readonly Error CancellationDeadlinePassed = Error.Conflict("Booking.CancellationDeadlinePassed", "The cancellation deadline for this booking has passed under venue policy.");

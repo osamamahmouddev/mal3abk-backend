@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using Asp.Versioning.Builder;
 using Malabak.Api.Infrastructure.Authorization;
+using Malabak.Api.Infrastructure.Errors;
 using Malabak.Api.Infrastructure.Idempotency;
 using Malabak.Api.Infrastructure.Media;
 using Malabak.Api.Infrastructure.Security;
@@ -362,6 +363,7 @@ public static class BookingEndpoints
             Guid id,
             ClaimsPrincipal user,
             [FromBody] ReviewProofApiRequest request,
+            HttpContext httpContext,
             ICommandHandler<ReviewProofCommand, Result> handler,
             CancellationToken ct) =>
         {
@@ -369,13 +371,8 @@ public static class BookingEndpoints
             var command = new ReviewProofCommand(id, venueId, actorUserId, request.Approved, request.RejectionReason);
             var result = await handler.HandleAsync(command, ct);
 
-            if (result.IsFailure)
-            {
-                return Results.Problem(title: result.Error.Code, detail: result.Error.Description, statusCode: StatusCodes.Status400BadRequest);
-            }
-
             var message = request.Approved ? "Booking confirmed" : "Proof rejected";
-            return Results.Ok(new { message, bookingId = id });
+            return result.ToHttpResult(httpContext: httpContext, onSuccess: () => Results.Ok(new { message, bookingId = id }));
         })
         .RequireAuthorization(Permissions.BookingsApprove)
         .WithName("ReviewPaymentProof")
@@ -423,14 +420,13 @@ public static class BookingEndpoints
             Guid id,
             ClaimsPrincipal user,
             [FromBody] NoShowApiRequest request,
+            HttpContext httpContext,
             ICommandHandler<MarkNoShowCommand, Result> handler,
             CancellationToken ct) =>
         {
             var actorUserId = user.GetUserId()!.Value;
             var result = await handler.HandleAsync(new MarkNoShowCommand(venueId, id, request.Reason, actorUserId), ct);
-            return result.IsSuccess
-                ? Results.Ok(new { message = "Booking marked as NoShow", bookingId = id })
-                : Results.Problem(title: result.Error.Code, detail: result.Error.Description, statusCode: StatusCodes.Status400BadRequest);
+            return result.ToHttpResult(httpContext: httpContext, onSuccess: () => Results.Ok(new { message = "Booking marked as NoShow", bookingId = id }));
         })
         .WithName("MarkBookingNoShow")
         .WithSummary("Mark confirmed booking as No-Show after start time");
@@ -441,14 +437,13 @@ public static class BookingEndpoints
             Guid id,
             ClaimsPrincipal user,
             [FromBody] RecordRefundApiRequest request,
+            HttpContext httpContext,
             ICommandHandler<RecordManualRefundCommand, Result> handler,
             CancellationToken ct) =>
         {
             var actorUserId = user.GetUserId()!.Value;
-            var result = await handler.HandleAsync(new RecordManualRefundCommand(venueId, id, request.Amount, request.Notes ?? "Manual refund recorded", actorUserId), ct);
-            return result.IsSuccess
-                ? Results.Ok(new { message = "Refund recorded successfully", bookingId = id })
-                : Results.Problem(title: result.Error.Code, detail: result.Error.Description, statusCode: StatusCodes.Status400BadRequest);
+            var result = await handler.HandleAsync(new RecordManualRefundCommand(venueId, id, request.Amount, request.Notes ?? string.Empty, actorUserId), ct);
+            return result.ToHttpResult(httpContext: httpContext, onSuccess: () => Results.Ok(new { message = "Refund recorded successfully", bookingId = id }));
         })
         .WithName("RecordManualRefund")
         .WithSummary("Record manual refund processed by venue for cancelled reservation");

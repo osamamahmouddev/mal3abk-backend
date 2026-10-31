@@ -184,7 +184,8 @@ namespace Malabak.Modules.Booking.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("BookingId");
+                    b.HasIndex("BookingId")
+                        .IsUnique();
 
                     b.ToTable("booking_refunds", "booking");
                 });

@@ -68,6 +68,28 @@ public sealed class CancelBookingTests : IClassFixture<BookingDatabaseFixture>
     }
 
     [Fact]
+    public async Task CancellingWhileTheProofIsUnderReview_AlsoRecordsAnExpectedRefundAsync()
+    {
+        var playerId = Guid.NewGuid();
+        var booking = new BookingBuilder().ForPlayer(playerId).WithTimeSlot(_start, _start.AddHours(1)).Build();
+        var proofId = Guid.NewGuid();
+        booking.SubmitProof(proofId, playerId.ToString("D"), DateTime.UtcNow).IsSuccess.Should().BeTrue();
+        booking.AddProof(PaymentProof.Create(proofId, booking.Id, Guid.NewGuid(), "media/key", "proof.webp", "image/webp", 1234, Convert.ToHexString(Guid.NewGuid().ToByteArray()), playerId.ToString("D"), DateTime.UtcNow));
+        booking.MarkUnderReview("staff", DateTime.UtcNow).IsSuccess.Should().BeTrue();
+        await using (var save = _database.CreateContext())
+        {
+            save.Bookings.Add(booking);
+            await save.SaveChangesAsync();
+        }
+
+        var result = await CancelAsync(new CancelBookingCommand(booking.Id, playerId, "Cannot make it"));
+
+        result.IsSuccess.Should().BeTrue();
+        await using var verify = _database.CreateContext();
+        (await verify.BookingRefunds.CountAsync(r => r.BookingId == booking.Id)).Should().Be(1, "the deposit proof was already sent, so a refund may be owed");
+    }
+
+    [Fact]
     public async Task SomeoneElsesBooking_LooksLikeItDoesNotExistAndIsLeftAloneAsync()
     {
         var (bookingId, _) = await SaveBookingAsync();

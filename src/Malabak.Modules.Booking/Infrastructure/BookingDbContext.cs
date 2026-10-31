@@ -134,7 +134,8 @@ public sealed class BookingDbContext : BaseDbContext, IBookingDbContext
             builder.Property(r => r.RecordedByUserId).HasMaxLength(128);
             builder.Property(r => r.Notes).HasMaxLength(1000);
 
-            builder.HasIndex(r => r.BookingId);
+            // One refund record per booking: it tracks what is owed and what was paid, so a duplicate would double count.
+            builder.HasIndex(r => r.BookingId).IsUnique();
         });
     }
 }

@@ -13,8 +13,15 @@ public sealed record RecordManualRefundCommand(
     Guid ActorUserId
 ) : ICommand<Result>;
 
+/// <summary>
+/// The venue records a refund it paid by hand (TASK-406). Refunds are tracked apart from the booking's status. One is owed only
+/// for a cancelled booking whose deposit was submitted, and it is created when the booking is cancelled; here it is recorded
+/// exactly once, for a positive amount no larger than the deposit, and never changed afterwards.
+/// </summary>
 public sealed class RecordManualRefundHandler : ICommandHandler<RecordManualRefundCommand, Result>
 {
+    public const int MaxNotesLength = 1000;
+
     private readonly IBookingDbContext _dbContext;
     private readonly IClock _clock;
 
@@ -26,40 +33,41 @@ public sealed class RecordManualRefundHandler : ICommandHandler<RecordManualRefu
 
     public async Task<Result> HandleAsync(RecordManualRefundCommand command, CancellationToken cancellationToken = default)
     {
-        var nowUtc = _clock.UtcNow;
-
         var booking = await _dbContext.Bookings.AsNoTracking()
             .FirstOrDefaultAsync(b => b.Id == command.BookingId && !b.IsDeleted, cancellationToken);
 
-        if (booking is null)
+        // Another venue's booking looks like one that does not exist, so ids cannot be probed.
+        if (booking is null || booking.VenueId != command.VenueId)
         {
             return Result.Failure(BookingErrors.NotFound);
         }
 
-        if (booking.VenueId != command.VenueId)
+        if (command.Notes is { Length: > MaxNotesLength })
         {
-            return Result.Failure(Error.Forbidden("Booking.Forbidden", "Booking does not belong to the specified venue."));
+            return Result.Failure(Error.Validation("Refund.NotesTooLong", $"The notes cannot exceed {MaxNotesLength} characters."));
         }
 
-        var refund = await _dbContext.BookingRefunds
-            .FirstOrDefaultAsync(r => r.BookingId == command.BookingId, cancellationToken);
-
-        if (refund is null)
+        var refund = await _dbContext.BookingRefunds.FirstOrDefaultAsync(r => r.BookingId == command.BookingId, cancellationToken);
+        if (refund is null || booking.Status != BookingStatus.Cancelled)
         {
-            refund = Domain.BookingRefund.CreatePending(
-                Guid.NewGuid(),
-                booking.Id,
-                command.Amount,
-                booking.DepositAmount.Currency,
-                "Manual refund",
-                booking.PolicySnapshot?.Terms,
-                nowUtc);
-
-            _dbContext.BookingRefunds.Add(refund);
+            return Result.Failure(BookingErrors.NoRefundDue);
         }
 
-        refund.RecordManualRefund(command.Amount, command.Notes, command.ActorUserId.ToString("D"), nowUtc);
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        var recorded = refund.RecordManualRefund(command.Amount, booking.DepositAmount.Amount, command.Notes, command.ActorUserId.ToString("D"), _clock.UtcNow);
+        if (recorded.IsFailure)
+        {
+            return recorded;
+        }
+
+        try
+        {
+            await _dbContext.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            // A second request recorded or denied it first.
+            return Result.Failure(BookingErrors.RefundAlreadyDecided);
+        }
 
         return Result.Success();
     }
