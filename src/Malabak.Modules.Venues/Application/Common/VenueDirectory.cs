@@ -22,6 +22,28 @@ public sealed class VenueDirectory : IVenueDirectory
             .Select(p => (Guid?)p.VenueId)
             .FirstOrDefaultAsync(cancellationToken);
 
+    public async Task<VenueSummary?> GetVenueSummaryAsync(Guid venueId, CancellationToken cancellationToken = default) =>
+        await _dbContext.Venues.IgnoreQueryFilters().AsNoTracking()
+            .Where(v => v.Id == venueId && !v.IsDeleted)
+            .Select(v => new VenueSummary(v.Id, v.Name, v.Address, v.Latitude, v.Longitude))
+            .FirstOrDefaultAsync(cancellationToken);
+
+    public async Task<IReadOnlyList<VenueBlockedPeriod>> GetBlockedPeriodsAsync(
+        Guid venueId, DateTime fromUtc, DateTime toUtc, Guid? pitchId, CancellationToken cancellationToken = default)
+    {
+        var query = _dbContext.BlockedSlots.IgnoreQueryFilters().AsNoTracking()
+            .Where(s => s.VenueId == venueId && !s.IsDeleted && s.StartUtc < toUtc && s.EndUtc > fromUtc);
+        if (pitchId is { } pitch && pitch != Guid.Empty)
+        {
+            query = query.Where(s => s.PitchId == pitch);
+        }
+
+        return await query
+            .OrderBy(s => s.StartUtc)
+            .Select(s => new VenueBlockedPeriod(s.Id, s.PitchId, s.StartUtc, s.EndUtc, s.Reason))
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task<IReadOnlyDictionary<Guid, string>> GetVenueNamesAsync(IReadOnlyCollection<Guid> venueIds, CancellationToken cancellationToken = default)
     {
         if (venueIds.Count == 0)

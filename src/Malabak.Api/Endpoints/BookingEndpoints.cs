@@ -348,11 +348,12 @@ public static class BookingEndpoints
             [FromQuery] DateTime rangeStartUtc,
             [FromQuery] DateTime rangeEndUtc,
             [FromQuery] Guid? pitchId,
+            HttpContext httpContext,
             IQueryHandler<GetVenueCalendarQuery, Result<IReadOnlyList<CalendarSlotDto>>> handler,
             CancellationToken ct) =>
         {
             var result = await handler.HandleAsync(new GetVenueCalendarQuery(venueId, rangeStartUtc, rangeEndUtc, pitchId), ct);
-            return Results.Ok(result.Value);
+            return result.ToHttpResult(httpContext: httpContext);
         })
         .WithName("GetVenueCalendar")
         .WithSummary("Calendar view of all bookings, holds, and manual reservations for a date range");

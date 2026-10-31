@@ -16469,6 +16469,10 @@
           },
           "isManual": {
             "type": "boolean"
+          },
+          "reason": {
+            "type": "string",
+            "nullable": true
           }
         },
         "additionalProperties": false
@@ -18012,6 +18016,9 @@
             "type": "string",
             "nullable": true
           },
+          "venue": {
+            "$ref": "#/components/schemas/PlayerVenueDto"
+          },
           "allowedActions": {
             "$ref": "#/components/schemas/PlayerAllowedActions"
           },
@@ -18221,6 +18228,32 @@
           "changedAtUtc": {
             "type": "string",
             "format": "date-time"
+          }
+        },
+        "additionalProperties": false
+      },
+      "PlayerVenueDto": {
+        "required": [
+          "address",
+          "name"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "address": {
+            "type": "string"
+          },
+          "latitude": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "longitude": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
           }
         },
         "additionalProperties": false

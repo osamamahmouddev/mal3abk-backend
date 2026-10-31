@@ -50,13 +50,16 @@ public sealed class BookingAuthorizationTests : IClassFixture<BookingDatabaseFix
     {
         var (bookingId, playerId) = await SaveBookingAsync();
         await using var context = _database.CreateContext();
-        var handler = new PlayerBookingQueriesHandler(context, new Malabak.SharedKernel.Time.FakeClock());
+        var handler = new PlayerBookingQueriesHandler(context, new Malabak.SharedKernel.Time.FakeClock(), new FakeVenueDirectory());
 
         var own = await handler.HandleAsync(new GetPlayerBookingByIdQuery(bookingId, playerId));
         var foreign = await handler.HandleAsync(new GetPlayerBookingByIdQuery(bookingId, Guid.NewGuid()));
 
         own.IsSuccess.Should().BeTrue();
+        own.Value.Venue.Should().NotBeNull("the confirmation screen needs the venue's name and where it is");
+        own.Value.Venue!.Latitude.Should().NotBeNull();
         foreign.IsFailure.Should().BeTrue();
+        foreign.Error.Should().Be(BookingErrors.NotFound, "a booking that is not yours must look like one that does not exist");
     }
 
     private async Task<(Guid BookingId, Guid PlayerId)> SaveBookingAsync()

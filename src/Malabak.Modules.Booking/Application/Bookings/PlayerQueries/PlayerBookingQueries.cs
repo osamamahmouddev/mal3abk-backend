@@ -1,6 +1,7 @@
 using Malabak.Modules.Booking.Application.Abstractions;
 using Malabak.Modules.Booking.Domain;
 using Malabak.SharedKernel;
+using Malabak.SharedKernel.Contracts;
 using Microsoft.EntityFrameworkCore;
 
 namespace Malabak.Modules.Booking.Application.Bookings.PlayerQueries;
@@ -34,10 +35,14 @@ public sealed record PlayerBookingDetailDto(
     DateTime? HoldExpiresAtUtc,
     string? Notes,
     string? CancellationPolicySummary,
+    PlayerVenueDto? Venue,
     PlayerAllowedActions AllowedActions,
     IReadOnlyList<PlayerProofDto> Proofs,
     IReadOnlyList<PlayerStatusHistoryDto> StatusHistory,
     DateTime CreatedAtUtc);
+
+/// <summary>Where the booking is, for the confirmation screen and directions.</summary>
+public sealed record PlayerVenueDto(string Name, string Address, double? Latitude, double? Longitude);
 
 public sealed record PlayerAllowedActions(
     bool CanUploadProof,
@@ -78,11 +83,13 @@ public sealed class PlayerBookingQueriesHandler :
 {
     private readonly IBookingDbContext _dbContext;
     private readonly IClock _clock;
+    private readonly IVenueDirectory _venues;
 
-    public PlayerBookingQueriesHandler(IBookingDbContext dbContext, IClock clock)
+    public PlayerBookingQueriesHandler(IBookingDbContext dbContext, IClock clock, IVenueDirectory venues)
     {
         _dbContext = dbContext;
         _clock = clock;
+        _venues = venues;
     }
 
     public async Task<Result<PagedList<PlayerBookingSummaryDto>>> HandleAsync(
@@ -96,7 +103,7 @@ public sealed class PlayerBookingQueriesHandler :
         // Apply Tab Filter
         baseQuery = (query.Tab?.ToLowerInvariant()) switch
         {
-            "upcoming" => baseQuery.Where(b => (b.Status == BookingStatus.Confirmed || b.Status == BookingStatus.PendingDeposit || b.Status == BookingStatus.ProofSubmitted) && b.StartUtc >= nowUtc),
+            "upcoming" => baseQuery.Where(b => (b.Status == BookingStatus.Confirmed || b.Status == BookingStatus.PendingDeposit || b.Status == BookingStatus.ProofSubmitted || b.Status == BookingStatus.UnderReview) && b.StartUtc >= nowUtc),
             "pending" => baseQuery.Where(b => b.Status == BookingStatus.PendingDeposit || b.Status == BookingStatus.ProofSubmitted || b.Status == BookingStatus.UnderReview),
             "completed" => baseQuery.Where(b => b.Status == BookingStatus.Completed || (b.Status == BookingStatus.Confirmed && b.EndUtc <= nowUtc)),
             "cancelled" => baseQuery.Where(b => b.Status == BookingStatus.Cancelled || b.Status == BookingStatus.Rejected || b.Status == BookingStatus.Expired || b.Status == BookingStatus.NoShow),
@@ -151,10 +158,13 @@ public sealed class PlayerBookingQueriesHandler :
             return Result.Failure<PlayerBookingDetailDto>(BookingErrors.NotFound);
         }
 
+        // Someone else's booking looks like one that does not exist, so ids cannot be probed.
         if (booking.PlayerId != query.PlayerId)
         {
-            return Result.Failure<PlayerBookingDetailDto>(Error.Forbidden("Booking.Forbidden", "You do not own this booking."));
+            return Result.Failure<PlayerBookingDetailDto>(BookingErrors.NotFound);
         }
+
+        var summary = await _venues.GetVenueSummaryAsync(booking.VenueId, cancellationToken);
 
         var allowed = ComputeAllowedActions(booking, nowUtc);
 
@@ -193,6 +203,7 @@ public sealed class PlayerBookingQueriesHandler :
             booking.HoldExpiresAtUtc,
             booking.Notes,
             booking.PolicySnapshot?.Terms,
+            summary is null ? null : new PlayerVenueDto(summary.Name, summary.Address, summary.Latitude, summary.Longitude),
             allowed,
             proofs,
             history,
@@ -210,7 +221,7 @@ public sealed class PlayerBookingQueriesHandler :
         var leadHours = booking.PolicySnapshot?.CancellationDeadlineHours ?? 24;
         var deadlineUtc = booking.StartUtc.AddHours(-leadHours);
 
-        var canCancel = booking.Status is BookingStatus.PendingDeposit or BookingStatus.ProofSubmitted ||
+        var canCancel = booking.Status is BookingStatus.PendingDeposit or BookingStatus.ProofSubmitted or BookingStatus.UnderReview ||
                         (booking.Status == BookingStatus.Confirmed && nowUtc <= deadlineUtc);
 
         var canReview = booking.Status == BookingStatus.Completed;

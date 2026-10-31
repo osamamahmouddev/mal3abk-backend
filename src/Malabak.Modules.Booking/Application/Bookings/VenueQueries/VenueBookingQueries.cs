@@ -2,6 +2,7 @@ using Malabak.Modules.Booking.Application.Abstractions;
 using Malabak.Modules.Booking.Application.Bookings.PlayerQueries;
 using Malabak.Modules.Booking.Domain;
 using Malabak.SharedKernel;
+using Malabak.SharedKernel.Contracts;
 using Microsoft.EntityFrameworkCore;
 
 namespace Malabak.Modules.Booking.Application.Bookings.VenueQueries;
@@ -62,7 +63,8 @@ public sealed record CalendarSlotDto(
     string Status,
     string? CustomerName,
     string BookingReference,
-    bool IsManual);
+    bool IsManual,
+    string? Reason = null);
 
 public sealed record GetVenueBookingsQuery(
     Guid VenueId,
@@ -97,11 +99,16 @@ public sealed class VenueBookingQueriesHandler :
     IQueryHandler<GetVenueBookingDetailQuery, Result<VenueBookingDetailDto>>,
     IQueryHandler<GetVenueCalendarQuery, Result<IReadOnlyList<CalendarSlotDto>>>
 {
-    private readonly IBookingDbContext _dbContext;
+    /// <summary>The longest span one calendar request may cover (a month view plus the days around it).</summary>
+    public const int MaxCalendarDays = 45;
 
-    public VenueBookingQueriesHandler(IBookingDbContext dbContext)
+    private readonly IBookingDbContext _dbContext;
+    private readonly IVenueDirectory _venues;
+
+    public VenueBookingQueriesHandler(IBookingDbContext dbContext, IVenueDirectory venues)
     {
         _dbContext = dbContext;
+        _venues = venues;
     }
 
     public async Task<Result<PagedList<VenueBookingItemDto>>> HandleAsync(
@@ -123,7 +130,7 @@ public sealed class VenueBookingQueriesHandler :
 
         if (query.EndDateUtc.HasValue)
         {
-            baseQuery = baseQuery.Where(b => b.EndUtc <= query.EndDateUtc.Value);
+            baseQuery = baseQuery.Where(b => b.StartUtc <= query.EndDateUtc.Value);
         }
 
         if (query.PitchId.HasValue && query.PitchId.Value != Guid.Empty)
@@ -136,7 +143,8 @@ public sealed class VenueBookingQueriesHandler :
             var search = query.Search.Trim().ToUpperInvariant();
             baseQuery = baseQuery.Where(b =>
                 b.BookingReference.Contains(search) ||
-                (b.CustomerName != null && b.CustomerName.ToUpper().Contains(search)));
+                (b.CustomerName != null && b.CustomerName.ToUpper().Contains(search)) ||
+                (b.CustomerPhone != null && b.CustomerPhone.Contains(query.Search.Trim())));
         }
 
         var totalCount = await baseQuery.CountAsync(cancellationToken);
@@ -171,7 +179,7 @@ public sealed class VenueBookingQueriesHandler :
     {
         var items = await _dbContext.Bookings.AsNoTracking()
             .Where(b => b.VenueId == query.VenueId
-                     && (b.Status == BookingStatus.ProofSubmitted || b.Status == BookingStatus.PendingDeposit)
+                     && (b.Status == BookingStatus.ProofSubmitted || b.Status == BookingStatus.UnderReview || b.Status == BookingStatus.PendingDeposit)
                      && !b.IsDeleted)
             .OrderBy(b => b.HoldExpiresAtUtc)
             .Select(b => new VenueBookingItemDto(
@@ -257,6 +265,12 @@ public sealed class VenueBookingQueriesHandler :
         GetVenueCalendarQuery query,
         CancellationToken cancellationToken = default)
     {
+        if (query.RangeEndUtc <= query.RangeStartUtc || (query.RangeEndUtc - query.RangeStartUtc).TotalDays > MaxCalendarDays)
+        {
+            return Result.Failure<IReadOnlyList<CalendarSlotDto>>(Error.Validation(
+                "Calendar.InvalidRange", $"The calendar range must end after it starts and cover at most {MaxCalendarDays} days."));
+        }
+
         var activeStatuses = new[]
         {
             BookingStatus.PendingDeposit,
@@ -289,6 +303,13 @@ public sealed class VenueBookingQueriesHandler :
                 b.IsManual))
             .ToListAsync(cancellationToken);
 
-        return Result.Success<IReadOnlyList<CalendarSlotDto>>(bookings);
+        // Closed periods share the grid, so the manager sees why a slot cannot be sold.
+        var blocked = await _venues.GetBlockedPeriodsAsync(query.VenueId, query.RangeStartUtc, query.RangeEndUtc, query.PitchId, cancellationToken);
+        var slots = bookings
+            .Concat(blocked.Select(b => new CalendarSlotDto(b.Id, b.PitchId, b.StartUtc, b.EndUtc, "Blocked", null, string.Empty, false, b.Reason)))
+            .OrderBy(s => s.StartUtc)
+            .ToList();
+
+        return Result.Success<IReadOnlyList<CalendarSlotDto>>(slots);
     }
 }
