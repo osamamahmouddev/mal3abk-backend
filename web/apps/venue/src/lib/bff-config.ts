@@ -15,5 +15,6 @@ export const bffConfig: BffConfig = {
     /^\/api\/v1\/media\//,
     /^\/api\/v1\/auth\/(password\/change|2fa\/totp\/(enroll|confirm)|step-up(\/otp)?)$/,
     /^\/api\/v1\/venue-invitations\/accept$/,
+    /^\/api\/v1\/realtime\/ticket$/,
   ],
 };
