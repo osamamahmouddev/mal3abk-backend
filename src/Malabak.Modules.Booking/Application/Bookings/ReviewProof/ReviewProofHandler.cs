@@ -2,19 +2,25 @@ using Malabak.Modules.Booking.Application.Abstractions;
 using Malabak.Modules.Booking.Domain;
 using Malabak.SharedKernel;
 using Malabak.SharedKernel.Contracts;
-using Malabak.SharedKernel.Events;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
 namespace Malabak.Modules.Booking.Application.Bookings.ReviewProof;
 
+/// <summary>
+/// Venue staff approve or reject a submitted payment proof (TASK-035). Approving confirms the booking; rejecting needs a
+/// reason and, while the hold is running, lets the player send a corrected proof. The decision is saved first; only then do
+/// the cache, live updates, notification and events run, so nobody is told about a decision that did not persist.
+/// </summary>
 public sealed class ReviewProofHandler : ICommandHandler<ReviewProofCommand, Result>
 {
+    /// <summary>Matches the column length of the rejection reason (booking, proof and history).</summary>
+    public const int MaxRejectionReasonLength = 500;
+
     private readonly IBookingDbContext _dbContext;
     private readonly IClock _clock;
     private readonly IBookingRealtimeBroadcaster _broadcaster;
     private readonly IAvailabilityInvalidator _availabilityInvalidator;
-    private readonly IDomainEventDispatcher _domainEventDispatcher;
     private readonly INotificationPublisher? _notificationPublisher;
     private readonly ILogger<ReviewProofHandler> _logger;
 
@@ -23,7 +29,6 @@ public sealed class ReviewProofHandler : ICommandHandler<ReviewProofCommand, Res
         IClock clock,
         IBookingRealtimeBroadcaster broadcaster,
         IAvailabilityInvalidator availabilityInvalidator,
-        IDomainEventDispatcher domainEventDispatcher,
         ILogger<ReviewProofHandler> logger,
         INotificationPublisher? notificationPublisher = null)
     {
@@ -31,7 +36,6 @@ public sealed class ReviewProofHandler : ICommandHandler<ReviewProofCommand, Res
         _clock = clock;
         _broadcaster = broadcaster;
         _availabilityInvalidator = availabilityInvalidator;
-        _domainEventDispatcher = domainEventDispatcher;
         _notificationPublisher = notificationPublisher;
         _logger = logger;
     }
@@ -39,142 +43,122 @@ public sealed class ReviewProofHandler : ICommandHandler<ReviewProofCommand, Res
     public async Task<Result> HandleAsync(ReviewProofCommand command, CancellationToken cancellationToken = default)
     {
         var nowUtc = _clock.UtcNow;
+        var actor = command.ActorUserId.ToString("D");
 
         var booking = await _dbContext.Bookings
             .Include(b => b.Proofs)
             .Include(b => b.History)
             .FirstOrDefaultAsync(b => b.Id == command.BookingId && !b.IsDeleted, cancellationToken);
 
-        if (booking is null)
+        // Another venue's booking looks like one that does not exist, so ids cannot be probed.
+        if (booking is null || booking.VenueId != command.VenueId)
         {
             return Result.Failure(BookingErrors.NotFound);
         }
 
-        if (booking.VenueId != command.VenueId)
+        var reason = command.RejectionReason?.Trim();
+        if (!command.Approved)
         {
-            return Result.Failure(Error.Forbidden("Booking.Forbidden", "Booking does not belong to the specified venue."));
-        }
-
-        Result reviewResult;
-
-        if (command.Approved)
-        {
-            reviewResult = booking.Confirm(command.ActorUserId.ToString("D"), nowUtc);
-            if (reviewResult.IsFailure)
+            if (string.IsNullOrWhiteSpace(reason))
             {
-                return reviewResult;
+                return Result.Failure(BookingErrors.RejectionReasonRequired);
             }
 
-            // Mark latest proof approved
-            var latestProof = booking.Proofs.OrderByDescending(p => p.UploadedAtUtc).FirstOrDefault();
-            latestProof?.Review(true, null, command.ActorUserId.ToString("D"), nowUtc);
-
-            await _broadcaster.BroadcastSlotStatusChangedAsync(
-                booking.VenueId,
-                booking.PitchId,
-                booking.StartUtc,
-                booking.EndUtc,
-                "booked",
-                cancellationToken);
-
-            await _broadcaster.BroadcastBookingUpdatedAsync(
-                booking.PlayerId,
-                booking.VenueId,
-                booking.Id,
-                booking.BookingReference,
-                BookingStatus.Confirmed.ToString(),
-                nowUtc,
-                cancellationToken);
-
-            if (_notificationPublisher is not null)
+            if (reason.Length > MaxRejectionReasonLength)
             {
-                var notif = new NotificationRequest(
+                return Result.Failure(Error.Validation("Booking.RejectionReasonTooLong", $"The rejection reason cannot exceed {MaxRejectionReasonLength} characters."));
+            }
+        }
+
+        var decision = command.Approved
+            ? booking.Confirm(actor, nowUtc)
+            : booking.Reject(reason!, actor, nowUtc);
+        if (decision.IsFailure)
+        {
+            return decision;
+        }
+
+        var latestProof = booking.Proofs.OrderByDescending(p => p.UploadedAtUtc).FirstOrDefault();
+        latestProof?.Review(command.Approved, command.Approved ? null : reason, actor, nowUtc);
+
+        try
+        {
+            await _dbContext.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            // Someone else decided, or the player changed the booking, while this request was running.
+            return Result.Failure(Error.Conflict("Booking.ConcurrentUpdate", "The booking was changed by another request. Please reload and try again."));
+        }
+
+        await AfterCommitAsync(booking, command.Approved, reason, nowUtc, cancellationToken);
+        return Result.Success();
+    }
+
+    /// <summary>The decision is saved: a failing side effect is logged, never turned into an error for the reviewer.</summary>
+    private async Task AfterCommitAsync(Domain.Booking booking, bool approved, string? reason, DateTime nowUtc, CancellationToken cancellationToken)
+    {
+        await RunGuardedAsync(booking, "clear cached availability", () => _availabilityInvalidator.InvalidatePitchAsync(booking.PitchId, cancellationToken));
+
+        // A rejection frees the slot at once only when the hold has already run out; otherwise it stays held for a corrected proof.
+        string? slotStatus = null;
+        if (approved)
+        {
+            slotStatus = "booked";
+        }
+        else if (booking.HoldExpiresAtUtc <= nowUtc)
+        {
+            slotStatus = "free";
+        }
+
+        if (slotStatus is not null)
+        {
+            await RunGuardedAsync(booking, "broadcast the slot status", () => _broadcaster.BroadcastSlotStatusChangedAsync(
+                booking.VenueId, booking.PitchId, booking.StartUtc, booking.EndUtc, slotStatus, cancellationToken));
+        }
+
+        var newStatus = approved ? BookingStatus.Confirmed : BookingStatus.Rejected;
+        await RunGuardedAsync(booking, "broadcast the booking update", () => _broadcaster.BroadcastBookingUpdatedAsync(
+            booking.PlayerId, booking.VenueId, booking.Id, booking.BookingReference, newStatus.ToString(), nowUtc, cancellationToken));
+
+        if (_notificationPublisher is not null)
+        {
+            var notification = approved
+                ? new NotificationRequest(
                     booking.PlayerId,
                     NotificationTypes.BookingConfirmed,
                     new Dictionary<string, string>
                     {
                         ["BookingReference"] = booking.BookingReference,
                         ["PitchId"] = booking.PitchId.ToString("D"),
-                        ["StartUtc"] = booking.StartUtc.ToString("o")
+                        ["StartUtc"] = booking.StartUtc.ToString("o"),
                     },
-                    $"booking-confirmed:{booking.Id:D}");
-
-                try
-                {
-                    await _notificationPublisher.PublishAsync(notif, cancellationToken);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning(ex, "Failed to publish booking confirmed notification for booking {BookingId}", booking.Id);
-                }
-            }
-        }
-        else
-        {
-            if (string.IsNullOrWhiteSpace(command.RejectionReason))
-            {
-                return Result.Failure(BookingErrors.RejectionReasonRequired);
-            }
-
-            reviewResult = booking.Reject(command.ActorUserId.ToString("D"), command.RejectionReason, nowUtc);
-            if (reviewResult.IsFailure)
-            {
-                return reviewResult;
-            }
-
-            // Mark latest proof rejected
-            var latestProof = booking.Proofs.OrderByDescending(p => p.UploadedAtUtc).FirstOrDefault();
-            latestProof?.Review(false, command.RejectionReason, command.ActorUserId.ToString("D"), nowUtc);
-
-            // If hold has already expired, slot is freed
-            if (booking.HoldExpiresAtUtc <= nowUtc)
-            {
-                await _broadcaster.BroadcastSlotStatusChangedAsync(
-                    booking.VenueId,
-                    booking.PitchId,
-                    booking.StartUtc,
-                    booking.EndUtc,
-                    "free",
-                    cancellationToken);
-            }
-
-            await _broadcaster.BroadcastBookingUpdatedAsync(
-                booking.PlayerId,
-                booking.VenueId,
-                booking.Id,
-                booking.BookingReference,
-                BookingStatus.Rejected.ToString(),
-                nowUtc,
-                cancellationToken);
-
-            if (_notificationPublisher is not null)
-            {
-                var notif = new NotificationRequest(
+                    $"booking-confirmed:{booking.Id:D}")
+                : new NotificationRequest(
                     booking.PlayerId,
                     NotificationTypes.BookingRejected,
                     new Dictionary<string, string>
                     {
                         ["BookingReference"] = booking.BookingReference,
-                        ["RejectionReason"] = command.RejectionReason,
-                        ["HoldExpiresAtUtc"] = booking.HoldExpiresAtUtc?.ToString("o") ?? string.Empty
+                        ["RejectionReason"] = reason ?? string.Empty,
+                        ["HoldExpiresAtUtc"] = booking.HoldExpiresAtUtc?.ToString("o") ?? string.Empty,
                     },
                     $"booking-rejected:{booking.Id:D}");
 
-                try
-                {
-                    await _notificationPublisher.PublishAsync(notif, cancellationToken);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning(ex, "Failed to publish booking rejected notification for booking {BookingId}", booking.Id);
-                }
-            }
+            await RunGuardedAsync(booking, "publish the notification", () => _notificationPublisher.PublishAsync(notification, cancellationToken));
         }
 
-        await _availabilityInvalidator.InvalidatePitchAsync(booking.PitchId, cancellationToken);
-        await _dbContext.SaveChangesAsync(cancellationToken);
-        await _domainEventDispatcher.DispatchAsync(booking.DomainEvents, cancellationToken);
+    }
 
-        return Result.Success();
+    private async Task RunGuardedAsync(Domain.Booking booking, string step, Func<Task> action)
+    {
+        try
+        {
+            await action();
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogError(ex, "The review of booking {BookingId} was saved but the step '{Step}' failed.", booking.Id, step);
+        }
     }
 }

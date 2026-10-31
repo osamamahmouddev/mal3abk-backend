@@ -2,7 +2,6 @@ using Malabak.Modules.Booking.Application.Abstractions;
 using Malabak.Modules.Booking.Domain;
 using Malabak.SharedKernel;
 using Malabak.SharedKernel.Contracts;
-using Malabak.SharedKernel.Events;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
@@ -22,7 +21,6 @@ public sealed class CreateManualBookingHandler : ICommandHandler<CreateManualBoo
     private readonly IBookingReferenceGenerator _refGenerator;
     private readonly IAvailabilityInvalidator _availabilityInvalidator;
     private readonly IBookingRealtimeBroadcaster _broadcaster;
-    private readonly IDomainEventDispatcher _domainEventDispatcher;
     private readonly ILogger<CreateManualBookingHandler> _logger;
 
     public CreateManualBookingHandler(
@@ -31,7 +29,6 @@ public sealed class CreateManualBookingHandler : ICommandHandler<CreateManualBoo
         IBookingReferenceGenerator refGenerator,
         IAvailabilityInvalidator availabilityInvalidator,
         IBookingRealtimeBroadcaster broadcaster,
-        IDomainEventDispatcher domainEventDispatcher,
         ILogger<CreateManualBookingHandler> logger)
     {
         _dbContext = dbContext;
@@ -39,7 +36,6 @@ public sealed class CreateManualBookingHandler : ICommandHandler<CreateManualBoo
         _refGenerator = refGenerator;
         _availabilityInvalidator = availabilityInvalidator;
         _broadcaster = broadcaster;
-        _domainEventDispatcher = domainEventDispatcher;
         _logger = logger;
     }
 
@@ -145,7 +141,6 @@ public sealed class CreateManualBookingHandler : ICommandHandler<CreateManualBoo
         await RunGuardedAsync(booking, "clear cached availability", () => _availabilityInvalidator.InvalidatePitchAsync(booking.PitchId, cancellationToken));
         await RunGuardedAsync(booking, "broadcast the booked slot", () => _broadcaster.BroadcastSlotStatusChangedAsync(
             booking.VenueId, booking.PitchId, booking.StartUtc, booking.EndUtc, "booked", cancellationToken));
-        await RunGuardedAsync(booking, "dispatch domain events", () => _domainEventDispatcher.DispatchAsync(booking.DomainEvents, cancellationToken));
     }
 
     private async Task RunGuardedAsync(Domain.Booking booking, string step, Func<Task> action)

@@ -2,7 +2,6 @@ using Malabak.Modules.Booking.Application.Abstractions;
 using Malabak.Modules.Booking.Domain;
 using Malabak.SharedKernel;
 using Malabak.SharedKernel.Contracts;
-using Malabak.SharedKernel.Events;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
@@ -14,7 +13,6 @@ public sealed class CancelBookingHandler : ICommandHandler<CancelBookingCommand,
     private readonly IClock _clock;
     private readonly IAvailabilityInvalidator _availabilityInvalidator;
     private readonly IBookingRealtimeBroadcaster _broadcaster;
-    private readonly IDomainEventDispatcher _domainEventDispatcher;
     private readonly ILogger<CancelBookingHandler> _logger;
 
     public CancelBookingHandler(
@@ -22,14 +20,12 @@ public sealed class CancelBookingHandler : ICommandHandler<CancelBookingCommand,
         IClock clock,
         IAvailabilityInvalidator availabilityInvalidator,
         IBookingRealtimeBroadcaster broadcaster,
-        IDomainEventDispatcher domainEventDispatcher,
         ILogger<CancelBookingHandler> logger)
     {
         _dbContext = dbContext;
         _clock = clock;
         _availabilityInvalidator = availabilityInvalidator;
         _broadcaster = broadcaster;
-        _domainEventDispatcher = domainEventDispatcher;
         _logger = logger;
     }
 
@@ -111,7 +107,6 @@ public sealed class CancelBookingHandler : ICommandHandler<CancelBookingCommand,
 
         _logger.LogInformation("Cancelled booking {BookingId} ({Reference})", booking.Id, booking.BookingReference);
         await _dbContext.SaveChangesAsync(cancellationToken);
-        await _domainEventDispatcher.DispatchAsync(booking.DomainEvents, cancellationToken);
 
         return Result.Success();
     }

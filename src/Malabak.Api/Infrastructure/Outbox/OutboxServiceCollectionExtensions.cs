@@ -1,3 +1,4 @@
+using Malabak.Modules.Booking.Infrastructure;
 using Malabak.Modules.Identity.Infrastructure;
 using Malabak.Modules.Venues.Infrastructure;
 using Malabak.SharedKernel.Events;
@@ -17,6 +18,7 @@ public static class OutboxServiceCollectionExtensions
         // 2. Register outbox message sources for known module DbContexts
         services.AddScoped<IOutboxMessageSource, OutboxMessageSource<IdentityDbContext>>();
         services.AddScoped<IOutboxMessageSource, OutboxMessageSource<VenuesDbContext>>();
+        services.AddScoped<IOutboxMessageSource, OutboxMessageSource<BookingDbContext>>();
 
         // 3. Register Inbox store default
         services.AddScoped<IInboxStore, EfInboxStore<IdentityDbContext>>();

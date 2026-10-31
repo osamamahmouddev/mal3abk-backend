@@ -4,7 +4,6 @@ using Malabak.Modules.Booking.Application;
 using Malabak.Modules.Booking.Application.Bookings.SubmitProof;
 using Malabak.Modules.Booking.Domain;
 using Malabak.SharedKernel;
-using Malabak.SharedKernel.Events;
 using Malabak.SharedKernel.Time;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -43,6 +42,7 @@ public sealed class SubmitProofTests : IClassFixture<BookingDatabaseFixture>
         booking.Status.Should().Be(BookingStatus.ProofSubmitted);
         var proof = booking.Proofs.Should().ContainSingle().Subject;
         proof.Sha256Hash.Should().Be(hash);
+        proof.IsScanClean.Should().BeTrue("the upload pipeline already scanned the image before the asset became ready");
         proof.MediaId.Should().Be(mediaId, "the download link is signed from the media id, so it must be stored");
     }
 
@@ -214,17 +214,11 @@ public sealed class SubmitProofTests : IClassFixture<BookingDatabaseFixture>
     {
         await using var context = _database.CreateContext();
         var handler = new SubmitProofHandler(
-            context, new FakeClock(DateTime.UtcNow), broadcaster ?? new QuietBroadcaster(), new QuietDispatcher(), NullLogger<SubmitProofHandler>.Instance);
+            context, new FakeClock(DateTime.UtcNow), broadcaster ?? new QuietBroadcaster(), NullLogger<SubmitProofHandler>.Instance);
         return await handler.HandleAsync(new SubmitProofCommand(
             bookingId, playerId, mediaId ?? Guid.NewGuid(), "media/key/large.webp", "proof.webp", "image/webp", 1234, hash));
     }
 
-    private sealed class QuietDispatcher : IDomainEventDispatcher
-    {
-        public Task DispatchAsync(IDomainEvent domainEvent, CancellationToken cancellationToken = default) => Task.CompletedTask;
-
-        public Task DispatchAsync(IEnumerable<IDomainEvent> domainEvents, CancellationToken cancellationToken = default) => Task.CompletedTask;
-    }
 
     private class QuietBroadcaster : IBookingRealtimeBroadcaster
     {

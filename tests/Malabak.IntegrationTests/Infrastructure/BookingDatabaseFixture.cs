@@ -32,12 +32,13 @@ public sealed class BookingDatabaseFixture : IAsyncLifetime
         await ExecuteAsync(IntegrationTestEnvironment.PostgresConnectionString, $"DROP DATABASE IF EXISTS \"{_databaseName}\" WITH (FORCE)");
     }
 
-    public BookingDbContext CreateContext()
+    /// <summary>A context on the migrated database. Pass a clock to switch on the interceptors, including the outbox.</summary>
+    public BookingDbContext CreateContext(Malabak.SharedKernel.IClock? clock = null)
     {
         var options = new DbContextOptionsBuilder<BookingDbContext>()
             .UseNpgsql(ConnectionString, npgsql => npgsql.MigrationsHistoryTable("__EFMigrationsHistory", BookingDbContext.Schema))
             .Options;
-        return new BookingDbContext(options);
+        return new BookingDbContext(options, clock);
     }
 
     private static async Task ExecuteAsync(string connectionString, string sql)

@@ -80,7 +80,6 @@ public sealed class BookingGistConcurrencyIntegrationTests
         var policyProvider = new StubPolicyProvider(samplePolicy);
         var refGenerator = new BookingReferenceGenerator();
         var availabilityInvalidator = new NoOpAvailabilityInvalidator();
-        var domainEventDispatcher = new NoOpDomainEventDispatcher();
         var holdExpiryScheduler = new NoOpHoldExpiryScheduler();
         var realtimeBroadcaster = new NoOpRealtimeBroadcaster();
 
@@ -100,7 +99,6 @@ public sealed class BookingGistConcurrencyIntegrationTests
                 policyProvider,
                 refGenerator,
                 availabilityInvalidator,
-                domainEventDispatcher,
                 holdExpiryScheduler,
                 realtimeBroadcaster,
                 NullLogger<CreateBookingHandler>.Instance);
@@ -174,11 +172,6 @@ public sealed class BookingGistConcurrencyIntegrationTests
         public Task InvalidateVenueAsync(Guid venueId, CancellationToken cancellationToken = default) => Task.CompletedTask;
     }
 
-    private sealed class NoOpDomainEventDispatcher : IDomainEventDispatcher
-    {
-        public Task DispatchAsync(IDomainEvent domainEvent, CancellationToken cancellationToken = default) => Task.CompletedTask;
-        public Task DispatchAsync(IEnumerable<IDomainEvent> domainEvents, CancellationToken cancellationToken = default) => Task.CompletedTask;
-    }
 
     private sealed class NoOpHoldExpiryScheduler : IHoldExpiryScheduler
     {

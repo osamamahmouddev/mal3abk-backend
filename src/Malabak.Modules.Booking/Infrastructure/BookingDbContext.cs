@@ -1,13 +1,16 @@
 using Malabak.Modules.Booking.Application;
 using Malabak.Modules.Booking.Application.Abstractions;
 using Malabak.Modules.Booking.Domain;
+using Malabak.SharedKernel;
+using Malabak.SharedKernel.Persistence;
 using Microsoft.EntityFrameworkCore;
 
 namespace Malabak.Modules.Booking.Infrastructure;
 
-public sealed class BookingDbContext : DbContext, IBookingDbContext
+public sealed class BookingDbContext : BaseDbContext, IBookingDbContext
 {
     public const string Schema = "booking";
+    public override string ModuleSchema => Schema;
     public const string ExclusionConstraintName = BookingConstraints.NoOverlappingActiveBookings;
 
     public DbSet<Domain.Booking> Bookings => Set<Domain.Booking>();
@@ -15,14 +18,14 @@ public sealed class BookingDbContext : DbContext, IBookingDbContext
     public DbSet<PaymentProof> PaymentProofs => Set<PaymentProof>();
     public DbSet<BookingRefund> BookingRefunds => Set<BookingRefund>();
 
-    public BookingDbContext(DbContextOptions<BookingDbContext> options)
-        : base(options)
+    public BookingDbContext(DbContextOptions<BookingDbContext> options, IClock? clock = null)
+        : base(options, clock)
     {
     }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        modelBuilder.HasDefaultSchema(Schema);
+        base.OnModelCreating(modelBuilder);
         modelBuilder.HasPostgresExtension("btree_gist");
 
         modelBuilder.Entity<Domain.Booking>(builder =>

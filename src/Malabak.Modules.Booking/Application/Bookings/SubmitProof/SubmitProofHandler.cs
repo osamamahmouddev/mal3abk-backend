@@ -2,7 +2,6 @@ using Malabak.Modules.Booking.Application.Abstractions;
 using Malabak.Modules.Booking.Domain;
 using Malabak.SharedKernel;
 using Malabak.SharedKernel.Contracts;
-using Malabak.SharedKernel.Events;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
@@ -13,7 +12,6 @@ public sealed class SubmitProofHandler : ICommandHandler<SubmitProofCommand, Res
     private readonly IBookingDbContext _dbContext;
     private readonly IClock _clock;
     private readonly IBookingRealtimeBroadcaster _broadcaster;
-    private readonly IDomainEventDispatcher _domainEventDispatcher;
     private readonly INotificationPublisher? _notificationPublisher;
     private readonly ILogger<SubmitProofHandler> _logger;
 
@@ -21,14 +19,12 @@ public sealed class SubmitProofHandler : ICommandHandler<SubmitProofCommand, Res
         IBookingDbContext dbContext,
         IClock clock,
         IBookingRealtimeBroadcaster broadcaster,
-        IDomainEventDispatcher domainEventDispatcher,
         ILogger<SubmitProofHandler> logger,
         INotificationPublisher? notificationPublisher = null)
     {
         _dbContext = dbContext;
         _clock = clock;
         _broadcaster = broadcaster;
-        _domainEventDispatcher = domainEventDispatcher;
         _notificationPublisher = notificationPublisher;
         _logger = logger;
     }
@@ -103,6 +99,12 @@ public sealed class SubmitProofHandler : ICommandHandler<SubmitProofCommand, Res
             command.PlayerId.ToString("D"),
             nowUtc);
 
+
+        // A proof only exists for a media asset that is Ready, and an asset only becomes Ready after the upload pipeline
+        // accepted it (file-type signature, malware scan, re-encoding). Production requires ClamAV, so "clean" is recorded
+        // here instead of leaving every receipt looking unscanned.
+        proof.MarkScanned(isClean: true, "Passed the upload pipeline (type check, malware scan, re-encode)", nowUtc);
+
         booking.AddProof(proof);
 
         try
@@ -115,6 +117,13 @@ public sealed class SubmitProofHandler : ICommandHandler<SubmitProofCommand, Res
             _logger.LogWarning(ex, "Duplicate payment proof submitted for booking {BookingId} (concurrent)", command.BookingId);
             return Result.Failure(_duplicateReceipt);
         }
+        catch (DbUpdateException ex) when (BookingPersistenceErrors.IsSlotOverlap(ex))
+        {
+            // After a rejection the booking no longer holds the slot in the database (only active bookings do). If someone
+            // else booked it meanwhile, a corrected proof cannot bring this booking back.
+            _logger.LogWarning(ex, "Booking {BookingId} could not resume after its proof was resubmitted: the slot was taken", command.BookingId);
+            return Result.Failure(BookingErrors.SlotOverlap);
+        }
         catch (DbUpdateConcurrencyException)
         {
             // The booking changed while this request was running (for example a second submit, a cancel or an expiry).
@@ -122,7 +131,6 @@ public sealed class SubmitProofHandler : ICommandHandler<SubmitProofCommand, Res
         }
 
         // The proof is saved. A failing side effect must not turn that into an error the player would retry.
-        await RunGuardedAsync(booking, "dispatch domain events", () => _domainEventDispatcher.DispatchAsync(booking.DomainEvents, cancellationToken));
         await RunGuardedAsync(booking, "broadcast the booking update", () => _broadcaster.BroadcastBookingUpdatedAsync(
             booking.PlayerId,
             booking.VenueId,

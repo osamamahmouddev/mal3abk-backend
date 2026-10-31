@@ -2,7 +2,6 @@ using Malabak.Modules.Booking.Application.Abstractions;
 using Malabak.Modules.Booking.Domain;
 using Malabak.SharedKernel;
 using Malabak.SharedKernel.Contracts;
-using Malabak.SharedKernel.Events;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
@@ -25,7 +24,6 @@ public sealed class CreateBookingHandler : ICommandHandler<CreateBookingCommand,
     private readonly IBookingPolicyProvider _policyProvider;
     private readonly IBookingReferenceGenerator _refGenerator;
     private readonly IAvailabilityInvalidator _availabilityInvalidator;
-    private readonly IDomainEventDispatcher _domainEventDispatcher;
     private readonly IHoldExpiryScheduler _holdExpiryScheduler;
     private readonly IBookingRealtimeBroadcaster _broadcaster;
     private readonly ILogger<CreateBookingHandler> _logger;
@@ -37,7 +35,6 @@ public sealed class CreateBookingHandler : ICommandHandler<CreateBookingCommand,
         IBookingPolicyProvider policyProvider,
         IBookingReferenceGenerator refGenerator,
         IAvailabilityInvalidator availabilityInvalidator,
-        IDomainEventDispatcher domainEventDispatcher,
         IHoldExpiryScheduler holdExpiryScheduler,
         IBookingRealtimeBroadcaster broadcaster,
         ILogger<CreateBookingHandler> logger)
@@ -48,7 +45,6 @@ public sealed class CreateBookingHandler : ICommandHandler<CreateBookingCommand,
         _policyProvider = policyProvider;
         _refGenerator = refGenerator;
         _availabilityInvalidator = availabilityInvalidator;
-        _domainEventDispatcher = domainEventDispatcher;
         _holdExpiryScheduler = holdExpiryScheduler;
         _broadcaster = broadcaster;
         _logger = logger;
@@ -216,7 +212,6 @@ public sealed class CreateBookingHandler : ICommandHandler<CreateBookingCommand,
     private async Task AfterCommitAsync(Domain.Booking booking, DateTime holdExpiresAtUtc, DateTime nowUtc, CancellationToken cancellationToken)
     {
         await RunGuardedAsync(booking, "clear cached availability", () => _availabilityInvalidator.InvalidatePitchAsync(booking.PitchId, cancellationToken));
-        await RunGuardedAsync(booking, "dispatch domain events", () => _domainEventDispatcher.DispatchAsync(booking.DomainEvents, cancellationToken));
         await RunGuardedAsync(booking, "schedule the hold expiry", () =>
         {
             _holdExpiryScheduler.ScheduleHoldExpiry(booking.Id, holdExpiresAtUtc);
