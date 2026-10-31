@@ -17,7 +17,7 @@ public sealed class CreateBookingHandler : ICommandHandler<CreateBookingCommand,
         var nowUtc = _clock.UtcNow;
         var holdExpiresAtUtc = nowUtc.AddMinutes(15);
         var bookingId = Guid.NewGuid();
-        var shortRef = $"MLB-{Guid.NewGuid().ToString("N")[..6].ToUpperInvariant()}";
+        var shortRef = BookingReference.Generate();
 
         var bookingResult = Domain.Booking.Create(
             bookingId,
