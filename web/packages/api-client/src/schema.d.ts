@@ -3134,6 +3134,24 @@ export interface components {
          * @enum {integer}
          */
         BookingStatus: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10;
+        BookingsBucket: {
+            /** Format: date */
+            periodStart: string;
+            /** Format: int32 */
+            total: number;
+            /** Format: int32 */
+            confirmed: number;
+            /** Format: int32 */
+            completed: number;
+            /** Format: int32 */
+            pending: number;
+            /** Format: int32 */
+            cancelled: number;
+            /** Format: int32 */
+            noShows: number;
+            /** Format: int32 */
+            expiredOrRejected: number;
+        };
         CalendarSlotDto: {
             /** Format: uuid */
             id: string;
@@ -3289,8 +3307,71 @@ export interface components {
             facilities?: string[] | null;
             photos?: string[] | null;
         };
+        CustomerBookingDto: {
+            /** Format: uuid */
+            bookingId: string;
+            reference: string;
+            /** Format: uuid */
+            pitchId: string;
+            /** Format: date-time */
+            startUtc: string;
+            /** Format: date-time */
+            endUtc: string;
+            status: components["schemas"]["BookingStatus"];
+            /** Format: double */
+            totalPrice: number;
+            currency: string;
+        };
+        CustomerDetailDto: {
+            customer: components["schemas"]["CustomerSummaryDto"];
+            bookings: components["schemas"]["CustomerBookingDto"][];
+            notes: components["schemas"]["CustomerNoteDto"][];
+        };
         CustomerNoteApiRequest: {
             text: string;
+        };
+        CustomerNoteDto: {
+            /** Format: uuid */
+            id: string;
+            text: string;
+            /** Format: uuid */
+            authorUserId: string;
+            authorName: string;
+            /** Format: date-time */
+            createdAtUtc: string;
+            canDelete: boolean;
+        };
+        CustomerSummaryDto: {
+            customerKey: string;
+            name: string;
+            phone?: string | null;
+            isRegisteredPlayer: boolean;
+            /** Format: int32 */
+            totalBookings: number;
+            /** Format: int32 */
+            completed: number;
+            /** Format: int32 */
+            upcoming: number;
+            /** Format: int32 */
+            cancelled: number;
+            /** Format: int32 */
+            noShows: number;
+            /** Format: double */
+            totalSpent: number;
+            currency: string;
+            /** Format: date-time */
+            firstBookingUtc: string;
+            /** Format: date-time */
+            lastBookingUtc: string;
+        };
+        CustomerSummaryDtoPagedList: {
+            items: components["schemas"]["CustomerSummaryDto"][];
+            /** Format: int32 */
+            totalCount: number;
+            /** Format: int32 */
+            page: number;
+            /** Format: int32 */
+            pageSize: number;
         };
         DashboardActivity: {
             /** Format: uuid */
@@ -3580,6 +3661,14 @@ export interface components {
             depositValue: number;
             isActive: boolean;
         };
+        PeakHourCell: {
+            /** Format: int32 */
+            dayOfWeek: number;
+            /** Format: int32 */
+            hour: number;
+            /** Format: int32 */
+            bookings: number;
+        };
         PendingVenueApprovalDto: {
             /** Format: uuid */
             venueId: string;
@@ -3627,6 +3716,17 @@ export interface components {
             widthMeters?: number | null;
             isActive: boolean;
             photos: string[];
+        };
+        PitchUtilization: {
+            /** Format: uuid */
+            pitchId: string;
+            name: string;
+            /** Format: int32 */
+            openMinutes: number;
+            /** Format: int32 */
+            bookedMinutes: number;
+            /** Format: double */
+            percent: number;
         };
         PitchWeeklyHoursApiRequest: {
             days: components["schemas"]["WeeklyHoursInput"][];
@@ -3874,6 +3974,16 @@ export interface components {
             token: string;
             newPassword: string;
         };
+        RevenueBucket: {
+            /** Format: date */
+            periodStart: string;
+            /** Format: double */
+            booked: number;
+            /** Format: double */
+            recognized: number;
+            /** Format: double */
+            depositsReceived: number;
+        };
         RevenuePoint: {
             /** Format: date */
             date: string;
@@ -3881,6 +3991,19 @@ export interface components {
             confirmedValue: number;
             /** Format: double */
             depositsCollected: number;
+        };
+        RevenueSplit: {
+            currency: string;
+            /** Format: double */
+            booked: number;
+            /** Format: double */
+            depositsReceived: number;
+            /** Format: double */
+            outstanding: number;
+            /** Format: double */
+            recognized: number;
+            /** Format: double */
+            pending: number;
         };
         ReviewProofApiRequest: {
             approved: boolean;
@@ -4297,6 +4420,23 @@ export interface components {
             /** Format: date-time */
             uploadedAtUtc: string;
             downloadUrl?: string | null;
+        };
+        VenueReportDto: {
+            /** Format: date */
+            from: string;
+            /** Format: date */
+            to: string;
+            /** Format: uuid */
+            pitchId?: string | null;
+            groupBy: components["schemas"]["ReportGrouping"];
+            bookings: components["schemas"]["BookingsBucket"][];
+            statusDistribution: {
+                [key: string]: number;
+            };
+            revenue: components["schemas"]["RevenueSplit"];
+            revenueSeries: components["schemas"]["RevenueBucket"][];
+            pitchUtilization: components["schemas"]["PitchUtilization"][];
+            peakHours: components["schemas"]["PeakHourCell"][];
         };
         VenueStaffDto: {
             members: components["schemas"]["StaffMemberDto"][];
@@ -13022,7 +13162,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["CustomerSummaryDtoPagedList"];
+                };
             };
             /** @description Bad Request (Validation failure, invalid inputs) */
             400: {
@@ -13106,7 +13248,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["CustomerDetailDto"];
+                };
             };
             /** @description Bad Request (Validation failure, invalid inputs) */
             400: {
@@ -13135,7 +13279,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["ProblemDetails"];
                 };
             };
-            /** @description Not Found (Resource does not exist) */
+            /** @description Not Found */
             404: {
                 headers: {
                     [name: string]: unknown;
@@ -13189,14 +13333,16 @@ export interface operations {
             };
         };
         responses: {
-            /** @description OK */
-            200: {
+            /** @description Created */
+            201: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["CustomerNoteDto"];
+                };
             };
-            /** @description Bad Request (Validation failure, invalid inputs) */
+            /** @description Bad Request */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -13274,8 +13420,8 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description OK */
-            200: {
+            /** @description No Content */
+            204: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -13299,7 +13445,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["ProblemDetails"];
                 };
             };
-            /** @description Forbidden (Insufficient role or permissions) */
+            /** @description Forbidden */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -16046,9 +16192,11 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["VenueReportDto"];
+                };
             };
-            /** @description Bad Request (Validation failure, invalid inputs) */
+            /** @description Bad Request */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -16135,7 +16283,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description Bad Request (Validation failure, invalid inputs) */
+            /** @description Bad Request */
             400: {
                 headers: {
                     [name: string]: unknown;

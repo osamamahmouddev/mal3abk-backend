@@ -10824,7 +10824,14 @@
         ],
         "responses": {
           "200": {
-            "description": "OK"
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomerSummaryDtoPagedList"
+                }
+              }
+            }
           },
           "400": {
             "description": "Bad Request (Validation failure, invalid inputs)",
@@ -10927,7 +10934,24 @@
         ],
         "responses": {
           "200": {
-            "description": "OK"
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomerDetailDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           },
           "400": {
             "description": "Bad Request (Validation failure, invalid inputs)",
@@ -10951,16 +10975,6 @@
           },
           "403": {
             "description": "Forbidden (Insufficient role or permissions)",
-            "content": {
-              "application/problem\u002Bjson": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found (Resource does not exist)",
             "content": {
               "application/problem\u002Bjson": {
                 "schema": {
@@ -11039,11 +11053,18 @@
           "required": true
         },
         "responses": {
-          "200": {
-            "description": "OK"
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomerNoteDto"
+                }
+              }
+            }
           },
           "400": {
-            "description": "Bad Request (Validation failure, invalid inputs)",
+            "description": "Bad Request",
             "content": {
               "application/problem\u002Bjson": {
                 "schema": {
@@ -11151,8 +11172,18 @@
           }
         ],
         "responses": {
-          "200": {
-            "description": "OK"
+          "204": {
+            "description": "No Content"
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           },
           "400": {
             "description": "Bad Request (Validation failure, invalid inputs)",
@@ -11166,16 +11197,6 @@
           },
           "401": {
             "description": "Unauthorized (Missing or expired JWT access token)",
-            "content": {
-              "application/problem\u002Bjson": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Forbidden (Insufficient role or permissions)",
             "content": {
               "application/problem\u002Bjson": {
                 "schema": {
@@ -14591,10 +14612,17 @@
         ],
         "responses": {
           "200": {
-            "description": "OK"
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VenueReportDto"
+                }
+              }
+            }
           },
           "400": {
-            "description": "Bad Request (Validation failure, invalid inputs)",
+            "description": "Bad Request",
             "content": {
               "application/problem\u002Bjson": {
                 "schema": {
@@ -14715,7 +14743,7 @@
             "description": "OK"
           },
           "400": {
-            "description": "Bad Request (Validation failure, invalid inputs)",
+            "description": "Bad Request",
             "content": {
               "application/problem\u002Bjson": {
                 "schema": {
@@ -17230,6 +17258,54 @@
         "type": "integer",
         "format": "int32"
       },
+      "BookingsBucket": {
+        "required": [
+          "cancelled",
+          "completed",
+          "confirmed",
+          "expiredOrRejected",
+          "noShows",
+          "pending",
+          "periodStart",
+          "total"
+        ],
+        "type": "object",
+        "properties": {
+          "periodStart": {
+            "type": "string",
+            "format": "date"
+          },
+          "total": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "confirmed": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "completed": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "pending": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "cancelled": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "noShows": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "expiredOrRejected": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "additionalProperties": false
+      },
       "CalendarSlotDto": {
         "required": [
           "bookingReference",
@@ -17760,6 +17836,77 @@
         },
         "additionalProperties": false
       },
+      "CustomerBookingDto": {
+        "required": [
+          "bookingId",
+          "currency",
+          "endUtc",
+          "pitchId",
+          "reference",
+          "startUtc",
+          "status",
+          "totalPrice"
+        ],
+        "type": "object",
+        "properties": {
+          "bookingId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "reference": {
+            "type": "string"
+          },
+          "pitchId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "startUtc": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "endUtc": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "status": {
+            "$ref": "#/components/schemas/BookingStatus"
+          },
+          "totalPrice": {
+            "type": "number",
+            "format": "double"
+          },
+          "currency": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "CustomerDetailDto": {
+        "required": [
+          "bookings",
+          "customer",
+          "notes"
+        ],
+        "type": "object",
+        "properties": {
+          "customer": {
+            "$ref": "#/components/schemas/CustomerSummaryDto"
+          },
+          "bookings": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CustomerBookingDto"
+            }
+          },
+          "notes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CustomerNoteDto"
+            }
+          }
+        },
+        "additionalProperties": false
+      },
       "CustomerNoteApiRequest": {
         "required": [
           "text"
@@ -17768,6 +17915,139 @@
         "properties": {
           "text": {
             "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "CustomerNoteDto": {
+        "required": [
+          "authorName",
+          "authorUserId",
+          "canDelete",
+          "createdAtUtc",
+          "id",
+          "text"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "text": {
+            "type": "string"
+          },
+          "authorUserId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "authorName": {
+            "type": "string"
+          },
+          "createdAtUtc": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "canDelete": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "CustomerSummaryDto": {
+        "required": [
+          "cancelled",
+          "completed",
+          "currency",
+          "customerKey",
+          "firstBookingUtc",
+          "isRegisteredPlayer",
+          "lastBookingUtc",
+          "name",
+          "noShows",
+          "totalBookings",
+          "totalSpent",
+          "upcoming"
+        ],
+        "type": "object",
+        "properties": {
+          "customerKey": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "phone": {
+            "type": "string",
+            "nullable": true
+          },
+          "isRegisteredPlayer": {
+            "type": "boolean"
+          },
+          "totalBookings": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "completed": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "upcoming": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "cancelled": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "noShows": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalSpent": {
+            "type": "number",
+            "format": "double"
+          },
+          "currency": {
+            "type": "string"
+          },
+          "firstBookingUtc": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "lastBookingUtc": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "additionalProperties": false
+      },
+      "CustomerSummaryDtoPagedList": {
+        "required": [
+          "items",
+          "page",
+          "pageSize",
+          "totalCount"
+        ],
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CustomerSummaryDto"
+            }
+          },
+          "totalCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "page": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "pageSize": {
+            "type": "integer",
+            "format": "int32"
           }
         },
         "additionalProperties": false
@@ -18716,6 +18996,29 @@
         },
         "additionalProperties": false
       },
+      "PeakHourCell": {
+        "required": [
+          "bookings",
+          "dayOfWeek",
+          "hour"
+        ],
+        "type": "object",
+        "properties": {
+          "dayOfWeek": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "hour": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "bookings": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "additionalProperties": false
+      },
       "PendingVenueApprovalDto": {
         "required": [
           "address",
@@ -18886,6 +19189,38 @@
             "items": {
               "type": "string"
             }
+          }
+        },
+        "additionalProperties": false
+      },
+      "PitchUtilization": {
+        "required": [
+          "bookedMinutes",
+          "name",
+          "openMinutes",
+          "percent",
+          "pitchId"
+        ],
+        "type": "object",
+        "properties": {
+          "pitchId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "openMinutes": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "bookedMinutes": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "percent": {
+            "type": "number",
+            "format": "double"
           }
         },
         "additionalProperties": false
@@ -19678,6 +20013,34 @@
         },
         "additionalProperties": false
       },
+      "RevenueBucket": {
+        "required": [
+          "booked",
+          "depositsReceived",
+          "periodStart",
+          "recognized"
+        ],
+        "type": "object",
+        "properties": {
+          "periodStart": {
+            "type": "string",
+            "format": "date"
+          },
+          "booked": {
+            "type": "number",
+            "format": "double"
+          },
+          "recognized": {
+            "type": "number",
+            "format": "double"
+          },
+          "depositsReceived": {
+            "type": "number",
+            "format": "double"
+          }
+        },
+        "additionalProperties": false
+      },
       "RevenuePoint": {
         "required": [
           "confirmedValue",
@@ -19695,6 +20058,43 @@
             "format": "double"
           },
           "depositsCollected": {
+            "type": "number",
+            "format": "double"
+          }
+        },
+        "additionalProperties": false
+      },
+      "RevenueSplit": {
+        "required": [
+          "booked",
+          "currency",
+          "depositsReceived",
+          "outstanding",
+          "pending",
+          "recognized"
+        ],
+        "type": "object",
+        "properties": {
+          "currency": {
+            "type": "string"
+          },
+          "booked": {
+            "type": "number",
+            "format": "double"
+          },
+          "depositsReceived": {
+            "type": "number",
+            "format": "double"
+          },
+          "outstanding": {
+            "type": "number",
+            "format": "double"
+          },
+          "recognized": {
+            "type": "number",
+            "format": "double"
+          },
+          "pending": {
             "type": "number",
             "format": "double"
           }
@@ -21126,6 +21526,73 @@
           "downloadUrl": {
             "type": "string",
             "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "VenueReportDto": {
+        "required": [
+          "bookings",
+          "from",
+          "groupBy",
+          "peakHours",
+          "pitchUtilization",
+          "revenue",
+          "revenueSeries",
+          "statusDistribution",
+          "to"
+        ],
+        "type": "object",
+        "properties": {
+          "from": {
+            "type": "string",
+            "format": "date"
+          },
+          "to": {
+            "type": "string",
+            "format": "date"
+          },
+          "pitchId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "groupBy": {
+            "$ref": "#/components/schemas/ReportGrouping"
+          },
+          "bookings": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BookingsBucket"
+            }
+          },
+          "statusDistribution": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          "revenue": {
+            "$ref": "#/components/schemas/RevenueSplit"
+          },
+          "revenueSeries": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RevenueBucket"
+            }
+          },
+          "pitchUtilization": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PitchUtilization"
+            }
+          },
+          "peakHours": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PeakHourCell"
+            }
           }
         },
         "additionalProperties": false

@@ -30,6 +30,8 @@ public static class VenueReportEndpoints
             return result.IsSuccess ? Results.Ok(result.Value) : Problem(result.Error);
         })
         .RequireDistributedRateLimiting("venue-reports", permitLimit: 30, windowSeconds: 60)
+        .Produces<VenueReportDto>()
+        .ProducesProblem(StatusCodes.Status400BadRequest)
         .WithName("GetVenueReport")
         .WithSummary("Bookings per day/week/month, status distribution, revenue split, pitch utilization and peak hours");
 
@@ -47,6 +49,8 @@ public static class VenueReportEndpoints
             return Results.File(result.Value, "text/csv; charset=utf-8", name);
         })
         .RequireDistributedRateLimiting("venue-reports-export", permitLimit: 10, windowSeconds: 60)
+        .Produces(StatusCodes.Status200OK, contentType: "text/csv")
+        .ProducesProblem(StatusCodes.Status400BadRequest)
         .WithName("ExportVenueBookingsCsv")
         .WithSummary("Bookings in the range as CSV (up to 20,000 rows)");
     }

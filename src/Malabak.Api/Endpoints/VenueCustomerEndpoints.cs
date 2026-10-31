@@ -2,6 +2,7 @@ using System.Security.Claims;
 using Asp.Versioning.Builder;
 using Malabak.Api.Infrastructure.Authorization;
 using Malabak.Api.Infrastructure.Security;
+using Malabak.Modules.Booking.Application.Bookings.PlayerQueries;
 using Malabak.Modules.Booking.Application.Customers;
 using Malabak.Modules.Venues.Application.Common;
 using Malabak.SharedKernel;
@@ -32,6 +33,7 @@ public static class VenueCustomerEndpoints
             VenueCustomerService service, CancellationToken ct) =>
             Results.Ok(await service.ListAsync(venueId, search?.Length > 100 ? search[..100] : search, page ?? 1, pageSize ?? 20, ct)))
         .RequireDistributedRateLimiting("venue-customers", permitLimit: 60, windowSeconds: 60)
+        .Produces<PagedList<CustomerSummaryDto>>()
         .WithName("ListVenueCustomers")
         .WithSummary("Customers who booked at the venue, with booking counts, no-shows, cancellations and spend");
 
@@ -43,6 +45,8 @@ public static class VenueCustomerEndpoints
             return ToResult(await service.GetAsync(venueId, customerKey, userId, canDeleteAny, ct));
         })
         .RequireDistributedRateLimiting("venue-customers", permitLimit: 60, windowSeconds: 60)
+        .Produces<CustomerDetailDto>()
+        .ProducesProblem(StatusCodes.Status404NotFound)
         .WithName("GetVenueCustomer")
         .WithSummary("Customer details: summary, last 50 bookings at this venue and staff notes");
 
@@ -53,6 +57,8 @@ public static class VenueCustomerEndpoints
             return result.IsSuccess ? Results.Created($"/api/v1/venue-manager/venues/{venueId}/customers/{customerKey}", result.Value) : ToResult(result);
         })
         .RequireDistributedRateLimiting("venue-customer-notes", permitLimit: 30, windowSeconds: 60)
+        .Produces<CustomerNoteDto>(StatusCodes.Status201Created)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
         .WithName("AddVenueCustomerNote")
         .WithSummary("Add a staff-only note about the customer (stored encrypted)");
 
@@ -65,6 +71,8 @@ public static class VenueCustomerEndpoints
             return result.IsSuccess ? Results.NoContent() : ToResult(result);
         })
         .RequireDistributedRateLimiting("venue-customer-notes", permitLimit: 30, windowSeconds: 60)
+        .Produces(StatusCodes.Status204NoContent)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
         .WithName("DeleteVenueCustomerNote")
         .WithSummary("Delete a note (its author, or a manager who can manage staff)");
     }
