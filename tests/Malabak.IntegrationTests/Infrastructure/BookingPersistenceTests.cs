@@ -30,10 +30,10 @@ public sealed class BookingPersistenceTests : IClassFixture<BookingDatabaseFixtu
             await create.SaveChangesAsync();
         }
 
-        await ChangeAsync(booking.Id, b => b.SubmitProof("player", now));
+        await ChangeAsync(booking.Id, b => b.SubmitProof(Guid.NewGuid(), "player", now));
         await ChangeAsync(booking.Id, b => b.MarkUnderReview("staff", now));
         await ChangeAsync(booking.Id, b => b.Confirm("staff", now));
-        await ChangeAsync(booking.Id, b => b.Cancel("Player cancelled", "player", now));
+        await ChangeAsync(booking.Id, b => b.Cancel("Player cancelled", "player", isStaff: false, now));
 
         await using var verify = _database.CreateContext();
         var stored = await verify.Bookings.Include(b => b.History).SingleAsync(b => b.Id == booking.Id);

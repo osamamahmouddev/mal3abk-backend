@@ -11,4 +11,8 @@ public sealed class BookingStatusHistory
     public string? Reason { get; init; }
     public string ChangedByUserId { get; init; } = string.Empty;
     public DateTime ChangedAtUtc { get; init; }
+    public string? MetadataJson { get; init; }
+
+    public BookingStatus Status => ToStatus;
+    public string ChangedBy => ChangedByUserId;
 }

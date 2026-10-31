@@ -9,7 +9,8 @@ public sealed class CreateBookingValidator : AbstractValidator<CreateBookingComm
         RuleFor(x => x.PitchId).NotEmpty();
         RuleFor(x => x.PlayerId).NotEmpty();
         RuleFor(x => x.StartUtc).LessThan(x => x.EndUtc).WithMessage("Start time must precede end time.");
-        RuleFor(x => x.TotalPrice).GreaterThan(0).WithMessage("Total price must be greater than zero.");
-        RuleFor(x => x.DepositAmount).GreaterThanOrEqualTo(0).WithMessage("Deposit amount cannot be negative.");
+        RuleFor(x => x.QuoteToken).NotEmpty().WithMessage("Quote token is required.");
+        RuleFor(x => x.ExpectedPrice).GreaterThan(0).WithMessage("Expected price must be greater than zero.");
+        RuleFor(x => x.ActorUserId).NotEmpty();
     }
 }

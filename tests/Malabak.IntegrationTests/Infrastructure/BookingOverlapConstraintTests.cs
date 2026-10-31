@@ -117,7 +117,7 @@ public sealed class BookingOverlapConstraintTests : IClassFixture<BookingDatabas
             context.Bookings.Add(first);
             await context.SaveChangesAsync();
 
-            first.Cancel("Player cancelled", "test", DateTime.UtcNow).IsSuccess.Should().BeTrue();
+            first.Cancel("Player cancelled", "test", isStaff: false, DateTime.UtcNow).IsSuccess.Should().BeTrue();
             await context.SaveChangesAsync();
         }
 
@@ -179,12 +179,12 @@ public sealed class BookingOverlapConstraintTests : IClassFixture<BookingDatabas
         var moved = status switch
         {
             BookingStatus.PendingDeposit => Result(),
-            BookingStatus.ProofSubmitted => booking.SubmitProof("test", now),
-            BookingStatus.UnderReview => booking.SubmitProof("test", now).IsSuccess ? booking.MarkUnderReview("test", now) : Result(false),
-            BookingStatus.Confirmed => booking.SubmitProof("test", now).IsSuccess ? booking.Confirm("test", now) : Result(false),
-            BookingStatus.Rejected => booking.SubmitProof("test", now).IsSuccess ? booking.Reject("Unreadable receipt", "test", now) : Result(false),
+            BookingStatus.ProofSubmitted => booking.SubmitProof(Guid.NewGuid(), "test", now),
+            BookingStatus.UnderReview => booking.SubmitProof(Guid.NewGuid(), "test", now).IsSuccess ? booking.MarkUnderReview("test", now) : Result(false),
+            BookingStatus.Confirmed => booking.SubmitProof(Guid.NewGuid(), "test", now).IsSuccess ? booking.Confirm("test", now) : Result(false),
+            BookingStatus.Rejected => booking.SubmitProof(Guid.NewGuid(), "test", now).IsSuccess ? booking.Reject("Unreadable receipt", "test", now) : Result(false),
             BookingStatus.Expired => booking.Expire(now),
-            BookingStatus.Cancelled => booking.Cancel("Player cancelled", "test", now),
+            BookingStatus.Cancelled => booking.Cancel("Player cancelled", "test", isStaff: false, now),
             _ => throw new ArgumentOutOfRangeException(nameof(status), status, "Not needed by these tests."),
         };
 

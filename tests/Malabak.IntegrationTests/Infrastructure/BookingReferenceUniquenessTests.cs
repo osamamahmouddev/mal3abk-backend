@@ -1,5 +1,6 @@
 using FluentAssertions;
 using Malabak.IntegrationTests.Infrastructure.Builders;
+using Malabak.Modules.Booking.Application;
 using Malabak.Modules.Booking.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 using Xunit;
@@ -30,8 +31,8 @@ public sealed class BookingReferenceUniquenessTests : IClassFixture<BookingDatab
         var duplicate = async () => await SaveAsync(reference, Guid.NewGuid(), hourOffset: 0);
 
         var failure = await duplicate.Should().ThrowAsync<DbUpdateException>();
-        PostgresErrors.IsReferenceCollision(failure.Which).Should().BeTrue();
-        PostgresErrors.IsSlotOverlap(failure.Which).Should().BeFalse();
+        BookingPersistenceErrors.IsReferenceCollision(failure.Which).Should().BeTrue();
+        BookingPersistenceErrors.IsSlotOverlap(failure.Which).Should().BeFalse();
     }
 
     [Fact]
@@ -43,8 +44,8 @@ public sealed class BookingReferenceUniquenessTests : IClassFixture<BookingDatab
         var overlapping = async () => await SaveAsync("MLB-BBBBBB", pitchId, hourOffset: 0);
 
         var failure = await overlapping.Should().ThrowAsync<DbUpdateException>();
-        PostgresErrors.IsSlotOverlap(failure.Which).Should().BeTrue();
-        PostgresErrors.IsReferenceCollision(failure.Which).Should().BeFalse("retrying with a new reference cannot fix an overlap");
+        BookingPersistenceErrors.IsSlotOverlap(failure.Which).Should().BeTrue();
+        BookingPersistenceErrors.IsReferenceCollision(failure.Which).Should().BeFalse("retrying with a new reference cannot fix an overlap");
     }
 
     private async Task SaveAsync(string reference, Guid pitchId, int hourOffset)

@@ -1,12 +1,14 @@
 using Malabak.Modules.Booking.Domain;
 using Malabak.SharedKernel;
+using Malabak.SharedKernel.Contracts;
 
 namespace Malabak.IntegrationTests.Infrastructure.Builders;
 
 public sealed class BookingBuilder
 {
     private Guid _id = Guid.NewGuid();
-    private string _bookingReference = $"BK-{Guid.NewGuid():N}"[..12].ToUpperInvariant();
+    private string _bookingReference = $"MLB-{Guid.NewGuid():N}"[..10].ToUpperInvariant();
+    private Guid _venueId = Guid.NewGuid();
     private Guid _pitchId = Guid.NewGuid();
     private Guid _playerId = Guid.NewGuid();
     private DateTime _startUtc = DateTime.UtcNow.AddHours(2);
@@ -16,6 +18,8 @@ public sealed class BookingBuilder
     private readonly DateTime _holdExpiresAtUtc = DateTime.UtcNow.AddMinutes(15);
     private readonly DateTime _nowUtc = DateTime.UtcNow;
     private readonly string _actorUserId = Guid.NewGuid().ToString();
+    private PriceQuoteSnapshot? _priceSnapshot;
+    private BookingPolicySnapshot? _policySnapshot;
 
     public BookingBuilder WithId(Guid id)
     {
@@ -26,6 +30,12 @@ public sealed class BookingBuilder
     public BookingBuilder WithBookingReference(string bookingReference)
     {
         _bookingReference = bookingReference;
+        return this;
+    }
+
+    public BookingBuilder ForVenue(Guid venueId)
+    {
+        _venueId = venueId;
         return this;
     }
 
@@ -55,11 +65,24 @@ public sealed class BookingBuilder
         return this;
     }
 
+    public BookingBuilder WithPriceSnapshot(PriceQuoteSnapshot snapshot)
+    {
+        _priceSnapshot = snapshot;
+        return this;
+    }
+
+    public BookingBuilder WithPolicySnapshot(BookingPolicySnapshot snapshot)
+    {
+        _policySnapshot = snapshot;
+        return this;
+    }
+
     public Booking Build()
     {
         var result = Booking.Create(
             _id,
             _bookingReference,
+            _venueId,
             _pitchId,
             _playerId,
             _startUtc,
@@ -67,6 +90,8 @@ public sealed class BookingBuilder
             _totalPrice,
             _depositAmount,
             _holdExpiresAtUtc,
+            _priceSnapshot,
+            _policySnapshot,
             _nowUtc,
             _actorUserId);
 
