@@ -159,10 +159,24 @@ public static class RealtimeAuthenticationExtensions
                             return;
                         }
 
+                        // SignalR first POSTs /negotiate and then opens the WebSocket, both carrying the same ticket. The
+                        // ticket is consumed when the connection is actually opened; negotiate only proves it is valid.
+                        var isNegotiate = context.Request.Path.Value?.EndsWith("/negotiate", StringComparison.OrdinalIgnoreCase) == true;
+
                         // Atomically consume single-use ticket from Redis
                         var atomicStore = context.HttpContext.RequestServices.GetRequiredService<IAtomicConsumeStore>();
-                        var consumed = await atomicStore.ConsumeAsync($"wsjti:{jti}", context.HttpContext.RequestAborted);
-                        if (consumed is null)
+                        var ticketKey = $"wsjti:{jti}";
+                        bool ticketValid;
+                        if (isNegotiate)
+                        {
+                            ticketValid = await atomicStore.ExistsAsync(ticketKey, context.HttpContext.RequestAborted);
+                        }
+                        else
+                        {
+                            ticketValid = await atomicStore.ConsumeAsync(ticketKey, context.HttpContext.RequestAborted) is not null;
+                        }
+
+                        if (!ticketValid)
                         {
                             context.Fail("ticket_already_used");
                             return;

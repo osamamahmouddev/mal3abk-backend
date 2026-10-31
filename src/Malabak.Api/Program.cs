@@ -438,7 +438,8 @@ app.MapPrivacyEndpoints(apiVersionSet);
 app.MapRealtimeEndpoints(apiVersionSet);
 app.MapBookingEndpoints(apiVersionSet);
 
-app.MapHub<BookingHub>("/hubs/booking");
+// WebSockets only (SECURITY.md): long polling and server-sent events would validate the single-use ticket on every request.
+app.MapHub<BookingHub>("/hubs/booking", options => options.Transports = Microsoft.AspNetCore.Http.Connections.HttpTransportType.WebSockets);
 
 await app.RunAsync();
 

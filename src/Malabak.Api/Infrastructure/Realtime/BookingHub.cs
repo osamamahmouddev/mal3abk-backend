@@ -29,6 +29,9 @@ public interface IBookingHubClient
 [Authorize(AuthenticationSchemes = RealtimeAuthenticationExtensions.WsTicketScheme)]
 public sealed class BookingHub : Hub<IBookingHubClient>
 {
+    public const int MaxWatchedVenueDays = 20;
+    private const string _watchedKey = "watched-venue-days";
+
     private readonly IVenueAccessService _venueAccessService;
     private readonly ILogger<BookingHub> _logger;
 
@@ -62,7 +65,24 @@ public sealed class BookingHub : Hub<IBookingHubClient>
             throw new HubException("Invalid venueId or date format (expected YYYY-MM-DD).");
         }
 
+        // One connection may follow a handful of venue days at a time, so a client cannot pile up rooms on the server.
+        if (!Context.Items.TryGetValue(_watchedKey, out var existing) || existing is not HashSet<string> watched)
+        {
+            watched = new HashSet<string>(StringComparer.Ordinal);
+            Context.Items[_watchedKey] = watched;
+        }
+
         var groupName = VenueDateGroupName(venueId, date);
+        lock (watched)
+        {
+            if (!watched.Contains(groupName) && watched.Count >= MaxWatchedVenueDays)
+            {
+                throw new HubException($"You can watch at most {MaxWatchedVenueDays} venue days at once.");
+            }
+
+            watched.Add(groupName);
+        }
+
         await Groups.AddToGroupAsync(Context.ConnectionId, groupName);
         _logger.LogDebug("Client {ConnectionId} watching venue {GroupName}", Context.ConnectionId, groupName);
     }
@@ -76,6 +96,14 @@ public sealed class BookingHub : Hub<IBookingHubClient>
         }
 
         var groupName = VenueDateGroupName(venueId, date);
+        if (Context.Items.TryGetValue(_watchedKey, out var watched) && watched is HashSet<string> set)
+        {
+            lock (set)
+            {
+                set.Remove(groupName);
+            }
+        }
+
         await Groups.RemoveFromGroupAsync(Context.ConnectionId, groupName);
     }
 
