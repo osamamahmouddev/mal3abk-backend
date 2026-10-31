@@ -44,24 +44,9 @@ public sealed class IdempotentEndpointFilterIntegrationTests : IClassFixture<Web
 
             using var scope = _factory.Services.CreateScope();
             var context = scope.ServiceProvider.GetRequiredService<IdentityDbContext>();
-            context.Database.ExecuteSqlRaw($"""
-                CREATE SCHEMA IF NOT EXISTS {IdentityDbContext.Schema};
-                CREATE TABLE IF NOT EXISTS {IdentityDbContext.Schema}.idempotency_records (
-                    "Id" uuid PRIMARY KEY,
-                    "Key" character varying(256) NOT NULL,
-                    "RequestHash" character varying(64) NOT NULL,
-                    "HttpMethod" character varying(16) NOT NULL,
-                    "RequestPath" character varying(512) NOT NULL,
-                    "StatusCode" integer NOT NULL,
-                    "ResponseContentType" character varying(128),
-                    "ResponseBody" text,
-                    "Status" integer NOT NULL,
-                    "CreatedAtUtc" timestamp with time zone NOT NULL,
-                    "ExpiresAtUtc" timestamp with time zone NOT NULL
-                );
-                CREATE UNIQUE INDEX IF NOT EXISTS "IX_idempotency_records_Key" ON {IdentityDbContext.Schema}.idempotency_records ("Key");
-                CREATE INDEX IF NOT EXISTS "IX_idempotency_records_ExpiresAtUtc" ON {IdentityDbContext.Schema}.idempotency_records ("ExpiresAtUtc");
-            """);
+            // The schema comes from the real migrations, like every other test. Creating the table by hand made the
+            // Identity migration fail with "already exists" whenever a migrating host started after this class.
+            context.Database.Migrate();
 
             _initialized = true;
         }

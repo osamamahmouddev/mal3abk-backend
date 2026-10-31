@@ -20,6 +20,8 @@ public static class NotificationTypes
     public const string BookingRejected = "booking.rejected";
     public const string BookingExpired = "booking.expired";
     public const string PaymentProofSubmitted = "payment.proof_submitted";
+    public const string BookingReminder24h = "booking.reminder_24h";
+    public const string BookingReminder2h = "booking.reminder_2h";
     public const string VenueApproved = "venue.approved";
     public const string VenueRejected = "venue.rejected";
     public const string VenueInfoRequested = "venue.info_requested";

@@ -89,6 +89,9 @@ public static class VenuesModule
         services.AddScoped<IQueryHandler<RevealPaymentMethodDetailsQuery, Result<PaymentMethodDetailsDto>>, RevealPaymentMethodDetailsHandler>();
         services.AddScoped<IReEncryptionTarget, PaymentMethodReEncryptionTarget>();
 
+        // Lets other modules ask which venue a pitch belongs to, a venue's name and its staff, without reading Venues' tables
+        services.AddScoped<IVenueDirectory, VenueDirectory>();
+
         // Booking policies (versioned)
         services.AddScoped<IBookingPolicyProvider, BookingPolicyProvider>();
         services.AddScoped<ICommandHandler<SetBookingPolicyCommand, Result<BookingPolicyDto>>, SetBookingPolicyHandler>();

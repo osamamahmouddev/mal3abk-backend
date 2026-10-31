@@ -15,10 +15,12 @@ using Malabak.Api.Infrastructure.Media;
 using Malabak.Api.Infrastructure.OpenApi;
 using Malabak.Api.Infrastructure.OpenTelemetry;
 using Malabak.Api.Infrastructure.Outbox;
+using Malabak.Api.Infrastructure.Realtime;
 using Malabak.Api.Infrastructure.Redis;
 using Malabak.Api.Infrastructure.Security;
 using Malabak.Api.Infrastructure.Seeding;
 using Malabak.Api.Infrastructure.Validation;
+using Malabak.Modules.Booking;
 using Malabak.Modules.Booking.Application.Bookings.CreateBooking;
 using Malabak.Modules.Booking.Infrastructure;
 using Malabak.Modules.Identity;
@@ -108,7 +110,10 @@ builder.Services.AddMalabakOutbox();
 // 9. Reusable Idempotency Infrastructure
 builder.Services.AddMalabakIdempotency();
 
-// 10. Rate Limiting
+// 10. Realtime & SignalR Infrastructure (WS Tickets & Hubs)
+builder.Services.AddRealtimeInfrastructure(builder.Configuration);
+
+// 11. Rate Limiting
 builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
@@ -207,6 +212,7 @@ builder.Services.AddDbContext<MediaDbContext>(options =>
         npgsql.MigrationsHistoryTable("__EFMigrationsHistory", MediaDbContext.Schema)));
 builder.Services.AddMediaStorage(builder.Configuration, builder.Environment);
 builder.Services.AddScoped<MediaService>();
+builder.Services.AddScoped<Malabak.Modules.Booking.Application.Abstractions.IProofFileStore, MediaProofFileStore>();
 builder.Services.AddScoped<Malabak.SharedKernel.Contracts.IPersonalDataContributor, MediaPersonalData>();
 
 builder.Services.AddDbContext<NotificationsDbContext>(options =>
@@ -223,15 +229,13 @@ builder.Services.AddSingleton<IErrorMessageLocalizer, ErrorMessageLocalizer>();
 builder.Services.AddMalabakValidation();
 builder.Services.AddMalabakDataSeeders();
 builder.Services.AddScoped<IBookingConflictChecker, BookingConflictChecker>();
-builder.Services.AddScoped<Malabak.SharedKernel.Contracts.IUpcomingBookingsReader, UpcomingBookingsReader>();
 builder.Services.AddSingleton<Malabak.Modules.Venues.Application.Availability.IAvailabilityCacheStore, Malabak.Api.Infrastructure.Caching.RedisAvailabilityCacheStore>();
 builder.Services.AddSingleton<Malabak.Modules.Venues.Application.Quotes.IQuoteTokenSigner, Malabak.Api.Infrastructure.Security.HmacQuoteTokenSigner>();
 builder.Services.AddSingleton(new Malabak.Modules.Venues.Application.Home.HomeFeedSettings(builder.Configuration.GetValue<bool>("Features:SponsoredHomeItems")));
-builder.Services.AddScoped<Malabak.SharedKernel.Contracts.IPersonalDataContributor, BookingPersonalData>();
 builder.Services.AddHostedService<Malabak.Api.Infrastructure.AccountAnonymizationService>();
-builder.Services.AddScoped<ICommandHandler<CreateBookingCommand, Result<CreateBookingResponse>>, CreateBookingHandler>();
 builder.Services.AddIdentityModule(builder.Configuration);
 builder.Services.AddVenuesModule();
+builder.Services.AddBookingModule();
 var fcmSection = builder.Configuration.GetSection("Push:Fcm");
 builder.Services.AddNotificationsModule(string.IsNullOrWhiteSpace(fcmSection["PrivateKeyPem"])
     ? null
@@ -432,6 +436,11 @@ app.MapPublicVenueEndpoints(apiVersionSet);
 app.MapBookingQuoteEndpoints(apiVersionSet);
 app.MapPlayerVenueListEndpoints(apiVersionSet);
 app.MapPrivacyEndpoints(apiVersionSet);
+app.MapRealtimeEndpoints(apiVersionSet);
+app.MapBookingEndpoints(apiVersionSet);
+
+// WebSockets only (SECURITY.md): long polling and server-sent events would validate the single-use ticket on every request.
+app.MapHub<BookingHub>("/hubs/booking", options => options.Transports = Microsoft.AspNetCore.Http.Connections.HttpTransportType.WebSockets);
 
 await app.RunAsync();
 

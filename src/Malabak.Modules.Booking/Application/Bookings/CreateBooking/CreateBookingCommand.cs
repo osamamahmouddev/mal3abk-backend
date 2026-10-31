@@ -7,7 +7,9 @@ public sealed record CreateBookingCommand(
     Guid PlayerId,
     DateTime StartUtc,
     DateTime EndUtc,
-    decimal TotalPrice,
-    decimal DepositAmount,
-    string ActorUserId
+    string QuoteToken,
+    decimal ExpectedPrice,
+    string ActorUserId,
+    string? CustomerName = null,
+    string? CustomerPhone = null
 ) : ICommand<Result<CreateBookingResponse>>;

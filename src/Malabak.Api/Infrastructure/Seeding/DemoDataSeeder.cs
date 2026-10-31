@@ -44,11 +44,11 @@ public sealed class DemoDataSeeder : IDataSeeder
         _logger.LogInformation("Starting Fictional Egyptian Demo Data Seeding in {Env}...", _environment.EnvironmentName);
 
         var (player1, player2, venueOwner) = await SeedDemoUsersAsync(cancellationToken);
-        var (_, pitchAhly1, pitchAhly2) = await SeedDemoVenuesAndPitchesAsync(venueOwner.Id, cancellationToken);
+        var (venueAhly, pitchAhly1, pitchAhly2) = await SeedDemoVenuesAndPitchesAsync(venueOwner.Id, cancellationToken);
 
         if (_bookingDbContext != null)
         {
-            await SeedDemoBookingsAsync(player1.Id, player2.Id, pitchAhly1.Id, pitchAhly2.Id, cancellationToken);
+            await SeedDemoBookingsAsync(venueAhly.Id, player1.Id, player2.Id, pitchAhly1.Id, pitchAhly2.Id, cancellationToken);
         }
 
         _logger.LogInformation("Demo Data Seeding completed successfully.");
@@ -169,6 +169,7 @@ public sealed class DemoDataSeeder : IDataSeeder
     }
 
     private async Task SeedDemoBookingsAsync(
+        Guid venueId,
         Guid player1Id,
         Guid player2Id,
         Guid pitch1Id,
@@ -186,6 +187,7 @@ public sealed class DemoDataSeeder : IDataSeeder
             var booking1Result = Booking.Create(
                 id: booking1Id,
                 bookingReference: "BK-AHLY-PENDING",
+                venueId: venueId,
                 pitchId: pitch1Id,
                 playerId: player1Id,
                 startUtc: now.AddHours(3),
@@ -193,6 +195,8 @@ public sealed class DemoDataSeeder : IDataSeeder
                 totalPrice: Money.Create(450.00m, "EGP").Value,
                 depositAmount: Money.Create(150.00m, "EGP").Value,
                 holdExpiresAtUtc: now.AddMinutes(15),
+                priceSnapshot: null,
+                policySnapshot: null,
                 nowUtc: now,
                 actorUserId: player1Id.ToString());
 
@@ -209,6 +213,7 @@ public sealed class DemoDataSeeder : IDataSeeder
             var booking2Result = Booking.Create(
                 id: booking2Id,
                 bookingReference: "BK-AHLY-CONFIRM",
+                venueId: venueId,
                 pitchId: pitch2Id,
                 playerId: player2Id,
                 startUtc: now.AddHours(5),
@@ -216,12 +221,14 @@ public sealed class DemoDataSeeder : IDataSeeder
                 totalPrice: Money.Create(700.00m, "EGP").Value,
                 depositAmount: Money.Create(200.00m, "EGP").Value,
                 holdExpiresAtUtc: now.AddMinutes(15),
+                priceSnapshot: null,
+                policySnapshot: null,
                 nowUtc: now,
                 actorUserId: player2Id.ToString());
 
             if (booking2Result.IsSuccess)
             {
-                booking2Result.Value.SubmitProof(player2Id.ToString(), now);
+                booking2Result.Value.SubmitProof(Guid.NewGuid(), player2Id.ToString(), now);
                 booking2Result.Value.Confirm("SystemAdmin", now);
                 await _bookingDbContext.Bookings.AddAsync(booking2Result.Value, cancellationToken);
             }
@@ -234,6 +241,7 @@ public sealed class DemoDataSeeder : IDataSeeder
             var booking3Result = Booking.Create(
                 id: booking3Id,
                 bookingReference: "BK-AHLY-CANCEL",
+                venueId: venueId,
                 pitchId: pitch1Id,
                 playerId: player1Id,
                 startUtc: now.AddDays(1),
@@ -241,12 +249,14 @@ public sealed class DemoDataSeeder : IDataSeeder
                 totalPrice: Money.Create(450.00m, "EGP").Value,
                 depositAmount: Money.Create(150.00m, "EGP").Value,
                 holdExpiresAtUtc: now.AddMinutes(15),
+                priceSnapshot: null,
+                policySnapshot: null,
                 nowUtc: now,
                 actorUserId: player1Id.ToString());
 
             if (booking3Result.IsSuccess)
             {
-                booking3Result.Value.Cancel("Cancelled by player due to schedule conflict", player1Id.ToString(), now);
+                booking3Result.Value.Cancel("Cancelled by player due to schedule conflict", player1Id.ToString(), isStaff: false, nowUtc: now);
                 await _bookingDbContext.Bookings.AddAsync(booking3Result.Value, cancellationToken);
             }
         }

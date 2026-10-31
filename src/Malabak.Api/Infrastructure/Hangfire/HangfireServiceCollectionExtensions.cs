@@ -1,6 +1,7 @@
 using Hangfire;
 using Hangfire.PostgreSql;
 using Malabak.Api.Infrastructure.Configuration;
+using Malabak.Modules.Booking.Infrastructure.Jobs;
 using Microsoft.Extensions.Options;
 
 namespace Malabak.Api.Infrastructure.Hangfire;
@@ -75,6 +76,31 @@ public static class HangfireServiceCollectionExtensions
                 DashboardTitle = "Malabak Job Scheduler",
                 DisplayStorageConnectionString = false
             });
+        }
+
+        using var scope = app.Services.CreateScope();
+        var recurringJobs = scope.ServiceProvider.GetService<IRecurringJobManager>();
+        if (recurringJobs != null)
+        {
+            recurringJobs.AddOrUpdate<ExpireBookingHoldsJob>(
+                ExpireBookingHoldsJob.RecurringJobId,
+                job => job.ExecuteRecurringSweepAsync(CancellationToken.None),
+                ExpireBookingHoldsJob.CronSchedule);
+
+            recurringJobs.AddOrUpdate<CompleteBookingsJob>(
+                CompleteBookingsJob.RecurringJobId,
+                job => job.ExecuteRecurringSweepAsync(CancellationToken.None),
+                CompleteBookingsJob.CronSchedule);
+
+            recurringJobs.AddOrUpdate<BookingRemindersJob>(
+                BookingRemindersJob.RecurringJobId,
+                job => job.ExecuteRecurringSweepAsync(CancellationToken.None),
+                BookingRemindersJob.CronSchedule);
+
+            recurringJobs.AddOrUpdate<ProofRetentionJob>(
+                ProofRetentionJob.RecurringJobId,
+                job => job.ExecuteRecurringCleanupAsync(CancellationToken.None),
+                ProofRetentionJob.CronSchedule);
         }
 
         return app;
