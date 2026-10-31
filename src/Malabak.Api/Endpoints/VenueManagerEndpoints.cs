@@ -603,13 +603,13 @@ public static class VenueManagerEndpoints
 
     public sealed record SetPitchActiveApiRequest(bool IsActive);
 
-public sealed record UpdatePitchApiRequest(
-        string Name,
-        string TurfType,
-        int Capacity,
-        decimal? LengthMeters,
-        decimal? WidthMeters,
-        IEnumerable<string>? Photos);
+    public sealed record UpdatePitchApiRequest(
+            string Name,
+            string TurfType,
+            int Capacity,
+            decimal? LengthMeters,
+            decimal? WidthMeters,
+            IEnumerable<string>? Photos);
 
     public sealed record ScheduleItemApiRequest(
         DayOfWeek DayOfWeek,
