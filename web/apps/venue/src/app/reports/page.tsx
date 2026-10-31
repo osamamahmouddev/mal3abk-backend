@@ -254,7 +254,7 @@ function ReportBody({ report }: { report: Report }) {
         </div>
       </section>
 
-      <section className={`${card} rounded-[20px] px-5 pt-2 pb-4 overflow-x-auto`} aria-label="الحجوزات حسب الفترة">
+      <section className={`${card} rounded-[20px] px-5 pt-2 pb-4 overflow-x-auto`} aria-label="الحجوزات حسب الفترة" tabIndex={0}>
         <table className="w-full min-w-[560px] border-collapse text-sm">
           <thead>
             <tr className={`${muted} text-xs text-right`}>

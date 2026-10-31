@@ -231,7 +231,7 @@ export default function ReservationsPage() {
             ))}
           </ul>
 
-          <div className="hidden md:block overflow-x-auto">
+          <div className="hidden md:block overflow-x-auto" tabIndex={0} role="region" aria-label="جدول الحجوزات">
             <table className="w-full min-w-[760px] border-collapse text-sm">
               <thead>
                 <tr className={`bg-[#F8F9FB] ${muted} text-xs text-right`}>

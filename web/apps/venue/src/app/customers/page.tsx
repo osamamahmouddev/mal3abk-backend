@@ -142,7 +142,7 @@ export default function CustomersPage() {
 
       <div className="flex flex-wrap gap-4 items-start">
         <section className={`flex-[999_1_560px] min-w-0 ${card} rounded-[18px] overflow-hidden`} aria-busy={customers.isFetching}>
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="جدول العملاء">
             <table className="w-full min-w-[620px] border-collapse text-sm">
               <thead>
                 <tr className={`bg-[#F8F9FB] ${muted} text-xs text-right`}>
