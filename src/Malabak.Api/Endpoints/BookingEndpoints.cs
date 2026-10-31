@@ -120,7 +120,14 @@ public static class BookingEndpoints
             }
 
             var fileKey = MediaService.StorageKey(asset, "large");
-            var sha256 = asset.UploadTokenHash; // Or media content hash
+
+            // The receipt's content hash, recorded when the upload was processed. Without it duplicate detection cannot
+            // work, so a proof is refused rather than accepted unchecked (assets from before hashing must be re-uploaded).
+            var sha256 = asset.ContentSha256;
+            if (string.IsNullOrWhiteSpace(sha256))
+            {
+                return Results.Problem(title: "Proof.HashUnavailable", detail: "This upload cannot be verified. Please upload the receipt again.", statusCode: StatusCodes.Status422UnprocessableEntity);
+            }
 
             var command = new SubmitProofCommand(
                 id,

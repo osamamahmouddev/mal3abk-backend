@@ -110,7 +110,13 @@ public sealed class BookingDbContext : DbContext, IBookingDbContext
             builder.Property(p => p.ReviewedByUserId).HasMaxLength(128);
 
             builder.HasIndex(p => p.BookingId);
-            builder.HasIndex(p => p.Sha256Hash);
+
+            // One receipt (by content hash) may be active on one booking only (SECURITY.md section 11). A rejected proof no
+            // longer counts, so the player can send the corrected one; proofs from before hashing have no hash and are
+            // exempt. The handler checks first for a friendly error; this index is what holds when two requests race.
+            builder.HasIndex(p => p.Sha256Hash)
+                .IsUnique()
+                .HasFilter("\"Sha256Hash\" <> '' AND \"IsApproved\" IS DISTINCT FROM FALSE");
         });
 
         modelBuilder.Entity<BookingRefund>(builder =>

@@ -45,6 +45,13 @@ public sealed class MediaAsset
     public int? Width { get; private set; }
     public int? Height { get; private set; }
     public long? SizeBytes { get; private set; }
+
+    /// <summary>
+    /// SHA-256 of the processed, canonical image (hex). Identical pictures give identical hashes, whatever file format they
+    /// were uploaded in, which is what lets a payment receipt reused on another booking be recognised.
+    /// </summary>
+    public string? ContentSha256 { get; private set; }
+
     public string? RejectionReason { get; private set; }
     public DateTime CreatedAtUtc { get; private set; }
     public DateTime? CompletedAtUtc { get; private set; }
@@ -63,12 +70,13 @@ public sealed class MediaAsset
 
     public bool CanUpload(DateTime nowUtc) => Status == MediaStatus.AwaitingUpload && UploadExpiresAtUtc > nowUtc;
 
-    public void MarkReady(int width, int height, long sizeBytes, DateTime nowUtc)
+    public void MarkReady(int width, int height, long sizeBytes, string contentSha256, DateTime nowUtc)
     {
         Status = MediaStatus.Ready;
         Width = width;
         Height = height;
         SizeBytes = sizeBytes;
+        ContentSha256 = contentSha256;
         CompletedAtUtc = nowUtc;
         UploadTokenHash = string.Empty; // single use
     }
@@ -104,6 +112,7 @@ public sealed class MediaDbContext : DbContext
             b.Property(a => a.Visibility).HasConversion<string>().HasMaxLength(10);
             b.Property(a => a.Status).HasConversion<string>().HasMaxLength(20);
             b.Property(a => a.UploadTokenHash).HasMaxLength(64);
+            b.Property(a => a.ContentSha256).HasMaxLength(64);
             b.Property(a => a.RejectionReason).HasMaxLength(60);
             b.HasIndex(a => new { a.OwnerUserId, a.CreatedAtUtc });
         });

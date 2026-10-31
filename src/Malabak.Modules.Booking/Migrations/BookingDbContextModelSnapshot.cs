@@ -307,7 +307,9 @@ namespace Malabak.Modules.Booking.Migrations
 
                     b.HasIndex("BookingId");
 
-                    b.HasIndex("Sha256Hash");
+                    b.HasIndex("Sha256Hash")
+                        .IsUnique()
+                        .HasFilter("\"Sha256Hash\" <> '' AND \"IsApproved\" IS DISTINCT FROM FALSE");
 
                     b.ToTable("payment_proofs", "booking");
                 });

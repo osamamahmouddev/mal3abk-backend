@@ -148,6 +148,30 @@ public sealed class MediaPipelineTests : IDisposable
         (await service.FindOwnedReadyAsync(ticket.MediaId, _userId, MediaPurpose.Avatar)).Should().BeNull();
     }
 
+    [Fact]
+    public async Task UploadedImages_GetAContentHash_ThatIsStableForTheSamePictureAsync()
+    {
+        await using var db = NewDb();
+        var service = Service(db);
+
+        var first = await UploadAsync(service, Image(600, 400));
+        var again = await UploadAsync(service, Image(600, 400));
+        var other = await UploadAsync(service, Image(500, 500));
+
+        var hashes = await db.Assets.AsNoTracking().ToDictionaryAsync(a => a.Id, a => a.ContentSha256);
+        hashes[first].Should().MatchRegex("^[0-9A-F]{64}$");
+        hashes[again].Should().Be(hashes[first], "the same picture must be recognisable as the same receipt");
+        hashes[other].Should().NotBe(hashes[first]);
+    }
+
+    private async Task<Guid> UploadAsync(MediaService service, byte[] image)
+    {
+        var ticket = await service.CreateUploadAsync(_userId, MediaPurpose.PaymentProof);
+        var result = await service.UploadAsync(ticket.MediaId, _userId, TokenFrom(ticket.UploadUrl), image);
+        result.Success.Should().BeTrue();
+        return ticket.MediaId;
+    }
+
     private MediaService Service(MediaDbContext db)
     {
         var config = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>

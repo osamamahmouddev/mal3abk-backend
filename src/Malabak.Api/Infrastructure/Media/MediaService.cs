@@ -94,7 +94,7 @@ public sealed class MediaService
         }
 
         var large = processed.Variants[0];
-        asset.MarkReady(large.Width, large.Height, processed.Variants.Sum(v => (long)v.Bytes.Length), nowUtc);
+        asset.MarkReady(large.Width, large.Height, processed.Variants.Sum(v => (long)v.Bytes.Length), Convert.ToHexString(SHA256.HashData(large.Bytes)), nowUtc);
         await _dbContext.SaveChangesAsync(cancellationToken);
 
         return new MediaUploadResult(true, null, asset.Id, UrlsFor(asset));

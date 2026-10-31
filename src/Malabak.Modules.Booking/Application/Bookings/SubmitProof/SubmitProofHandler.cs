@@ -59,21 +59,23 @@ public sealed class SubmitProofHandler : ICommandHandler<SubmitProofCommand, Res
             return Result.Failure(BookingErrors.HoldExpired);
         }
 
-        // Duplicate receipt detection (TASK-408): Check if same SHA-256 hash was used on another booking
-        if (!string.IsNullOrWhiteSpace(command.Sha256Hash))
+        // Duplicate receipt detection (TASK-408). A proof without a content hash cannot be checked, so it is refused
+        // instead of being let through unchecked.
+        if (string.IsNullOrWhiteSpace(command.Sha256Hash))
         {
-            var isDuplicate = await _dbContext.PaymentProofs.AsNoTracking()
-                .AnyAsync(p => p.Sha256Hash == command.Sha256Hash
-                            && p.BookingId != command.BookingId
-                            && p.IsApproved != false,
-                            cancellationToken);
+            return Result.Failure(Error.Validation("Proof.HashRequired", "The receipt must have a content hash."));
+        }
 
-            if (isDuplicate)
-            {
-                _logger.LogWarning("Duplicate payment proof hash {Hash} submitted for booking {BookingId}",
-                    command.Sha256Hash, command.BookingId);
-                return Result.Failure(Error.Conflict("Proof.DuplicateReceipt", "This payment receipt has already been submitted for another booking."));
-            }
+        var isDuplicate = await _dbContext.PaymentProofs.AsNoTracking()
+            .AnyAsync(p => p.Sha256Hash == command.Sha256Hash
+                        && p.BookingId != command.BookingId
+                        && p.IsApproved != false,
+                        cancellationToken);
+
+        if (isDuplicate)
+        {
+            _logger.LogWarning("Duplicate payment proof submitted for booking {BookingId}", command.BookingId);
+            return Result.Failure(_duplicateReceipt);
         }
 
         // Aggregate transition to ProofSubmitted
@@ -102,20 +104,32 @@ public sealed class SubmitProofHandler : ICommandHandler<SubmitProofCommand, Res
 
         booking.AddProof(proof);
 
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        try
+        {
+            await _dbContext.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateException ex) when (BookingPersistenceErrors.IsDuplicateProofHash(ex))
+        {
+            // Two requests carried the same receipt at once and both passed the check above; the index let one through.
+            _logger.LogWarning(ex, "Duplicate payment proof submitted for booking {BookingId} (concurrent)", command.BookingId);
+            return Result.Failure(_duplicateReceipt);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            // The booking changed while this request was running (for example a second submit, a cancel or an expiry).
+            return Result.Failure(Error.Conflict("Booking.ConcurrentUpdate", "The booking was changed by another request. Please reload and try again."));
+        }
 
-        // Dispatch domain events
-        await _domainEventDispatcher.DispatchAsync(booking.DomainEvents, cancellationToken);
-
-        // Broadcast realtime update to player and venue staff
-        await _broadcaster.BroadcastBookingUpdatedAsync(
+        // The proof is saved. A failing side effect must not turn that into an error the player would retry.
+        await RunGuardedAsync(booking, "dispatch domain events", () => _domainEventDispatcher.DispatchAsync(booking.DomainEvents, cancellationToken));
+        await RunGuardedAsync(booking, "broadcast the booking update", () => _broadcaster.BroadcastBookingUpdatedAsync(
             booking.PlayerId,
             booking.VenueId,
             booking.Id,
             booking.BookingReference,
             BookingStatus.ProofSubmitted.ToString(),
             nowUtc,
-            cancellationToken);
+            cancellationToken));
 
         // Dispatch notification
         if (_notificationPublisher is not null)
@@ -143,5 +157,19 @@ public sealed class SubmitProofHandler : ICommandHandler<SubmitProofCommand, Res
         }
 
         return Result.Success();
+    }
+
+    private static readonly Error _duplicateReceipt = Error.Conflict("Proof.DuplicateReceipt", "This payment receipt has already been submitted for another booking.");
+
+    private async Task RunGuardedAsync(Domain.Booking booking, string step, Func<Task> action)
+    {
+        try
+        {
+            await action();
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogError(ex, "Proof for booking {BookingId} was saved but the step '{Step}' failed.", booking.Id, step);
+        }
     }
 }
