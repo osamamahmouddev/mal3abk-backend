@@ -2115,6 +2115,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/venue-manager/venues/{venueId}/dashboard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Dashboard overview: today's counts, revenue (reports permission), occupancy, timeline, proofs awaiting review and activity */
+        get: operations["GetVenueDashboard"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/venue-manager/venues/{venueId}/bookings/pending": {
         parameters: {
             query?: never;
@@ -2229,6 +2246,74 @@ export interface paths {
         /** Record manual refund processed by venue for cancelled reservation */
         post: operations["RecordManualRefund"];
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/venue-manager/venues/{venueId}/customers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Customers who booked at the venue, with booking counts, no-shows, cancellations and spend */
+        get: operations["ListVenueCustomers"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/venue-manager/venues/{venueId}/customers/{customerKey}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Customer details: summary, last 50 bookings at this venue and staff notes */
+        get: operations["GetVenueCustomer"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/venue-manager/venues/{venueId}/customers/{customerKey}/notes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Add a staff-only note about the customer (stored encrypted) */
+        post: operations["AddVenueCustomerNote"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/venue-manager/venues/{venueId}/customers/{customerKey}/notes/{noteId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete a note (its author, or a manager who can manage staff) */
+        delete: operations["DeleteVenueCustomerNote"];
         options?: never;
         head?: never;
         patch?: never;
@@ -2556,6 +2641,40 @@ export interface paths {
         put?: never;
         /** Price a slot with the saved rules, and optionally with a draft rule to compare */
         post: operations["PreviewPrice"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/venue-manager/venues/{venueId}/reports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Bookings per day/week/month, status distribution, revenue split, pitch utilization and peak hours */
+        get: operations["GetVenueReport"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/venue-manager/venues/{venueId}/reports/bookings.csv": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Bookings in the range as CSV (up to 20,000 rows) */
+        get: operations["ExportVenueBookingsCsv"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -3028,6 +3147,7 @@ export interface components {
             customerName?: string | null;
             bookingReference: string;
             isManual: boolean;
+            reason?: string | null;
         };
         CancelBookingApiRequest: {
             reason?: string | null;
@@ -3168,6 +3288,68 @@ export interface components {
             phoneNumber: string;
             facilities?: string[] | null;
             photos?: string[] | null;
+        };
+        CustomerNoteApiRequest: {
+            text: string;
+        };
+        DashboardActivity: {
+            /** Format: uuid */
+            bookingId: string;
+            reference: string;
+            fromStatus: components["schemas"]["BookingStatus"];
+            toStatus: components["schemas"]["BookingStatus"];
+            /** Format: date-time */
+            changedAtUtc: string;
+            reason?: string | null;
+        };
+        DashboardBooking: {
+            /** Format: uuid */
+            bookingId: string;
+            reference: string;
+            /** Format: uuid */
+            pitchId: string;
+            /** Format: date-time */
+            startUtc: string;
+            /** Format: date-time */
+            endUtc: string;
+            customerName: string;
+            isManual: boolean;
+            status: components["schemas"]["BookingStatus"];
+            /** Format: double */
+            totalPrice: number;
+            /** Format: double */
+            depositAmount: number;
+            currency: string;
+            depositState: string;
+            /** Format: date-time */
+            deadlineUtc?: string | null;
+        };
+        DashboardCounts: {
+            /** Format: int32 */
+            todayBookings: number;
+            /** Format: int32 */
+            confirmed: number;
+            /** Format: int32 */
+            pendingDeposit: number;
+            /** Format: int32 */
+            pendingProofReview: number;
+            /** Format: int32 */
+            cancelled: number;
+            /** Format: int32 */
+            noShows: number;
+        };
+        DashboardRevenue: {
+            currency: string;
+            /** Format: double */
+            confirmedValue: number;
+            /** Format: double */
+            depositsCollected: number;
+            /** Format: double */
+            dueAtVenue: number;
+            /** Format: double */
+            depositsPendingReview: number;
+            /** Format: double */
+            expectedValue: number;
         };
         /**
          * Format: int32
@@ -3316,6 +3498,16 @@ export interface components {
             inAppEnabled: boolean;
             pushEnabled: boolean;
             canDisable: boolean;
+        };
+        OccupancyPoint: {
+            /** Format: date */
+            date: string;
+            /** Format: int32 */
+            openMinutes: number;
+            /** Format: int32 */
+            bookedMinutes: number;
+            /** Format: double */
+            percent: number;
         };
         OnboardingStatusDto: {
             isComplete: boolean;
@@ -3478,6 +3670,7 @@ export interface components {
             holdExpiresAtUtc?: string | null;
             notes?: string | null;
             cancellationPolicySummary?: string | null;
+            venue?: components["schemas"]["PlayerVenueDto"];
             allowedActions: components["schemas"]["PlayerAllowedActions"];
             proofs: components["schemas"]["PlayerProofDto"][];
             statusHistory: components["schemas"]["PlayerStatusHistoryDto"][];
@@ -3546,6 +3739,14 @@ export interface components {
             reason?: string | null;
             /** Format: date-time */
             changedAtUtc: string;
+        };
+        PlayerVenueDto: {
+            name: string;
+            address: string;
+            /** Format: double */
+            latitude?: number | null;
+            /** Format: double */
+            longitude?: number | null;
         };
         PreferenceApiRequest: {
             inAppEnabled: boolean;
@@ -3664,9 +3865,22 @@ export interface components {
             fullName: string;
             password: string;
         };
+        /**
+         * Format: int32
+         * @enum {integer}
+         */
+        ReportGrouping: 0 | 1 | 2;
         ResetPasswordApiRequest: {
             token: string;
             newPassword: string;
+        };
+        RevenuePoint: {
+            /** Format: date */
+            date: string;
+            /** Format: double */
+            confirmedValue: number;
+            /** Format: double */
+            depositsCollected: number;
         };
         ReviewProofApiRequest: {
             approved: boolean;
@@ -4020,6 +4234,23 @@ export interface components {
             nextAvailableStartUtc?: string | null;
             /** Format: date-time */
             viewedAtUtc?: string | null;
+        };
+        VenueDashboardDto: {
+            /** Format: date */
+            businessDate: string;
+            today: components["schemas"]["DashboardCounts"];
+            todayRevenue?: components["schemas"]["DashboardRevenue"];
+            monthRevenue?: components["schemas"]["DashboardRevenue"];
+            todayOccupancy: components["schemas"]["OccupancyPoint"];
+            occupancyThisWeek: components["schemas"]["OccupancyPoint"][];
+            occupancyLastWeek: components["schemas"]["OccupancyPoint"][];
+            revenueTrend?: components["schemas"]["RevenuePoint"][] | null;
+            timeline: components["schemas"]["DashboardBooking"][];
+            upcoming: components["schemas"]["DashboardBooking"][];
+            proofsAwaitingReview: components["schemas"]["DashboardBooking"][];
+            recentActivity: components["schemas"]["DashboardActivity"][];
+            /** Format: date-time */
+            generatedAtUtc: string;
         };
         VenueDto: {
             /** Format: uuid */
@@ -7291,10 +7522,10 @@ export interface operations {
     };
     GetMyBookings: {
         parameters: {
-            query: {
+            query?: {
                 tab?: string;
-                page: number;
-                pageSize: number;
+                page?: number;
+                pageSize?: number;
             };
             header?: never;
             path?: never;
@@ -11980,14 +12211,14 @@ export interface operations {
     };
     GetVenueBookings: {
         parameters: {
-            query: {
+            query?: {
                 status?: components["schemas"]["BookingStatus"];
                 startDateUtc?: string;
                 endDateUtc?: string;
                 pitchId?: string;
                 search?: string;
-                page: number;
-                pageSize: number;
+                page?: number;
+                pageSize?: number;
             };
             header?: never;
             path: {
@@ -12004,6 +12235,93 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["VenueBookingItemDtoPagedList"];
+                };
+            };
+            /** @description Bad Request (Validation failure, invalid inputs) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Unauthorized (Missing or expired JWT access token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Forbidden (Insufficient role or permissions) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Not Found (Resource does not exist) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Conflict (Concurrent update or duplicate idempotency in flight) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Unprocessable Entity (Business rule violation or payload mismatch) */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Too Many Requests (Rate limit exceeded, check Retry-After header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    GetVenueDashboard: {
+        parameters: {
+            query?: {
+                date?: string;
+            };
+            header?: never;
+            path: {
+                venueId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VenueDashboardDto"];
                 };
             };
             /** @description Bad Request (Validation failure, invalid inputs) */
@@ -12611,6 +12929,350 @@ export interface operations {
                 "application/json": components["schemas"]["RecordRefundApiRequest"];
             };
         };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Bad Request (Validation failure, invalid inputs) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Unauthorized (Missing or expired JWT access token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Forbidden (Insufficient role or permissions) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Not Found (Resource does not exist) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Conflict (Concurrent update or duplicate idempotency in flight) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Unprocessable Entity (Business rule violation or payload mismatch) */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Too Many Requests (Rate limit exceeded, check Retry-After header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    ListVenueCustomers: {
+        parameters: {
+            query?: {
+                search?: string;
+                page?: number;
+                pageSize?: number;
+            };
+            header?: never;
+            path: {
+                venueId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Bad Request (Validation failure, invalid inputs) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Unauthorized (Missing or expired JWT access token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Forbidden (Insufficient role or permissions) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Not Found (Resource does not exist) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Conflict (Concurrent update or duplicate idempotency in flight) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Unprocessable Entity (Business rule violation or payload mismatch) */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Too Many Requests (Rate limit exceeded, check Retry-After header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    GetVenueCustomer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                venueId: string;
+                customerKey: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Bad Request (Validation failure, invalid inputs) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Unauthorized (Missing or expired JWT access token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Forbidden (Insufficient role or permissions) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Not Found (Resource does not exist) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Conflict (Concurrent update or duplicate idempotency in flight) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Unprocessable Entity (Business rule violation or payload mismatch) */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Too Many Requests (Rate limit exceeded, check Retry-After header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    AddVenueCustomerNote: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                venueId: string;
+                customerKey: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CustomerNoteApiRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Bad Request (Validation failure, invalid inputs) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Unauthorized (Missing or expired JWT access token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Forbidden (Insufficient role or permissions) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Not Found (Resource does not exist) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Conflict (Concurrent update or duplicate idempotency in flight) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Unprocessable Entity (Business rule violation or payload mismatch) */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Too Many Requests (Rate limit exceeded, check Retry-After header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    DeleteVenueCustomerNote: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                venueId: string;
+                customerKey: string;
+                noteId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description OK */
             200: {
@@ -15290,6 +15952,181 @@ export interface operations {
                 "application/json": components["schemas"]["PricePreviewApiRequest"];
             };
         };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Bad Request (Validation failure, invalid inputs) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Unauthorized (Missing or expired JWT access token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Forbidden (Insufficient role or permissions) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Not Found (Resource does not exist) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Conflict (Concurrent update or duplicate idempotency in flight) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Unprocessable Entity (Business rule violation or payload mismatch) */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Too Many Requests (Rate limit exceeded, check Retry-After header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    GetVenueReport: {
+        parameters: {
+            query: {
+                from: string;
+                to: string;
+                pitchId?: string;
+                groupBy?: components["schemas"]["ReportGrouping"];
+            };
+            header?: never;
+            path: {
+                venueId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Bad Request (Validation failure, invalid inputs) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Unauthorized (Missing or expired JWT access token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Forbidden (Insufficient role or permissions) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Not Found (Resource does not exist) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Conflict (Concurrent update or duplicate idempotency in flight) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Unprocessable Entity (Business rule violation or payload mismatch) */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Too Many Requests (Rate limit exceeded, check Retry-After header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    ExportVenueBookingsCsv: {
+        parameters: {
+            query: {
+                from: string;
+                to: string;
+                pitchId?: string;
+            };
+            header?: never;
+            path: {
+                venueId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description OK */
             200: {
