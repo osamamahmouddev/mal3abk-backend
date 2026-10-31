@@ -6,8 +6,8 @@ using Microsoft.Extensions.Options;
 namespace Malabak.Modules.Identity.Infrastructure.Services;
 
 /// <summary>
-/// Posts a message to the Slack Incoming Webhook configured in <see cref="OtpDeliveryOptions"/>. Shared by the
-/// OTP and security-alert senders. The message text and the webhook URL (a credential) are never logged; failures
+/// Posts a message to the Slack Incoming Webhook configured in <see cref="OtpDeliveryOptions"/> (or another one,
+/// see <see cref="PostToAsync"/>). Shared by the OTP, security-alert and email senders. The message text and the webhook URL (a credential) are never logged; failures
 /// name only the caller-supplied <c>messageKind</c>.
 /// </summary>
 public sealed class SlackWebhookClient
@@ -23,11 +23,16 @@ public sealed class SlackWebhookClient
         _logger = logger;
     }
 
-    public async Task<bool> PostAsync(string text, string messageKind, CancellationToken cancellationToken = default)
+    public Task<bool> PostAsync(string text, string messageKind, CancellationToken cancellationToken = default) =>
+        PostToAsync(_options.Slack.WebhookUrl, text, messageKind, cancellationToken);
+
+    /// <summary>Posts to another webhook (e.g. the email channel); falls back to the OTP webhook when it is empty.</summary>
+    public async Task<bool> PostToAsync(string? webhookUrl, string text, string messageKind, CancellationToken cancellationToken = default)
     {
         try
         {
-            using var response = await _httpClient.PostAsJsonAsync(_options.Slack.WebhookUrl, new { text }, cancellationToken);
+            var url = string.IsNullOrWhiteSpace(webhookUrl) ? _options.Slack.WebhookUrl : webhookUrl;
+            using var response = await _httpClient.PostAsJsonAsync(url, new { text }, cancellationToken);
             if (response.IsSuccessStatusCode)
             {
                 return true;

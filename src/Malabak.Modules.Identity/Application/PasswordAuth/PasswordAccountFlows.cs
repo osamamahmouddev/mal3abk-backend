@@ -73,7 +73,7 @@ public sealed class PasswordAccountHandlers :
         _cipher = cipher;
         _clock = clock;
         _logger = logger;
-        _dashboardUrl = (configuration["App:VenueDashboardUrl"] ?? "http://localhost:3000").TrimEnd('/');
+        _dashboardUrl = (configuration["App:VenueDashboardUrl"] ?? "http://localhost:3000/venue").TrimEnd('/');
     }
 
     public async Task<Result> HandleAsync(RegisterVenueOwnerCommand command, CancellationToken cancellationToken = default)
