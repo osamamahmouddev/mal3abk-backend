@@ -9,11 +9,14 @@ import type { SessionUser } from "@malabak/bff/server";
 import { logout } from "@/app/auth-actions";
 import { api, unwrap } from "@/lib/api";
 import { useVenue } from "./Providers";
+import { P } from "@/lib/permissions";
 import { toArabicDigits } from "./ui";
 
 export interface NavItem {
   title: string;
   href: string;
+  /** Venue permission needed to see the page; the API enforces it, this only hides links the role cannot use. */
+  permission?: string;
   badge?: string;
 }
 
@@ -23,13 +26,13 @@ const NAV_ITEMS: readonly NavItem[] = [
   { title: "الحجوزات", href: "/reservations" },
   { title: "الملاعب", href: "/pitches" },
   { title: "المواعيد", href: "/schedule" },
-  { title: "الأسعار", href: "/pricing" },
+  { title: "الأسعار", href: "/pricing", permission: P.venueView },
   { title: "سياسات الحجز", href: "/policies" },
-  { title: "العملاء", href: "/customers" },
-  { title: "التقارير", href: "/reports" },
+  { title: "العملاء", href: "/customers", permission: P.customersView },
+  { title: "التقارير", href: "/reports", permission: P.reportsView },
   { title: "الاشتراك والفواتير", href: "/subscription" },
   { title: "الإشعارات", href: "/notifications" },
-  { title: "الموظفين والصلاحيات", href: "/staff" },
+  { title: "الموظفين والصلاحيات", href: "/staff", permission: P.staffManage },
   { title: "الإعدادات", href: "/settings" },
 ] as const;
 
@@ -41,7 +44,7 @@ export interface SidebarProps {
 
 export const Sidebar: React.FC<SidebarProps> = memo(({ user, onClose }) => {
   const pathname = usePathname() ?? "/";
-  const { venue, venues, selectVenue } = useVenue();
+  const { venue, venues, selectVenue, can } = useVenue();
   const unread = useQuery({
     queryKey: ["notifications", "unread"],
     queryFn: () => unwrap(api.GET("/api/v1/me/notifications/unread-count")),
@@ -116,7 +119,7 @@ export const Sidebar: React.FC<SidebarProps> = memo(({ user, onClose }) => {
       </div>
 
       <nav aria-label="أقسام اللوحة" className="flex flex-col gap-0.5">
-        {NAV_ITEMS.map((item) => {
+        {NAV_ITEMS.filter((item) => !item.permission || !venue || can(item.permission)).map((item) => {
           const isItemActive = checkIsActive(item.href);
           return (
             <Link

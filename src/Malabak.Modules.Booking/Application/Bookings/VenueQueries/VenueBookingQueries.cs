@@ -19,7 +19,8 @@ public sealed record VenueBookingItemDto(
     BookingStatus Status,
     string? CustomerName,
     string? CustomerPhone,
-    DateTime CreatedAtUtc);
+    DateTime CreatedAtUtc,
+    bool IsManual = false);
 
 public sealed record VenueBookingDetailDto(
     Guid Id,
@@ -74,7 +75,9 @@ public sealed record GetVenueBookingsQuery(
     Guid? PitchId,
     string? Search,
     int Page = 1,
-    int PageSize = 20
+    int PageSize = 20,
+    IReadOnlyList<BookingStatus>? Statuses = null,
+    string? Sort = null
 ) : IQuery<Result<PagedList<VenueBookingItemDto>>>;
 
 public sealed record GetVenuePendingBookingsQuery(
@@ -102,13 +105,18 @@ public sealed class VenueBookingQueriesHandler :
     /// <summary>The longest span one calendar request may cover (a month view plus the days around it).</summary>
     public const int MaxCalendarDays = 45;
 
+    /// <summary>Sort keys the reservations table may ask for; anything else falls back to newest start first.</summary>
+    public static readonly IReadOnlySet<string> SortKeys = new HashSet<string>(StringComparer.Ordinal) { "start_desc", "start_asc", "created_desc", "price_desc" };
+
     private readonly IBookingDbContext _dbContext;
     private readonly IVenueDirectory _venues;
+    private readonly IUserAccountsContract _users;
 
-    public VenueBookingQueriesHandler(IBookingDbContext dbContext, IVenueDirectory venues)
+    public VenueBookingQueriesHandler(IBookingDbContext dbContext, IVenueDirectory venues, IUserAccountsContract users)
     {
         _dbContext = dbContext;
         _venues = venues;
+        _users = users;
     }
 
     public async Task<Result<PagedList<VenueBookingItemDto>>> HandleAsync(
@@ -121,6 +129,11 @@ public sealed class VenueBookingQueriesHandler :
         if (query.Status.HasValue)
         {
             baseQuery = baseQuery.Where(b => b.Status == query.Status.Value);
+        }
+
+        if (query.Statuses is { Count: > 0 } statuses)
+        {
+            baseQuery = baseQuery.Where(b => statuses.Contains(b.Status));
         }
 
         if (query.StartDateUtc.HasValue)
@@ -151,26 +164,36 @@ public sealed class VenueBookingQueriesHandler :
         var page = query.Page < 1 ? 1 : query.Page;
         var pageSize = query.PageSize is < 1 or > 100 ? 20 : query.PageSize;
 
-        var items = await baseQuery
-            .OrderByDescending(b => b.StartUtc)
+        var ordered = query.Sort switch
+        {
+            "start_asc" => baseQuery.OrderBy(b => b.StartUtc),
+            "created_desc" => baseQuery.OrderByDescending(b => b.CreatedAtUtc),
+            "price_desc" => baseQuery.OrderByDescending(b => b.TotalPrice.Amount).ThenByDescending(b => b.StartUtc),
+            _ => baseQuery.OrderByDescending(b => b.StartUtc)
+        };
+
+        var rows = await ordered
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
-            .Select(b => new VenueBookingItemDto(
-                b.Id,
-                b.BookingReference,
-                b.PitchId,
-                b.StartUtc,
-                b.EndUtc,
-                b.TotalPrice.Amount,
-                b.DepositAmount.Amount,
-                b.TotalPrice.Currency,
-                b.Status,
-                b.CustomerName,
-                b.CustomerPhone,
-                b.CreatedAtUtc))
+            .Select(b => new ItemRow(
+                new VenueBookingItemDto(
+                    b.Id,
+                    b.BookingReference,
+                    b.PitchId,
+                    b.StartUtc,
+                    b.EndUtc,
+                    b.TotalPrice.Amount,
+                    b.DepositAmount.Amount,
+                    b.TotalPrice.Currency,
+                    b.Status,
+                    b.CustomerName,
+                    b.CustomerPhone,
+                    b.CreatedAtUtc,
+                    b.IsManualBooking),
+                b.PlayerId))
             .ToListAsync(cancellationToken);
 
-        return Result.Success(new PagedList<VenueBookingItemDto>(items, totalCount, page, pageSize));
+        return Result.Success(new PagedList<VenueBookingItemDto>(await WithPlayerNamesAsync(rows, cancellationToken), totalCount, page, pageSize));
     }
 
     public async Task<Result<IReadOnlyList<VenueBookingItemDto>>> HandleAsync(
@@ -182,22 +205,25 @@ public sealed class VenueBookingQueriesHandler :
                      && (b.Status == BookingStatus.ProofSubmitted || b.Status == BookingStatus.UnderReview || b.Status == BookingStatus.PendingDeposit)
                      && !b.IsDeleted)
             .OrderBy(b => b.HoldExpiresAtUtc)
-            .Select(b => new VenueBookingItemDto(
-                b.Id,
-                b.BookingReference,
-                b.PitchId,
-                b.StartUtc,
-                b.EndUtc,
-                b.TotalPrice.Amount,
-                b.DepositAmount.Amount,
-                b.TotalPrice.Currency,
-                b.Status,
-                b.CustomerName,
-                b.CustomerPhone,
-                b.CreatedAtUtc))
+            .Select(b => new ItemRow(
+                new VenueBookingItemDto(
+                    b.Id,
+                    b.BookingReference,
+                    b.PitchId,
+                    b.StartUtc,
+                    b.EndUtc,
+                    b.TotalPrice.Amount,
+                    b.DepositAmount.Amount,
+                    b.TotalPrice.Currency,
+                    b.Status,
+                    b.CustomerName,
+                    b.CustomerPhone,
+                    b.CreatedAtUtc,
+                    b.IsManualBooking),
+                b.PlayerId))
             .ToListAsync(cancellationToken);
 
-        return Result.Success<IReadOnlyList<VenueBookingItemDto>>(items);
+        return Result.Success<IReadOnlyList<VenueBookingItemDto>>(await WithPlayerNamesAsync(items, cancellationToken));
     }
 
     public async Task<Result<VenueBookingDetailDto>> HandleAsync(
@@ -312,4 +338,18 @@ public sealed class VenueBookingQueriesHandler :
 
         return Result.Success<IReadOnlyList<CalendarSlotDto>>(slots);
     }
+
+    /// <summary>Online bookings carry no typed name; show the player's account name instead (manual bookings keep theirs).</summary>
+    private async Task<IReadOnlyList<VenueBookingItemDto>> WithPlayerNamesAsync(List<ItemRow> rows, CancellationToken cancellationToken)
+    {
+        var players = rows.Where(r => !r.Item.IsManual && string.IsNullOrWhiteSpace(r.Item.CustomerName)).Select(r => r.PlayerId).Distinct().ToList();
+        var names = players.Count == 0 ? new Dictionary<Guid, string>() : await _users.GetFullNamesAsync(players, cancellationToken);
+        return rows
+            .Select(r => !r.Item.IsManual && string.IsNullOrWhiteSpace(r.Item.CustomerName) && names.TryGetValue(r.PlayerId, out var name)
+                ? r.Item with { CustomerName = name }
+                : r.Item)
+            .ToList();
+    }
+
+    private sealed record ItemRow(VenueBookingItemDto Item, Guid PlayerId);
 }

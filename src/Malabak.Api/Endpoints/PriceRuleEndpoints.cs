@@ -23,7 +23,7 @@ public static class PriceRuleEndpoints
 
         group.MapGet("/", async (Guid venueId, ClaimsPrincipal user, PriceRuleManagement rules, CancellationToken ct) =>
             ToResult(await rules.ListAsync(venueId, user.GetUserId()!.Value, ct)))
-        .WithName("GetPriceRules").WithSummary("All price rules of the venue (base, peak, weekend, holiday, special date, discount)");
+        .Produces<IReadOnlyList<PriceRuleDto>>().WithName("GetPriceRules").WithSummary("All price rules of the venue (base, peak, weekend, holiday, special date, discount)");
 
         group.MapPost("/", async (Guid venueId, ClaimsPrincipal user, [FromBody] PriceRuleApiRequest request, PriceRuleManagement rules, CancellationToken ct) =>
         {
@@ -32,23 +32,23 @@ public static class PriceRuleEndpoints
                 ? Results.Created($"/api/v1/venue-manager/venues/{venueId}/price-rules/{result.Value.Id}", result.Value)
                 : Problem(result.Error);
         })
-        .WithName("CreatePriceRule");
+        .Produces<PriceRuleDto>(StatusCodes.Status201Created).ProducesProblem(StatusCodes.Status409Conflict).WithName("CreatePriceRule");
 
         group.MapPut("/{ruleId:guid}", async (Guid venueId, Guid ruleId, ClaimsPrincipal user, [FromBody] PriceRuleApiRequest request,
             PriceRuleManagement rules, CancellationToken ct) =>
             ToResult(await rules.UpdateAsync(venueId, user.GetUserId()!.Value, ruleId, request.ToTerms(), request.IsActive ?? true, ct)))
-        .WithName("UpdatePriceRule");
+        .Produces<PriceRuleDto>().ProducesProblem(StatusCodes.Status409Conflict).WithName("UpdatePriceRule");
 
         group.MapDelete("/{ruleId:guid}", async (Guid venueId, Guid ruleId, ClaimsPrincipal user, PriceRuleManagement rules, CancellationToken ct) =>
         {
             var result = await rules.DeleteAsync(venueId, user.GetUserId()!.Value, ruleId, ct);
             return result.IsSuccess ? Results.NoContent() : Problem(result.Error);
         })
-        .WithName("DeletePriceRule");
+        .Produces(StatusCodes.Status204NoContent).WithName("DeletePriceRule");
 
         group.MapPost("/preview", async (Guid venueId, ClaimsPrincipal user, [FromBody] PricePreviewApiRequest request, PriceRuleManagement rules, CancellationToken ct) =>
             ToResult(await rules.PreviewAsync(venueId, user.GetUserId()!.Value, request.PitchId, request.StartUtc, request.EndUtc, request.Draft?.ToTerms(), ct)))
-        .WithName("PreviewPrice").WithSummary("Price a slot with the saved rules, and optionally with a draft rule to compare");
+        .Produces<PricePreviewDto>().WithName("PreviewPrice").WithSummary("Price a slot with the saved rules, and optionally with a draft rule to compare");
     }
 
     private static IResult ToResult<T>(Result<T> result) => result.IsSuccess ? Results.Ok(result.Value) : Problem(result.Error);

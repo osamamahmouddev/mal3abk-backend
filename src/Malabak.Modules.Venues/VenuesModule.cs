@@ -120,6 +120,8 @@ public static class VenuesModule
         services.AddScoped<Application.Explore.VenueExplore>();
         services.AddScoped<Application.Details.VenueDetailsQuery>();
         services.AddScoped<Application.Home.HomeFeed>();
+        services.AddScoped<IVenueCapacityReader, Application.Availability.VenueCapacityReader>();
+        services.AddScoped<Application.Pitches.SetPitchActive>();
         services.AddScoped<Application.Quotes.BookingQuoteService>();
         services.AddScoped<IBookingQuoteValidator>(sp => sp.GetRequiredService<Application.Quotes.BookingQuoteService>());
         services.AddScoped<IAvailabilityInvalidator, Application.Availability.AvailabilityInvalidator>();

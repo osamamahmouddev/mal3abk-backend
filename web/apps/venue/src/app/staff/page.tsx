@@ -5,6 +5,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import type { Schemas } from "@malabak/api-client";
 import { Badge, Page, Toast, card, chip, muted, redShadow } from "@/components/ui";
 import { useVenue } from "@/components/Providers";
+import { P } from "@/lib/permissions";
 import { api, unwrap } from "@/lib/api";
 
 type Member = Schemas["StaffMemberDto"];
@@ -30,7 +31,8 @@ const roleChip = (on: boolean) => chip(on, "min-h-[34px] px-3 rounded-[10px] tex
 const field = "min-h-[44px] border border-[#C9CFD9] rounded-xl px-3 text-sm focus:outline-none focus:ring-2 focus:ring-navy-900";
 
 export default function StaffPage() {
-  const { venueId } = useVenue();
+  const { venueId, can } = useVenue();
+  const canManage = can(P.staffManage);
   const [contact, setContact] = useState("");
   const [role, setRole] = useState<Schemas["VenueStaffRole"]>(1);
   const [toRemove, setToRemove] = useState<Member | null>(null);
@@ -38,7 +40,7 @@ export default function StaffPage() {
 
   const staff = useQuery({
     queryKey: ["staff", venueId],
-    enabled: !!venueId,
+    enabled: !!venueId && canManage,
     queryFn: () => unwrap(api.GET("/api/v1/venue-manager/venues/{venueId}/staff", { params: { path: { venueId: venueId! } } })),
   });
   const done = (message: string) => async () => {
@@ -113,6 +115,18 @@ export default function StaffPage() {
 
   const members = staff.data?.members ?? [];
   const invitations = staff.data?.pendingInvitations ?? [];
+
+  // The API refuses staff management to other roles; say so instead of showing an error.
+  if (venueId && !canManage) {
+    return (
+      <Page>
+        <h1 className="text-[26px] font-bold">الموظفين</h1>
+        <p role="note" className="bg-[#FEF3D6] text-[#7A4D00] rounded-xl px-4 py-3 text-sm">
+          إدارة الموظفين والصلاحيات متاحة لصاحب الملعب أو المدير بس.
+        </p>
+      </Page>
+    );
+  }
 
   return (
     <Page>

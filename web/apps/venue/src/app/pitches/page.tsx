@@ -9,6 +9,7 @@ import { useVenue } from "@/components/Providers";
 import { api, unwrap } from "@/lib/api";
 import { useReference } from "@/lib/reference";
 import { APPROVAL_LABELS, CAPACITIES } from "@/lib/venue-format";
+import { mediaSrc, uploadImage } from "@/lib/upload";
 
 type Pitch = Schemas["PitchDto"];
 
@@ -55,6 +56,41 @@ export default function PitchesPage() {
       setSelectedId(pitch.id);
       setTab("pitches");
     },
+    onError: (e: Error) => setToast(e.message),
+  });
+
+  const toggleActive = useMutation({
+    mutationFn: (p: Pitch) =>
+      unwrap(api.PUT("/api/v1/venue-manager/pitches/{id}/active", { params: { path: { id: p.id } }, body: { isActive: !p.isActive } })),
+    onSuccess: async (result) => {
+      await refresh();
+      const name = result.pitch.name;
+      if (result.pitch.isActive) setToast(`${name} رجع شغال وظاهر للاعبين.`);
+      else if (result.upcomingBookings > 0)
+        setToast(`${name} اتوقف ومش هيظهر للحجز. لسه عليه ${toArabicDigits(result.upcomingBookings)} حجز جاي — راجعهم من صفحة الحجوزات.`);
+      else setToast(`${name} اتوقف ومش هيظهر للحجز.`);
+    },
+    onError: (e: Error) => setToast(e.message),
+  });
+
+  const addPhoto = useMutation({
+    mutationFn: async ({ pitchId, file }: { pitchId: string; file: File }) => {
+      const mediaId = await uploadImage(file, 1);
+      return unwrap(
+        api.POST("/api/v1/venue-manager/venues/{venueId}/pitches/{pitchId}/gallery", { params: { path: { venueId: venueId!, pitchId } }, body: { mediaId } }),
+      );
+    },
+    onSuccess: async () => {
+      await refresh();
+      setToast("الصورة اترفعت.");
+    },
+    onError: (e: Error) => setToast(e.message),
+  });
+
+  const removePhoto = useMutation({
+    mutationFn: ({ pitchId, mediaId }: { pitchId: string; mediaId: string }) =>
+      unwrap(api.DELETE("/api/v1/venue-manager/venues/{venueId}/pitches/{pitchId}/gallery/{mediaId}", { params: { path: { venueId: venueId!, pitchId, mediaId } } })),
+    onSuccess: refresh,
     onError: (e: Error) => setToast(e.message),
   });
 
@@ -208,6 +244,12 @@ export default function PitchesPage() {
                     </span>
                   </span>
                   <span className="w-full sm:w-auto flex items-center justify-end gap-3.5 pt-3 sm:pt-0 border-t sm:border-t-0 border-[#EEF0F5]">
+                    <Switch
+                      label={item.isActive ? `إيقاف ${item.name}` : `تشغيل ${item.name}`}
+                      isChecked={item.isActive}
+                      isDisabled={toggleActive.isPending}
+                      handleToggle={() => toggleActive.mutate(item)}
+                    />
                     <button
                       type="button"
                       onClick={() => setSelectedId(item.id)}
@@ -283,6 +325,43 @@ export default function PitchesPage() {
                     className={field}
                   />
                 </label>
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <span className="text-[13px] font-semibold">صور الملعب</span>
+                <div className="grid grid-cols-3 gap-2">
+                  {(selected?.photos ?? []).map((photo) => {
+                    const mediaId = photo.split("/")[4];
+                    return (
+                      <div key={photo} className="relative">
+                        {/* eslint-disable-next-line @next/next/no-img-element -- media from our API, re-encoded on upload */}
+                        <img src={mediaSrc(photo)} alt={`صورة ${selected?.name}`} className="w-full h-20 object-cover rounded-xl" />
+                        <button
+                          type="button"
+                          aria-label="مسح الصورة"
+                          onClick={() => selected && removePhoto.mutate({ pitchId: selected.id, mediaId })}
+                          className="absolute top-1 left-1 w-7 h-7 rounded-full bg-white/90 text-[#A8261C] text-xs font-bold"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    );
+                  })}
+                  <label className="h-20 rounded-xl border-2 border-dashed border-[#C9CFD9] flex items-center justify-center text-xs text-[#5B6475] cursor-pointer hover:bg-slate-50">
+                    {addPhoto.isPending ? "بيترفع…" : "+ صورة"}
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      className="sr-only"
+                      disabled={addPhoto.isPending}
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file && selected) addPhoto.mutate({ pitchId: selected.id, file });
+                        e.target.value = "";
+                      }}
+                    />
+                  </label>
+                </div>
               </div>
 
               <div className="flex items-center justify-between bg-surface rounded-xl px-3 py-2.5 gap-2">

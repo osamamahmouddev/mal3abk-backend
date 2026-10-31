@@ -7,6 +7,7 @@ import { endSession, getSession, startSession, type SessionUser, type Tokens } f
 import { callApi } from "./upstream";
 
 export type { BffConfig } from "./config";
+export { apiUrl } from "./config";
 export type { SessionUser, Tokens } from "./session";
 export { createProxy } from "./proxy";
 export { startSession, getSession };

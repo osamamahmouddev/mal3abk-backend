@@ -329,6 +329,30 @@ public static class VenueManagerEndpoints
         .WithName("UpdatePitch")
         .WithSummary("Update pitch details");
 
+        // Pause or resume a pitch (TASK-505). Existing bookings are kept; the response says how many are still ahead.
+        group.MapPut("/pitches/{id:guid}/active", async (
+            Guid id,
+            ClaimsPrincipal user,
+            [FromBody] SetPitchActiveApiRequest request,
+            SetPitchActive service,
+            CancellationToken cancellationToken) =>
+        {
+            var userId = GetUserId(user);
+            if (!userId.HasValue)
+            {
+                return Results.Unauthorized();
+            }
+
+            var result = await service.HandleAsync(id, userId.Value, request.IsActive, cancellationToken);
+            return result.IsSuccess
+                ? Results.Ok(result.Value)
+                : Results.Problem(title: result.Error.Code, detail: result.Error.Description, statusCode: StatusCodes.Status404NotFound);
+        })
+        .Produces<PitchActivationResult>()
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .WithName("SetPitchActive")
+        .WithSummary("Pause or resume a pitch; paused pitches leave search and availability immediately");
+
         group.MapDelete("/pitches/{id:guid}", async (
             Guid id,
             ClaimsPrincipal user,
@@ -577,13 +601,15 @@ public static class VenueManagerEndpoints
         decimal? WidthMeters,
         IEnumerable<string>? Photos);
 
+    public sealed record SetPitchActiveApiRequest(bool IsActive);
+
     public sealed record UpdatePitchApiRequest(
-        string Name,
-        string TurfType,
-        int Capacity,
-        decimal? LengthMeters,
-        decimal? WidthMeters,
-        IEnumerable<string>? Photos);
+            string Name,
+            string TurfType,
+            int Capacity,
+            decimal? LengthMeters,
+            decimal? WidthMeters,
+            IEnumerable<string>? Photos);
 
     public sealed record ScheduleItemApiRequest(
         DayOfWeek DayOfWeek,

@@ -34,7 +34,7 @@ public sealed class VenueBookingQueriesTests : IClassFixture<BookingDatabaseFixt
         await SaveAsync(_day.AddHours(16), venueId: Guid.NewGuid());
         await using var context = _database.CreateContext();
 
-        var result = await new VenueBookingQueriesHandler(context, new FakeVenueDirectory()).HandleAsync(new GetVenuePendingBookingsQuery(_venueId));
+        var result = await new VenueBookingQueriesHandler(context, new FakeVenueDirectory(), new FakeUserAccounts()).HandleAsync(new GetVenuePendingBookingsQuery(_venueId));
 
         result.Value.Select(b => b.Id).Should().BeEquivalentTo([waiting, underReview]);
     }
@@ -45,7 +45,7 @@ public sealed class VenueBookingQueriesTests : IClassFixture<BookingDatabaseFixt
         var phone = await SaveManualAsync(_day.AddDays(1).AddHours(9), "Mahmoud Ali", "01234567890");
         await SaveManualAsync(_day.AddDays(1).AddHours(11), "Someone Else", "01999999999");
         await using var context = _database.CreateContext();
-        var handler = new VenueBookingQueriesHandler(context, new FakeVenueDirectory());
+        var handler = new VenueBookingQueriesHandler(context, new FakeVenueDirectory(), new FakeUserAccounts());
 
         var byName = await handler.HandleAsync(new GetVenueBookingsQuery(_venueId, null, null, null, null, "mahmoud"));
         var byPhone = await handler.HandleAsync(new GetVenueBookingsQuery(_venueId, null, null, null, null, "0123456"));
@@ -65,7 +65,7 @@ public sealed class VenueBookingQueriesTests : IClassFixture<BookingDatabaseFixt
         var directory = new FakeVenueDirectory().WithBlocked(blocked);
         await using var context = _database.CreateContext();
 
-        var result = await new VenueBookingQueriesHandler(context, directory).HandleAsync(new GetVenueCalendarQuery(_venueId, day, day.AddDays(1), null));
+        var result = await new VenueBookingQueriesHandler(context, directory, new FakeUserAccounts()).HandleAsync(new GetVenueCalendarQuery(_venueId, day, day.AddDays(1), null));
 
         result.IsSuccess.Should().BeTrue();
         result.Value.Select(s => s.Status).Should().Equal("Blocked", nameof(BookingStatus.PendingDeposit));
@@ -81,7 +81,7 @@ public sealed class VenueBookingQueriesTests : IClassFixture<BookingDatabaseFixt
     {
         await using var context = _database.CreateContext();
 
-        var result = await new VenueBookingQueriesHandler(context, new FakeVenueDirectory())
+        var result = await new VenueBookingQueriesHandler(context, new FakeVenueDirectory(), new FakeUserAccounts())
             .HandleAsync(new GetVenueCalendarQuery(_venueId, _day, _day.AddDays(days), null));
 
         result.IsFailure.Should().BeTrue();
