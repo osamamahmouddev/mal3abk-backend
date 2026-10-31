@@ -7,10 +7,16 @@ using Microsoft.Extensions.Logging;
 
 namespace Malabak.Modules.Booking.Infrastructure.Jobs;
 
+/// <summary>
+/// Marks confirmed bookings whose match has ended as completed (TASK-405). Each booking is saved on its own, then announced:
+/// one that changed at that moment (the venue marking a no-show) is skipped and never holds up the others or leaves a false
+/// "completed" announcement.
+/// </summary>
 public sealed class CompleteBookingsJob
 {
     public const string RecurringJobId = "booking-complete-bookings-job";
     public const string CronSchedule = "*/5 * * * *"; // Every 5 minutes
+    public const int BatchSize = 100;
 
     private readonly BookingDbContext _dbContext;
     private readonly IClock _clock;
@@ -29,44 +35,67 @@ public sealed class CompleteBookingsJob
         _logger = logger;
     }
 
+    [Queue("default")]
     [DisableConcurrentExecution(timeoutInSeconds: 60)]
     public async Task ExecuteRecurringSweepAsync(CancellationToken cancellationToken = default)
     {
         var nowUtc = _clock.UtcNow;
 
-        var confirmedBookingsPastEnd = await _dbContext.Bookings
-            .Where(b => b.Status == BookingStatus.Confirmed
-                     && b.EndUtc <= nowUtc
-                     && !b.IsDeleted)
-            .Take(100)
+        var endedIds = await _dbContext.Bookings.AsNoTracking()
+            .Where(b => b.Status == BookingStatus.Confirmed && b.EndUtc <= nowUtc && !b.IsDeleted)
+            .OrderBy(b => b.EndUtc)
+            .Select(b => b.Id)
+            .Take(BatchSize)
             .ToListAsync(cancellationToken);
 
-        if (confirmedBookingsPastEnd.Count == 0)
+        if (endedIds.Count == 0)
         {
             return;
         }
 
-        _logger.LogInformation("Found {Count} confirmed bookings to auto-complete", confirmedBookingsPastEnd.Count);
+        _logger.LogInformation("Found {Count} confirmed bookings to auto-complete", endedIds.Count);
 
-        foreach (var booking in confirmedBookingsPastEnd)
+        foreach (var id in endedIds)
         {
-            var completeResult = booking.Complete(nowUtc);
-            if (completeResult.IsFailure)
-            {
-                _logger.LogWarning("Failed to auto-complete booking {BookingId}: {Error}", booking.Id, completeResult.Error);
-                continue;
-            }
+            await CompleteAsync(id, nowUtc, cancellationToken);
+        }
+    }
 
-            await _broadcaster.BroadcastBookingUpdatedAsync(
-                booking.PlayerId,
-                booking.VenueId,
-                booking.Id,
-                booking.BookingReference,
-                BookingStatus.Completed.ToString(),
-                nowUtc,
-                cancellationToken);
+    private async Task CompleteAsync(Guid bookingId, DateTime nowUtc, CancellationToken cancellationToken)
+    {
+        _dbContext.ChangeTracker.Clear();
+        var booking = await _dbContext.Bookings.Include(b => b.History)
+            .FirstOrDefaultAsync(b => b.Id == bookingId && !b.IsDeleted, cancellationToken);
+        if (booking is null || booking.Status != BookingStatus.Confirmed)
+        {
+            return;
         }
 
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        var completed = booking.Complete(nowUtc);
+        if (completed.IsFailure)
+        {
+            _logger.LogWarning("Booking {BookingId} could not be auto-completed: {Error}", booking.Id, completed.Error.Code);
+            return;
+        }
+
+        try
+        {
+            await _dbContext.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateConcurrencyException ex)
+        {
+            _logger.LogInformation(ex, "Booking {BookingId} changed while it was being completed; skipping it", booking.Id);
+            return;
+        }
+
+        try
+        {
+            await _broadcaster.BroadcastBookingUpdatedAsync(
+                booking.PlayerId, booking.VenueId, booking.Id, booking.BookingReference, BookingStatus.Completed.ToString(), nowUtc, cancellationToken);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogError(ex, "Booking {BookingId} was completed but the live update failed", booking.Id);
+        }
     }
 }

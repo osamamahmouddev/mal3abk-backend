@@ -212,6 +212,7 @@ builder.Services.AddDbContext<MediaDbContext>(options =>
         npgsql.MigrationsHistoryTable("__EFMigrationsHistory", MediaDbContext.Schema)));
 builder.Services.AddMediaStorage(builder.Configuration, builder.Environment);
 builder.Services.AddScoped<MediaService>();
+builder.Services.AddScoped<Malabak.Modules.Booking.Application.Abstractions.IProofFileStore, MediaProofFileStore>();
 builder.Services.AddScoped<Malabak.SharedKernel.Contracts.IPersonalDataContributor, MediaPersonalData>();
 
 builder.Services.AddDbContext<NotificationsDbContext>(options =>
