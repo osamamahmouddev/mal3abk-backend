@@ -434,6 +434,7 @@ app.MapSpecialScheduleEndpoints(apiVersionSet);
 app.MapPriceRuleEndpoints(apiVersionSet);
 app.MapPublicVenueEndpoints(apiVersionSet);
 app.MapBookingQuoteEndpoints(apiVersionSet);
+app.MapVenueCustomerEndpoints(apiVersionSet);
 app.MapPlayerVenueListEndpoints(apiVersionSet);
 app.MapPrivacyEndpoints(apiVersionSet);
 app.MapRealtimeEndpoints(apiVersionSet);

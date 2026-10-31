@@ -19,6 +19,8 @@ public interface IBookingDbContext
 
     DbSet<BookingRefund> BookingRefunds { get; }
 
+    DbSet<VenueCustomerNote> CustomerNotes { get; }
+
     DatabaseFacade Database { get; }
 
     ChangeTracker ChangeTracker { get; }

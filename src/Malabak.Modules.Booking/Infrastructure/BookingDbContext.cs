@@ -17,6 +17,7 @@ public sealed class BookingDbContext : BaseDbContext, IBookingDbContext
     public DbSet<BookingStatusHistory> StatusHistories => Set<BookingStatusHistory>();
     public DbSet<PaymentProof> PaymentProofs => Set<PaymentProof>();
     public DbSet<BookingRefund> BookingRefunds => Set<BookingRefund>();
+    public DbSet<VenueCustomerNote> CustomerNotes => Set<VenueCustomerNote>();
 
     public BookingDbContext(DbContextOptions<BookingDbContext> options, IClock? clock = null)
         : base(options, clock)
@@ -136,6 +137,16 @@ public sealed class BookingDbContext : BaseDbContext, IBookingDbContext
 
             // One refund record per booking: it tracks what is owed and what was paid, so a duplicate would double count.
             builder.HasIndex(r => r.BookingId).IsUnique();
+        });
+
+        modelBuilder.Entity<VenueCustomerNote>(builder =>
+        {
+            builder.ToTable("venue_customer_notes");
+            builder.HasKey(n => n.Id);
+            builder.Property(n => n.Id).ValueGeneratedNever();
+            builder.Property(n => n.CustomerKey).HasMaxLength(80).IsRequired();
+            builder.Property(n => n.TextCiphertext).IsRequired();
+            builder.HasIndex(n => new { n.VenueId, n.CustomerKey, n.CreatedAtUtc });
         });
     }
 }

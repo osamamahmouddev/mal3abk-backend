@@ -8,4 +8,7 @@ public static class BlindIndexPurpose
 {
     public const string Phone = "phone";
     public const string Email = "email";
+
+    /// <summary>Walk-in customer keys in a venue's customer directory (TASK-503).</summary>
+    public const string VenueCustomerPhone = "venue-customer-phone";
 }
