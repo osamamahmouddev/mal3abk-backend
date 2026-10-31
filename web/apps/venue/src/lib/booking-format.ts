@@ -60,13 +60,22 @@ export function addDays(date: string, days: number): string {
   return d.toISOString().slice(0, 10);
 }
 
-/** Start of a Cairo business date as an ISO UTC instant (for range queries). */
+/** Cairo's offset from UTC in minutes at a given instant (+120 in winter, +180 in summer), independent of the browser's zone. */
+function cairoOffsetMinutes(at: Date): number {
+  const parts = Object.fromEntries(
+    new Intl.DateTimeFormat("en-US", { timeZone: CAIRO, hourCycle: "h23", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" })
+      .formatToParts(at)
+      .map((p) => [p.type, p.value]),
+  );
+  const wallClock = Date.UTC(Number(parts.year), Number(parts.month) - 1, Number(parts.day), Number(parts.hour), Number(parts.minute));
+  return Math.round((wallClock - at.getTime()) / 60000);
+}
+
+/** Start of a Cairo business date as an ISO UTC instant (for range queries and slot times). */
 export function cairoDayStartUtc(date: string): string {
-  // Cairo is UTC+2 or UTC+3; find the offset at local noon and apply it to midnight.
-  const noon = new Date(`${date}T12:00:00Z`);
-  const local = new Date(noon.toLocaleString("en-US", { timeZone: CAIRO }));
-  const offsetMinutes = Math.round((local.getTime() - noon.getTime()) / 60000);
-  return new Date(new Date(`${date}T00:00:00Z`).getTime() - offsetMinutes * 60000).toISOString();
+  // The offset at local noon is the day's offset (Cairo changes clocks at midnight, never mid-day).
+  const offset = cairoOffsetMinutes(new Date(`${date}T12:00:00Z`));
+  return new Date(new Date(`${date}T00:00:00Z`).getTime() - offset * 60000).toISOString();
 }
 
 /** Money in Arabic digits: 1650 → "١٬٦٥٠ ج.م". */
