@@ -12,8 +12,9 @@ function readCookie(name: string): string | undefined {
  * Typed API client for the browser. Calls go to the app's own `/bff` proxy (never straight to the
  * API), carry the CSRF token on writes, and send the user to sign in when the session has ended.
  */
-export function createBrowserApi(loginPath: string): ApiClient {
-  const client = createApiClient({ baseUrl: "/bff" });
+export function createBrowserApi(loginPath: string, basePath = ""): ApiClient {
+  const normalizedBase = basePath ? `/${basePath.replace(/^\/+|\/+$/g, "")}` : "";
+  const client = createApiClient({ baseUrl: `${normalizedBase}/bff` });
   client.use({
     onRequest({ request }) {
       if (request.method !== "GET" && request.method !== "HEAD") {
@@ -23,9 +24,10 @@ export function createBrowserApi(loginPath: string): ApiClient {
       return request;
     },
     onResponse({ response }) {
-      if (response.status === 401 && typeof window !== "undefined" && !window.location.pathname.startsWith(loginPath)) {
+      const fullLoginPath = `${normalizedBase}${loginPath.startsWith("/") ? loginPath : `/${loginPath}`}`;
+      if (response.status === 401 && typeof window !== "undefined" && !window.location.pathname.startsWith(fullLoginPath)) {
         const next = encodeURIComponent(window.location.pathname + window.location.search);
-        window.location.assign(`${loginPath}?next=${next}`);
+        window.location.assign(`${fullLoginPath}?next=${next}`);
       }
       return response;
     },

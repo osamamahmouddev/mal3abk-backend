@@ -1,7 +1,7 @@
 import "server-only";
 import { timingSafeEqual } from "node:crypto";
 import { NextResponse, type NextRequest } from "next/server";
-import { CSRF_HEADER, type BffConfig } from "./config";
+import { CSRF_HEADER, apiUrl, type BffConfig } from "./config";
 import { endSession, getSession } from "./session";
 import { callApi } from "./upstream";
 import { clientIpHeaders } from "./client-ip";
@@ -34,7 +34,9 @@ export function createProxy(config: BffConfig) {
     }
 
     const session = await getSession(config);
-    if (!session.refreshToken || !session.csrf) {
+    const isAnonymousAllowed = request.method === "GET" && apiPath.startsWith("/api/v1/reference/");
+
+    if (!isAnonymousAllowed && (!session.refreshToken || !session.csrf)) {
       return problem(401, "Bff.NotSignedIn");
     }
 
@@ -44,7 +46,7 @@ export function createProxy(config: BffConfig) {
         return problem(403, "Bff.CrossOriginRequest");
       }
       const csrf = request.headers.get(CSRF_HEADER);
-      if (!csrf || !sameValue(csrf, session.csrf)) {
+      if (!csrf || !session.csrf || !sameValue(csrf, session.csrf)) {
         return problem(403, "Bff.InvalidCsrfToken");
       }
     }
@@ -58,11 +60,21 @@ export function createProxy(config: BffConfig) {
     for (const [name, value] of Object.entries(clientIpHeaders(request.headers))) headers.set(name, value);
 
     const body = SAFE_METHODS.has(request.method) ? undefined : await request.arrayBuffer();
-    const upstream = await callApi(config, session, `${apiPath}${request.nextUrl.search}`, {
-      method: request.method,
-      headers,
-      body: body && body.byteLength > 0 ? body : undefined,
-    });
+
+    let upstream: Response;
+    if (isAnonymousAllowed && (!session.refreshToken || !session.csrf)) {
+      upstream = await fetch(`${apiUrl()}${apiPath}${request.nextUrl.search}`, {
+        method: "GET",
+        headers,
+        cache: "no-store",
+      });
+    } else {
+      upstream = await callApi(config, session, `${apiPath}${request.nextUrl.search}`, {
+        method: request.method,
+        headers,
+        body: body && body.byteLength > 0 ? body : undefined,
+      });
+    }
 
     if (upstream.status === 401) {
       await endSession(config);
