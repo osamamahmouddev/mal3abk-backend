@@ -45,7 +45,7 @@ export function useVenueRealtime(venueId: string | null, onUpdate?: (update: Boo
 
     connection.on("BookingUpdated", (update: BookingUpdated) => {
       if (update.venueId !== venueId) return;
-      queryClient.invalidateQueries({ predicate: (q) => String(q.queryKey[0]).startsWith("booking") || q.queryKey[0] === "dashboard" || q.queryKey[0] === "proofs" });
+      queryClient.invalidateQueries({ predicate: (q) => String(q.queryKey[0]).startsWith("booking") || ["dashboard", "proofs", "calendar"].includes(String(q.queryKey[0])) });
       onUpdateRef.current?.(update);
     });
 
