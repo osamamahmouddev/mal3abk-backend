@@ -54,7 +54,18 @@ internal static class IntegrationTestEnvironment
         Set("Security__Turnstile__SecretKey", _turnstileTestSecretKey);
         Set("Security__Turnstile__SiteKey", _turnstileTestSiteKey);
 
-        // The host runs as Development, which loads the developer's user secrets. Pin OTP delivery off so a
+        // The host runs as Development, which loads the developer's user secrets after plain environment variables,
+        // so with secrets set up (scripts/setup-dev-secrets.sh) the connection strings above would lose to the local
+        // development database and Redis: tests would then run migrations against, and write test data into, the
+        // developer's own data. Only MALABAK_-prefixed variables are added after user secrets, so repeat them there.
+        Set("MALABAK_ConnectionStrings__Postgres", postgres);
+        Set("MALABAK_Database__ConnectionString", postgres);
+        Set("MALABAK_ConnectionStrings__Redis", redis);
+        Set("MALABAK_Redis__ConnectionString", redis);
+        Set("MALABAK_Security__Turnstile__SecretKey", _turnstileTestSecretKey);
+        Set("MALABAK_Security__Turnstile__SiteKey", _turnstileTestSiteKey);
+
+        // The same applies to OTP delivery. Pin it off so a
         // local Slack setup can neither fail startup validation nor post test codes to a real channel. Only
         // MALABAK_-prefixed variables are added after user secrets (ConfigureMalabakConfigurationSources).
         Set("MALABAK_Identity__OtpDelivery__Provider", "None");
