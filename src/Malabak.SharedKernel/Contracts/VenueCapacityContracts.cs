@@ -9,4 +9,10 @@ public interface IVenueCapacityReader
     /// </summary>
     Task<IReadOnlyDictionary<DateOnly, int>> GetOpenMinutesAsync(
         Guid venueId, DateOnly from, DateOnly to, Guid? pitchId = null, CancellationToken cancellationToken = default);
+
+    /// <summary>Total open minutes in the range for each active pitch of the venue, with the pitch name (utilization reports).</summary>
+    Task<IReadOnlyList<PitchOpenMinutes>> GetOpenMinutesByPitchAsync(
+        Guid venueId, DateOnly from, DateOnly to, CancellationToken cancellationToken = default);
 }
+
+public sealed record PitchOpenMinutes(Guid PitchId, string Name, int OpenMinutes);

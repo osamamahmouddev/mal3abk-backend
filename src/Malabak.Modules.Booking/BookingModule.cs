@@ -55,6 +55,7 @@ public static class BookingModule
         services.AddScoped<IQueryHandler<GetVenueCalendarQuery, Result<IReadOnlyList<CalendarSlotDto>>>, VenueBookingQueriesHandler>();
         services.AddScoped<IQueryHandler<Application.Dashboard.GetVenueDashboardQuery, Result<Application.Dashboard.VenueDashboardDto>>, Application.Dashboard.GetVenueDashboardHandler>();
         services.AddScoped<Application.Customers.VenueCustomerService>();
+        services.AddScoped<Application.Reports.VenueReportService>();
         services.AddScoped<Malabak.SharedKernel.Security.IReEncryptionTarget, CustomerNoteReEncryptionTarget>();
 
         services.AddScoped<IQueryHandler<GetBookingProofsQuery, Result<IReadOnlyList<BookingProofDto>>>, GetBookingProofsHandler>();

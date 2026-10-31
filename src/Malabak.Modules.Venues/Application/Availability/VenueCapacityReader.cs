@@ -54,4 +54,35 @@ public sealed class VenueCapacityReader : IVenueCapacityReader
 
         return result;
     }
+
+    public async Task<IReadOnlyList<PitchOpenMinutes>> GetOpenMinutesByPitchAsync(
+        Guid venueId, DateOnly from, DateOnly to, CancellationToken cancellationToken = default)
+    {
+        if (to < from || to.DayNumber - from.DayNumber >= MaxDays)
+        {
+            return [];
+        }
+
+        var pitches = await _dbContext.Pitches.AsNoTracking()
+            .Where(p => p.VenueId == venueId && p.IsActive && !p.IsDeleted)
+            .OrderBy(p => p.Name)
+            .Select(p => new { p.Id, p.Name })
+            .ToListAsync(cancellationToken);
+        var states = await ScheduleStateLoader.LoadAsync(_dbContext, venueId, null, cancellationToken);
+        var tz = _clock.CairoTimeZone;
+
+        return pitches.Select(p =>
+        {
+            var minutes = 0;
+            if (states.TryGetValue(p.Id, out var state))
+            {
+                for (var day = from; day <= to; day = day.AddDays(1))
+                {
+                    minutes += AvailabilityCalculator.OpenWindows(state, day, tz).Sum(w => (int)(w.EndUtc - w.StartUtc).TotalMinutes);
+                }
+            }
+
+            return new PitchOpenMinutes(p.Id, p.Name, minutes);
+        }).ToList();
+    }
 }

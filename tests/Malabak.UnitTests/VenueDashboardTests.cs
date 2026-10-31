@@ -175,6 +175,10 @@ public sealed class VenueDashboardTests
         public Task<IReadOnlyDictionary<DateOnly, int>> GetOpenMinutesAsync(
             Guid venueId, DateOnly from, DateOnly to, Guid? pitchId = null, CancellationToken cancellationToken = default) =>
             Task.FromResult<IReadOnlyDictionary<DateOnly, int>>(Minutes.Where(m => m.Key >= from && m.Key <= to).ToDictionary());
+
+        public Task<IReadOnlyList<PitchOpenMinutes>> GetOpenMinutesByPitchAsync(
+            Guid venueId, DateOnly from, DateOnly to, CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyList<PitchOpenMinutes>>([]);
     }
 
     private sealed class FakeUsers(Guid player) : IUserAccountsContract
