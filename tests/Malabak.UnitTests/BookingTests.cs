@@ -40,6 +40,16 @@ public sealed class BookingTests
     }
 
     [Fact]
+    public void HistoryRows_GetTimeOrderedGuidV7Ids()
+    {
+        var booking = CreateSampleBooking();
+        booking.SubmitProof("player-1", _now.AddMinutes(1)).IsSuccess.Should().BeTrue();
+
+        booking.History.Should().HaveCount(2).And.OnlyContain(h => h.Id.Version == 7, "ids are Guid v7 (rule.md section 5)");
+        booking.History.Select(h => h.Id).Should().OnlyHaveUniqueItems();
+    }
+
+    [Fact]
     public void SubmitProof_WhenPendingDeposit_TransitionsToProofSubmitted()
     {
         // Arrange

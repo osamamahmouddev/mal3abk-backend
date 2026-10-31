@@ -1,8 +1,10 @@
+using Malabak.SharedKernel;
+
 namespace Malabak.Modules.Booking.Domain;
 
 public sealed class BookingStatusHistory
 {
-    public Guid Id { get; init; } = Guid.NewGuid();
+    public Guid Id { get; init; } = IdGenerator.NewGuid();
     public Guid BookingId { get; init; }
     public BookingStatus FromStatus { get; init; }
     public BookingStatus ToStatus { get; init; }

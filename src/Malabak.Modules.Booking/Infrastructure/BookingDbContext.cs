@@ -60,6 +60,11 @@ public sealed class BookingDbContext : DbContext
         {
             builder.ToTable("booking_status_histories");
             builder.HasKey(h => h.Id);
+
+            // The id is assigned in code. Without this, EF treats a history row with a pre-set key that it finds in a
+            // stored booking's collection as an existing row and issues an UPDATE (0 rows) instead of an INSERT, so
+            // every state change after the booking was first saved failed with a concurrency exception.
+            builder.Property(h => h.Id).ValueGeneratedNever();
             builder.Property(h => h.Reason).HasMaxLength(500);
             builder.Property(h => h.ChangedByUserId).HasMaxLength(128).IsRequired();
         });
