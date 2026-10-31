@@ -25,6 +25,8 @@ interface VenueContextValue {
     selectVenue: (id: string) => void;
     /** True when the signed-in user's role at the selected venue includes the permission (e.g. "venue.bookings.approve"). */
     can: (permission: string) => boolean;
+    /** Whether a session exists (pages reachable while signed out use it to adapt). */
+    signedIn: boolean;
 }
 
 const defaultVenueContext: VenueContextValue = {
@@ -34,6 +36,7 @@ const defaultVenueContext: VenueContextValue = {
     isLoading: false,
     selectVenue: () => {},
     can: () => false,
+    signedIn: false,
 };
 
 const VenueContext = createContext<VenueContextValue>(defaultVenueContext);
@@ -79,6 +82,7 @@ function VenueProvider({
             venueId: venue?.id ?? null,
             isLoading: signedIn ? venues.isLoading : false,
             can: (permission) => granted.has(permission),
+            signedIn,
             selectVenue: (id) => {
                 setSelected(id);
                 try {
