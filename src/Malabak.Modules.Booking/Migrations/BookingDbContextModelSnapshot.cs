@@ -18,7 +18,7 @@ namespace Malabak.Modules.Booking.Migrations
 #pragma warning disable 612, 618
             modelBuilder
                 .HasDefaultSchema("booking")
-                .HasAnnotation("ProductVersion", "9.0.0")
+                .HasAnnotation("ProductVersion", "10.0.14")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
@@ -80,7 +80,6 @@ namespace Malabak.Modules.Booking.Migrations
             modelBuilder.Entity("Malabak.Modules.Booking.Domain.BookingStatusHistory", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
                     b.Property<Guid>("BookingId")
