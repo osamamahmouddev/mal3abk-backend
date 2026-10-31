@@ -1,4 +1,5 @@
 using Hangfire;
+using Malabak.Modules.Booking.Application;
 using Malabak.Modules.Booking.Domain;
 using Malabak.SharedKernel;
 using Malabak.SharedKernel.Contracts;
@@ -7,24 +8,32 @@ using Microsoft.Extensions.Logging;
 
 namespace Malabak.Modules.Booking.Infrastructure.Jobs;
 
+/// <summary>
+/// Reminds players 24 hours and 2 hours before a confirmed booking. Every booking in a window is reached (in pages, so a busy
+/// evening is not cut off); each reminder carries a dedupe key, so a booking is never reminded twice by overlapping runs.
+/// </summary>
 public sealed class BookingRemindersJob
 {
     public const string RecurringJobId = "booking-reminders-job";
     public const string CronSchedule = "*/15 * * * *"; // Every 15 minutes
+    public const int PageSize = 200;
 
     private readonly BookingDbContext _dbContext;
     private readonly IClock _clock;
+    private readonly IVenueDirectory _venues;
     private readonly INotificationPublisher? _notificationPublisher;
     private readonly ILogger<BookingRemindersJob> _logger;
 
     public BookingRemindersJob(
         BookingDbContext dbContext,
         IClock clock,
+        IVenueDirectory venues,
         ILogger<BookingRemindersJob> logger,
         INotificationPublisher? notificationPublisher = null)
     {
         _dbContext = dbContext;
         _clock = clock;
+        _venues = venues;
         _notificationPublisher = notificationPublisher;
         _logger = logger;
     }
@@ -39,73 +48,44 @@ public sealed class BookingRemindersJob
 
         var nowUtc = _clock.UtcNow;
 
-        // 1. 24-Hour Reminders (StartUtc in [now + 23h45m, now + 24h15m])
-        var window24hStart = nowUtc.AddHours(23).AddMinutes(45);
-        var window24hEnd = nowUtc.AddHours(24).AddMinutes(15);
+        // Windows are 30 minutes wide around the mark and the job runs every 15, so a booking is always caught at least once.
+        await RemindAsync(nowUtc.AddHours(23).AddMinutes(45), nowUtc.AddHours(24).AddMinutes(15), BookingNotifications.Reminder24h, "24h", cancellationToken);
+        await RemindAsync(nowUtc.AddHours(1).AddMinutes(45), nowUtc.AddHours(2).AddMinutes(15), BookingNotifications.Reminder2h, "2h", cancellationToken);
+    }
 
-        var bookings24h = await _dbContext.Bookings.AsNoTracking()
-            .Where(b => b.Status == BookingStatus.Confirmed
-                     && b.StartUtc >= window24hStart
-                     && b.StartUtc <= window24hEnd
-                     && !b.IsDeleted)
-            .Take(50)
-            .ToListAsync(cancellationToken);
-
-        foreach (var b in bookings24h)
+    private async Task RemindAsync(
+        DateTime from,
+        DateTime to,
+        Func<Domain.Booking, string, IClock, NotificationRequest> build,
+        string label,
+        CancellationToken cancellationToken)
+    {
+        var lastId = Guid.Empty;
+        while (true)
         {
-            var req = new NotificationRequest(
-                b.PlayerId,
-                "booking.reminder_24h",
-                new Dictionary<string, string>
+            var page = await _dbContext.Bookings.AsNoTracking()
+                .Where(b => b.Status == BookingStatus.Confirmed && b.StartUtc >= from && b.StartUtc <= to && !b.IsDeleted && b.Id.CompareTo(lastId) > 0)
+                .OrderBy(b => b.Id)
+                .Take(PageSize)
+                .ToListAsync(cancellationToken);
+            if (page.Count == 0)
+            {
+                return;
+            }
+
+            lastId = page[^1].Id;
+            var names = await _venues.GetVenueNamesAsync(page.Select(b => b.VenueId).Distinct().ToList(), cancellationToken);
+
+            foreach (var booking in page)
+            {
+                try
                 {
-                    ["BookingReference"] = b.BookingReference,
-                    ["StartUtc"] = b.StartUtc.ToString("o"),
-                    ["PitchId"] = b.PitchId.ToString("D")
-                },
-                $"booking-reminder-24h:{b.Id:D}");
-
-            try
-            {
-                await _notificationPublisher.PublishAsync(req, cancellationToken);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Failed to publish 24h reminder for booking {BookingId}", b.Id);
-            }
-        }
-
-        // 2. 2-Hour Reminders (StartUtc in [now + 1h45m, now + 2h15m])
-        var window2hStart = nowUtc.AddHours(1).AddMinutes(45);
-        var window2hEnd = nowUtc.AddHours(2).AddMinutes(15);
-
-        var bookings2h = await _dbContext.Bookings.AsNoTracking()
-            .Where(b => b.Status == BookingStatus.Confirmed
-                     && b.StartUtc >= window2hStart
-                     && b.StartUtc <= window2hEnd
-                     && !b.IsDeleted)
-            .Take(50)
-            .ToListAsync(cancellationToken);
-
-        foreach (var b in bookings2h)
-        {
-            var req = new NotificationRequest(
-                b.PlayerId,
-                "booking.reminder_2h",
-                new Dictionary<string, string>
+                    await _notificationPublisher!.PublishAsync(build(booking, names.GetValueOrDefault(booking.VenueId, string.Empty), _clock), cancellationToken);
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException)
                 {
-                    ["BookingReference"] = b.BookingReference,
-                    ["StartUtc"] = b.StartUtc.ToString("o"),
-                    ["PitchId"] = b.PitchId.ToString("D")
-                },
-                $"booking-reminder-2h:{b.Id:D}");
-
-            try
-            {
-                await _notificationPublisher.PublishAsync(req, cancellationToken);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Failed to publish 2h reminder for booking {BookingId}", b.Id);
+                    _logger.LogWarning(ex, "Failed to publish the {Window} reminder for booking {BookingId}", label, booking.Id);
+                }
             }
         }
     }

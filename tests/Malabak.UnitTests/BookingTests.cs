@@ -1,6 +1,8 @@
 using FluentAssertions;
+using Malabak.Modules.Booking.Application;
 using Malabak.Modules.Booking.Domain;
 using Malabak.Modules.Booking.Domain.Events;
+using Malabak.Modules.Notifications.Domain;
 using Malabak.SharedKernel;
 using Malabak.SharedKernel.Contracts;
 using Xunit;
@@ -326,6 +328,53 @@ public sealed class BookingTests
         // Assert
         result.IsFailure.Should().BeTrue();
         result.Error.Should().Be(BookingErrors.CannotMarkNoShowBeforeStart);
+    }
+
+    [Fact]
+    public void EveryBookingNotification_SuppliesWhatItsCatalogTemplateAsks_ForATitleBodyAndLink()
+    {
+        // The catalog fills {placeholders} from the data and renders a missing value as empty, so a key that drifts between the
+        // two modules would silently send a message with gaps. This pins every booking notification to its template.
+        var booking = CreateSampleBooking();
+        var clock = new CairoClock(_now);
+        var staff = Guid.NewGuid();
+        var requests = new[]
+        {
+            BookingNotifications.Confirmed(booking, "ملعب النصر", clock),
+            BookingNotifications.Rejected(booking, "ملعب النصر", "الإيصال غير واضح", clock),
+            BookingNotifications.Expired(booking, "ملعب النصر", clock),
+            BookingNotifications.Reminder24h(booking, "ملعب النصر", clock),
+            BookingNotifications.Reminder2h(booking, "ملعب النصر", clock),
+            BookingNotifications.ProofSubmitted(booking, "ملعب النصر", staff, clock),
+        };
+
+        foreach (var request in requests)
+        {
+            NotificationCatalog.TryGet(request.Type, out var template).Should().BeTrue(request.Type);
+            template.DeepLink(request.Data).Should().NotBeNullOrEmpty(request.Type);
+            foreach (var text in new[] { template.BodyAr, template.BodyEn })
+            {
+                var placeholders = System.Text.RegularExpressions.Regex.Matches(text, "\\{([a-zA-Z]+)\\}").Select(m => m.Groups[1].Value);
+                foreach (var placeholder in placeholders)
+                {
+                    request.Data.Should().ContainKey(placeholder, request.Type);
+                    request.Data[placeholder].Should().NotBeNullOrEmpty($"{request.Type} {{{placeholder}}}");
+                }
+            }
+        }
+
+        requests[1].Data["reason"].Should().Be("الإيصال غير واضح");
+        requests[0].Data["date"].Should().Be("2026-10-24 23:00"); // starts at 20:00 UTC; Cairo is still on summer time (UTC+3) on 24 October
+        requests[5].UserId.Should().Be(staff);
+        requests[5].DedupeKey.Should().Contain(staff.ToString("D"));
+    }
+
+    private sealed class CairoClock(DateTime utcNow) : IClock
+    {
+        public DateTime UtcNow => utcNow;
+        public DateTime CairoNow => TimeZoneInfo.ConvertTimeFromUtc(utcNow, CairoTimeZone);
+        public DateOnly CairoToday => DateOnly.FromDateTime(CairoNow);
+        public TimeZoneInfo CairoTimeZone => TimeZoneInfo.FindSystemTimeZoneById("Africa/Cairo");
     }
 
     private Booking CreateSampleBooking()

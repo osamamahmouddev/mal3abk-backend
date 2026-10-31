@@ -1,6 +1,7 @@
 using Malabak.Modules.Booking.Application.Abstractions;
 using Malabak.Modules.Booking.Domain;
 using Malabak.SharedKernel;
+using Malabak.SharedKernel.Authorization;
 using Malabak.SharedKernel.Contracts;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -12,6 +13,7 @@ public sealed class SubmitProofHandler : ICommandHandler<SubmitProofCommand, Res
     private readonly IBookingDbContext _dbContext;
     private readonly IClock _clock;
     private readonly IBookingRealtimeBroadcaster _broadcaster;
+    private readonly IVenueDirectory _venues;
     private readonly INotificationPublisher? _notificationPublisher;
     private readonly ILogger<SubmitProofHandler> _logger;
 
@@ -19,12 +21,14 @@ public sealed class SubmitProofHandler : ICommandHandler<SubmitProofCommand, Res
         IBookingDbContext dbContext,
         IClock clock,
         IBookingRealtimeBroadcaster broadcaster,
+        IVenueDirectory venues,
         ILogger<SubmitProofHandler> logger,
         INotificationPublisher? notificationPublisher = null)
     {
         _dbContext = dbContext;
         _clock = clock;
         _broadcaster = broadcaster;
+        _venues = venues;
         _notificationPublisher = notificationPublisher;
         _logger = logger;
     }
@@ -140,29 +144,19 @@ public sealed class SubmitProofHandler : ICommandHandler<SubmitProofCommand, Res
             nowUtc,
             cancellationToken));
 
-        // Dispatch notification
+        // Tell the people who review payments at the venue (its owner and the staff roles that may), each once.
         if (_notificationPublisher is not null)
         {
-            var notif = new NotificationRequest(
-                booking.VenueId, // Venue staff listener
-                NotificationTypes.PaymentProofSubmitted,
-                new Dictionary<string, string>
+            await RunGuardedAsync(booking, "notify the venue staff", async () =>
+            {
+                var reviewers = await _venues.GetStaffUserIdsAsync(booking.VenueId, Permissions.PaymentProofsReview, cancellationToken);
+                var names = await _venues.GetVenueNamesAsync([booking.VenueId], cancellationToken);
+                var venueName = names.GetValueOrDefault(booking.VenueId, string.Empty);
+                foreach (var reviewer in reviewers)
                 {
-                    ["BookingId"] = booking.Id.ToString("D"),
-                    ["BookingReference"] = booking.BookingReference,
-                    ["DepositAmount"] = booking.DepositAmount.Amount.ToString("F2"),
-                    ["Currency"] = booking.DepositAmount.Currency
-                },
-                $"proof-submitted:{booking.Id:D}");
-
-            try
-            {
-                await _notificationPublisher.PublishAsync(notif, cancellationToken);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Failed to publish payment proof submitted notification for booking {BookingId}", booking.Id);
-            }
+                    await _notificationPublisher.PublishAsync(BookingNotifications.ProofSubmitted(booking, venueName, reviewer, _clock), cancellationToken);
+                }
+            });
         }
 
         return Result.Success();

@@ -63,7 +63,7 @@ public sealed class ExpireBookingHoldsJobTests : IClassFixture<BookingDatabaseFi
     }
 
     [Fact]
-    public async Task ThePlayerIsToldOnlyAfterTheExpiryIsSaved_WithTheRealHoldLengthAsync()
+    public async Task ThePlayerIsToldOnlyAfterTheExpiryIsSaved_WithWhatTheTemplateNeedsAsync()
     {
         var id = await SaveAsync();
         var publisher = new StatusAtPublish(_database, id);
@@ -71,7 +71,8 @@ public sealed class ExpireBookingHoldsJobTests : IClassFixture<BookingDatabaseFi
         await RunSweepAsync(later: true, publisher);
 
         publisher.Seen.Should().ContainSingle().Which.Status.Should().Be(BookingStatus.Expired, "nothing may be announced before the expiry is stored");
-        publisher.Seen.Single().Request.Data["HoldDurationMinutes"].Should().Be("15");
+        publisher.Seen.Single().Request.Data["venueName"].Should().Be(FakeVenueDirectory.VenueName);
+        publisher.Seen.Single().Request.Data["bookingId"].Should().Be(id.ToString("D"));
         publisher.Seen.Single().Request.UserId.Should().NotBeEmpty();
     }
 
@@ -155,6 +156,7 @@ public sealed class ExpireBookingHoldsJobTests : IClassFixture<BookingDatabaseFi
         new FakeClock(DateTime.UtcNow.AddMinutes(later ? 20 : 0)),
         new QuietInvalidator(),
         new QuietBroadcaster(),
+        new FakeVenueDirectory(),
         NullLogger<ExpireBookingHoldsJob>.Instance,
         publisher);
 

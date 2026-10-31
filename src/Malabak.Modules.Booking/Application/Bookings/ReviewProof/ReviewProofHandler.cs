@@ -21,6 +21,7 @@ public sealed class ReviewProofHandler : ICommandHandler<ReviewProofCommand, Res
     private readonly IClock _clock;
     private readonly IBookingRealtimeBroadcaster _broadcaster;
     private readonly IAvailabilityInvalidator _availabilityInvalidator;
+    private readonly IVenueDirectory _venues;
     private readonly INotificationPublisher? _notificationPublisher;
     private readonly ILogger<ReviewProofHandler> _logger;
 
@@ -29,6 +30,7 @@ public sealed class ReviewProofHandler : ICommandHandler<ReviewProofCommand, Res
         IClock clock,
         IBookingRealtimeBroadcaster broadcaster,
         IAvailabilityInvalidator availabilityInvalidator,
+        IVenueDirectory venues,
         ILogger<ReviewProofHandler> logger,
         INotificationPublisher? notificationPublisher = null)
     {
@@ -36,6 +38,7 @@ public sealed class ReviewProofHandler : ICommandHandler<ReviewProofCommand, Res
         _clock = clock;
         _broadcaster = broadcaster;
         _availabilityInvalidator = availabilityInvalidator;
+        _venues = venues;
         _notificationPublisher = notificationPublisher;
         _logger = logger;
     }
@@ -123,31 +126,16 @@ public sealed class ReviewProofHandler : ICommandHandler<ReviewProofCommand, Res
 
         if (_notificationPublisher is not null)
         {
-            var notification = approved
-                ? new NotificationRequest(
-                    booking.PlayerId,
-                    NotificationTypes.BookingConfirmed,
-                    new Dictionary<string, string>
-                    {
-                        ["BookingReference"] = booking.BookingReference,
-                        ["PitchId"] = booking.PitchId.ToString("D"),
-                        ["StartUtc"] = booking.StartUtc.ToString("o"),
-                    },
-                    $"booking-confirmed:{booking.Id:D}")
-                : new NotificationRequest(
-                    booking.PlayerId,
-                    NotificationTypes.BookingRejected,
-                    new Dictionary<string, string>
-                    {
-                        ["BookingReference"] = booking.BookingReference,
-                        ["RejectionReason"] = reason ?? string.Empty,
-                        ["HoldExpiresAtUtc"] = booking.HoldExpiresAtUtc?.ToString("o") ?? string.Empty,
-                    },
-                    $"booking-rejected:{booking.Id:D}");
-
-            await RunGuardedAsync(booking, "publish the notification", () => _notificationPublisher.PublishAsync(notification, cancellationToken));
+            await RunGuardedAsync(booking, "publish the notification", async () =>
+            {
+                var names = await _venues.GetVenueNamesAsync([booking.VenueId], cancellationToken);
+                var venueName = names.GetValueOrDefault(booking.VenueId, string.Empty);
+                var notification = approved
+                    ? BookingNotifications.Confirmed(booking, venueName, _clock)
+                    : BookingNotifications.Rejected(booking, venueName, reason ?? string.Empty, _clock);
+                await _notificationPublisher.PublishAsync(notification, cancellationToken);
+            });
         }
-
     }
 
     private async Task RunGuardedAsync(Domain.Booking booking, string step, Func<Task> action)

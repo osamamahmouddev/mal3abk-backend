@@ -194,7 +194,7 @@ public sealed class ReviewProofTests : IClassFixture<BookingDatabaseFixture>
         await using var context = _database.CreateContext(withOutbox ? new SystemClock() : null);
         var handler = new ReviewProofHandler(
             context, new FakeClock(DateTime.UtcNow), new QuietBroadcaster(), new QuietInvalidator(),
-            NullLogger<ReviewProofHandler>.Instance, publisher);
+            new FakeVenueDirectory(), NullLogger<ReviewProofHandler>.Instance, publisher);
         return await handler.HandleAsync(command);
     }
 
@@ -202,7 +202,7 @@ public sealed class ReviewProofTests : IClassFixture<BookingDatabaseFixture>
     {
         await using var context = _database.CreateContext();
         var handler = new SubmitProofHandler(
-            context, new FakeClock(DateTime.UtcNow), new QuietBroadcaster(), NullLogger<SubmitProofHandler>.Instance);
+            context, new FakeClock(DateTime.UtcNow), new QuietBroadcaster(), new FakeVenueDirectory(), NullLogger<SubmitProofHandler>.Instance);
         return await handler.HandleAsync(new SubmitProofCommand(
             bookingId, playerId, Guid.NewGuid(), "media/key", "proof.webp", "image/webp", 1234, Convert.ToHexString(Guid.NewGuid().ToByteArray())));
     }

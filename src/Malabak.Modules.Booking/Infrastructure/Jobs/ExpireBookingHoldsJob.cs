@@ -1,4 +1,3 @@
-using System.Globalization;
 using Hangfire;
 using Malabak.Modules.Booking.Application;
 using Malabak.Modules.Booking.Domain;
@@ -25,6 +24,7 @@ public sealed class ExpireBookingHoldsJob
     private readonly IClock _clock;
     private readonly IAvailabilityInvalidator _availabilityInvalidator;
     private readonly IBookingRealtimeBroadcaster _broadcaster;
+    private readonly IVenueDirectory _venues;
     private readonly INotificationPublisher? _notificationPublisher;
     private readonly ILogger<ExpireBookingHoldsJob> _logger;
 
@@ -33,6 +33,7 @@ public sealed class ExpireBookingHoldsJob
         IClock clock,
         IAvailabilityInvalidator availabilityInvalidator,
         IBookingRealtimeBroadcaster broadcaster,
+        IVenueDirectory venues,
         ILogger<ExpireBookingHoldsJob> logger,
         INotificationPublisher? notificationPublisher = null)
     {
@@ -40,6 +41,7 @@ public sealed class ExpireBookingHoldsJob
         _clock = clock;
         _availabilityInvalidator = availabilityInvalidator;
         _broadcaster = broadcaster;
+        _venues = venues;
         _notificationPublisher = notificationPublisher;
         _logger = logger;
     }
@@ -102,8 +104,6 @@ public sealed class ExpireBookingHoldsJob
             return false;
         }
 
-        var holdMinutes = (int)Math.Round(((booking.HoldExpiresAtUtc ?? nowUtc) - booking.CreatedAtUtc).TotalMinutes);
-
         var expired = booking.Expire(nowUtc);
         if (expired.IsFailure)
         {
@@ -121,12 +121,12 @@ public sealed class ExpireBookingHoldsJob
             return false;
         }
 
-        await AnnounceAsync(booking, nowUtc, holdMinutes, cancellationToken);
+        await AnnounceAsync(booking, nowUtc, cancellationToken);
         return true;
     }
 
     /// <summary>The booking is expired and saved. A failing side effect is logged and does not stop the next booking.</summary>
-    private async Task AnnounceAsync(Domain.Booking booking, DateTime nowUtc, int holdMinutes, CancellationToken cancellationToken)
+    private async Task AnnounceAsync(Domain.Booking booking, DateTime nowUtc, CancellationToken cancellationToken)
     {
         await RunGuardedAsync(booking, "clear cached availability", () => _availabilityInvalidator.InvalidatePitchAsync(booking.PitchId, cancellationToken));
         await RunGuardedAsync(booking, "broadcast the freed slot", () => _broadcaster.BroadcastSlotStatusChangedAsync(
@@ -136,19 +136,12 @@ public sealed class ExpireBookingHoldsJob
 
         if (_notificationPublisher is not null)
         {
-            var request = new NotificationRequest(
-                booking.PlayerId,
-                NotificationTypes.BookingExpired,
-                new Dictionary<string, string>
-                {
-                    ["BookingReference"] = booking.BookingReference,
-                    ["PitchId"] = booking.PitchId.ToString("D"),
-                    ["StartUtc"] = booking.StartUtc.ToString("o", CultureInfo.InvariantCulture),
-                    ["HoldDurationMinutes"] = holdMinutes.ToString(CultureInfo.InvariantCulture),
-                },
-                $"booking-expired:{booking.Id:D}");
-
-            await RunGuardedAsync(booking, "publish the notification", () => _notificationPublisher.PublishAsync(request, cancellationToken));
+            await RunGuardedAsync(booking, "publish the notification", async () =>
+            {
+                var names = await _venues.GetVenueNamesAsync([booking.VenueId], cancellationToken);
+                await _notificationPublisher.PublishAsync(
+                    BookingNotifications.Expired(booking, names.GetValueOrDefault(booking.VenueId, string.Empty), _clock), cancellationToken);
+            });
         }
     }
 

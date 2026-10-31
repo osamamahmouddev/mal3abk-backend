@@ -4,6 +4,7 @@ using Malabak.Modules.Booking.Application;
 using Malabak.Modules.Booking.Application.Bookings.SubmitProof;
 using Malabak.Modules.Booking.Domain;
 using Malabak.SharedKernel;
+using Malabak.SharedKernel.Contracts;
 using Malabak.SharedKernel.Time;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -198,6 +199,35 @@ public sealed class SubmitProofTests : IClassFixture<BookingDatabaseFixture>
         await context.SaveChangesAsync();
     }
 
+    [Fact]
+    public async Task ASubmittedProof_NotifiesEachStaffMemberWhoMayReviewIt_NotTheVenueIdAsync()
+    {
+        var (bookingId, playerId) = await SaveBookingAsync();
+        var owner = Guid.NewGuid();
+        var cashier = Guid.NewGuid();
+        var publisher = new CapturingPublisher();
+
+        var result = await SubmitAsync(bookingId, playerId, NewHash(), venues: new FakeVenueDirectory(owner, cashier), publisher: publisher);
+
+        result.IsSuccess.Should().BeTrue();
+        publisher.Requests.Select(r => r.UserId).Should().BeEquivalentTo([owner, cashier]);
+        publisher.Requests.Should().OnlyContain(r => r.Type == NotificationTypes.PaymentProofSubmitted);
+        publisher.Requests.Select(r => r.DedupeKey).Distinct().Should().HaveCount(2, "each reviewer is told once, and each has their own key");
+        publisher.Requests[0].Data["venueName"].Should().Be(FakeVenueDirectory.VenueName);
+        publisher.Requests[0].Data["bookingId"].Should().Be(bookingId.ToString("D"));
+    }
+
+    private sealed class CapturingPublisher : INotificationPublisher
+    {
+        public List<NotificationRequest> Requests { get; } = [];
+
+        public Task PublishAsync(NotificationRequest request, CancellationToken cancellationToken = default)
+        {
+            Requests.Add(request);
+            return Task.CompletedTask;
+        }
+    }
+
     private static string NewHash() => Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(Guid.NewGuid().ToByteArray()));
 
     private async Task<(Guid BookingId, Guid PlayerId)> SaveBookingAsync()
@@ -210,11 +240,13 @@ public sealed class SubmitProofTests : IClassFixture<BookingDatabaseFixture>
         return (booking.Id, playerId);
     }
 
-    private async Task<Result> SubmitAsync(Guid bookingId, Guid playerId, string hash, IBookingRealtimeBroadcaster? broadcaster = null, Guid? mediaId = null)
+    private async Task<Result> SubmitAsync(
+        Guid bookingId, Guid playerId, string hash, IBookingRealtimeBroadcaster? broadcaster = null, Guid? mediaId = null,
+        IVenueDirectory? venues = null, INotificationPublisher? publisher = null)
     {
         await using var context = _database.CreateContext();
         var handler = new SubmitProofHandler(
-            context, new FakeClock(DateTime.UtcNow), broadcaster ?? new QuietBroadcaster(), NullLogger<SubmitProofHandler>.Instance);
+            context, new FakeClock(DateTime.UtcNow), broadcaster ?? new QuietBroadcaster(), venues ?? new FakeVenueDirectory(), NullLogger<SubmitProofHandler>.Instance, publisher);
         return await handler.HandleAsync(new SubmitProofCommand(
             bookingId, playerId, mediaId ?? Guid.NewGuid(), "media/key/large.webp", "proof.webp", "image/webp", 1234, hash));
     }
