@@ -41,7 +41,14 @@ public sealed class GetBookingProofsHandler : IQueryHandler<GetBookingProofsQuer
             return Result.Failure<IReadOnlyList<BookingProofDto>>(BookingErrors.NotFound);
         }
 
-        // Ownership or venue staff access is checked by the endpoint caller
+        // Payment receipts are private. Only the booking's player reads them here; venue staff review proofs through the
+        // venue-manager booking detail, which is scoped to their own venue. A booking that is not the caller's looks like
+        // one that does not exist, so ids cannot be probed.
+        if (booking.PlayerId != query.RequestingUserId)
+        {
+            return Result.Failure<IReadOnlyList<BookingProofDto>>(BookingErrors.NotFound);
+        }
+
         var proofs = booking.Proofs
             .OrderByDescending(p => p.UploadedAtUtc)
             .Select(p => new BookingProofDto(
