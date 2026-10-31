@@ -4306,7 +4306,6 @@
           {
             "name": "page",
             "in": "query",
-            "required": true,
             "schema": {
               "type": "integer",
               "format": "int32"
@@ -4315,7 +4314,6 @@
           {
             "name": "pageSize",
             "in": "query",
-            "required": true,
             "schema": {
               "type": "integer",
               "format": "int32"
@@ -9774,7 +9772,6 @@
           {
             "name": "page",
             "in": "query",
-            "required": true,
             "schema": {
               "type": "integer",
               "format": "int32"
@@ -9783,7 +9780,6 @@
           {
             "name": "pageSize",
             "in": "query",
-            "required": true,
             "schema": {
               "type": "integer",
               "format": "int32"

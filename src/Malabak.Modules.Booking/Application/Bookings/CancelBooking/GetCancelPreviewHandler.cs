@@ -30,12 +30,13 @@ public sealed class GetCancelPreviewHandler : IQueryHandler<GetCancelPreviewQuer
             return Result.Failure<CancelPreviewResponse>(BookingErrors.NotFound);
         }
 
+        // Someone else's booking looks like one that does not exist, so ids cannot be probed.
         if (booking.PlayerId != query.PlayerId)
         {
-            return Result.Failure<CancelPreviewResponse>(Error.Forbidden("Booking.Forbidden", "You do not own this booking."));
+            return Result.Failure<CancelPreviewResponse>(BookingErrors.NotFound);
         }
 
-        if (booking.Status is not (BookingStatus.PendingDeposit or BookingStatus.ProofSubmitted or BookingStatus.Confirmed))
+        if (booking.Status is not (BookingStatus.PendingDeposit or BookingStatus.ProofSubmitted or BookingStatus.UnderReview or BookingStatus.Confirmed))
         {
             return Result.Failure<CancelPreviewResponse>(Error.Conflict("Booking.CannotCancel", $"Bookings in status {booking.Status} cannot be cancelled."));
         }

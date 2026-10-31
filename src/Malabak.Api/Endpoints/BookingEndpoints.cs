@@ -99,6 +99,7 @@ public static class BookingEndpoints
             return Results.Ok(ticket);
         })
         .RequireAuthorization()
+        .RequireDistributedRateLimiting("booking-proof-upload", permitLimit: 10, windowSeconds: 60)
         .WithName("GetProofUploadUrl")
         .WithSummary("Generate a 5-minute pre-signed upload URL for payment receipt");
 
@@ -155,6 +156,7 @@ public static class BookingEndpoints
             };
         })
         .RequireAuthorization()
+        .RequireDistributedRateLimiting("booking-proof-submit", permitLimit: 10, windowSeconds: 60)
         .WithName("SubmitPaymentProof")
         .WithSummary("Submit processed payment proof receipt for a booking hold");
 
@@ -163,26 +165,17 @@ public static class BookingEndpoints
             Guid id,
             ClaimsPrincipal user,
             [FromBody] CancelBookingApiRequest request,
+            HttpContext httpContext,
             ICommandHandler<CancelBookingCommand, Result> handler,
             CancellationToken ct) =>
         {
             var userId = user.GetUserId()!.Value;
             var command = new CancelBookingCommand(id, userId, request.Reason);
             var result = await handler.HandleAsync(command, ct);
-
-            if (result.IsSuccess)
-            {
-                return Results.Ok(new { message = "Booking cancelled successfully", bookingId = id });
-            }
-
-            return result.Error.Code switch
-            {
-                "Booking.CancellationWindowClosed" => Results.Problem(title: result.Error.Code, detail: result.Error.Description, statusCode: StatusCodes.Status409Conflict),
-                "Booking.NotFound" => Results.NotFound(),
-                _ => Results.Problem(title: result.Error.Code, detail: result.Error.Description, statusCode: StatusCodes.Status400BadRequest)
-            };
+            return result.ToHttpResult(httpContext: httpContext, onSuccess: () => Results.Ok(new { message = "Booking cancelled successfully", bookingId = id }));
         })
         .RequireAuthorization()
+        .RequireDistributedRateLimiting("booking-cancel", permitLimit: 10, windowSeconds: 60)
         .WithName("CancelBooking")
         .WithSummary("Cancel booking if within cancellation policy deadline");
 
@@ -190,14 +183,13 @@ public static class BookingEndpoints
         bookings.MapGet("/{id:guid}/cancel/preview", async (
             Guid id,
             ClaimsPrincipal user,
+            HttpContext httpContext,
             IQueryHandler<GetCancelPreviewQuery, Result<CancelPreviewResponse>> handler,
             CancellationToken ct) =>
         {
             var userId = user.GetUserId()!.Value;
             var result = await handler.HandleAsync(new GetCancelPreviewQuery(id, userId), ct);
-            return result.IsSuccess
-                ? Results.Ok(result.Value)
-                : Results.Problem(title: result.Error.Code, detail: result.Error.Description, statusCode: StatusCodes.Status400BadRequest);
+            return result.ToHttpResult(httpContext: httpContext);
         })
         .RequireAuthorization()
         .WithName("GetCancelPreview")
@@ -250,13 +242,13 @@ public static class BookingEndpoints
         meBookings.MapGet("/", async (
             ClaimsPrincipal user,
             [FromQuery] string? tab,
-            [FromQuery] int page,
-            [FromQuery] int pageSize,
+            [FromQuery] int? page,
+            [FromQuery] int? pageSize,
             IQueryHandler<GetPlayerBookingsQuery, Result<PagedList<PlayerBookingSummaryDto>>> handler,
             CancellationToken ct) =>
         {
             var userId = user.GetUserId()!.Value;
-            var result = await handler.HandleAsync(new GetPlayerBookingsQuery(userId, tab, page, pageSize), ct);
+            var result = await handler.HandleAsync(new GetPlayerBookingsQuery(userId, tab, page ?? 1, pageSize ?? 0), ct);
             return Results.Ok(result.Value);
         })
         .WithName("GetMyBookings")
@@ -285,6 +277,7 @@ public static class BookingEndpoints
             .MapToApiVersion(1, 0)
             .RequireAuthorization(Permissions.VenuesManage)
             .AddEndpointFilter<VenueTenantEndpointFilter>()
+            .AddEndpointFilter(new VenueAccessEndpointFilter())
             .WithTags("Venue Bookings & Calendar");
 
         // Reservations list with filters
@@ -295,14 +288,15 @@ public static class BookingEndpoints
             [FromQuery] DateTime? endDateUtc,
             [FromQuery] Guid? pitchId,
             [FromQuery] string? search,
-            [FromQuery] int page,
-            [FromQuery] int pageSize,
+            [FromQuery] int? page,
+            [FromQuery] int? pageSize,
             IQueryHandler<GetVenueBookingsQuery, Result<PagedList<VenueBookingItemDto>>> handler,
             CancellationToken ct) =>
         {
-            var result = await handler.HandleAsync(new GetVenueBookingsQuery(venueId, status, startDateUtc, endDateUtc, pitchId, search, page, pageSize), ct);
+            var result = await handler.HandleAsync(new GetVenueBookingsQuery(venueId, status, startDateUtc, endDateUtc, pitchId, search, page ?? 1, pageSize ?? 0), ct);
             return Results.Ok(result.Value);
         })
+        .RequireVenuePermission(Permissions.BookingsView)
         .WithName("GetVenueBookings")
         .WithSummary("List venue bookings with status, date, pitch and customer filters");
 
@@ -315,6 +309,7 @@ public static class BookingEndpoints
             var result = await handler.HandleAsync(new GetVenuePendingBookingsQuery(venueId), ct);
             return Results.Ok(result.Value);
         })
+        .RequireVenuePermission(Permissions.BookingsView)
         .WithName("GetVenuePendingBookings")
         .WithSummary("List pending reservations awaiting review or deposit");
 
@@ -339,6 +334,7 @@ public static class BookingEndpoints
                 .ToList();
             return Results.Ok(detail with { Proofs = proofs });
         })
+        .RequireVenuePermission(Permissions.BookingsView)
         .WithName("GetVenueBookingDetail")
         .WithSummary("Get detailed reservation info including proof history and status audit");
 
@@ -355,6 +351,7 @@ public static class BookingEndpoints
             var result = await handler.HandleAsync(new GetVenueCalendarQuery(venueId, rangeStartUtc, rangeEndUtc, pitchId), ct);
             return result.ToHttpResult(httpContext: httpContext);
         })
+        .RequireVenuePermission(Permissions.BookingsView)
         .WithName("GetVenueCalendar")
         .WithSummary("Calendar view of all bookings, holds, and manual reservations for a date range");
 
@@ -375,7 +372,8 @@ public static class BookingEndpoints
             var message = request.Approved ? "Booking confirmed" : "Proof rejected";
             return result.ToHttpResult(httpContext: httpContext, onSuccess: () => Results.Ok(new { message, bookingId = id }));
         })
-        .RequireAuthorization(Permissions.BookingsApprove)
+        .RequireVenuePermission(Permissions.PaymentProofsReview)
+        .RequireDistributedRateLimiting("booking-proof-review", permitLimit: 60, windowSeconds: 60)
         .WithName("ReviewPaymentProof")
         .WithSummary("Approve or reject a submitted payment proof");
 
@@ -406,6 +404,8 @@ public static class BookingEndpoints
                 httpContext: httpContext,
                 onSuccess: created => Results.Created($"/api/v1/venue-manager/venues/{venueId}/bookings/{created.BookingId}", created));
         })
+        .RequireDistributedRateLimiting("booking-manual", permitLimit: 30, windowSeconds: 60)
+        .RequireVenuePermission(Permissions.BookingsApprove)
         .WithName("CreateManualBooking")
         .WithSummary("Create manual phone/walk-in reservation directly into Confirmed state under GiST protection");
 
@@ -423,6 +423,7 @@ public static class BookingEndpoints
             var result = await handler.HandleAsync(new MarkNoShowCommand(venueId, id, request.Reason, actorUserId), ct);
             return result.ToHttpResult(httpContext: httpContext, onSuccess: () => Results.Ok(new { message = "Booking marked as NoShow", bookingId = id }));
         })
+        .RequireVenuePermission(Permissions.BookingsApprove)
         .WithName("MarkBookingNoShow")
         .WithSummary("Mark confirmed booking as No-Show after start time");
 
@@ -440,6 +441,7 @@ public static class BookingEndpoints
             var result = await handler.HandleAsync(new RecordManualRefundCommand(venueId, id, request.Amount, request.Notes ?? string.Empty, actorUserId), ct);
             return result.ToHttpResult(httpContext: httpContext, onSuccess: () => Results.Ok(new { message = "Refund recorded successfully", bookingId = id }));
         })
+        .RequireVenuePermission(Permissions.PaymentProofsReview)
         .WithName("RecordManualRefund")
         .WithSummary("Record manual refund processed by venue for cancelled reservation");
     }
