@@ -2491,6 +2491,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/venue-manager/pitches/{id}/active": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Pause or resume a pitch; paused pitches leave search and availability immediately */
+        put: operations["SetPitchActive"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/venue-manager/venues/{venueId}/schedules": {
         parameters: {
             query?: never;
@@ -3706,6 +3723,11 @@ export interface components {
             ownerName?: string | null;
             submissionMessage?: string | null;
         };
+        PitchActivationResult: {
+            pitch: components["schemas"]["PitchDto"];
+            /** Format: int32 */
+            upcomingBookings: number;
+        };
         PitchAvailabilityDto: {
             /** Format: uuid */
             pitchId: string;
@@ -4191,6 +4213,9 @@ export interface components {
             /** Format: date-time */
             lastActivityAtUtc: string;
             isCurrent: boolean;
+        };
+        SetPitchActiveApiRequest: {
+            isActive: boolean;
         };
         /**
          * Format: int32
@@ -14936,6 +14961,95 @@ export interface operations {
                 };
             };
             /** @description Not Found (Resource does not exist) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Conflict (Concurrent update or duplicate idempotency in flight) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Unprocessable Entity (Business rule violation or payload mismatch) */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Too Many Requests (Rate limit exceeded, check Retry-After header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    SetPitchActive: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetPitchActiveApiRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PitchActivationResult"];
+                };
+            };
+            /** @description Bad Request (Validation failure, invalid inputs) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Unauthorized (Missing or expired JWT access token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Forbidden (Insufficient role or permissions) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Not Found */
             404: {
                 headers: {
                     [name: string]: unknown;
