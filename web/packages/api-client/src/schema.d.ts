@@ -3874,6 +3874,17 @@ export interface components {
          * @enum {integer}
          */
         PriceAdjustment: 0 | 1 | 2;
+        PriceLineSnapshot: {
+            /** Format: date-time */
+            startUtc: string;
+            /** Format: date-time */
+            endUtc: string;
+            /** Format: double */
+            hourlyRate: number;
+            /** Format: double */
+            amount: number;
+            appliedRules: string[];
+        };
         PricePreviewApiRequest: {
             /** Format: uuid */
             pitchId: string;
@@ -3882,6 +3893,38 @@ export interface components {
             /** Format: date-time */
             endUtc: string;
             draft?: components["schemas"]["PriceRuleApiRequest"];
+        };
+        PricePreviewDto: {
+            current: components["schemas"]["PriceQuoteSnapshot"];
+            withDraft?: components["schemas"]["PriceQuoteSnapshot"];
+            /** Format: double */
+            difference?: number | null;
+        };
+        PriceQuoteSnapshot: {
+            /** Format: uuid */
+            venueId: string;
+            /** Format: uuid */
+            pitchId: string;
+            /** Format: date-time */
+            startUtc: string;
+            /** Format: date-time */
+            endUtc: string;
+            /** Format: int32 */
+            durationMinutes: number;
+            currency: string;
+            /** Format: double */
+            subtotal: number;
+            /** Format: double */
+            discount: number;
+            discountRule?: string | null;
+            /** Format: double */
+            total: number;
+            /** Format: double */
+            deposit: number;
+            depositType: string;
+            lines: components["schemas"]["PriceLineSnapshot"][];
+            /** Format: date-time */
+            quotedAtUtc: string;
         };
         PriceRuleApiRequest: {
             kind: components["schemas"]["PriceRuleKind"];
@@ -3905,6 +3948,36 @@ export interface components {
             /** Format: int32 */
             minDurationMinutes?: number | null;
             isActive?: boolean | null;
+        };
+        PriceRuleDto: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            pitchId?: string | null;
+            kind: string;
+            adjustment: string;
+            name: string;
+            /** Format: double */
+            amount?: number | null;
+            currency: string;
+            /** Format: double */
+            percent?: number | null;
+            days?: string[] | null;
+            /** Format: time */
+            startTime?: string | null;
+            /** Format: time */
+            endTime?: string | null;
+            /** Format: date */
+            startDate?: string | null;
+            /** Format: date */
+            endDate?: string | null;
+            /** Format: int32 */
+            minDurationMinutes?: number | null;
+            isActive: boolean;
+            /** Format: date-time */
+            createdAtUtc: string;
+            /** Format: date-time */
+            updatedAtUtc?: string | null;
         };
         /**
          * Format: int32
@@ -15869,7 +15942,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["PriceRuleDto"][];
+                };
             };
             /** @description Bad Request (Validation failure, invalid inputs) */
             400: {
@@ -15951,12 +16026,14 @@ export interface operations {
             };
         };
         responses: {
-            /** @description OK */
-            200: {
+            /** @description Created */
+            201: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["PriceRuleDto"];
+                };
             };
             /** @description Bad Request (Validation failure, invalid inputs) */
             400: {
@@ -15994,7 +16071,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["ProblemDetails"];
                 };
             };
-            /** @description Conflict (Concurrent update or duplicate idempotency in flight) */
+            /** @description Conflict */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -16044,7 +16121,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["PriceRuleDto"];
+                };
             };
             /** @description Bad Request (Validation failure, invalid inputs) */
             400: {
@@ -16082,7 +16161,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["ProblemDetails"];
                 };
             };
-            /** @description Conflict (Concurrent update or duplicate idempotency in flight) */
+            /** @description Conflict */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -16123,8 +16202,8 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description OK */
-            200: {
+            /** @description No Content */
+            204: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -16215,7 +16294,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["PricePreviewDto"];
+                };
             };
             /** @description Bad Request (Validation failure, invalid inputs) */
             400: {
