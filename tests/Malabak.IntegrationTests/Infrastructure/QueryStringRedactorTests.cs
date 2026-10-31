@@ -86,4 +86,13 @@ public sealed class QueryStringRedactorTests
         result.Should().NotContain("01012345678");
         result.Should().NotContain("mohamed@example.com");
     }
+
+    [Theory]
+    [InlineData("?lat=30.044420&lng=31.235712&radiusKm=10", "?lat=30.04&lng=31.24&radiusKm=10")]
+    [InlineData("?south=29.912345&west=31.2&north=30.0&east=31.3", "?south=29.91&west=31.20&north=30.00&east=31.30")]
+    [InlineData("?latitude=not-a-number", "?latitude=***MASKED***")]
+    public void RedactQueryString_RoundsPlayerCoordinates(string rawQuery, string expected)
+    {
+        QueryStringRedactor.RedactQueryString(new QueryString(rawQuery)).Should().Be(expected);
+    }
 }

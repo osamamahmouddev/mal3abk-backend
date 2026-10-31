@@ -1619,6 +1619,100 @@
         }
       }
     },
+    "/api/v1/bookings/quote": {
+      "post": {
+        "tags": [
+          "Bookings"
+        ],
+        "summary": "Server-side total, deposit, remaining balance, policy summary and a 15-minute quote token",
+        "operationId": "QuoteBooking",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QuoteApiRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Bad Request (Validation failure, invalid inputs)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized (Missing or expired JWT access token)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (Insufficient role or permissions)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found (Resource does not exist)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict (Concurrent update or duplicate idempotency in flight)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity (Business rule violation or payload mismatch)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests (Rate limit exceeded, check Retry-After header)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/me/favorites": {
       "get": {
         "tags": [
@@ -2089,6 +2183,122 @@
             "schema": {
               "type": "string",
               "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Bad Request (Validation failure, invalid inputs)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized (Missing or expired JWT access token)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (Insufficient role or permissions)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found (Resource does not exist)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict (Concurrent update or duplicate idempotency in flight)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity (Business rule violation or payload mismatch)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests (Rate limit exceeded, check Retry-After header)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/home": {
+      "get": {
+        "tags": [
+          "Home"
+        ],
+        "summary": "Home screen in one call: nearby, popular near you, recently viewed, upcoming booking, team activity, sponsored",
+        "operationId": "GetHomeFeed",
+        "parameters": [
+          {
+            "name": "lat",
+            "in": "query",
+            "schema": {
+              "type": "number",
+              "format": "double"
+            }
+          },
+          {
+            "name": "lng",
+            "in": "query",
+            "schema": {
+              "type": "number",
+              "format": "double"
+            }
+          },
+          {
+            "name": "city",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "area",
+            "in": "query",
+            "schema": {
+              "type": "string"
             }
           }
         ],
@@ -11377,6 +11587,522 @@
         }
       }
     },
+    "/api/v1/venue-manager/venues/{venueId}/price-rules": {
+      "get": {
+        "tags": [
+          "Venue Pricing"
+        ],
+        "summary": "All price rules of the venue (base, peak, weekend, holiday, special date, discount)",
+        "operationId": "GetPriceRules",
+        "parameters": [
+          {
+            "name": "venueId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Bad Request (Validation failure, invalid inputs)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized (Missing or expired JWT access token)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (Insufficient role or permissions)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found (Resource does not exist)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict (Concurrent update or duplicate idempotency in flight)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity (Business rule violation or payload mismatch)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests (Rate limit exceeded, check Retry-After header)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Venue Pricing"
+        ],
+        "operationId": "CreatePriceRule",
+        "parameters": [
+          {
+            "name": "venueId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PriceRuleApiRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Bad Request (Validation failure, invalid inputs)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized (Missing or expired JWT access token)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (Insufficient role or permissions)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found (Resource does not exist)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict (Concurrent update or duplicate idempotency in flight)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity (Business rule violation or payload mismatch)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests (Rate limit exceeded, check Retry-After header)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/venue-manager/venues/{venueId}/price-rules/{ruleId}": {
+      "put": {
+        "tags": [
+          "Venue Pricing"
+        ],
+        "operationId": "UpdatePriceRule",
+        "parameters": [
+          {
+            "name": "venueId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "ruleId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PriceRuleApiRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Bad Request (Validation failure, invalid inputs)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized (Missing or expired JWT access token)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (Insufficient role or permissions)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found (Resource does not exist)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict (Concurrent update or duplicate idempotency in flight)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity (Business rule violation or payload mismatch)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests (Rate limit exceeded, check Retry-After header)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Venue Pricing"
+        ],
+        "operationId": "DeletePriceRule",
+        "parameters": [
+          {
+            "name": "venueId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "ruleId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Bad Request (Validation failure, invalid inputs)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized (Missing or expired JWT access token)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (Insufficient role or permissions)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found (Resource does not exist)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict (Concurrent update or duplicate idempotency in flight)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity (Business rule violation or payload mismatch)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests (Rate limit exceeded, check Retry-After header)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/venue-manager/venues/{venueId}/price-rules/preview": {
+      "post": {
+        "tags": [
+          "Venue Pricing"
+        ],
+        "summary": "Price a slot with the saved rules, and optionally with a draft rule to compare",
+        "operationId": "PreviewPrice",
+        "parameters": [
+          {
+            "name": "venueId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PricePreviewApiRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Bad Request (Validation failure, invalid inputs)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized (Missing or expired JWT access token)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (Insufficient role or permissions)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found (Resource does not exist)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict (Concurrent update or duplicate idempotency in flight)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity (Business rule violation or payload mismatch)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests (Rate limit exceeded, check Retry-After header)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/venue-invitations/accept": {
       "post": {
         "tags": [
@@ -12147,6 +12873,828 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Bad Request (Validation failure, invalid inputs)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized (Missing or expired JWT access token)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (Insufficient role or permissions)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found (Resource does not exist)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict (Concurrent update or duplicate idempotency in flight)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity (Business rule violation or payload mismatch)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests (Rate limit exceeded, check Retry-After header)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/venues/{venueId}/availability": {
+      "get": {
+        "tags": [
+          "Venues (public)"
+        ],
+        "summary": "Slots per pitch for a business date with state (available, held, booked, blocked, unavailable) and price",
+        "operationId": "GetVenueAvailability",
+        "parameters": [
+          {
+            "name": "venueId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "date",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "pitchId",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Bad Request (Validation failure, invalid inputs)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized (Missing or expired JWT access token)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (Insufficient role or permissions)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found (Resource does not exist)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict (Concurrent update or duplicate idempotency in flight)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity (Business rule violation or payload mismatch)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests (Rate limit exceeded, check Retry-After header)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/venues/explore": {
+      "get": {
+        "tags": [
+          "Venues (public)"
+        ],
+        "summary": "Search approved venues by location, area, date and time, budget, pitch type, surface and facilities",
+        "operationId": "ExploreVenues",
+        "parameters": [
+          {
+            "name": "Lat",
+            "in": "query",
+            "schema": {
+              "type": "number",
+              "format": "double"
+            }
+          },
+          {
+            "name": "Lng",
+            "in": "query",
+            "schema": {
+              "type": "number",
+              "format": "double"
+            }
+          },
+          {
+            "name": "RadiusKm",
+            "in": "query",
+            "schema": {
+              "type": "number",
+              "format": "double"
+            }
+          },
+          {
+            "name": "City",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Area",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Date",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "From",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "time"
+            }
+          },
+          {
+            "name": "To",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "time"
+            }
+          },
+          {
+            "name": "MaxPrice",
+            "in": "query",
+            "schema": {
+              "type": "number",
+              "format": "double"
+            }
+          },
+          {
+            "name": "PitchType",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Surface",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Facilities",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Sort",
+            "in": "query",
+            "schema": {
+              "$ref": "#/components/schemas/ExploreSort"
+            }
+          },
+          {
+            "name": "Page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "PageSize",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Bad Request (Validation failure, invalid inputs)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized (Missing or expired JWT access token)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (Insufficient role or permissions)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found (Resource does not exist)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict (Concurrent update or duplicate idempotency in flight)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity (Business rule violation or payload mismatch)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests (Rate limit exceeded, check Retry-After header)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/venues/map": {
+      "get": {
+        "tags": [
+          "Venues (public)"
+        ],
+        "summary": "Venue pins inside the visible map bounds (max 2 degrees wide) with the explore filters",
+        "operationId": "MapVenues",
+        "parameters": [
+          {
+            "name": "Lat",
+            "in": "query",
+            "schema": {
+              "type": "number",
+              "format": "double"
+            }
+          },
+          {
+            "name": "Lng",
+            "in": "query",
+            "schema": {
+              "type": "number",
+              "format": "double"
+            }
+          },
+          {
+            "name": "RadiusKm",
+            "in": "query",
+            "schema": {
+              "type": "number",
+              "format": "double"
+            }
+          },
+          {
+            "name": "City",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Area",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Date",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "From",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "time"
+            }
+          },
+          {
+            "name": "To",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "time"
+            }
+          },
+          {
+            "name": "MaxPrice",
+            "in": "query",
+            "schema": {
+              "type": "number",
+              "format": "double"
+            }
+          },
+          {
+            "name": "PitchType",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Surface",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Facilities",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Sort",
+            "in": "query",
+            "schema": {
+              "$ref": "#/components/schemas/ExploreSort"
+            }
+          },
+          {
+            "name": "Page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "PageSize",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "south",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "number",
+              "format": "double"
+            }
+          },
+          {
+            "name": "west",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "number",
+              "format": "double"
+            }
+          },
+          {
+            "name": "north",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "number",
+              "format": "double"
+            }
+          },
+          {
+            "name": "east",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "number",
+              "format": "double"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Bad Request (Validation failure, invalid inputs)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized (Missing or expired JWT access token)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (Insufficient role or permissions)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found (Resource does not exist)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict (Concurrent update or duplicate idempotency in flight)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity (Business rule violation or payload mismatch)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests (Rate limit exceeded, check Retry-After header)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/venues/{venueId}": {
+      "get": {
+        "tags": [
+          "Venues (public)"
+        ],
+        "summary": "Venue profile: gallery, facilities, opening hours, starting price and deposit/cancellation policy",
+        "operationId": "GetPublicVenue",
+        "parameters": [
+          {
+            "name": "venueId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Bad Request (Validation failure, invalid inputs)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized (Missing or expired JWT access token)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (Insufficient role or permissions)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found (Resource does not exist)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict (Concurrent update or duplicate idempotency in flight)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity (Business rule violation or payload mismatch)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests (Rate limit exceeded, check Retry-After header)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/venues/{venueId}/pitches": {
+      "get": {
+        "tags": [
+          "Venues (public)"
+        ],
+        "summary": "Active pitches with size, surface, dimensions, photos, base hourly price and custom hours",
+        "operationId": "GetPublicVenuePitches",
+        "parameters": [
+          {
+            "name": "venueId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Bad Request (Validation failure, invalid inputs)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized (Missing or expired JWT access token)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (Insufficient role or permissions)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found (Resource does not exist)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict (Concurrent update or duplicate idempotency in flight)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity (Business rule violation or payload mismatch)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests (Rate limit exceeded, check Retry-After header)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/venues/areas": {
+      "get": {
+        "tags": [
+          "Venues (public)"
+        ],
+        "summary": "Cities and areas that have venues, for choosing a place by hand when location is not shared",
+        "operationId": "ExploreAreas",
+        "responses": {
+          "200": {
+            "description": "OK"
           },
           "400": {
             "description": "Bad Request (Validation failure, invalid inputs)",
@@ -13269,6 +14817,16 @@
         },
         "additionalProperties": false
       },
+      "ExploreSort": {
+        "enum": [
+          0,
+          1,
+          2,
+          3
+        ],
+        "type": "integer",
+        "format": "int32"
+      },
       "GalleryPhotoApiRequest": {
         "required": [
           "mediaId"
@@ -14157,6 +15715,124 @@
         },
         "additionalProperties": false
       },
+      "PriceAdjustment": {
+        "enum": [
+          0,
+          1,
+          2
+        ],
+        "type": "integer",
+        "format": "int32"
+      },
+      "PricePreviewApiRequest": {
+        "required": [
+          "endUtc",
+          "pitchId",
+          "startUtc"
+        ],
+        "type": "object",
+        "properties": {
+          "pitchId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "startUtc": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "endUtc": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "draft": {
+            "$ref": "#/components/schemas/PriceRuleApiRequest"
+          }
+        },
+        "additionalProperties": false
+      },
+      "PriceRuleApiRequest": {
+        "required": [
+          "adjustment",
+          "kind",
+          "name"
+        ],
+        "type": "object",
+        "properties": {
+          "kind": {
+            "$ref": "#/components/schemas/PriceRuleKind"
+          },
+          "adjustment": {
+            "$ref": "#/components/schemas/PriceAdjustment"
+          },
+          "pitchId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "name": {
+            "type": "string"
+          },
+          "amount": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "percent": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "days": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DayOfWeek"
+            },
+            "nullable": true
+          },
+          "startTime": {
+            "type": "string",
+            "format": "time",
+            "nullable": true
+          },
+          "endTime": {
+            "type": "string",
+            "format": "time",
+            "nullable": true
+          },
+          "startDate": {
+            "type": "string",
+            "format": "date",
+            "nullable": true
+          },
+          "endDate": {
+            "type": "string",
+            "format": "date",
+            "nullable": true
+          },
+          "minDurationMinutes": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "isActive": {
+            "type": "boolean",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "PriceRuleKind": {
+        "enum": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5
+        ],
+        "type": "integer",
+        "format": "int32"
+      },
       "ProblemDetails": {
         "type": "object",
         "properties": {
@@ -14247,6 +15923,29 @@
           },
           "platform": {
             "$ref": "#/components/schemas/DevicePlatform"
+          }
+        },
+        "additionalProperties": false
+      },
+      "QuoteApiRequest": {
+        "required": [
+          "endUtc",
+          "pitchId",
+          "startUtc"
+        ],
+        "type": "object",
+        "properties": {
+          "pitchId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "startUtc": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "endUtc": {
+            "type": "string",
+            "format": "date-time"
           }
         },
         "additionalProperties": false
@@ -14989,6 +16688,11 @@
           },
           "status": {
             "type": "string"
+          },
+          "holdExpiresAtUtc": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
           }
         },
         "additionalProperties": false
@@ -15567,7 +17271,8 @@
       "VerifyOtpRequest": {
         "required": [
           "code",
-          "phoneNumber"
+          "phoneNumber",
+          "restoreAccount"
         ],
         "type": "object",
         "properties": {

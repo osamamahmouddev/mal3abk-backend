@@ -29,6 +29,8 @@ public sealed class ArchitectureTests
         "Malabak.Modules.Venues"
     ];
 
+    private static readonly string[] _locationWords = ["Latitude", "Longitude", "GeoLocation", "Coordinates"];
+
     private static readonly Assembly[] _moduleAssemblies =
     [
         typeof(Modules.Audit.AuditModule).Assembly,
@@ -198,5 +200,21 @@ public sealed class ArchitectureTests
 
         // Assert
         testResult.IsSuccessful.Should().BeTrue();
+    }
+
+    [Fact]
+    public void OnlyVenues_StoreCoordinates_PlayerLocationIsNeverPersisted()
+    {
+        // TASK-303: player location is used per request for distance only. Any domain type with a coordinate-like
+        // property other than the venue itself would mean someone started storing where players are.
+        var offenders = _moduleAssemblies
+            .SelectMany(a => a.GetTypes())
+            .Where(t => t.Namespace?.Contains(".Domain", StringComparison.Ordinal) == true && t != typeof(Modules.Venues.Domain.Venue))
+            .SelectMany(t => t.GetProperties(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly)
+                .Where(p => _locationWords.Any(w => p.Name.Contains(w, StringComparison.OrdinalIgnoreCase)))
+                .Select(p => $"{t.FullName}.{p.Name}"))
+            .ToList();
+
+        offenders.Should().BeEmpty();
     }
 }

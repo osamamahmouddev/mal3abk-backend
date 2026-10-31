@@ -1,3 +1,5 @@
+using System.Collections.Concurrent;
+using System.Collections.Frozen;
 using System.Globalization;
 
 namespace Malabak.SharedKernel.Reference;
@@ -13,6 +15,7 @@ public sealed record Holiday(DateOnly Date, string Code, string NameAr, string N
 public static class EgyptHolidayCalendar
 {
     private static readonly UmAlQuraCalendar _hijri = new();
+    private static readonly ConcurrentDictionary<int, FrozenSet<DateOnly>> _datesByYear = new();
 
     public static IReadOnlyList<Holiday> ForYear(int year)
     {
@@ -40,7 +43,9 @@ public static class EgyptHolidayCalendar
         return holidays.OrderBy(h => h.Date).ToList();
     }
 
-    public static bool IsHoliday(DateOnly date) => ForYear(date.Year).Any(h => h.Date == date);
+    /// <summary>Hot path (every priced 15-minute slice): holiday dates are computed once per year and then looked up.</summary>
+    public static bool IsHoliday(DateOnly date) =>
+        _datesByYear.GetOrAdd(date.Year, year => ForYear(year).Select(h => h.Date).ToFrozenSet()).Contains(date);
 
     /// <summary>Orthodox (Julian computus) Easter, converted to the Gregorian date used in Egypt.</summary>
     public static DateOnly OrthodoxEaster(int year)

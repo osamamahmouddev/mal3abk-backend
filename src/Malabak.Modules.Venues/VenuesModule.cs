@@ -110,6 +110,17 @@ public static class VenuesModule
         services.AddScoped<Application.SpecialSchedules.SpecialScheduleHandlers>();
         services.AddScoped<Application.SpecialSchedules.SpecialScheduleQueries>();
         services.AddScoped<IPitchAvailabilityChecker, Application.SpecialSchedules.PitchAvailabilityChecker>();
+        services.AddScoped<Application.Pricing.PricingService>();
+        services.AddScoped<Application.Pricing.PriceRuleManagement>();
+        services.AddScoped<Application.Availability.VenueAvailabilityQuery>();
+        services.AddScoped<Application.Availability.CachedVenueAvailability>();
+        services.AddScoped<Application.Explore.VenueExplore>();
+        services.AddScoped<Application.Details.VenueDetailsQuery>();
+        services.AddScoped<Application.Home.HomeFeed>();
+        services.AddScoped<Application.Quotes.BookingQuoteService>();
+        services.AddScoped<IBookingQuoteValidator>(sp => sp.GetRequiredService<Application.Quotes.BookingQuoteService>());
+        services.AddScoped<IAvailabilityInvalidator, Application.Availability.AvailabilityInvalidator>();
+        services.AddScoped<IPriceQuoteProvider>(sp => sp.GetRequiredService<Application.Pricing.PricingService>());
         services.AddScoped<ICommandHandler<Application.SpecialSchedules.AddScheduleOverrideCommand, Result<Application.SpecialSchedules.ScheduleChangeOutcome>>>(sp => sp.GetRequiredService<Application.SpecialSchedules.SpecialScheduleHandlers>());
         services.AddScoped<ICommandHandler<Application.SpecialSchedules.RemoveScheduleOverrideCommand, Result<Application.SpecialSchedules.ScheduleChangeOutcome>>>(sp => sp.GetRequiredService<Application.SpecialSchedules.SpecialScheduleHandlers>());
         services.AddScoped<ICommandHandler<Application.SpecialSchedules.ApplyHolidayClosuresCommand, Result<Application.SpecialSchedules.ScheduleChangeOutcome>>>(sp => sp.GetRequiredService<Application.SpecialSchedules.SpecialScheduleHandlers>());
