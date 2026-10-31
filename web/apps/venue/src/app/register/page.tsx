@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useTransition } from "react";
+import React, { useEffect, useState, useTransition } from "react";
 import Link from "next/link";
 import { registerOwner, resendVerification } from "@/app/auth-actions";
 import { AuthCard, FormError, FormSuccess, authField, authPrimary } from "@/components/AuthCard";
@@ -10,6 +10,12 @@ export default function RegisterPage() {
   const [done, setDone] = useState(false);
   const [resent, setResent] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Carry ?next= (e.g. back to a staff invitation) through to sign-in; the login page only follows same-site paths.
+  const [loginHref, setLoginHref] = useState("/login");
+  useEffect(() => {
+    const next = new URLSearchParams(window.location.search).get("next");
+    if (next) setLoginHref(`/login?next=${encodeURIComponent(next)}`);
+  }, []);
   const [pending, startTransition] = useTransition();
 
   const set = (key: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, [key]: e.target.value });
@@ -36,7 +42,7 @@ export default function RegisterPage() {
         >
           ابعت اللينك تاني
         </button>
-        <Link href="/login" className={`${authPrimary} flex items-center justify-center no-underline`}>
+        <Link href={loginHref} className={`${authPrimary} flex items-center justify-center no-underline`}>
           رجوع للدخول
         </Link>
       </AuthCard>
@@ -84,7 +90,7 @@ export default function RegisterPage() {
         <button type="submit" disabled={pending} className={authPrimary}>
           {pending ? "جاري التسجيل…" : "إنشاء الحساب"}
         </button>
-        <Link href="/login" className="text-center text-sm font-semibold text-navy-900">
+        <Link href={loginHref} className="text-center text-sm font-semibold text-navy-900">
           عندك حساب؟ سجّل دخول
         </Link>
       </form>
