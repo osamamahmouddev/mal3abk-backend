@@ -40,9 +40,10 @@ public sealed record VenueBookingDetailDto(
     IReadOnlyList<PlayerStatusHistoryDto> StatusHistory,
     DateTime CreatedAtUtc);
 
+/// <summary>A payment proof as venue staff review it. The storage key is internal and never exposed; the image is fetched through <see cref="DownloadUrl"/>, a short-lived signed link the API adds.</summary>
 public sealed record VenueProofItemDto(
     Guid Id,
-    string FileKey,
+    Guid? MediaId,
     string OriginalFileName,
     string ContentType,
     long FileSizeBytes,
@@ -50,7 +51,8 @@ public sealed record VenueProofItemDto(
     bool? IsApproved,
     string? RejectionReason,
     bool IsScanClean,
-    DateTime UploadedAtUtc);
+    DateTime UploadedAtUtc,
+    string? DownloadUrl = null);
 
 public sealed record CalendarSlotDto(
     Guid Id,
@@ -208,7 +210,7 @@ public sealed class VenueBookingQueriesHandler :
             .OrderByDescending(p => p.UploadedAtUtc)
             .Select(p => new VenueProofItemDto(
                 p.Id,
-                p.FileKey,
+                p.MediaId,
                 p.OriginalFileName,
                 p.ContentType,
                 p.FileSizeBytes,

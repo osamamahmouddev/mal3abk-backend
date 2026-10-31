@@ -16328,6 +16328,11 @@
           "uploadedAtUtc": {
             "type": "string",
             "format": "date-time"
+          },
+          "mediaId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
           }
         },
         "additionalProperties": false
@@ -19909,7 +19914,6 @@
       "VenueProofItemDto": {
         "required": [
           "contentType",
-          "fileKey",
           "fileSizeBytes",
           "id",
           "isScanClean",
@@ -19923,8 +19927,10 @@
             "type": "string",
             "format": "uuid"
           },
-          "fileKey": {
-            "type": "string"
+          "mediaId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
           },
           "originalFileName": {
             "type": "string"
@@ -19953,6 +19959,10 @@
           "uploadedAtUtc": {
             "type": "string",
             "format": "date-time"
+          },
+          "downloadUrl": {
+            "type": "string",
+            "nullable": true
           }
         },
         "additionalProperties": false

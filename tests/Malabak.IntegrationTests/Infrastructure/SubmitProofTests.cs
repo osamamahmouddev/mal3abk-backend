@@ -33,14 +33,17 @@ public sealed class SubmitProofTests : IClassFixture<BookingDatabaseFixture>
     {
         var (bookingId, playerId) = await SaveBookingAsync();
         var hash = NewHash();
+        var mediaId = Guid.NewGuid();
 
-        var result = await SubmitAsync(bookingId, playerId, hash);
+        var result = await SubmitAsync(bookingId, playerId, hash, mediaId: mediaId);
 
         result.IsSuccess.Should().BeTrue();
         await using var verify = _database.CreateContext();
         var booking = await verify.Bookings.Include(b => b.Proofs).SingleAsync(b => b.Id == bookingId);
         booking.Status.Should().Be(BookingStatus.ProofSubmitted);
-        booking.Proofs.Should().ContainSingle().Which.Sha256Hash.Should().Be(hash);
+        var proof = booking.Proofs.Should().ContainSingle().Subject;
+        proof.Sha256Hash.Should().Be(hash);
+        proof.MediaId.Should().Be(mediaId, "the download link is signed from the media id, so it must be stored");
     }
 
     [Theory]
@@ -184,7 +187,7 @@ public sealed class SubmitProofTests : IClassFixture<BookingDatabaseFixture>
 
     private async Task AddProofAsync(Guid bookingId, string hash, bool rejected = false)
     {
-        var proof = PaymentProof.Create(Guid.NewGuid(), bookingId, "media/key/large.webp", "proof.webp", "image/webp", 1234, hash, "player", DateTime.UtcNow);
+        var proof = PaymentProof.Create(Guid.NewGuid(), bookingId, Guid.NewGuid(), "media/key/large.webp", "proof.webp", "image/webp", 1234, hash, "player", DateTime.UtcNow);
         if (rejected)
         {
             proof.Review(isApproved: false, "Unreadable", "staff", DateTime.UtcNow);
@@ -207,13 +210,13 @@ public sealed class SubmitProofTests : IClassFixture<BookingDatabaseFixture>
         return (booking.Id, playerId);
     }
 
-    private async Task<Result> SubmitAsync(Guid bookingId, Guid playerId, string hash, IBookingRealtimeBroadcaster? broadcaster = null)
+    private async Task<Result> SubmitAsync(Guid bookingId, Guid playerId, string hash, IBookingRealtimeBroadcaster? broadcaster = null, Guid? mediaId = null)
     {
         await using var context = _database.CreateContext();
         var handler = new SubmitProofHandler(
             context, new FakeClock(DateTime.UtcNow), broadcaster ?? new QuietBroadcaster(), new QuietDispatcher(), NullLogger<SubmitProofHandler>.Instance);
         return await handler.HandleAsync(new SubmitProofCommand(
-            bookingId, playerId, Guid.NewGuid(), "media/key/large.webp", "proof.webp", "image/webp", 1234, hash));
+            bookingId, playerId, mediaId ?? Guid.NewGuid(), "media/key/large.webp", "proof.webp", "image/webp", 1234, hash));
     }
 
     private sealed class QuietDispatcher : IDomainEventDispatcher

@@ -94,6 +94,7 @@ public sealed class SubmitProofHandler : ICommandHandler<SubmitProofCommand, Res
         var proof = PaymentProof.Create(
             proofId,
             booking.Id,
+            command.MediaId,
             command.FileKey,
             command.OriginalFileName,
             command.ContentType,

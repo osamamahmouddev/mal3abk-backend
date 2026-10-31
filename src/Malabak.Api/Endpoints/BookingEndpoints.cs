@@ -228,7 +228,7 @@ public static class BookingEndpoints
                 p.IsApproved,
                 p.RejectionReason,
                 p.UploadedAtUtc,
-                DownloadUrl = mediaService.SignedUrl(p.Id, "large")
+                DownloadUrl = p.MediaId is { } mediaId ? mediaService.SignedUrl(mediaId, "large") : null
             });
 
             return Results.Ok(proofsWithSignedUrls);
@@ -321,11 +321,22 @@ public static class BookingEndpoints
         venueManager.MapGet("/bookings/{id:guid}", async (
             Guid venueId,
             Guid id,
+            MediaService mediaService,
             IQueryHandler<GetVenueBookingDetailQuery, Result<VenueBookingDetailDto>> handler,
             CancellationToken ct) =>
         {
             var result = await handler.HandleAsync(new GetVenueBookingDetailQuery(venueId, id), ct);
-            return result.IsSuccess ? Results.Ok(result.Value) : Results.NotFound();
+            if (result.IsFailure)
+            {
+                return Results.NotFound();
+            }
+
+            // Staff review the receipt image, so each proof gets a short-lived signed link (5 minutes).
+            var detail = result.Value;
+            var proofs = detail.Proofs
+                .Select(p => p with { DownloadUrl = p.MediaId is { } mediaId ? mediaService.SignedUrl(mediaId, "large") : null })
+                .ToList();
+            return Results.Ok(detail with { Proofs = proofs });
         })
         .WithName("GetVenueBookingDetail")
         .WithSummary("Get detailed reservation info including proof history and status audit");

@@ -15,7 +15,8 @@ public sealed record BookingProofDto(
     bool IsScanClean,
     bool? IsApproved,
     string? RejectionReason,
-    DateTime UploadedAtUtc);
+    DateTime UploadedAtUtc,
+    Guid? MediaId = null);
 
 public sealed record GetBookingProofsQuery(Guid BookingId, Guid RequestingUserId) : IQuery<Result<IReadOnlyList<BookingProofDto>>>;
 
@@ -61,7 +62,8 @@ public sealed class GetBookingProofsHandler : IQueryHandler<GetBookingProofsQuer
                 p.IsScanClean,
                 p.IsApproved,
                 p.RejectionReason,
-                p.UploadedAtUtc))
+                p.UploadedAtUtc,
+                p.MediaId))
             .ToList();
 
         return Result.Success<IReadOnlyList<BookingProofDto>>(proofs);

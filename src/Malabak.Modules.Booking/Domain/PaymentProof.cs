@@ -5,6 +5,10 @@ namespace Malabak.Modules.Booking.Domain;
 public sealed class PaymentProof : Entity<Guid>
 {
     public Guid BookingId { get; private set; }
+
+    /// <summary>The uploaded image in the media store. Download links are signed from it; null only for proofs saved before it was recorded.</summary>
+    public Guid? MediaId { get; private set; }
+
     public string FileKey { get; private set; } = string.Empty;
     public string OriginalFileName { get; private set; } = string.Empty;
     public string ContentType { get; private set; } = string.Empty;
@@ -29,6 +33,7 @@ public sealed class PaymentProof : Entity<Guid>
     public static PaymentProof Create(
         Guid id,
         Guid bookingId,
+        Guid? mediaId,
         string fileKey,
         string originalFileName,
         string contentType,
@@ -41,6 +46,7 @@ public sealed class PaymentProof : Entity<Guid>
         {
             Id = id,
             BookingId = bookingId,
+            MediaId = mediaId,
             FileKey = fileKey,
             OriginalFileName = originalFileName,
             ContentType = contentType,

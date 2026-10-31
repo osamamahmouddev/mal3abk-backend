@@ -265,6 +265,9 @@ namespace Malabak.Modules.Booking.Migrations
                     b.Property<bool>("IsScanClean")
                         .HasColumnType("boolean");
 
+                    b.Property<Guid?>("MediaId")
+                        .HasColumnType("uuid");
+
                     b.Property<string>("OriginalFileName")
                         .IsRequired()
                         .HasMaxLength(255)
