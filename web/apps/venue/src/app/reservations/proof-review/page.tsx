@@ -45,7 +45,7 @@ function ProofReview() {
   const detailsRef = useRevealOnSelect<HTMLElement>(selId);
   const [notice, setNotice] = useState<Notice | null>(null);
 
-  const { connected } = useVenueRealtime(venueId, (u) => {
+  const { connected } = useVenueRealtime((u) => {
     if (u.status === "ProofSubmitted") setNotice({ kind: "info", text: `وصل إيصال جديد لحجز ${u.reference}.` });
   });
 

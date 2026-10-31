@@ -11,7 +11,6 @@ import { ManualBookingForm, type ManualBookingDefaults } from "@/components/Manu
 import { api, unwrap } from "@/lib/api";
 import { addDays, cairoDayStartUtc, cairoTime, cairoToday } from "@/lib/booking-format";
 import { P } from "@/lib/permissions";
-import { useVenueRealtime } from "@/lib/realtime";
 
 type View = "day" | "week" | "month";
 type Slot = Schemas["CalendarSlotDto"];
@@ -66,7 +65,6 @@ function Calendar() {
   const [selected, setSelected] = useState<Slot | null>(null);
   const [empty, setEmpty] = useState<ManualBookingDefaults | null>(null);
   const [toast, setToast] = useState<string | null>(null);
-  useVenueRealtime(venueId);
 
   useEffect(() => {
     if (!weekPitch && pitches[0]) setWeekPitch(pitches[0].id);
