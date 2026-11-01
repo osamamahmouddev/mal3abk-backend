@@ -8,9 +8,11 @@ using Malabak.Modules.Venues.Application.PaymentMethods.GetPaymentMethods;
 using Malabak.Modules.Venues.Application.PaymentMethods.RevealPaymentMethodDetails;
 using Malabak.Modules.Venues.Application.PaymentMethods.UpdatePaymentMethod;
 using Malabak.Modules.Venues.Domain;
+using Malabak.Modules.Venues.Infrastructure;
 using Malabak.SharedKernel;
 using Malabak.SharedKernel.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace Malabak.Api.Endpoints;
 
@@ -81,6 +83,31 @@ public static class PaymentMethodEndpoints
         })
         .WithName("RevealPaymentMethodDetails")
         .WithSummary("Reveal full account details (audited, never cached)");
+
+        // Customer-facing active payment methods for any signed-in user, limited to approved + published venues.
+        app.MapGet("/api/v{version:apiVersion}/venues/{venueId:guid}/payment-methods", async (
+            Guid venueId,
+            VenuesDbContext dbContext,
+            CancellationToken ct) =>
+        {
+            var isPublished = await dbContext.Venues.AsNoTracking()
+                .AnyAsync(v => v.Id == venueId && v.IsApproved && v.IsPublished && !v.IsDeleted, ct);
+            if (!isPublished)
+            {
+                return Results.NotFound();
+            }
+
+            var methods = await dbContext.PaymentMethods.AsNoTracking()
+                .Where(m => m.VenueId == venueId && m.IsActive && !m.IsDeleted)
+                .OrderBy(m => m.CreatedAtUtc)
+                .ToListAsync(ct);
+
+            IReadOnlyList<PaymentMethodDto> dtos = methods.Select(PaymentMethodMapping.ToDto).ToList();
+            return Results.Ok(dtos);
+        })
+        .RequireAuthorization()
+        .WithName("GetPublicPaymentMethods")
+        .WithSummary("List active payment methods for an approved venue to submit deposit");
     }
 
     // The tenant filter already rejects requests without a user id, so GetUserId() is non-null here.
