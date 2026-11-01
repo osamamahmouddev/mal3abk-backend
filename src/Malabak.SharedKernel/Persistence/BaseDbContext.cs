@@ -134,10 +134,7 @@ public abstract class BaseDbContext : DbContext, IUnitOfWork
             {
                 modelBuilder.Entity(clrType)
                     .Property(nameof(IVersionedEntity.RowVersion))
-                    .HasColumnName("xmin")
-                    .HasColumnType("xid")
-                    .ValueGeneratedOnAddOrUpdate()
-                    .IsConcurrencyToken();
+                    .IsRowVersion();
             }
 
             // 3. UTC Timestamp Conventions
