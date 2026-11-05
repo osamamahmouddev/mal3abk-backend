@@ -8,6 +8,12 @@ namespace Malabak.Modules.Matches.Application.Matches.GetUpcomingMatches;
 
 public sealed class GetUpcomingMatchesHandler : IQueryHandler<GetUpcomingMatchesQuery, Result<PagedList<MatchDto>>>
 {
+    /// <summary>
+    /// How long a finished match stays listed while its result is still missing or unverified,
+    /// so captains can find it to report or confirm the score.
+    /// </summary>
+    public static readonly TimeSpan ResultGracePeriod = TimeSpan.FromDays(7);
+
     private readonly IMatchesDbContext _dbContext;
     private readonly ITeamCaptaincyChecker _captaincyChecker;
     private readonly IClock _clock;
@@ -27,10 +33,11 @@ public sealed class GetUpcomingMatchesHandler : IQueryHandler<GetUpcomingMatches
         var page = query.Page < 1 ? 1 : query.Page;
         var pageSize = query.PageSize is < 1 or > 100 ? 20 : query.PageSize;
 
+        var oldestOpenEnd = _clock.UtcNow - ResultGracePeriod;
         var baseQuery = _dbContext.Matches
             .AsNoTracking()
             .Where(m => (m.Status == MatchStatus.Scheduled || m.Status == MatchStatus.InProgress)
-                     && m.ScheduledEndUtc >= _clock.UtcNow);
+                     && m.ScheduledEndUtc >= oldestOpenEnd);
 
         if (query.TeamId.HasValue && query.TeamId.Value != Guid.Empty)
         {

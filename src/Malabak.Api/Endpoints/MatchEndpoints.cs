@@ -42,7 +42,7 @@ public static class MatchEndpoints
             return ToResult(result);
         })
         .WithName("GetUpcomingMatches")
-        .WithSummary("Get upcoming scheduled matches, optionally filtered by team");
+        .WithSummary("Get upcoming matches and those finished within the last 7 days that still await a verified result, optionally filtered by team");
 
         // 2. Get match history
         matches.MapGet("/history", async (

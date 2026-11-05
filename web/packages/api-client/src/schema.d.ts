@@ -1247,7 +1247,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get upcoming scheduled matches, optionally filtered by team */
+        /** Get upcoming matches and those finished within the last 7 days that still await a verified result, optionally filtered by team */
         get: operations["GetUpcomingMatches"];
         put?: never;
         post?: never;

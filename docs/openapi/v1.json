@@ -4152,7 +4152,7 @@
         "tags": [
           "Matches"
         ],
-        "summary": "Get upcoming scheduled matches, optionally filtered by team",
+        "summary": "Get upcoming matches and those finished within the last 7 days that still await a verified result, optionally filtered by team",
         "operationId": "GetUpcomingMatches",
         "parameters": [
           {
