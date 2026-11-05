@@ -27,7 +27,7 @@ public sealed partial class BookingReferenceGenerator : IBookingReferenceGenerat
 
     public bool IsValid(string reference)
     {
-        if (string.IsNullOrWhiteSpace(reference) || reference.Length != Prefix.Length + CodeLength)
+        if (string.IsNullOrWhiteSpace(reference) || reference.Length != _prefix.Length + _codeLength)
         {
             return false;
         }
