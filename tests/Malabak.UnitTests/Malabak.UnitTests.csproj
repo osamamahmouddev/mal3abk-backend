@@ -14,6 +14,7 @@
     <ProjectReference Include="..\..\src\Malabak.Modules.Identity\Malabak.Modules.Identity.csproj" />
     <ProjectReference Include="..\..\src\Malabak.Modules.Notifications\Malabak.Modules.Notifications.csproj" />
     <ProjectReference Include="..\..\src\Malabak.Modules.Teams\Malabak.Modules.Teams.csproj" />
+    <ProjectReference Include="..\..\src\Malabak.Modules.Matches\Malabak.Modules.Matches.csproj" />
   </ItemGroup>
 
   <ItemGroup>

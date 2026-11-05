@@ -27,6 +27,9 @@ using Malabak.Modules.Identity;
 using Malabak.Modules.Identity.Application.Common;
 using Malabak.Modules.Identity.Application.Sessions;
 using Malabak.Modules.Identity.Infrastructure;
+using Malabak.Modules.Matches;
+using Malabak.Modules.Matches.Application.Common;
+using Malabak.Modules.Matches.Infrastructure;
 using Malabak.Modules.Notifications;
 using Malabak.Modules.Notifications.Infrastructure;
 using Malabak.Modules.Teams;
@@ -215,6 +218,11 @@ builder.Services.AddDbContext<TeamsDbContext>(options =>
         npgsql.MigrationsHistoryTable("__EFMigrationsHistory", TeamsDbContext.Schema)));
 builder.Services.AddScoped<ITeamsDbContext>(sp => sp.GetRequiredService<TeamsDbContext>());
 
+builder.Services.AddDbContext<MatchesDbContext>(options =>
+    options.UseNpgsql(postgresConnectionString, npgsql =>
+        npgsql.MigrationsHistoryTable("__EFMigrationsHistory", MatchesDbContext.Schema)));
+builder.Services.AddScoped<IMatchesDbContext>(sp => sp.GetRequiredService<MatchesDbContext>());
+
 builder.Services.AddDbContext<MediaDbContext>(options =>
     options.UseNpgsql(postgresConnectionString, npgsql =>
         npgsql.MigrationsHistoryTable("__EFMigrationsHistory", MediaDbContext.Schema)));
@@ -245,6 +253,7 @@ builder.Services.AddIdentityModule(builder.Configuration);
 builder.Services.AddVenuesModule();
 builder.Services.AddBookingModule();
 builder.Services.AddTeamsModule();
+builder.Services.AddMatchesModule();
 var fcmSection = builder.Configuration.GetSection("Push:Fcm");
 builder.Services.AddNotificationsModule(string.IsNullOrWhiteSpace(fcmSection["PrivateKeyPem"])
     ? null
@@ -452,6 +461,7 @@ app.MapPrivacyEndpoints(apiVersionSet);
 app.MapRealtimeEndpoints(apiVersionSet);
 app.MapBookingEndpoints(apiVersionSet);
 app.MapTeamEndpoints(apiVersionSet);
+app.MapChallengeEndpoints(apiVersionSet);
 
 // WebSockets only (SECURITY.md): long polling and server-sent events would validate the single-use ticket on every request.
 app.MapHub<BookingHub>("/hubs/booking", options => options.Transports = Microsoft.AspNetCore.Http.Connections.HttpTransportType.WebSockets);

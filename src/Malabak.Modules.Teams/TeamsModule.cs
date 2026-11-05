@@ -31,6 +31,7 @@ public static class TeamsModule
         // Domain services / generators
         services.AddScoped<ITeamSlugGenerator, TeamSlugGenerator>();
         services.AddScoped<ITeamInviteCodeGenerator, TeamInviteCodeGenerator>();
+        services.AddScoped<Malabak.SharedKernel.Contracts.ITeamCaptaincyChecker, TeamCaptaincyChecker>();
 
         // Commands
         services.AddScoped<ICommandHandler<CreateTeamCommand, Result<TeamDetailDto>>, CreateTeamHandler>();
