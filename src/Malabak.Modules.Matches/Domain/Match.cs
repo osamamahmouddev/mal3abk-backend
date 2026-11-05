@@ -23,6 +23,15 @@ public sealed class Match : Entity<Guid>
     public MatchOutcome Outcome { get; private set; }
     public int? HomeScore { get; internal set; }
     public int? AwayScore { get; internal set; }
+    public ResultVerificationStatus ResultStatus { get; private set; }
+    public Guid? ResultSubmittedByTeamId { get; private set; }
+    public Guid? ResultSubmittedByPlayerId { get; private set; }
+    public DateTime? ResultSubmittedAtUtc { get; private set; }
+    public Guid? ResultVerifiedByTeamId { get; private set; }
+    public Guid? ResultVerifiedByPlayerId { get; private set; }
+    public DateTime? ResultVerifiedAtUtc { get; private set; }
+    public string? DisputeReason { get; private set; }
+    public DateTime? DisputedAtUtc { get; private set; }
     public Guid? CancelledByTeamId { get; private set; }
     public string? CancellationReason { get; private set; }
     public string? Notes { get; private set; }
@@ -132,6 +141,127 @@ public sealed class Match : Entity<Guid>
         RaiseDomainEvent(new MatchCancelledDomainEvent(Id, callerTeamId, reason));
 
         return Result.Success();
+    }
+
+    public Result SubmitResult(int homeScore, int awayScore, Guid submittedByTeamId, Guid submittedByPlayerId, DateTime nowUtc)
+    {
+        if (submittedByTeamId != HomeTeamId && submittedByTeamId != AwayTeamId)
+        {
+            return Result.Failure(MatchErrors.NotAuthorizedCaptain);
+        }
+
+        if (homeScore < 0 || awayScore < 0 || homeScore > 99 || awayScore > 99)
+        {
+            return Result.Failure(MatchErrors.InvalidScore);
+        }
+
+        if (Status == MatchStatus.Cancelled || Status == MatchStatus.Completed)
+        {
+            return Result.Failure(MatchErrors.InvalidStatus);
+        }
+
+        if (ResultStatus == ResultVerificationStatus.Confirmed || ResultStatus == ResultVerificationStatus.AutoConfirmed)
+        {
+            return Result.Failure(MatchErrors.ResultAlreadySubmitted);
+        }
+
+        HomeScore = homeScore;
+        AwayScore = awayScore;
+        ResultSubmittedByTeamId = submittedByTeamId;
+        ResultSubmittedByPlayerId = submittedByPlayerId;
+        ResultSubmittedAtUtc = nowUtc;
+        ResultStatus = ResultVerificationStatus.PendingVerification;
+        Status = MatchStatus.InProgress;
+        UpdatedAtUtc = nowUtc;
+
+        RaiseDomainEvent(new MatchResultSubmittedDomainEvent(Id, submittedByTeamId, homeScore, awayScore));
+
+        return Result.Success();
+    }
+
+    public Result VerifyResult(
+        MatchVerificationAction action,
+        Guid verifyingTeamId,
+        Guid verifyingPlayerId,
+        string? disputeReason,
+        DateTime nowUtc)
+    {
+        if (verifyingTeamId != HomeTeamId && verifyingTeamId != AwayTeamId)
+        {
+            return Result.Failure(MatchErrors.NotAuthorizedCaptain);
+        }
+
+        if (ResultStatus != ResultVerificationStatus.PendingVerification)
+        {
+            return Result.Failure(MatchErrors.ResultNotPendingVerification);
+        }
+
+        if (verifyingTeamId == ResultSubmittedByTeamId)
+        {
+            return Result.Failure(MatchErrors.CannotVerifyOwnResult);
+        }
+
+        if (action == MatchVerificationAction.Confirm)
+        {
+            ResultStatus = ResultVerificationStatus.Confirmed;
+            ResultVerifiedByTeamId = verifyingTeamId;
+            ResultVerifiedByPlayerId = verifyingPlayerId;
+            ResultVerifiedAtUtc = nowUtc;
+            Status = MatchStatus.Completed;
+
+            if (HomeScore!.Value > AwayScore!.Value)
+            {
+                Outcome = MatchOutcome.HomeWin;
+            }
+            else if (AwayScore.Value > HomeScore.Value)
+            {
+                Outcome = MatchOutcome.AwayWin;
+            }
+            else
+            {
+                Outcome = MatchOutcome.Draw;
+            }
+
+            UpdatedAtUtc = nowUtc;
+
+            RaiseDomainEvent(new MatchResultConfirmedDomainEvent(
+                Id,
+                HomeTeamId,
+                AwayTeamId,
+                HomeScore.Value,
+                AwayScore.Value,
+                Outcome));
+
+            return Result.Success();
+        }
+
+        if (action == MatchVerificationAction.Dispute)
+        {
+            if (string.IsNullOrWhiteSpace(disputeReason))
+            {
+                return Result.Failure(MatchErrors.DisputeReasonRequired);
+            }
+
+            ResultStatus = ResultVerificationStatus.Disputed;
+            ResultVerifiedByTeamId = verifyingTeamId;
+            ResultVerifiedByPlayerId = verifyingPlayerId;
+            DisputeReason = disputeReason.Trim();
+            DisputedAtUtc = nowUtc;
+            Status = MatchStatus.Disputed;
+            Outcome = MatchOutcome.None;
+            UpdatedAtUtc = nowUtc;
+
+            RaiseDomainEvent(new MatchResultDisputedDomainEvent(
+                Id,
+                HomeTeamId,
+                AwayTeamId,
+                verifyingTeamId,
+                DisputeReason));
+
+            return Result.Success();
+        }
+
+        return Result.Failure(MatchErrors.InvalidStatus);
     }
 
     public string GetBookingDeepLink()

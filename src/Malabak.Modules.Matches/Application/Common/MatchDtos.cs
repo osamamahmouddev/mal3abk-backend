@@ -24,9 +24,35 @@ public sealed record MatchDto(
     string Outcome,
     int? HomeScore,
     int? AwayScore,
+    string ResultStatus,
+    Guid? ResultSubmittedByTeamId,
+    string? DisputeReason,
+    DateTime? DisputedAtUtc,
     string? BookingDeepLink,
     string? Notes,
     DateTime CreatedAtUtc);
+
+public sealed record SubmitMatchResultRequest(
+    int HomeScore,
+    int AwayScore);
+
+public sealed record VerifyMatchResultRequest(
+    Domain.MatchVerificationAction Action,
+    string? DisputeReason = null);
+
+public sealed record DisputedMatchDto(
+    Guid MatchId,
+    Guid HomeTeamId,
+    string HomeTeamName,
+    Guid AwayTeamId,
+    string AwayTeamName,
+    int? HomeScore,
+    int? AwayScore,
+    Guid? DisputingTeamId,
+    string? DisputingTeamName,
+    string? DisputeReason,
+    DateTime? DisputedAtUtc,
+    DateTime ScheduledStartUtc);
 
 public sealed record ScheduleMatchRequest(
     Guid AwayTeamId,

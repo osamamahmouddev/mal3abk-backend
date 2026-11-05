@@ -30,4 +30,19 @@ public static class MatchErrors
 
     public static readonly Error BookingMismatch =
         Error.Validation("Match.BookingMismatch", "The provided booking identifier is invalid.");
+
+    public static readonly Error ResultAlreadySubmitted =
+        Error.Conflict("Match.ResultAlreadySubmitted", "A match result has already been submitted and is pending verification or confirmed.");
+
+    public static readonly Error ResultNotPendingVerification =
+        Error.Conflict("Match.ResultNotPendingVerification", "The match result is not awaiting verification.");
+
+    public static readonly Error CannotVerifyOwnResult =
+        Error.Forbidden("Match.CannotVerifyOwnResult", "A team captain cannot verify their own submitted result. The opposing captain must verify.");
+
+    public static readonly Error InvalidScore =
+        Error.Validation("Match.InvalidScore", "Scores must be non-negative integers between 0 and 99.");
+
+    public static readonly Error DisputeReasonRequired =
+        Error.Validation("Match.DisputeReasonRequired", "A dispute reason is required when disputing a match result.");
 }

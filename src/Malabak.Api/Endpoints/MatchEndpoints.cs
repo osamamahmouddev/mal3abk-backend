@@ -3,11 +3,14 @@ using Asp.Versioning.Builder;
 using Malabak.Api.Infrastructure.Authorization;
 using Malabak.Modules.Matches.Application.Common;
 using Malabak.Modules.Matches.Application.Matches.CancelMatch;
+using Malabak.Modules.Matches.Application.Matches.GetDisputedMatches;
 using Malabak.Modules.Matches.Application.Matches.GetMatchById;
 using Malabak.Modules.Matches.Application.Matches.GetMatchHistory;
 using Malabak.Modules.Matches.Application.Matches.GetUpcomingMatches;
 using Malabak.Modules.Matches.Application.Matches.LinkBooking;
 using Malabak.Modules.Matches.Application.Matches.ScheduleMatch;
+using Malabak.Modules.Matches.Application.Matches.SubmitResult;
+using Malabak.Modules.Matches.Application.Matches.VerifyResult;
 using Malabak.Modules.Matches.Domain;
 using Malabak.SharedKernel;
 using Malabak.SharedKernel.Authorization;
@@ -138,6 +141,67 @@ public static class MatchEndpoints
         })
         .WithName("LinkMatchBooking")
         .WithSummary("Link an existing pitch booking to a scheduled match (Captain only)");
+
+        // 7. Submit match score
+        matches.MapPost("/{id:guid}/results", async (
+            Guid id,
+            [FromQuery] Guid teamId,
+            ClaimsPrincipal user,
+            [FromBody] SubmitMatchResultRequest request,
+            ICommandHandler<SubmitMatchResultCommand, Result<MatchDto>> handler,
+            CancellationToken ct) =>
+        {
+            var callerId = user.GetUserId()!.Value;
+            var command = new SubmitMatchResultCommand(
+                id,
+                teamId,
+                request.HomeScore,
+                request.AwayScore,
+                callerId);
+
+            var result = await handler.HandleAsync(command, ct);
+            return ToResult(result);
+        })
+        .WithName("SubmitMatchResult")
+        .WithSummary("Submit match scores (Captain of either team)");
+
+        // 8. Verify or dispute match score
+        matches.MapPost("/{id:guid}/results/verify", async (
+            Guid id,
+            [FromQuery] Guid teamId,
+            ClaimsPrincipal user,
+            [FromBody] VerifyMatchResultRequest request,
+            ICommandHandler<VerifyMatchResultCommand, Result<MatchDto>> handler,
+            CancellationToken ct) =>
+        {
+            var callerId = user.GetUserId()!.Value;
+            var command = new VerifyMatchResultCommand(
+                id,
+                teamId,
+                request.Action,
+                request.DisputeReason,
+                callerId);
+
+            var result = await handler.HandleAsync(command, ct);
+            return ToResult(result);
+        })
+        .WithName("VerifyMatchResult")
+        .WithSummary("Confirm or dispute submitted match results (Opposing Captain only)");
+
+        // 9. Admin dispute moderation queue
+        matches.MapGet("/disputes", async (
+            [FromQuery] int page,
+            [FromQuery] int pageSize,
+            IQueryHandler<GetDisputedMatchesQuery, Result<PagedList<DisputedMatchDto>>> handler,
+            CancellationToken ct) =>
+        {
+            var query = new GetDisputedMatchesQuery(page <= 0 ? 1 : page, pageSize <= 0 ? 20 : pageSize);
+            var result = await handler.HandleAsync(query, ct);
+            return ToResult(result);
+        })
+        .RequireAuthorization(Permissions.AdminDisputesResolve)
+        .WithName("GetDisputedMatchesQueue")
+        .WithSummary("Get disputed matches queue for moderation (Admin only)");
     }
 
     private static IResult ToResult(Result result)

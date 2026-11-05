@@ -54,6 +54,13 @@ namespace Malabak.Modules.Matches.Infrastructure.Migrations
                     b.Property<DateTime?>("DeletedAtUtc")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<string>("DisputeReason")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<DateTime?>("DisputedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<int>("DurationMinutes")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("integer")
@@ -76,6 +83,27 @@ namespace Malabak.Modules.Matches.Infrastructure.Migrations
                         .HasColumnType("integer");
 
                     b.Property<Guid?>("PitchId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("ResultStatus")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("ResultSubmittedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("ResultSubmittedByPlayerId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("ResultSubmittedByTeamId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("ResultVerifiedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("ResultVerifiedByPlayerId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("ResultVerifiedByTeamId")
                         .HasColumnType("uuid");
 
                     b.Property<uint>("RowVersion")
@@ -112,6 +140,8 @@ namespace Malabak.Modules.Matches.Infrastructure.Migrations
                     b.HasIndex("ChallengeId");
 
                     b.HasIndex("HomeTeamId");
+
+                    b.HasIndex("ResultStatus");
 
                     b.HasIndex("ScheduledStartUtc");
 

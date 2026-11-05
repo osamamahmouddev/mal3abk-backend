@@ -24,6 +24,10 @@ public static class MatchMapper
             match.Outcome.ToString(),
             match.HomeScore,
             match.AwayScore,
+            match.ResultStatus.ToString(),
+            match.ResultSubmittedByTeamId,
+            match.DisputeReason,
+            match.DisputedAtUtc,
             match.GetBookingDeepLink(),
             match.Notes,
             match.CreatedAtUtc);

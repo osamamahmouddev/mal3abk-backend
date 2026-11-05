@@ -29,4 +29,7 @@ public static class NotificationTypes
     public const string NewDeviceSignIn = "security.new_device";
     public const string TeamChallengeReceived = "team.challenge_received";
     public const string MatchScheduled = "match.scheduled";
+    public const string MatchResultSubmitted = "match.result_submitted";
+    public const string MatchResultConfirmed = "match.result_confirmed";
+    public const string MatchResultDisputed = "match.result_disputed";
 }

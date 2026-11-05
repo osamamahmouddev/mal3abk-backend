@@ -5,11 +5,14 @@ using Malabak.Modules.Matches.Application.Challenges.RespondToChallenge;
 using Malabak.Modules.Matches.Application.Challenges.SendChallenge;
 using Malabak.Modules.Matches.Application.Common;
 using Malabak.Modules.Matches.Application.Matches.CancelMatch;
+using Malabak.Modules.Matches.Application.Matches.GetDisputedMatches;
 using Malabak.Modules.Matches.Application.Matches.GetMatchById;
 using Malabak.Modules.Matches.Application.Matches.GetMatchHistory;
 using Malabak.Modules.Matches.Application.Matches.GetUpcomingMatches;
 using Malabak.Modules.Matches.Application.Matches.LinkBooking;
 using Malabak.Modules.Matches.Application.Matches.ScheduleMatch;
+using Malabak.Modules.Matches.Application.Matches.SubmitResult;
+using Malabak.Modules.Matches.Application.Matches.VerifyResult;
 using Malabak.SharedKernel;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -30,6 +33,8 @@ public static class MatchesModule
         services.AddScoped<ICommandHandler<ScheduleMatchCommand, Result<MatchDto>>, ScheduleMatchHandler>();
         services.AddScoped<ICommandHandler<CancelMatchCommand, Result>, CancelMatchHandler>();
         services.AddScoped<ICommandHandler<LinkMatchBookingCommand, Result<MatchDto>>, LinkMatchBookingHandler>();
+        services.AddScoped<ICommandHandler<SubmitMatchResultCommand, Result<MatchDto>>, SubmitMatchResultHandler>();
+        services.AddScoped<ICommandHandler<VerifyMatchResultCommand, Result<MatchDto>>, VerifyMatchResultHandler>();
 
         // Queries - Challenges
         services.AddScoped<IQueryHandler<GetChallengeByIdQuery, Result<TeamChallengeDto>>, GetChallengeByIdHandler>();
@@ -39,6 +44,7 @@ public static class MatchesModule
         services.AddScoped<IQueryHandler<GetMatchByIdQuery, Result<MatchDto>>, GetMatchByIdHandler>();
         services.AddScoped<IQueryHandler<GetUpcomingMatchesQuery, Result<PagedList<MatchDto>>>, GetUpcomingMatchesHandler>();
         services.AddScoped<IQueryHandler<GetMatchHistoryQuery, Result<PagedList<MatchDto>>>, GetMatchHistoryHandler>();
+        services.AddScoped<IQueryHandler<GetDisputedMatchesQuery, Result<PagedList<DisputedMatchDto>>>, GetDisputedMatchesHandler>();
 
         return services;
     }

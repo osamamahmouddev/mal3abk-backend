@@ -49,6 +49,26 @@ public sealed class MatchConfiguration : IEntityTypeConfiguration<Match>
 
         builder.Property(m => m.AwayScore);
 
+        builder.Property(m => m.ResultStatus)
+            .IsRequired();
+
+        builder.Property(m => m.ResultSubmittedByTeamId);
+
+        builder.Property(m => m.ResultSubmittedByPlayerId);
+
+        builder.Property(m => m.ResultSubmittedAtUtc);
+
+        builder.Property(m => m.ResultVerifiedByTeamId);
+
+        builder.Property(m => m.ResultVerifiedByPlayerId);
+
+        builder.Property(m => m.ResultVerifiedAtUtc);
+
+        builder.Property(m => m.DisputeReason)
+            .HasMaxLength(1000);
+
+        builder.Property(m => m.DisputedAtUtc);
+
         builder.Property(m => m.CancelledByTeamId);
 
         builder.Property(m => m.CancellationReason)
@@ -67,6 +87,7 @@ public sealed class MatchConfiguration : IEntityTypeConfiguration<Match>
         builder.HasIndex(m => m.ChallengeId);
         builder.HasIndex(m => m.BookingId);
         builder.HasIndex(m => m.ScheduledStartUtc);
+        builder.HasIndex(m => m.ResultStatus);
         builder.HasIndex(m => new { m.Status, m.ScheduledStartUtc, m.ScheduledEndUtc });
     }
 }

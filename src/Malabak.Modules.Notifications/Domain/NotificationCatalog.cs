@@ -80,6 +80,18 @@ public static class NotificationCatalog
         [NotificationTypes.MatchScheduled] = new(NotificationCategory.Teams,
             "مباراة جديدة مجدولة", "تم تحديد موعد مباراة جديدة لفريقك يوم {matchDate}.",
             "Match scheduled", "A new match has been scheduled for your team on {matchDate}.",
+            d => DeepLinks.From(d, "matchId", DeepLinks.Match)),
+        [NotificationTypes.MatchResultSubmitted] = new(NotificationCategory.Teams,
+            "نتيجة مباراة بحاجة للتأكيد", "قام كابتن فريق {submittingTeam} بإدخال نتيجة المباراة ({score}). برجاء التأكيد أو الاعتراض.",
+            "Match result submitted", "Captain of {submittingTeam} submitted match score ({score}). Please confirm or dispute.",
+            d => DeepLinks.From(d, "matchId", DeepLinks.Match)),
+        [NotificationTypes.MatchResultConfirmed] = new(NotificationCategory.Teams,
+            "تم تأكيد نتيجة المباراة", "تم تأكيد نتيجة مباراتكم ({score}) رسمياً.",
+            "Match result confirmed", "Your match result ({score}) has been officially confirmed.",
+            d => DeepLinks.From(d, "matchId", DeepLinks.Match)),
+        [NotificationTypes.MatchResultDisputed] = new(NotificationCategory.Teams,
+            "تم الاعتراض على نتيجة المباراة", "قام كابتن فريق {disputingTeam} بالاعتراض على نتيجة المباراة وتم تحويلها للمراجعة.",
+            "Match result disputed", "{disputingTeam} disputed the match result and it has been routed to moderation.",
             d => DeepLinks.From(d, "matchId", DeepLinks.Match))
     };
 
