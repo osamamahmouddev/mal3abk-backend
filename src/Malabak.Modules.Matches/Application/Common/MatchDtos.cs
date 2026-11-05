@@ -69,3 +69,23 @@ public sealed record CancelMatchRequest(
 
 public sealed record LinkMatchBookingRequest(
     Guid BookingId);
+
+public sealed record ResolveMatchDisputeRequest(
+    Domain.MatchDisputeResolutionAction Action,
+    string ResolutionNotes,
+    int? OfficialHomeScore = null,
+    int? OfficialAwayScore = null);
+
+public sealed record MatchResultAuditDto(
+    Guid Id,
+    Guid MatchId,
+    int? PreviousHomeScore,
+    int? PreviousAwayScore,
+    int? NewHomeScore,
+    int? NewAwayScore,
+    Domain.ResultVerificationStatus PreviousStatus,
+    Domain.ResultVerificationStatus NewStatus,
+    Guid ChangedByUserId,
+    string ChangeType,
+    string? Reason,
+    DateTime CreatedAtUtc);

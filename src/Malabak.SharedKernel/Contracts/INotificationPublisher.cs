@@ -32,4 +32,5 @@ public static class NotificationTypes
     public const string MatchResultSubmitted = "match.result_submitted";
     public const string MatchResultConfirmed = "match.result_confirmed";
     public const string MatchResultDisputed = "match.result_disputed";
+    public const string MatchDisputeResolved = "match.dispute_resolved";
 }

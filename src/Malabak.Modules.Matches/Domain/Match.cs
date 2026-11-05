@@ -35,6 +35,18 @@ public sealed class Match : Entity<Guid>
     public Guid? CancelledByTeamId { get; private set; }
     public string? CancellationReason { get; private set; }
     public string? Notes { get; private set; }
+    public Guid? AdminResolvedByUserId { get; private set; }
+    public DateTime? AdminResolvedAtUtc { get; private set; }
+    public string? AdminResolutionNotes { get; private set; }
+    public string? AdminResolutionAction { get; private set; }
+
+    private readonly List<MatchResultAuditRecord> _uncommittedAuditRecords = [];
+    public IReadOnlyCollection<MatchResultAuditRecord> UncommittedAuditRecords => _uncommittedAuditRecords.AsReadOnly();
+
+    public void ClearUncommittedAuditRecords()
+    {
+        _uncommittedAuditRecords.Clear();
+    }
 
     private Match()
     {
@@ -165,6 +177,10 @@ public sealed class Match : Entity<Guid>
             return Result.Failure(MatchErrors.ResultAlreadySubmitted);
         }
 
+        var prevHomeScore = HomeScore;
+        var prevAwayScore = AwayScore;
+        var prevStatus = ResultStatus;
+
         HomeScore = homeScore;
         AwayScore = awayScore;
         ResultSubmittedByTeamId = submittedByTeamId;
@@ -173,6 +189,19 @@ public sealed class Match : Entity<Guid>
         ResultStatus = ResultVerificationStatus.PendingVerification;
         Status = MatchStatus.InProgress;
         UpdatedAtUtc = nowUtc;
+
+        _uncommittedAuditRecords.Add(MatchResultAuditRecord.Create(
+            Id,
+            prevHomeScore,
+            prevAwayScore,
+            homeScore,
+            awayScore,
+            prevStatus,
+            ResultVerificationStatus.PendingVerification,
+            submittedByPlayerId,
+            "SubmitResult",
+            "Initial match result submission",
+            nowUtc));
 
         RaiseDomainEvent(new MatchResultSubmittedDomainEvent(Id, submittedByTeamId, homeScore, awayScore));
 
@@ -201,6 +230,8 @@ public sealed class Match : Entity<Guid>
             return Result.Failure(MatchErrors.CannotVerifyOwnResult);
         }
 
+        var prevStatus = ResultStatus;
+
         if (action == MatchVerificationAction.Confirm)
         {
             ResultStatus = ResultVerificationStatus.Confirmed;
@@ -223,6 +254,19 @@ public sealed class Match : Entity<Guid>
             }
 
             UpdatedAtUtc = nowUtc;
+
+            _uncommittedAuditRecords.Add(MatchResultAuditRecord.Create(
+                Id,
+                HomeScore,
+                AwayScore,
+                HomeScore,
+                AwayScore,
+                prevStatus,
+                ResultVerificationStatus.Confirmed,
+                verifyingPlayerId,
+                "Confirm",
+                "Opposing captain confirmed match score",
+                nowUtc));
 
             RaiseDomainEvent(new MatchResultConfirmedDomainEvent(
                 Id,
@@ -251,6 +295,19 @@ public sealed class Match : Entity<Guid>
             Outcome = MatchOutcome.None;
             UpdatedAtUtc = nowUtc;
 
+            _uncommittedAuditRecords.Add(MatchResultAuditRecord.Create(
+                Id,
+                HomeScore,
+                AwayScore,
+                HomeScore,
+                AwayScore,
+                prevStatus,
+                ResultVerificationStatus.Disputed,
+                verifyingPlayerId,
+                "Dispute",
+                disputeReason.Trim(),
+                nowUtc));
+
             RaiseDomainEvent(new MatchResultDisputedDomainEvent(
                 Id,
                 HomeTeamId,
@@ -262,6 +319,180 @@ public sealed class Match : Entity<Guid>
         }
 
         return Result.Failure(MatchErrors.InvalidStatus);
+    }
+
+    public Result AutoConfirmResult(DateTime nowUtc)
+    {
+        if (ResultStatus != ResultVerificationStatus.PendingVerification)
+        {
+            return Result.Failure(MatchErrors.ResultNotPendingVerification);
+        }
+
+        var prevStatus = ResultStatus;
+        ResultStatus = ResultVerificationStatus.AutoConfirmed;
+        Status = MatchStatus.Completed;
+        ResultVerifiedAtUtc = nowUtc;
+
+        if (HomeScore!.Value > AwayScore!.Value)
+        {
+            Outcome = MatchOutcome.HomeWin;
+        }
+        else if (AwayScore.Value > HomeScore.Value)
+        {
+            Outcome = MatchOutcome.AwayWin;
+        }
+        else
+        {
+            Outcome = MatchOutcome.Draw;
+        }
+
+        UpdatedAtUtc = nowUtc;
+
+        _uncommittedAuditRecords.Add(MatchResultAuditRecord.Create(
+            Id,
+            HomeScore,
+            AwayScore,
+            HomeScore,
+            AwayScore,
+            prevStatus,
+            ResultVerificationStatus.AutoConfirmed,
+            Guid.Empty,
+            "AutoConfirmation",
+            "Auto-confirmed by system policy after verification timeout",
+            nowUtc));
+
+        RaiseDomainEvent(new MatchResultConfirmedDomainEvent(
+            Id,
+            HomeTeamId,
+            AwayTeamId,
+            HomeScore.Value,
+            AwayScore.Value,
+            Outcome));
+
+        return Result.Success();
+    }
+
+    public Result ResolveDispute(
+        MatchDisputeResolutionAction action,
+        string resolutionNotes,
+        Guid adminUserId,
+        int? officialHomeScore,
+        int? officialAwayScore,
+        DateTime nowUtc)
+    {
+        if (Status != MatchStatus.Disputed && ResultStatus != ResultVerificationStatus.Disputed)
+        {
+            return Result.Failure(MatchErrors.MatchNotDisputed);
+        }
+
+        if (string.IsNullOrWhiteSpace(resolutionNotes))
+        {
+            return Result.Failure(MatchErrors.ResolutionNotesRequired);
+        }
+
+        var prevHomeScore = HomeScore;
+        var prevAwayScore = AwayScore;
+        var prevStatus = ResultStatus;
+
+        if (action == MatchDisputeResolutionAction.SetOfficialScore)
+        {
+            if (!officialHomeScore.HasValue || !officialAwayScore.HasValue ||
+                officialHomeScore.Value < 0 || officialAwayScore.Value < 0)
+            {
+                return Result.Failure(MatchErrors.OfficialScoresRequired);
+            }
+
+            HomeScore = officialHomeScore.Value;
+            AwayScore = officialAwayScore.Value;
+            ResultStatus = ResultVerificationStatus.Confirmed;
+            Status = MatchStatus.Completed;
+
+            if (HomeScore.Value > AwayScore.Value)
+            {
+                Outcome = MatchOutcome.HomeWin;
+            }
+            else if (AwayScore.Value > HomeScore.Value)
+            {
+                Outcome = MatchOutcome.AwayWin;
+            }
+            else
+            {
+                Outcome = MatchOutcome.Draw;
+            }
+        }
+        else if (action == MatchDisputeResolutionAction.ConfirmSubmittedScore)
+        {
+            if (!HomeScore.HasValue || !AwayScore.HasValue)
+            {
+                return Result.Failure(MatchErrors.OfficialScoresRequired);
+            }
+
+            ResultStatus = ResultVerificationStatus.Confirmed;
+            Status = MatchStatus.Completed;
+
+            if (HomeScore.Value > AwayScore.Value)
+            {
+                Outcome = MatchOutcome.HomeWin;
+            }
+            else if (AwayScore.Value > HomeScore.Value)
+            {
+                Outcome = MatchOutcome.AwayWin;
+            }
+            else
+            {
+                Outcome = MatchOutcome.Draw;
+            }
+        }
+        else if (action == MatchDisputeResolutionAction.CancelMatch)
+        {
+            Status = MatchStatus.Cancelled;
+            ResultStatus = ResultVerificationStatus.None;
+            Outcome = MatchOutcome.None;
+            CancellationReason = resolutionNotes.Trim();
+        }
+        else
+        {
+            return Result.Failure(MatchErrors.InvalidResolutionAction);
+        }
+
+        AdminResolvedByUserId = adminUserId;
+        AdminResolvedAtUtc = nowUtc;
+        AdminResolutionNotes = resolutionNotes.Trim();
+        AdminResolutionAction = action.ToString();
+        UpdatedAtUtc = nowUtc;
+
+        _uncommittedAuditRecords.Add(MatchResultAuditRecord.Create(
+            Id,
+            prevHomeScore,
+            prevAwayScore,
+            HomeScore,
+            AwayScore,
+            prevStatus,
+            ResultStatus,
+            adminUserId,
+            "AdminResolution",
+            $"Resolution: {action}. Notes: {resolutionNotes.Trim()}",
+            nowUtc));
+
+        RaiseDomainEvent(new MatchDisputeResolvedDomainEvent(
+            Id,
+            HomeTeamId,
+            AwayTeamId,
+            action,
+            resolutionNotes.Trim()));
+
+        if (ResultStatus == ResultVerificationStatus.Confirmed)
+        {
+            RaiseDomainEvent(new MatchResultConfirmedDomainEvent(
+                Id,
+                HomeTeamId,
+                AwayTeamId,
+                HomeScore!.Value,
+                AwayScore!.Value,
+                Outcome));
+        }
+
+        return Result.Success();
     }
 
     public string GetBookingDeepLink()

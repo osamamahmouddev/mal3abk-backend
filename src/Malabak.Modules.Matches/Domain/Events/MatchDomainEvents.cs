@@ -7,3 +7,4 @@ public sealed record MatchCancelledDomainEvent(Guid MatchId, Guid CancelledByTea
 public sealed record MatchResultSubmittedDomainEvent(Guid MatchId, Guid SubmittedByTeamId, int HomeScore, int AwayScore) : IDomainEvent;
 public sealed record MatchResultConfirmedDomainEvent(Guid MatchId, Guid HomeTeamId, Guid AwayTeamId, int HomeScore, int AwayScore, MatchOutcome Outcome) : IDomainEvent;
 public sealed record MatchResultDisputedDomainEvent(Guid MatchId, Guid HomeTeamId, Guid AwayTeamId, Guid DisputingTeamId, string? Reason) : IDomainEvent;
+public sealed record MatchDisputeResolvedDomainEvent(Guid MatchId, Guid HomeTeamId, Guid AwayTeamId, MatchDisputeResolutionAction Action, string? Notes) : IDomainEvent;

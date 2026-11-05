@@ -77,10 +77,22 @@ public sealed class MatchConfiguration : IEntityTypeConfiguration<Match>
         builder.Property(m => m.Notes)
             .HasMaxLength(1000);
 
+        builder.Property(m => m.AdminResolvedByUserId);
+
+        builder.Property(m => m.AdminResolvedAtUtc);
+
+        builder.Property(m => m.AdminResolutionNotes)
+            .HasMaxLength(1000);
+
+        builder.Property(m => m.AdminResolutionAction)
+            .HasMaxLength(50);
+
         builder.Property(m => m.CreatedAtUtc)
             .IsRequired();
 
         builder.Property(m => m.UpdatedAtUtc);
+
+        builder.Ignore(m => m.UncommittedAuditRecords);
 
         builder.HasIndex(m => m.HomeTeamId);
         builder.HasIndex(m => m.AwayTeamId);

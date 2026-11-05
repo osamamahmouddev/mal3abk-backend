@@ -35,12 +35,14 @@ public static class MatchesModule
         services.AddScoped<ICommandHandler<LinkMatchBookingCommand, Result<MatchDto>>, LinkMatchBookingHandler>();
         services.AddScoped<ICommandHandler<SubmitMatchResultCommand, Result<MatchDto>>, SubmitMatchResultHandler>();
         services.AddScoped<ICommandHandler<VerifyMatchResultCommand, Result<MatchDto>>, VerifyMatchResultHandler>();
+        services.AddScoped<ICommandHandler<Application.Matches.ResolveDispute.ResolveMatchDisputeCommand, Result<MatchDto>>, Application.Matches.ResolveDispute.ResolveMatchDisputeHandler>();
 
         // Domain Event Handlers
         services.AddScoped<Malabak.SharedKernel.Events.IDomainEventHandler<Malabak.Modules.Matches.Domain.Events.MatchResultConfirmedDomainEvent>, Malabak.Modules.Matches.Application.Matches.Events.MatchResultConfirmedDomainEventHandler>();
 
         // Background / Hangfire Jobs
         services.AddScoped<Malabak.Modules.Matches.Infrastructure.Jobs.RankingRecalculationJob>();
+        services.AddScoped<Malabak.Modules.Matches.Infrastructure.Jobs.MatchResultTimeoutJob>();
 
         // Queries - Challenges
         services.AddScoped<IQueryHandler<GetChallengeByIdQuery, Result<TeamChallengeDto>>, GetChallengeByIdHandler>();
@@ -51,6 +53,7 @@ public static class MatchesModule
         services.AddScoped<IQueryHandler<GetUpcomingMatchesQuery, Result<PagedList<MatchDto>>>, GetUpcomingMatchesHandler>();
         services.AddScoped<IQueryHandler<GetMatchHistoryQuery, Result<PagedList<MatchDto>>>, GetMatchHistoryHandler>();
         services.AddScoped<IQueryHandler<GetDisputedMatchesQuery, Result<PagedList<DisputedMatchDto>>>, GetDisputedMatchesHandler>();
+        services.AddScoped<IQueryHandler<Application.Matches.GetMatchAuditHistory.GetMatchAuditHistoryQuery, Result<IReadOnlyList<MatchResultAuditDto>>>, Application.Matches.GetMatchAuditHistory.GetMatchAuditHistoryHandler>();
 
         return services;
     }

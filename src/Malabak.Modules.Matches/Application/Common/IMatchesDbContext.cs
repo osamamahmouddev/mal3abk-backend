@@ -7,5 +7,6 @@ public interface IMatchesDbContext
 {
     DbSet<TeamChallenge> TeamChallenges { get; }
     DbSet<Match> Matches { get; }
+    DbSet<MatchResultAuditRecord> MatchResultAuditRecords { get; }
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }

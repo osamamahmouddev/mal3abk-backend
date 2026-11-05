@@ -45,4 +45,16 @@ public static class MatchErrors
 
     public static readonly Error DisputeReasonRequired =
         Error.Validation("Match.DisputeReasonRequired", "A dispute reason is required when disputing a match result.");
+
+    public static readonly Error MatchNotDisputed =
+        Error.Conflict("Match.NotDisputed", "The match is not currently in a disputed state.");
+
+    public static readonly Error ResolutionNotesRequired =
+        Error.Validation("Match.ResolutionNotesRequired", "Resolution notes explaining the official ruling are required.");
+
+    public static readonly Error OfficialScoresRequired =
+        Error.Validation("Match.OfficialScoresRequired", "Official home and away scores must be provided when setting an official score.");
+
+    public static readonly Error InvalidResolutionAction =
+        Error.Validation("Match.InvalidResolutionAction", "Invalid dispute resolution action specified.");
 }

@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using Asp.Versioning.Builder;
+using FluentValidation;
 using Malabak.Api.Infrastructure.Authorization;
 using Malabak.Modules.Matches.Application.Common;
 using Malabak.Modules.Matches.Application.Matches.CancelMatch;
@@ -214,6 +215,51 @@ public static class MatchEndpoints
         .RequireAuthorization(Permissions.AdminDisputesResolve)
         .WithName("RecalculateTeamRankings")
         .WithSummary("Trigger on-demand team ranking recalculation across all confirmed matches (Admin only)");
+
+        // 11. Admin resolve dispute
+        matches.MapPost("/{id:guid}/disputes/resolve", async (
+            Guid id,
+            [FromBody] ResolveMatchDisputeRequest request,
+            ClaimsPrincipal user,
+            IValidator<Malabak.Modules.Matches.Application.Matches.ResolveDispute.ResolveMatchDisputeCommand> validator,
+            ICommandHandler<Malabak.Modules.Matches.Application.Matches.ResolveDispute.ResolveMatchDisputeCommand, Result<MatchDto>> handler,
+            CancellationToken ct) =>
+        {
+            var adminUserId = user.GetUserId()!.Value;
+            var command = new Malabak.Modules.Matches.Application.Matches.ResolveDispute.ResolveMatchDisputeCommand(
+                id,
+                adminUserId,
+                request.Action,
+                request.ResolutionNotes,
+                request.OfficialHomeScore,
+                request.OfficialAwayScore);
+
+            var validation = await validator.ValidateAsync(command, ct);
+            if (!validation.IsValid)
+            {
+                return Results.ValidationProblem(validation.ToDictionary());
+            }
+
+            var result = await handler.HandleAsync(command, ct);
+            return ToResult(result);
+        })
+        .RequireAuthorization(Permissions.AdminDisputesResolve)
+        .WithName("ResolveMatchDispute")
+        .WithSummary("Resolve a disputed match result with official score or cancellation (Admin only)");
+
+        // 12. Get match result change audit history
+        matches.MapGet("/{id:guid}/audit", async (
+            Guid id,
+            IQueryHandler<Malabak.Modules.Matches.Application.Matches.GetMatchAuditHistory.GetMatchAuditHistoryQuery, Result<IReadOnlyList<MatchResultAuditDto>>> handler,
+            CancellationToken ct) =>
+        {
+            var query = new Malabak.Modules.Matches.Application.Matches.GetMatchAuditHistory.GetMatchAuditHistoryQuery(id);
+            var result = await handler.HandleAsync(query, ct);
+            return ToResult(result);
+        })
+        .RequireAuthorization()
+        .WithName("GetMatchAuditHistory")
+        .WithSummary("Get match result submission and verification audit history");
     }
 
     private static IResult ToResult(Result result)

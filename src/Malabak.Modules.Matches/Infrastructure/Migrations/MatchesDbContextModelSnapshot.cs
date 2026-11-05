@@ -29,6 +29,20 @@ namespace Malabak.Modules.Matches.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<string>("AdminResolutionAction")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<string>("AdminResolutionNotes")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<DateTime?>("AdminResolvedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("AdminResolvedByUserId")
+                        .HasColumnType("uuid");
+
                     b.Property<int?>("AwayScore")
                         .HasColumnType("integer");
 
@@ -148,6 +162,72 @@ namespace Malabak.Modules.Matches.Infrastructure.Migrations
                     b.HasIndex("Status", "ScheduledStartUtc", "ScheduledEndUtc");
 
                     b.ToTable("matches", "matches");
+                });
+
+            modelBuilder.Entity("Malabak.Modules.Matches.Domain.MatchResultAuditRecord", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ChangeType")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<Guid>("ChangedByUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("DeletedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<Guid>("MatchId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int?>("NewAwayScore")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("NewHomeScore")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("NewStatus")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("PreviousAwayScore")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("PreviousHomeScore")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("PreviousStatus")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Reason")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<uint>("RowVersion")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
+                    b.Property<DateTime?>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedAtUtc");
+
+                    b.HasIndex("MatchId");
+
+                    b.ToTable("match_result_audit_records", "matches");
                 });
 
             modelBuilder.Entity("Malabak.Modules.Matches.Domain.TeamChallenge", b =>

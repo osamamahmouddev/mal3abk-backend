@@ -106,6 +106,11 @@ public static class HangfireServiceCollectionExtensions
                 Malabak.Modules.Matches.Infrastructure.Jobs.RankingRecalculationJob.RecurringJobId,
                 job => job.ExecuteRecalculationAsync(CancellationToken.None),
                 Malabak.Modules.Matches.Infrastructure.Jobs.RankingRecalculationJob.CronSchedule);
+
+            recurringJobs.AddOrUpdate<Malabak.Modules.Matches.Infrastructure.Jobs.MatchResultTimeoutJob>(
+                Malabak.Modules.Matches.Infrastructure.Jobs.MatchResultTimeoutJob.RecurringJobId,
+                job => job.ExecuteSweepAsync(CancellationToken.None),
+                Malabak.Modules.Matches.Infrastructure.Jobs.MatchResultTimeoutJob.CronSchedule);
         }
 
         return app;

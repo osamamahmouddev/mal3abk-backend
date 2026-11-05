@@ -92,6 +92,10 @@ public static class NotificationCatalog
         [NotificationTypes.MatchResultDisputed] = new(NotificationCategory.Teams,
             "تم الاعتراض على نتيجة المباراة", "قام كابتن فريق {disputingTeam} بالاعتراض على نتيجة المباراة وتم تحويلها للمراجعة.",
             "Match result disputed", "{disputingTeam} disputed the match result and it has been routed to moderation.",
+            d => DeepLinks.From(d, "matchId", DeepLinks.Match)),
+        [NotificationTypes.MatchDisputeResolved] = new(NotificationCategory.Teams,
+            "تم الفصل في نتيجة المباراة المتنازع عليها", "تم الفصل في النزاع حول مباراتكم بواسطة إدارة المنصة: {decision}",
+            "Match dispute resolved", "The dispute regarding your match has been resolved by platform administration: {decision}",
             d => DeepLinks.From(d, "matchId", DeepLinks.Match))
     };
 
