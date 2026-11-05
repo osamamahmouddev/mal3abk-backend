@@ -116,7 +116,7 @@ public static class TeamEndpoints
         // 3. Accept invitation via 6-character code
         teams.MapPost("/invitations/accept", async (
             ClaimsPrincipal user,
-            [FromBody] AcceptInvitationApiRequest request,
+            [FromBody] AcceptTeamInvitationApiRequest request,
             ICommandHandler<AcceptTeamInvitationCommand, Result<TeamDetailDto>> handler,
             CancellationToken ct) =>
         {
@@ -496,7 +496,7 @@ public static class TeamEndpoints
 
     public sealed record CreateInvitationApiRequest(int? ValidityDays, Guid? InvitedPlayerId = null);
 
-    public sealed record AcceptInvitationApiRequest(string InviteCode);
+    public sealed record AcceptTeamInvitationApiRequest(string InviteCode);
 
     public sealed record TransferCaptaincyApiRequest(Guid NewCaptainPlayerId);
 
