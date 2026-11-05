@@ -1,0 +1,331 @@
+using Malabak.Modules.Teams.Domain.Events;
+using Malabak.SharedKernel;
+
+namespace Malabak.Modules.Teams.Domain;
+
+public sealed class Team : Entity<Guid>
+{
+    private readonly List<TeamMember> _members = [];
+
+    public string Name { get; private set; } = string.Empty;
+    public string Slug { get; private set; } = string.Empty;
+    public string? Description { get; private set; }
+    public string? LogoUrl { get; private set; }
+    public string? CoverUrl { get; private set; }
+    public string City { get; private set; } = string.Empty;
+    public string Governorate { get; private set; } = string.Empty;
+    public string? District { get; private set; }
+    public Guid CaptainId { get; private set; }
+    public string InviteCode { get; private set; } = string.Empty;
+    public DateTime? InviteCodeExpiresAtUtc { get; private set; }
+    public bool IsRecruiting { get; private set; } = true;
+    public bool IsOpenForChallenges { get; private set; } = true;
+
+    // Pluggable Ranking & Glicko-2 defaults (ADR 0008)
+    public double Rating { get; private set; } = 1500.0;
+    public double RatingDeviation { get; private set; } = 350.0;
+    public double RatingVolatility { get; private set; } = 0.06;
+    public int MatchesPlayed { get; private set; }
+    public int Wins { get; private set; }
+    public int Draws { get; private set; }
+    public int Losses { get; private set; }
+    public int GoalsFor { get; private set; }
+    public int GoalsAgainst { get; private set; }
+
+    public IReadOnlyCollection<TeamMember> Members => _members.AsReadOnly();
+
+    private Team()
+    {
+    }
+
+    public static Result<Team> Create(
+        Guid id,
+        string name,
+        string slug,
+        string city,
+        string governorate,
+        Guid captainId,
+        string inviteCode,
+        DateTime nowUtc,
+        string? description = null,
+        string? district = null,
+        string? logoUrl = null,
+        string? coverUrl = null,
+        DateTime? inviteCodeExpiresAtUtc = null)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            return Result.Failure<Team>(TeamErrors.InvalidName);
+        }
+
+        if (string.IsNullOrWhiteSpace(city) || string.IsNullOrWhiteSpace(governorate))
+        {
+            return Result.Failure<Team>(TeamErrors.InvalidLocation);
+        }
+
+        if (captainId == Guid.Empty)
+        {
+            return Result.Failure<Team>(TeamErrors.NotCaptain);
+        }
+
+        if (string.IsNullOrWhiteSpace(inviteCode) || inviteCode.Trim().Length != 6)
+        {
+            return Result.Failure<Team>(TeamErrors.InvalidInviteCode);
+        }
+
+        var team = new Team
+        {
+            Id = id,
+            Name = name.Trim(),
+            Slug = slug.Trim().ToLowerInvariant(),
+            Description = description?.Trim(),
+            City = city.Trim(),
+            Governorate = governorate.Trim(),
+            District = district?.Trim(),
+            LogoUrl = logoUrl?.Trim(),
+            CoverUrl = coverUrl?.Trim(),
+            CaptainId = captainId,
+            InviteCode = inviteCode.Trim().ToUpperInvariant(),
+            InviteCodeExpiresAtUtc = inviteCodeExpiresAtUtc,
+            IsRecruiting = true,
+            IsOpenForChallenges = true,
+            Rating = 1500.0,
+            RatingDeviation = 350.0,
+            RatingVolatility = 0.06,
+            CreatedAtUtc = nowUtc
+        };
+
+        var captainMember = TeamMember.Create(team.Id, captainId, TeamRole.Captain, nowUtc);
+        team._members.Add(captainMember);
+
+        team.RaiseDomainEvent(new TeamCreatedDomainEvent(team.Id, team.Name, team.Slug, team.CaptainId));
+        team.RaiseDomainEvent(new TeamMemberJoinedDomainEvent(team.Id, captainId, TeamRole.Captain));
+
+        return Result.Success(team);
+    }
+
+    public Result<TeamMember> JoinWithInviteCode(string inviteCode, Guid playerId, DateTime nowUtc)
+    {
+        if (playerId == Guid.Empty)
+        {
+            return Result.Failure<TeamMember>(TeamErrors.PlayerNotInTeam);
+        }
+
+        if (!string.Equals(InviteCode, inviteCode?.Trim(), StringComparison.OrdinalIgnoreCase))
+        {
+            return Result.Failure<TeamMember>(TeamErrors.InvalidInviteCode);
+        }
+
+        if (InviteCodeExpiresAtUtc.HasValue && InviteCodeExpiresAtUtc.Value < nowUtc)
+        {
+            return Result.Failure<TeamMember>(TeamErrors.InviteCodeExpired);
+        }
+
+        var existingMember = _members.FirstOrDefault(m => m.PlayerId == playerId);
+        if (existingMember is not null && existingMember.IsActive)
+        {
+            return Result.Failure<TeamMember>(TeamErrors.PlayerAlreadyInTeam);
+        }
+
+        if (existingMember is not null)
+        {
+            existingMember.Reactivate(TeamRole.Member, nowUtc);
+            SetUpdatedAt(nowUtc);
+            RaiseDomainEvent(new TeamMemberJoinedDomainEvent(Id, playerId, TeamRole.Member));
+            return Result.Success(existingMember);
+        }
+
+        var newMember = TeamMember.Create(Id, playerId, TeamRole.Member, nowUtc);
+        _members.Add(newMember);
+        SetUpdatedAt(nowUtc);
+
+        RaiseDomainEvent(new TeamMemberJoinedDomainEvent(Id, playerId, TeamRole.Member));
+
+        return Result.Success(newMember);
+    }
+
+    public Result RotateInviteCode(string newInviteCode, Guid requestedByPlayerId, DateTime nowUtc, DateTime? expiresAtUtc = null)
+    {
+        if (string.IsNullOrWhiteSpace(newInviteCode) || newInviteCode.Trim().Length != 6)
+        {
+            return Result.Failure(TeamErrors.InvalidInviteCode);
+        }
+
+        var caller = _members.FirstOrDefault(m => m.PlayerId == requestedByPlayerId && m.IsActive);
+        if (caller is null || (caller.Role != TeamRole.Captain && caller.Role != TeamRole.ViceCaptain))
+        {
+            return Result.Failure(TeamErrors.NotCaptainOrViceCaptain);
+        }
+
+        InviteCode = newInviteCode.Trim().ToUpperInvariant();
+        InviteCodeExpiresAtUtc = expiresAtUtc;
+        SetUpdatedAt(nowUtc);
+
+        RaiseDomainEvent(new InviteCodeRotatedDomainEvent(Id, InviteCode, InviteCodeExpiresAtUtc));
+
+        return Result.Success();
+    }
+
+    public Result RemoveMember(Guid memberPlayerId, Guid requestedByPlayerId, DateTime nowUtc)
+    {
+        var memberToRemove = _members.FirstOrDefault(m => m.PlayerId == memberPlayerId && m.IsActive);
+        if (memberToRemove is null)
+        {
+            return Result.Failure(TeamErrors.MemberNotFound);
+        }
+
+        var caller = _members.FirstOrDefault(m => m.PlayerId == requestedByPlayerId && m.IsActive);
+        if (caller is null)
+        {
+            return Result.Failure(TeamErrors.NotAuthorizedToManageRoster);
+        }
+
+        var isSelfRemoval = memberPlayerId == requestedByPlayerId;
+
+        if (memberPlayerId == CaptainId)
+        {
+            return isSelfRemoval
+                ? Result.Failure(TeamErrors.SelfRemovalMustTransferCaptaincy)
+                : Result.Failure(TeamErrors.CannotRemoveCaptain);
+        }
+
+        var isCaptain = caller.Role == TeamRole.Captain;
+        var isViceCaptain = caller.Role == TeamRole.ViceCaptain && memberToRemove.Role == TeamRole.Member;
+
+        if (!isSelfRemoval && !isCaptain && !isViceCaptain)
+        {
+            return Result.Failure(TeamErrors.NotAuthorizedToManageRoster);
+        }
+
+        memberToRemove.Deactivate(nowUtc);
+        SetUpdatedAt(nowUtc);
+
+        RaiseDomainEvent(new TeamMemberRemovedDomainEvent(Id, memberPlayerId, requestedByPlayerId));
+
+        return Result.Success();
+    }
+
+    public Result TransferCaptaincy(Guid newCaptainPlayerId, Guid currentCaptainPlayerId, DateTime nowUtc)
+    {
+        if (currentCaptainPlayerId != CaptainId)
+        {
+            return Result.Failure(TeamErrors.NotCaptain);
+        }
+
+        if (newCaptainPlayerId == currentCaptainPlayerId)
+        {
+            return Result.Failure(TeamErrors.CannotTransferToSelf);
+        }
+
+        var newCaptain = _members.FirstOrDefault(m => m.PlayerId == newCaptainPlayerId && m.IsActive);
+        if (newCaptain is null)
+        {
+            return Result.Failure(TeamErrors.MemberNotFound);
+        }
+
+        var currentCaptain = _members.FirstOrDefault(m => m.PlayerId == currentCaptainPlayerId && m.IsActive);
+        if (currentCaptain is not null)
+        {
+            currentCaptain.UpdateRole(TeamRole.Member, nowUtc);
+        }
+
+        newCaptain.UpdateRole(TeamRole.Captain, nowUtc);
+        CaptainId = newCaptainPlayerId;
+        SetUpdatedAt(nowUtc);
+
+        RaiseDomainEvent(new CaptaincyTransferredDomainEvent(Id, currentCaptainPlayerId, newCaptainPlayerId));
+
+        return Result.Success();
+    }
+
+    public Result UpdateMemberRole(Guid targetPlayerId, TeamRole newRole, Guid requestedByPlayerId, DateTime nowUtc)
+    {
+        if (requestedByPlayerId != CaptainId)
+        {
+            return Result.Failure(TeamErrors.NotCaptain);
+        }
+
+        if (targetPlayerId == CaptainId)
+        {
+            return Result.Failure(TeamErrors.CannotChangeCaptainRole);
+        }
+
+        if (newRole == TeamRole.Captain)
+        {
+            return TransferCaptaincy(targetPlayerId, requestedByPlayerId, nowUtc);
+        }
+
+        var member = _members.FirstOrDefault(m => m.PlayerId == targetPlayerId && m.IsActive);
+        if (member is null)
+        {
+            return Result.Failure(TeamErrors.MemberNotFound);
+        }
+
+        member.UpdateRole(newRole, nowUtc);
+        SetUpdatedAt(nowUtc);
+
+        return Result.Success();
+    }
+
+    public Result UpdateProfile(
+        string name,
+        string? description,
+        string city,
+        string governorate,
+        string? district,
+        string? logoUrl,
+        string? coverUrl,
+        bool isRecruiting,
+        bool isOpenForChallenges,
+        Guid requestedByPlayerId,
+        DateTime nowUtc)
+    {
+        var caller = _members.FirstOrDefault(m => m.PlayerId == requestedByPlayerId && m.IsActive);
+        if (caller is null || (caller.Role != TeamRole.Captain && caller.Role != TeamRole.ViceCaptain))
+        {
+            return Result.Failure(TeamErrors.NotCaptainOrViceCaptain);
+        }
+
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            return Result.Failure(TeamErrors.InvalidName);
+        }
+
+        if (string.IsNullOrWhiteSpace(city) || string.IsNullOrWhiteSpace(governorate))
+        {
+            return Result.Failure(TeamErrors.InvalidLocation);
+        }
+
+        Name = name.Trim();
+        Description = description?.Trim();
+        City = city.Trim();
+        Governorate = governorate.Trim();
+        District = district?.Trim();
+        LogoUrl = logoUrl?.Trim();
+        CoverUrl = coverUrl?.Trim();
+        IsRecruiting = isRecruiting;
+        IsOpenForChallenges = isOpenForChallenges;
+        SetUpdatedAt(nowUtc);
+
+        return Result.Success();
+    }
+
+    public void UpdateRanking(double rating, double deviation, double volatility, DateTime nowUtc)
+    {
+        Rating = rating;
+        RatingDeviation = deviation;
+        RatingVolatility = volatility;
+        SetUpdatedAt(nowUtc);
+    }
+
+    public void RecordMatchResult(bool isWin, bool isDraw, bool isLoss, int goalsFor, int goalsAgainst, DateTime nowUtc)
+    {
+        MatchesPlayed++;
+        if (isWin) Wins++;
+        if (isDraw) Draws++;
+        if (isLoss) Losses++;
+        GoalsFor += goalsFor;
+        GoalsAgainst += goalsAgainst;
+        SetUpdatedAt(nowUtc);
+    }
+}
