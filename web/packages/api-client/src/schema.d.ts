@@ -5373,6 +5373,7 @@ export interface components {
             reviewedAtUtc?: string | null;
             /** Format: uuid */
             reviewedByPlayerId?: string | null;
+            playerName?: string | null;
         };
         TeamLeaderboardEntryDto: {
             /** Format: int32 */
@@ -5427,6 +5428,7 @@ export interface components {
             position?: string | null;
             /** Format: date-time */
             joinedAtUtc: string;
+            playerName?: string | null;
         };
         TeamProfileDto: {
             /** Format: uuid */

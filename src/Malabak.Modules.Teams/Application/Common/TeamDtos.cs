@@ -8,7 +8,8 @@ public sealed record TeamMemberDto(
     TeamRole Role,
     int? JerseyNumber,
     string? Position,
-    DateTime JoinedAtUtc);
+    DateTime JoinedAtUtc,
+    string? PlayerName = null);
 
 public sealed record TeamSummaryDto(
     Guid Id,
@@ -134,7 +135,8 @@ public sealed record TeamJoinRequestDto(
     JoinRequestStatus Status,
     DateTime CreatedAtUtc,
     DateTime? ReviewedAtUtc,
-    Guid? ReviewedByPlayerId);
+    Guid? ReviewedByPlayerId,
+    string? PlayerName = null);
 
 public sealed record UpdateTeamSettingsRequest(
     bool IsPublic,

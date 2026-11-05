@@ -1,6 +1,7 @@
 using Malabak.Modules.Teams.Application.Common;
 using Malabak.Modules.Teams.Domain;
 using Malabak.SharedKernel;
+using Malabak.SharedKernel.Contracts;
 using Microsoft.EntityFrameworkCore;
 
 namespace Malabak.Modules.Teams.Application.Teams.Queries.GetTeamProfile;
@@ -8,9 +9,11 @@ namespace Malabak.Modules.Teams.Application.Teams.Queries.GetTeamProfile;
 public sealed class GetTeamProfileHandler : IQueryHandler<GetTeamProfileQuery, Result<TeamProfileDto>>
 {
     private readonly ITeamsDbContext _dbContext;
+    private readonly IUserAccountsContract? _accounts;
 
-    public GetTeamProfileHandler(ITeamsDbContext dbContext)
+    public GetTeamProfileHandler(ITeamsDbContext dbContext, IUserAccountsContract? accounts = null)
     {
+        _accounts = accounts;
         _dbContext = dbContext;
     }
 
@@ -41,6 +44,6 @@ public sealed class GetTeamProfileHandler : IQueryHandler<GetTeamProfileQuery, R
 
         var profile = TeamMapper.ToProfileDto(team, rank, query.RequestingPlayerId);
 
-        return Result.Success(profile);
+        return Result.Success(profile with { Roster = await profile.Roster.WithNamesAsync(_accounts, cancellationToken) });
     }
 }

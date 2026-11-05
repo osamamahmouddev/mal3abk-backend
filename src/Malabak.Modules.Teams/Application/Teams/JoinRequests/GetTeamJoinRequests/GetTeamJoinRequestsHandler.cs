@@ -1,6 +1,7 @@
 using Malabak.Modules.Teams.Application.Common;
 using Malabak.Modules.Teams.Domain;
 using Malabak.SharedKernel;
+using Malabak.SharedKernel.Contracts;
 using Microsoft.EntityFrameworkCore;
 
 namespace Malabak.Modules.Teams.Application.Teams.JoinRequests.GetTeamJoinRequests;
@@ -8,9 +9,11 @@ namespace Malabak.Modules.Teams.Application.Teams.JoinRequests.GetTeamJoinReques
 public sealed class GetTeamJoinRequestsHandler : IQueryHandler<GetTeamJoinRequestsQuery, Result<IReadOnlyList<TeamJoinRequestDto>>>
 {
     private readonly ITeamsDbContext _dbContext;
+    private readonly IUserAccountsContract? _accounts;
 
-    public GetTeamJoinRequestsHandler(ITeamsDbContext dbContext)
+    public GetTeamJoinRequestsHandler(ITeamsDbContext dbContext, IUserAccountsContract? accounts = null)
     {
+        _accounts = accounts;
         _dbContext = dbContext;
     }
 
@@ -53,6 +56,6 @@ public sealed class GetTeamJoinRequestsHandler : IQueryHandler<GetTeamJoinReques
                 r.ReviewedByPlayerId))
             .ToListAsync(cancellationToken);
 
-        return Result.Success<IReadOnlyList<TeamJoinRequestDto>>(requests);
+        return Result.Success(await ((IReadOnlyList<TeamJoinRequestDto>)requests).WithNamesAsync(_accounts, cancellationToken));
     }
 }

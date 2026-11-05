@@ -26822,6 +26822,10 @@
             "type": "string",
             "format": "uuid",
             "nullable": true
+          },
+          "playerName": {
+            "type": "string",
+            "nullable": true
           }
         },
         "additionalProperties": false
@@ -26981,6 +26985,10 @@
           "joinedAtUtc": {
             "type": "string",
             "format": "date-time"
+          },
+          "playerName": {
+            "type": "string",
+            "nullable": true
           }
         },
         "additionalProperties": false

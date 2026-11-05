@@ -1,6 +1,7 @@
 using Malabak.Modules.Teams.Application.Common;
 using Malabak.Modules.Teams.Domain;
 using Malabak.SharedKernel;
+using Malabak.SharedKernel.Contracts;
 using Microsoft.EntityFrameworkCore;
 
 namespace Malabak.Modules.Teams.Application.Teams.Invitations.AcceptTeamInvitation;
@@ -8,10 +9,12 @@ namespace Malabak.Modules.Teams.Application.Teams.Invitations.AcceptTeamInvitati
 public sealed class AcceptTeamInvitationHandler : ICommandHandler<AcceptTeamInvitationCommand, Result<TeamDetailDto>>
 {
     private readonly ITeamsDbContext _dbContext;
+    private readonly IUserAccountsContract? _accounts;
     private readonly IClock _clock;
 
-    public AcceptTeamInvitationHandler(ITeamsDbContext dbContext, IClock clock)
+    public AcceptTeamInvitationHandler(ITeamsDbContext dbContext, IClock clock, IUserAccountsContract? accounts = null)
     {
+        _accounts = accounts;
         _dbContext = dbContext;
         _clock = clock;
     }
@@ -44,6 +47,7 @@ public sealed class AcceptTeamInvitationHandler : ICommandHandler<AcceptTeamInvi
         await _dbContext.SaveChangesAsync(cancellationToken);
 
         // Player is now a member, so include private info (invite code)
-        return Result.Success(TeamMapper.ToDetailDto(team, includePrivateInfo: true));
+        var detail = TeamMapper.ToDetailDto(team, includePrivateInfo: true);
+        return Result.Success(detail with { Members = await detail.Members.WithNamesAsync(_accounts, cancellationToken) });
     }
 }
