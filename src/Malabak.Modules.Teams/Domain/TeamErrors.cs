@@ -21,4 +21,10 @@ public static class TeamErrors
     public static readonly Error InvalidInviteCode = Error.Validation("Team.InvalidInviteCode", "The invite code is invalid or does not match any active team.");
     public static readonly Error InviteCodeExpired = Error.Conflict("Team.InviteCodeExpired", "This team invite code has expired. Please request a new invite.");
     public static readonly Error CannotTransferToSelf = Error.Validation("Team.CannotTransferToSelf", "Cannot transfer captaincy to yourself.");
+    public static readonly Error TeamNotRecruiting = Error.Conflict("Team.NotRecruiting", "This team is currently not accepting new join requests.");
+    public static readonly Error TeamRosterFull = Error.Conflict("Team.RosterFull", "The team roster has reached its maximum capacity of 25 players.");
+    public static readonly Error MaxPlayerTeamsExceeded = Error.Conflict("Team.MaxPlayerTeamsExceeded", "You have reached the maximum allowed limit of 5 active teams.");
+    public static readonly Error DuplicateJoinRequest = Error.Conflict("Team.DuplicateJoinRequest", "You already have a pending join request for this team.");
+    public static readonly Error JoinRequestNotFound = Error.NotFound("Team.JoinRequestNotFound", "The join request was not found.");
+    public static readonly Error JoinRequestAlreadyHandled = Error.Conflict("Team.JoinRequestAlreadyHandled", "This join request has already been reviewed.");
 }

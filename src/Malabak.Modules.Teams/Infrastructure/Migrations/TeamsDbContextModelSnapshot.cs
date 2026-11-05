@@ -91,6 +91,11 @@ namespace Malabak.Modules.Teams.Infrastructure.Migrations
                         .HasColumnType("boolean")
                         .HasDefaultValue(true);
 
+                    b.Property<bool>("IsPublic")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true);
+
                     b.Property<bool>("IsRecruiting")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("boolean")
@@ -159,6 +164,58 @@ namespace Malabak.Modules.Teams.Infrastructure.Migrations
                         .IsUnique();
 
                     b.ToTable("teams", "teams");
+                });
+
+            modelBuilder.Entity("Malabak.Modules.Teams.Domain.TeamJoinRequest", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("DeletedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Message")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<Guid>("PlayerId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("ReviewedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("ReviewedByPlayerId")
+                        .HasColumnType("uuid");
+
+                    b.Property<uint>("RowVersion")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("TeamId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PlayerId");
+
+                    b.HasIndex("TeamId", "PlayerId", "Status");
+
+                    b.ToTable("team_join_requests", "teams");
                 });
 
             modelBuilder.Entity("Malabak.Modules.Teams.Domain.TeamMember", b =>
@@ -340,6 +397,15 @@ namespace Malabak.Modules.Teams.Infrastructure.Migrations
                     b.ToTable("outbox_messages", "teams");
                 });
 
+            modelBuilder.Entity("Malabak.Modules.Teams.Domain.TeamJoinRequest", b =>
+                {
+                    b.HasOne("Malabak.Modules.Teams.Domain.Team", null)
+                        .WithMany("JoinRequests")
+                        .HasForeignKey("TeamId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("Malabak.Modules.Teams.Domain.TeamMember", b =>
                 {
                     b.HasOne("Malabak.Modules.Teams.Domain.Team", null)
@@ -351,6 +417,8 @@ namespace Malabak.Modules.Teams.Infrastructure.Migrations
 
             modelBuilder.Entity("Malabak.Modules.Teams.Domain.Team", b =>
                 {
+                    b.Navigation("JoinRequests");
+
                     b.Navigation("Members");
                 });
 #pragma warning restore 612, 618

@@ -2,6 +2,11 @@ using FluentAssertions;
 using Malabak.Modules.Teams.Application.Teams.CreateTeam;
 using Malabak.Modules.Teams.Application.Teams.Invitations.AcceptTeamInvitation;
 using Malabak.Modules.Teams.Application.Teams.Invitations.CreateTeamInvitation;
+using Malabak.Modules.Teams.Application.Teams.JoinRequests.ApproveJoinRequest;
+using Malabak.Modules.Teams.Application.Teams.JoinRequests.DeclineJoinRequest;
+using Malabak.Modules.Teams.Application.Teams.JoinRequests.GetTeamJoinRequests;
+using Malabak.Modules.Teams.Application.Teams.JoinRequests.RequestToJoinTeam;
+using Malabak.Modules.Teams.Application.Teams.Members.LeaveTeam;
 using Malabak.Modules.Teams.Application.Teams.Members.RemoveTeamMember;
 using Malabak.Modules.Teams.Application.Teams.Members.TransferCaptaincy;
 using Malabak.Modules.Teams.Application.Teams.Queries.DiscoverTeams;
@@ -9,6 +14,7 @@ using Malabak.Modules.Teams.Application.Teams.Queries.GetMyTeams;
 using Malabak.Modules.Teams.Application.Teams.Queries.GetTeamById;
 using Malabak.Modules.Teams.Application.Teams.Queries.GetTeamProfile;
 using Malabak.Modules.Teams.Application.Teams.Queries.GetTeamStats;
+using Malabak.Modules.Teams.Application.Teams.Settings.UpdateTeamSettings;
 using Malabak.Modules.Teams.Domain;
 using Malabak.Modules.Teams.Domain.Events;
 using Malabak.Modules.Teams.Infrastructure;
@@ -578,5 +584,195 @@ public sealed class TeamTests
         stats.WinPercentage.Should().Be(66.7);
         stats.Rating.Should().Be(1800.0);
         stats.Rank.Should().Be(2, "team2 has rating 1900 so team1 is rank 2");
+    }
+
+    [Fact]
+    public void Team_CreateJoinRequest_WhenNotRecruiting_ShouldFail()
+    {
+        var captainId = Guid.NewGuid();
+        var team = Team.Create(Guid.NewGuid(), "Recruiting Closed", "rec-closed", "Cairo", "Cairo", captainId, "CLS001", _clock.UtcNow).Value;
+        team.UpdateSettings(isPublic: true, isRecruiting: false, isOpenForChallenges: true, captainId, _clock.UtcNow);
+
+        var applicantId = Guid.NewGuid();
+        var result = team.CreateJoinRequest(applicantId, "Let me in", activeTeamsCount: 1, _clock.UtcNow);
+
+        result.IsSuccess.Should().BeFalse();
+        result.Error.Should().Be(TeamErrors.TeamNotRecruiting);
+    }
+
+    [Fact]
+    public void Team_CreateJoinRequest_WhenExceedsMaxTeamsPerPlayer_ShouldFail()
+    {
+        var captainId = Guid.NewGuid();
+        var team = Team.Create(Guid.NewGuid(), "Team Alpha", "team-alpha", "Cairo", "Cairo", captainId, "ALP001", _clock.UtcNow).Value;
+
+        var applicantId = Guid.NewGuid();
+        var result = team.CreateJoinRequest(applicantId, "Hi", activeTeamsCount: 5, _clock.UtcNow);
+
+        result.IsSuccess.Should().BeFalse();
+        result.Error.Should().Be(TeamErrors.MaxPlayerTeamsExceeded);
+    }
+
+    [Fact]
+    public void Team_CreateJoinRequest_WhenRosterFull_ShouldFail()
+    {
+        var captainId = Guid.NewGuid();
+        var team = Team.Create(Guid.NewGuid(), "Full Squad", "full-squad", "Cairo", "Cairo", captainId, "FUL001", _clock.UtcNow).Value;
+
+        // Fill roster to 25
+        for (var i = 1; i < Team.MaxTeamMembers; i++)
+        {
+            team.JoinWithInviteCode("FUL001", Guid.NewGuid(), _clock.UtcNow);
+        }
+
+        team.Members.Count(m => m.IsActive).Should().Be(25);
+
+        var applicantId = Guid.NewGuid();
+        var result = team.CreateJoinRequest(applicantId, "Want to join", activeTeamsCount: 0, _clock.UtcNow);
+
+        result.IsSuccess.Should().BeFalse();
+        result.Error.Should().Be(TeamErrors.TeamRosterFull);
+
+        var inviteJoin = team.JoinWithInviteCode("FUL001", applicantId, _clock.UtcNow);
+        inviteJoin.IsSuccess.Should().BeFalse();
+        inviteJoin.Error.Should().Be(TeamErrors.TeamRosterFull);
+    }
+
+    [Fact]
+    public void Team_CreateJoinRequest_DuplicatePending_ShouldFail()
+    {
+        var captainId = Guid.NewGuid();
+        var team = Team.Create(Guid.NewGuid(), "Squad", "squad-1", "Cairo", "Cairo", captainId, "SQD001", _clock.UtcNow).Value;
+        var applicantId = Guid.NewGuid();
+
+        var first = team.CreateJoinRequest(applicantId, "First message", activeTeamsCount: 1, _clock.UtcNow);
+        first.IsSuccess.Should().BeTrue();
+
+        var second = team.CreateJoinRequest(applicantId, "Second message", activeTeamsCount: 1, _clock.UtcNow);
+        second.IsSuccess.Should().BeFalse();
+        second.Error.Should().Be(TeamErrors.DuplicateJoinRequest);
+    }
+
+    [Fact]
+    public void Team_ApproveAndDeclineJoinRequest_Flow_ShouldWorkProperly()
+    {
+        var captainId = Guid.NewGuid();
+        var team = Team.Create(Guid.NewGuid(), "Squad", "squad-2", "Cairo", "Cairo", captainId, "SQD002", _clock.UtcNow).Value;
+
+        var applicant1 = Guid.NewGuid();
+        var applicant2 = Guid.NewGuid();
+        var req1 = team.CreateJoinRequest(applicant1, "Hello", activeTeamsCount: 1, _clock.UtcNow).Value;
+        var req2 = team.CreateJoinRequest(applicant2, "Hey", activeTeamsCount: 1, _clock.UtcNow).Value;
+
+        // Non captain cannot approve
+        var unauthorized = team.ApproveJoinRequest(req1.Id, Guid.NewGuid(), _clock.UtcNow);
+        unauthorized.IsSuccess.Should().BeFalse();
+        unauthorized.Error.Should().Be(TeamErrors.NotCaptainOrViceCaptain);
+
+        // Captain approves req1
+        var approveRes = team.ApproveJoinRequest(req1.Id, captainId, _clock.UtcNow);
+        approveRes.IsSuccess.Should().BeTrue();
+        req1.Status.Should().Be(JoinRequestStatus.Approved);
+        team.Members.Should().Contain(m => m.PlayerId == applicant1 && m.IsActive);
+
+        // Cannot re-approve
+        var reapprove = team.ApproveJoinRequest(req1.Id, captainId, _clock.UtcNow);
+        reapprove.IsSuccess.Should().BeFalse();
+        reapprove.Error.Should().Be(TeamErrors.JoinRequestAlreadyHandled);
+
+        // Captain declines req2
+        var declineRes = team.DeclineJoinRequest(req2.Id, captainId, _clock.UtcNow);
+        declineRes.IsSuccess.Should().BeTrue();
+        req2.Status.Should().Be(JoinRequestStatus.Declined);
+    }
+
+    [Fact]
+    public void Team_LeaveTeam_MemberCanLeave_CaptainCannotWithoutTransfer()
+    {
+        var captainId = Guid.NewGuid();
+        var memberId = Guid.NewGuid();
+        var team = Team.Create(Guid.NewGuid(), "Leave Squad", "leave-squad", "Cairo", "Cairo", captainId, "LVE001", _clock.UtcNow).Value;
+        team.JoinWithInviteCode("LVE001", memberId, _clock.UtcNow);
+
+        // Member leaves
+        var memberLeave = team.LeaveTeam(memberId, _clock.UtcNow);
+        memberLeave.IsSuccess.Should().BeTrue();
+        team.Members.First(m => m.PlayerId == memberId).IsActive.Should().BeFalse();
+
+        // Captain attempts to leave
+        var captainLeave = team.LeaveTeam(captainId, _clock.UtcNow);
+        captainLeave.IsSuccess.Should().BeFalse();
+        captainLeave.Error.Should().Be(TeamErrors.SelfRemovalMustTransferCaptaincy);
+    }
+
+    [Fact]
+    public void Team_UpdateSettings_OnlyCaptainOrViceCaptainAllowed()
+    {
+        var captainId = Guid.NewGuid();
+        var memberId = Guid.NewGuid();
+        var team = Team.Create(Guid.NewGuid(), "Settings Team", "settings-team", "Cairo", "Cairo", captainId, "SET001", _clock.UtcNow).Value;
+        team.JoinWithInviteCode("SET001", memberId, _clock.UtcNow);
+
+        var memberUpdate = team.UpdateSettings(isPublic: false, isRecruiting: false, isOpenForChallenges: false, memberId, _clock.UtcNow);
+        memberUpdate.IsSuccess.Should().BeFalse();
+        memberUpdate.Error.Should().Be(TeamErrors.NotCaptainOrViceCaptain);
+
+        var captainUpdate = team.UpdateSettings(isPublic: false, isRecruiting: false, isOpenForChallenges: false, captainId, _clock.UtcNow);
+        captainUpdate.IsSuccess.Should().BeTrue();
+        team.IsPublic.Should().BeFalse();
+        team.IsRecruiting.Should().BeFalse();
+        team.IsOpenForChallenges.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task JoinRequest_Handlers_FullIntegrationAsync()
+    {
+        await using var db = CreateInMemoryDb();
+        var reqHandler = new RequestToJoinTeamHandler(db, _clock);
+        var getReqHandler = new GetTeamJoinRequestsHandler(db);
+        var approveHandler = new ApproveJoinRequestHandler(db, _clock);
+        var declineHandler = new DeclineJoinRequestHandler(db, _clock);
+        var leaveHandler = new LeaveTeamHandler(db, _clock);
+        var settingsHandler = new UpdateTeamSettingsHandler(db, _clock);
+
+        var captainId = Guid.NewGuid();
+        var applicantId = Guid.NewGuid();
+        var team = Team.Create(Guid.NewGuid(), "Integration FC", "integration-fc", "Cairo", "Cairo", captainId, "INT001", _clock.UtcNow).Value;
+        db.Teams.Add(team);
+        await db.SaveChangesAsync();
+
+        // 1. Submit join request
+        var reqRes = await reqHandler.HandleAsync(new RequestToJoinTeamCommand(team.Id, applicantId, "Please accept"));
+        reqRes.IsSuccess.Should().BeTrue();
+        var requestId = reqRes.Value.Id;
+
+        // 2. Query join requests by Captain
+        var listRes = await getReqHandler.HandleAsync(new GetTeamJoinRequestsQuery(team.Id, captainId));
+        listRes.IsSuccess.Should().BeTrue();
+        listRes.Value.Should().ContainSingle(r => r.Id == requestId && r.Status == JoinRequestStatus.Pending);
+
+        // Query by non-captain fails
+        var listForbidden = await getReqHandler.HandleAsync(new GetTeamJoinRequestsQuery(team.Id, applicantId));
+        listForbidden.IsSuccess.Should().BeFalse();
+        listForbidden.Error.Should().Be(TeamErrors.NotCaptainOrViceCaptain);
+
+        // 3. Approve join request
+        var approveRes = await approveHandler.HandleAsync(new ApproveJoinRequestCommand(team.Id, requestId, captainId));
+        approveRes.IsSuccess.Should().BeTrue();
+
+        // 3b. Test decline with a second applicant
+        var applicant2 = Guid.NewGuid();
+        var req2Res = await reqHandler.HandleAsync(new RequestToJoinTeamCommand(team.Id, applicant2, "Another request"));
+        req2Res.IsSuccess.Should().BeTrue();
+        var declineRes = await declineHandler.HandleAsync(new DeclineJoinRequestCommand(team.Id, req2Res.Value.Id, captainId));
+        declineRes.IsSuccess.Should().BeTrue();
+
+        // 4. Update settings
+        var settingsRes = await settingsHandler.HandleAsync(new UpdateTeamSettingsCommand(team.Id, captainId, IsPublic: true, IsRecruiting: false, IsOpenForChallenges: true));
+        settingsRes.IsSuccess.Should().BeTrue();
+
+        // 5. Leave team
+        var leaveRes = await leaveHandler.HandleAsync(new LeaveTeamCommand(team.Id, applicantId));
+        leaveRes.IsSuccess.Should().BeTrue();
     }
 }

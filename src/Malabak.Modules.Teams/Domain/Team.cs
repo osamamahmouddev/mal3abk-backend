@@ -5,7 +5,11 @@ namespace Malabak.Modules.Teams.Domain;
 
 public sealed class Team : Entity<Guid>
 {
+    public const int MaxTeamMembers = 25;
+    public const int MaxTeamsPerPlayer = 5;
+
     private readonly List<TeamMember> _members = [];
+    private readonly List<TeamJoinRequest> _joinRequests = [];
 
     public string Name { get; private set; } = string.Empty;
     public string Slug { get; private set; } = string.Empty;
@@ -34,6 +38,7 @@ public sealed class Team : Entity<Guid>
     public int GoalsAgainst { get; private set; }
 
     public IReadOnlyCollection<TeamMember> Members => _members.AsReadOnly();
+    public IReadOnlyCollection<TeamJoinRequest> JoinRequests => _joinRequests.AsReadOnly();
 
     private Team()
     {
@@ -128,6 +133,11 @@ public sealed class Team : Entity<Guid>
         if (existingMember is not null && existingMember.IsActive)
         {
             return Result.Failure<TeamMember>(TeamErrors.PlayerAlreadyInTeam);
+        }
+
+        if (_members.Count(m => m.IsActive) >= MaxTeamMembers)
+        {
+            return Result.Failure<TeamMember>(TeamErrors.TeamRosterFull);
         }
 
         if (existingMember is not null)
@@ -328,6 +338,147 @@ public sealed class Team : Entity<Guid>
 
         IsPublic = isPublic;
         SetUpdatedAt(nowUtc);
+        return Result.Success();
+    }
+
+    public Result UpdateSettings(
+        bool isPublic,
+        bool isRecruiting,
+        bool isOpenForChallenges,
+        Guid requestedByPlayerId,
+        DateTime nowUtc)
+    {
+        var caller = _members.FirstOrDefault(m => m.PlayerId == requestedByPlayerId && m.IsActive);
+        if (caller is null || (caller.Role != TeamRole.Captain && caller.Role != TeamRole.ViceCaptain))
+        {
+            return Result.Failure(TeamErrors.NotCaptainOrViceCaptain);
+        }
+
+        IsPublic = isPublic;
+        IsRecruiting = isRecruiting;
+        IsOpenForChallenges = isOpenForChallenges;
+        SetUpdatedAt(nowUtc);
+
+        return Result.Success();
+    }
+
+    public Result LeaveTeam(Guid playerId, DateTime nowUtc)
+    {
+        return RemoveMember(playerId, playerId, nowUtc);
+    }
+
+    public Result<TeamJoinRequest> CreateJoinRequest(Guid playerId, string? message, int activeTeamsCount, DateTime nowUtc)
+    {
+        if (playerId == Guid.Empty)
+        {
+            return Result.Failure<TeamJoinRequest>(TeamErrors.PlayerNotInTeam);
+        }
+
+        if (!IsRecruiting)
+        {
+            return Result.Failure<TeamJoinRequest>(TeamErrors.TeamNotRecruiting);
+        }
+
+        if (_members.Count(m => m.IsActive) >= MaxTeamMembers)
+        {
+            return Result.Failure<TeamJoinRequest>(TeamErrors.TeamRosterFull);
+        }
+
+        if (activeTeamsCount >= MaxTeamsPerPlayer)
+        {
+            return Result.Failure<TeamJoinRequest>(TeamErrors.MaxPlayerTeamsExceeded);
+        }
+
+        if (_members.Any(m => m.PlayerId == playerId && m.IsActive))
+        {
+            return Result.Failure<TeamJoinRequest>(TeamErrors.PlayerAlreadyInTeam);
+        }
+
+        if (_joinRequests.Any(r => r.PlayerId == playerId && r.Status == JoinRequestStatus.Pending))
+        {
+            return Result.Failure<TeamJoinRequest>(TeamErrors.DuplicateJoinRequest);
+        }
+
+        var request = TeamJoinRequest.Create(Id, playerId, message, nowUtc);
+        _joinRequests.Add(request);
+        SetUpdatedAt(nowUtc);
+
+        RaiseDomainEvent(new JoinRequestCreatedDomainEvent(request.Id, Id, playerId));
+
+        return Result.Success(request);
+    }
+
+    public Result<TeamMember> ApproveJoinRequest(Guid requestId, Guid reviewerPlayerId, DateTime nowUtc)
+    {
+        var reviewer = _members.FirstOrDefault(m => m.PlayerId == reviewerPlayerId && m.IsActive);
+        if (reviewer is null || (reviewer.Role != TeamRole.Captain && reviewer.Role != TeamRole.ViceCaptain))
+        {
+            return Result.Failure<TeamMember>(TeamErrors.NotCaptainOrViceCaptain);
+        }
+
+        var request = _joinRequests.FirstOrDefault(r => r.Id == requestId);
+        if (request is null)
+        {
+            return Result.Failure<TeamMember>(TeamErrors.JoinRequestNotFound);
+        }
+
+        if (request.Status != JoinRequestStatus.Pending)
+        {
+            return Result.Failure<TeamMember>(TeamErrors.JoinRequestAlreadyHandled);
+        }
+
+        if (_members.Count(m => m.IsActive) >= MaxTeamMembers)
+        {
+            return Result.Failure<TeamMember>(TeamErrors.TeamRosterFull);
+        }
+
+        request.Approve(reviewerPlayerId, nowUtc);
+
+        var existingMember = _members.FirstOrDefault(m => m.PlayerId == request.PlayerId);
+        TeamMember member;
+        if (existingMember is not null)
+        {
+            existingMember.Reactivate(TeamRole.Member, nowUtc);
+            member = existingMember;
+        }
+        else
+        {
+            member = TeamMember.Create(Id, request.PlayerId, TeamRole.Member, nowUtc);
+            _members.Add(member);
+        }
+
+        SetUpdatedAt(nowUtc);
+
+        RaiseDomainEvent(new JoinRequestApprovedDomainEvent(request.Id, Id, request.PlayerId, reviewerPlayerId));
+        RaiseDomainEvent(new TeamMemberJoinedDomainEvent(Id, request.PlayerId, TeamRole.Member));
+
+        return Result.Success(member);
+    }
+
+    public Result DeclineJoinRequest(Guid requestId, Guid reviewerPlayerId, DateTime nowUtc)
+    {
+        var reviewer = _members.FirstOrDefault(m => m.PlayerId == reviewerPlayerId && m.IsActive);
+        if (reviewer is null || (reviewer.Role != TeamRole.Captain && reviewer.Role != TeamRole.ViceCaptain))
+        {
+            return Result.Failure(TeamErrors.NotCaptainOrViceCaptain);
+        }
+
+        var request = _joinRequests.FirstOrDefault(r => r.Id == requestId);
+        if (request is null)
+        {
+            return Result.Failure(TeamErrors.JoinRequestNotFound);
+        }
+
+        if (request.Status != JoinRequestStatus.Pending)
+        {
+            return Result.Failure(TeamErrors.JoinRequestAlreadyHandled);
+        }
+
+        request.Decline(reviewerPlayerId, nowUtc);
+        SetUpdatedAt(nowUtc);
+
+        RaiseDomainEvent(new JoinRequestDeclinedDomainEvent(request.Id, Id, request.PlayerId, reviewerPlayerId));
+
         return Result.Success();
     }
 

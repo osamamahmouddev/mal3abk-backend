@@ -125,3 +125,18 @@ public sealed record PagedList<T>(
     int TotalCount,
     int Page,
     int PageSize);
+
+public sealed record TeamJoinRequestDto(
+    Guid Id,
+    Guid TeamId,
+    Guid PlayerId,
+    string? Message,
+    JoinRequestStatus Status,
+    DateTime CreatedAtUtc,
+    DateTime? ReviewedAtUtc,
+    Guid? ReviewedByPlayerId);
+
+public sealed record UpdateTeamSettingsRequest(
+    bool IsPublic,
+    bool IsRecruiting,
+    bool IsOpenForChallenges);

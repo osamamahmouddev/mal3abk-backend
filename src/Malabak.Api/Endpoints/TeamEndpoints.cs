@@ -5,6 +5,11 @@ using Malabak.Modules.Teams.Application.Common;
 using Malabak.Modules.Teams.Application.Teams.CreateTeam;
 using Malabak.Modules.Teams.Application.Teams.Invitations.AcceptTeamInvitation;
 using Malabak.Modules.Teams.Application.Teams.Invitations.CreateTeamInvitation;
+using Malabak.Modules.Teams.Application.Teams.JoinRequests.ApproveJoinRequest;
+using Malabak.Modules.Teams.Application.Teams.JoinRequests.DeclineJoinRequest;
+using Malabak.Modules.Teams.Application.Teams.JoinRequests.GetTeamJoinRequests;
+using Malabak.Modules.Teams.Application.Teams.JoinRequests.RequestToJoinTeam;
+using Malabak.Modules.Teams.Application.Teams.Members.LeaveTeam;
 using Malabak.Modules.Teams.Application.Teams.Members.RemoveTeamMember;
 using Malabak.Modules.Teams.Application.Teams.Members.TransferCaptaincy;
 using Malabak.Modules.Teams.Application.Teams.Queries.DiscoverTeams;
@@ -12,6 +17,8 @@ using Malabak.Modules.Teams.Application.Teams.Queries.GetMyTeams;
 using Malabak.Modules.Teams.Application.Teams.Queries.GetTeamById;
 using Malabak.Modules.Teams.Application.Teams.Queries.GetTeamProfile;
 using Malabak.Modules.Teams.Application.Teams.Queries.GetTeamStats;
+using Malabak.Modules.Teams.Application.Teams.Settings.UpdateTeamSettings;
+using Malabak.Modules.Teams.Domain;
 using Malabak.SharedKernel;
 using Malabak.SharedKernel.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -193,6 +200,106 @@ public static class TeamEndpoints
         .WithName("GetTeamStats")
         .WithSummary("Get projected team statistics (W/D/L, goals, win %, ranking)");
 
+        // 6d. Request to join team
+        teams.MapPost("/{id:guid}/join-requests", async (
+            Guid id,
+            ClaimsPrincipal user,
+            [FromBody] RequestToJoinTeamApiRequest? request,
+            ICommandHandler<RequestToJoinTeamCommand, Result<TeamJoinRequestDto>> handler,
+            CancellationToken ct) =>
+        {
+            var playerId = user.GetUserId()!.Value;
+            var command = new RequestToJoinTeamCommand(id, playerId, request?.Message);
+            var result = await handler.HandleAsync(command, ct);
+            return ToResult(result, StatusCodes.Status201Created);
+        })
+        .WithName("RequestToJoinTeam")
+        .WithSummary("Submit a request to join a recruiting team");
+
+        // 6e. List team join requests (Captain or ViceCaptain only)
+        teams.MapGet("/{id:guid}/join-requests", async (
+            Guid id,
+            ClaimsPrincipal user,
+            [FromQuery] JoinRequestStatus? status,
+            IQueryHandler<GetTeamJoinRequestsQuery, Result<IReadOnlyList<TeamJoinRequestDto>>> handler,
+            CancellationToken ct) =>
+        {
+            var playerId = user.GetUserId()!.Value;
+            var query = new GetTeamJoinRequestsQuery(id, playerId, status);
+            var result = await handler.HandleAsync(query, ct);
+            return ToResult(result);
+        })
+        .WithName("GetTeamJoinRequests")
+        .WithSummary("List join requests for team (Captain or ViceCaptain only)");
+
+        // 6f. Approve join request
+        teams.MapPost("/{id:guid}/join-requests/{requestId:guid}/approve", async (
+            Guid id,
+            Guid requestId,
+            ClaimsPrincipal user,
+            ICommandHandler<ApproveJoinRequestCommand, Result> handler,
+            CancellationToken ct) =>
+        {
+            var reviewerId = user.GetUserId()!.Value;
+            var command = new ApproveJoinRequestCommand(id, requestId, reviewerId);
+            var result = await handler.HandleAsync(command, ct);
+            return ToResult(result);
+        })
+        .WithName("ApproveTeamJoinRequest")
+        .WithSummary("Approve a join request (Captain or ViceCaptain only)");
+
+        // 6g. Decline join request
+        teams.MapPost("/{id:guid}/join-requests/{requestId:guid}/decline", async (
+            Guid id,
+            Guid requestId,
+            ClaimsPrincipal user,
+            ICommandHandler<DeclineJoinRequestCommand, Result> handler,
+            CancellationToken ct) =>
+        {
+            var reviewerId = user.GetUserId()!.Value;
+            var command = new DeclineJoinRequestCommand(id, requestId, reviewerId);
+            var result = await handler.HandleAsync(command, ct);
+            return ToResult(result);
+        })
+        .WithName("DeclineTeamJoinRequest")
+        .WithSummary("Decline a join request (Captain or ViceCaptain only)");
+
+        // 6h. Leave team
+        teams.MapPost("/{id:guid}/leave", async (
+            Guid id,
+            ClaimsPrincipal user,
+            ICommandHandler<LeaveTeamCommand, Result> handler,
+            CancellationToken ct) =>
+        {
+            var playerId = user.GetUserId()!.Value;
+            var command = new LeaveTeamCommand(id, playerId);
+            var result = await handler.HandleAsync(command, ct);
+            return ToResult(result, StatusCodes.Status204NoContent);
+        })
+        .WithName("LeaveTeam")
+        .WithSummary("Leave team (members only; captain must transfer captaincy first)");
+
+        // 6i. Update team settings (visibility, recruiting, challenges)
+        teams.MapPut("/{id:guid}/settings", async (
+            Guid id,
+            ClaimsPrincipal user,
+            [FromBody] UpdateTeamSettingsRequest request,
+            ICommandHandler<UpdateTeamSettingsCommand, Result> handler,
+            CancellationToken ct) =>
+        {
+            var callerId = user.GetUserId()!.Value;
+            var command = new UpdateTeamSettingsCommand(
+                id,
+                callerId,
+                request.IsPublic,
+                request.IsRecruiting,
+                request.IsOpenForChallenges);
+            var result = await handler.HandleAsync(command, ct);
+            return ToResult(result);
+        })
+        .WithName("UpdateTeamSettings")
+        .WithSummary("Update team visibility and recruitment settings (Captain or ViceCaptain only)");
+
         // 7. My teams
         var me = app.MapGroup("/api/v{version:apiVersion}/me")
             .WithApiVersionSet(apiVersionSet)
@@ -269,4 +376,6 @@ public static class TeamEndpoints
     public sealed record AcceptInvitationApiRequest(string InviteCode);
 
     public sealed record TransferCaptaincyApiRequest(Guid NewCaptainPlayerId);
+
+    public sealed record RequestToJoinTeamApiRequest(string? Message);
 }

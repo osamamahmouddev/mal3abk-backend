@@ -114,5 +114,13 @@ public sealed class TeamConfiguration : IEntityTypeConfiguration<Team>
 
         builder.Navigation(t => t.Members)
             .UsePropertyAccessMode(PropertyAccessMode.Field);
+
+        builder.HasMany(t => t.JoinRequests)
+            .WithOne()
+            .HasForeignKey(r => r.TeamId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Navigation(t => t.JoinRequests)
+            .UsePropertyAccessMode(PropertyAccessMode.Field);
     }
 }

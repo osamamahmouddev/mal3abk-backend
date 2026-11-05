@@ -2,6 +2,11 @@ using Malabak.Modules.Teams.Application.Common;
 using Malabak.Modules.Teams.Application.Teams.CreateTeam;
 using Malabak.Modules.Teams.Application.Teams.Invitations.AcceptTeamInvitation;
 using Malabak.Modules.Teams.Application.Teams.Invitations.CreateTeamInvitation;
+using Malabak.Modules.Teams.Application.Teams.JoinRequests.ApproveJoinRequest;
+using Malabak.Modules.Teams.Application.Teams.JoinRequests.DeclineJoinRequest;
+using Malabak.Modules.Teams.Application.Teams.JoinRequests.GetTeamJoinRequests;
+using Malabak.Modules.Teams.Application.Teams.JoinRequests.RequestToJoinTeam;
+using Malabak.Modules.Teams.Application.Teams.Members.LeaveTeam;
 using Malabak.Modules.Teams.Application.Teams.Members.RemoveTeamMember;
 using Malabak.Modules.Teams.Application.Teams.Members.TransferCaptaincy;
 using Malabak.Modules.Teams.Application.Teams.Queries.DiscoverTeams;
@@ -9,6 +14,7 @@ using Malabak.Modules.Teams.Application.Teams.Queries.GetMyTeams;
 using Malabak.Modules.Teams.Application.Teams.Queries.GetTeamById;
 using Malabak.Modules.Teams.Application.Teams.Queries.GetTeamProfile;
 using Malabak.Modules.Teams.Application.Teams.Queries.GetTeamStats;
+using Malabak.Modules.Teams.Application.Teams.Settings.UpdateTeamSettings;
 using Malabak.Modules.Teams.Domain;
 using Malabak.Modules.Teams.Infrastructure.Services;
 using Malabak.SharedKernel;
@@ -32,6 +38,11 @@ public static class TeamsModule
         services.AddScoped<ICommandHandler<AcceptTeamInvitationCommand, Result<TeamDetailDto>>, AcceptTeamInvitationHandler>();
         services.AddScoped<ICommandHandler<RemoveTeamMemberCommand, Result>, RemoveTeamMemberHandler>();
         services.AddScoped<ICommandHandler<TransferCaptaincyCommand, Result>, TransferCaptaincyHandler>();
+        services.AddScoped<ICommandHandler<RequestToJoinTeamCommand, Result<TeamJoinRequestDto>>, RequestToJoinTeamHandler>();
+        services.AddScoped<ICommandHandler<ApproveJoinRequestCommand, Result>, ApproveJoinRequestHandler>();
+        services.AddScoped<ICommandHandler<DeclineJoinRequestCommand, Result>, DeclineJoinRequestHandler>();
+        services.AddScoped<ICommandHandler<LeaveTeamCommand, Result>, LeaveTeamHandler>();
+        services.AddScoped<ICommandHandler<UpdateTeamSettingsCommand, Result>, UpdateTeamSettingsHandler>();
 
         // Queries
         services.AddScoped<IQueryHandler<GetTeamByIdQuery, Result<TeamDetailDto>>, GetTeamByIdHandler>();
@@ -39,6 +50,7 @@ public static class TeamsModule
         services.AddScoped<IQueryHandler<DiscoverTeamsQuery, Result<PagedList<TeamDiscoveryDto>>>, DiscoverTeamsHandler>();
         services.AddScoped<IQueryHandler<GetTeamProfileQuery, Result<TeamProfileDto>>, GetTeamProfileHandler>();
         services.AddScoped<IQueryHandler<GetTeamStatsQuery, Result<TeamStatsDto>>, GetTeamStatsHandler>();
+        services.AddScoped<IQueryHandler<GetTeamJoinRequestsQuery, Result<IReadOnlyList<TeamJoinRequestDto>>>, GetTeamJoinRequestsHandler>();
 
         return services;
     }
