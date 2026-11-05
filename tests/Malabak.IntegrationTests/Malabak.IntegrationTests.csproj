@@ -9,6 +9,9 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Malabak.Api\Malabak.Api.csproj" />
+    <ProjectReference Include="..\..\src\Malabak.SharedKernel\Malabak.SharedKernel.csproj" />
+    <ProjectReference Include="..\..\src\Malabak.Modules.Teams\Malabak.Modules.Teams.csproj" />
+    <ProjectReference Include="..\..\src\Malabak.Modules.Matches\Malabak.Modules.Matches.csproj" />
   </ItemGroup>
 
   <ItemGroup>

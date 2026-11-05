@@ -172,7 +172,7 @@ public sealed class Match : Entity<Guid>
             return Result.Failure(MatchErrors.InvalidStatus);
         }
 
-        if (ResultStatus == ResultVerificationStatus.Confirmed || ResultStatus == ResultVerificationStatus.AutoConfirmed)
+        if (ResultStatus != ResultVerificationStatus.None)
         {
             return Result.Failure(MatchErrors.ResultAlreadySubmitted);
         }
