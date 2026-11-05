@@ -41,6 +41,44 @@ public sealed class RespondToChallengeHandler : ICommandHandler<RespondToChallen
             return Result.Failure<TeamChallengeDto>(ChallengeErrors.NotFound);
         }
 
+        Match? createdMatch = null;
+        if (command.Action == ChallengeResponseAction.Accept)
+        {
+            var proposedEnd = challenge.ProposedDateUtc.AddMinutes(challenge.ProposedDurationMinutes);
+            var hasConflict = await _dbContext.Matches.AnyAsync(m =>
+                (m.Status == MatchStatus.Scheduled || m.Status == MatchStatus.InProgress) &&
+                (m.HomeTeamId == challenge.ChallengerTeamId || m.HomeTeamId == challenge.ChallengedTeamId ||
+                 m.AwayTeamId == challenge.ChallengerTeamId || m.AwayTeamId == challenge.ChallengedTeamId) &&
+                m.ScheduledStartUtc < proposedEnd &&
+                challenge.ProposedDateUtc < m.ScheduledEndUtc,
+                cancellationToken);
+
+            if (hasConflict)
+            {
+                return Result.Failure<TeamChallengeDto>(MatchErrors.ScheduleConflict);
+            }
+
+            var matchScheduleResult = Match.Schedule(
+                challengeId: challenge.Id,
+                homeTeamId: challenge.ChallengerTeamId,
+                awayTeamId: challenge.ChallengedTeamId,
+                scheduledStartUtc: challenge.ProposedDateUtc,
+                durationMinutes: challenge.ProposedDurationMinutes,
+                pitchId: challenge.ProposedPitchId,
+                venueId: challenge.ProposedVenueId,
+                venueName: challenge.ProposedVenueName,
+                bookingId: challenge.BookingId,
+                notes: challenge.Notes,
+                nowUtc: _clock.UtcNow);
+
+            if (!matchScheduleResult.IsSuccess)
+            {
+                return Result.Failure<TeamChallengeDto>(matchScheduleResult.Error);
+            }
+
+            createdMatch = matchScheduleResult.Value;
+        }
+
         Result actionResult = command.Action switch
         {
             ChallengeResponseAction.Accept => challenge.Accept(command.RespondingTeamId, command.CallerPlayerId, _clock.UtcNow),
@@ -61,6 +99,11 @@ public sealed class RespondToChallengeHandler : ICommandHandler<RespondToChallen
         if (!actionResult.IsSuccess)
         {
             return Result.Failure<TeamChallengeDto>(actionResult.Error);
+        }
+
+        if (createdMatch is not null)
+        {
+            _dbContext.Matches.Add(createdMatch);
         }
 
         await _dbContext.SaveChangesAsync(cancellationToken);
@@ -87,6 +130,21 @@ public sealed class RespondToChallengeHandler : ICommandHandler<RespondToChallen
                         ["challengeId"] = challenge.Id.ToString("D")
                     },
                     $"challenge-counter:{challenge.Id}:{challenge.ProposedDateUtc:yyyyMMddHHmm}"),
+                cancellationToken);
+        }
+        else if (otherCaptainId.HasValue && otherCaptainId.Value != Guid.Empty && command.Action == ChallengeResponseAction.Accept && createdMatch is not null)
+        {
+            await _notificationPublisher.PublishAsync(
+                new NotificationRequest(
+                    otherCaptainId.Value,
+                    NotificationTypes.MatchScheduled,
+                    new Dictionary<string, string>
+                    {
+                        ["opponentTeam"] = respondingTeamName,
+                        ["matchDate"] = createdMatch.ScheduledStartUtc.ToString("yyyy-MM-dd HH:mm"),
+                        ["matchId"] = createdMatch.Id.ToString("D")
+                    },
+                    $"match-sched:{createdMatch.Id}:{otherCaptainId.Value}"),
                 cancellationToken);
         }
 

@@ -23,6 +23,103 @@ namespace Malabak.Modules.Matches.Infrastructure.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("Malabak.Modules.Matches.Domain.Match", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<int?>("AwayScore")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("AwayTeamId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("BookingId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("CancellationReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<Guid?>("CancelledByTeamId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("ChallengeId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("DeletedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("DurationMinutes")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(60);
+
+                    b.Property<int?>("HomeScore")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("HomeTeamId")
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<int>("Outcome")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid?>("PitchId")
+                        .HasColumnType("uuid");
+
+                    b.Property<uint>("RowVersion")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
+                    b.Property<DateTime>("ScheduledEndUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("ScheduledStartUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("VenueId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("VenueName")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AwayTeamId");
+
+                    b.HasIndex("BookingId");
+
+                    b.HasIndex("ChallengeId");
+
+                    b.HasIndex("HomeTeamId");
+
+                    b.HasIndex("ScheduledStartUtc");
+
+                    b.HasIndex("Status", "ScheduledStartUtc", "ScheduledEndUtc");
+
+                    b.ToTable("matches", "matches");
+                });
+
             modelBuilder.Entity("Malabak.Modules.Matches.Domain.TeamChallenge", b =>
                 {
                     b.Property<Guid>("Id")

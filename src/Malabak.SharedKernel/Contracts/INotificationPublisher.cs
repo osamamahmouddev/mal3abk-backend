@@ -28,4 +28,5 @@ public static class NotificationTypes
     public const string StaffInvitationAccepted = "staff.invitation_accepted";
     public const string NewDeviceSignIn = "security.new_device";
     public const string TeamChallengeReceived = "team.challenge_received";
+    public const string MatchScheduled = "match.scheduled";
 }

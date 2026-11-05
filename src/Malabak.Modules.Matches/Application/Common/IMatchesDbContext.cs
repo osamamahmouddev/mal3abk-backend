@@ -6,5 +6,6 @@ namespace Malabak.Modules.Matches.Application.Common;
 public interface IMatchesDbContext
 {
     DbSet<TeamChallenge> TeamChallenges { get; }
+    DbSet<Match> Matches { get; }
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }

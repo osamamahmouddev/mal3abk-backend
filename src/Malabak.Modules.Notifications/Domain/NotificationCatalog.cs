@@ -17,6 +17,7 @@ public static class DeepLinks
     public static string Venue(string venueId) => $"malabak://venue/{Uri.EscapeDataString(venueId)}";
     public static string VenueManage(string venueId) => $"malabak://venue-manager/venue/{Uri.EscapeDataString(venueId)}";
     public static string Team(string teamId) => $"malabak://team/{Uri.EscapeDataString(teamId)}";
+    public static string Match(string matchId) => $"malabak://match/{Uri.EscapeDataString(matchId)}";
     public const string SecuritySettings = "malabak://settings/security";
 
     internal static string? From(IReadOnlyDictionary<string, string> data, string key, Func<string, string> build) =>
@@ -75,7 +76,11 @@ public static class NotificationCatalog
         [NotificationTypes.TeamChallengeReceived] = new(NotificationCategory.Teams,
             "تحدي جديد", "فريق {teamName} يتحداك!",
             "New challenge", "{teamName} challenged your team!",
-            d => DeepLinks.From(d, "teamId", DeepLinks.Team))
+            d => DeepLinks.From(d, "teamId", DeepLinks.Team)),
+        [NotificationTypes.MatchScheduled] = new(NotificationCategory.Teams,
+            "مباراة جديدة مجدولة", "تم تحديد موعد مباراة جديدة لفريقك يوم {matchDate}.",
+            "Match scheduled", "A new match has been scheduled for your team on {matchDate}.",
+            d => DeepLinks.From(d, "matchId", DeepLinks.Match))
     };
 
     public static bool TryGet(string type, out NotificationTemplate template) => _templates.TryGetValue(type, out template!);

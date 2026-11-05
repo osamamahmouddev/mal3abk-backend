@@ -44,6 +44,13 @@ public sealed class LinkChallengeBookingHandler : ICommandHandler<LinkChallengeB
             return Result.Failure<TeamChallengeDto>(linkResult.Error);
         }
 
+        var associatedMatch = await _dbContext.Matches
+            .FirstOrDefaultAsync(m => m.ChallengeId == challenge.Id, cancellationToken);
+        if (associatedMatch is not null)
+        {
+            associatedMatch.LinkBooking(command.BookingId, command.TeamId, _clock.UtcNow);
+        }
+
         await _dbContext.SaveChangesAsync(cancellationToken);
 
         var challengerName = await _captaincyChecker.GetTeamNameAsync(challenge.ChallengerTeamId, cancellationToken);

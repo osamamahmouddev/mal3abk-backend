@@ -12,6 +12,7 @@ public sealed class MatchesDbContext : BaseDbContext, IMatchesDbContext
     public override string ModuleSchema => Schema;
 
     public DbSet<TeamChallenge> TeamChallenges => Set<TeamChallenge>();
+    public DbSet<Match> Matches => Set<Match>();
 
     public MatchesDbContext(
         DbContextOptions<MatchesDbContext> options,
