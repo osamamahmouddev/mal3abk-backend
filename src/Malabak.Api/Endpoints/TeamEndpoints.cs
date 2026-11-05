@@ -300,6 +300,129 @@ public static class TeamEndpoints
         .WithName("UpdateTeamSettings")
         .WithSummary("Update team visibility and recruitment settings (Captain or ViceCaptain only)");
 
+        // 6j. Team Leaderboard
+        teams.MapGet("/leaderboard", async (
+            [FromQuery] string? city,
+            [FromQuery] string? governorate,
+            [FromQuery] int page,
+            [FromQuery] int pageSize,
+            IQueryHandler<Malabak.Modules.Teams.Application.Teams.Queries.GetTeamLeaderboard.GetTeamLeaderboardQuery, Result<PagedList<TeamLeaderboardEntryDto>>> handler,
+            CancellationToken ct) =>
+        {
+            var query = new Malabak.Modules.Teams.Application.Teams.Queries.GetTeamLeaderboard.GetTeamLeaderboardQuery(city, governorate, page, pageSize);
+            var result = await handler.HandleAsync(query, ct);
+            return ToResult(result);
+        })
+        .AllowAnonymous()
+        .WithName("GetTeamLeaderboard")
+        .WithSummary("Get team competitive rankings leaderboard (overall or filtered by city/governorate)");
+
+        // 6k. Submit fair-play report
+        teams.MapPost("/{id:guid}/report", async (
+            Guid id,
+            [FromBody] SubmitFairPlayReportRequest request,
+            ClaimsPrincipal user,
+            ICommandHandler<Malabak.Modules.Teams.Application.Teams.FairPlay.SubmitReport.SubmitFairPlayReportCommand, Result<FairPlayReportDto>> handler,
+            CancellationToken ct) =>
+        {
+            var callerId = user.GetUserId()!.Value;
+            var command = new Malabak.Modules.Teams.Application.Teams.FairPlay.SubmitReport.SubmitFairPlayReportCommand(
+                request.ReporterTeamId,
+                callerId,
+                id,
+                request.Category,
+                request.Description,
+                request.MatchId,
+                request.EvidenceUrls);
+
+            var result = await handler.HandleAsync(command, ct);
+            return ToResult(result, StatusCodes.Status201Created);
+        })
+        .WithName("SubmitFairPlayReport")
+        .WithSummary("Submit a fair-play violation report against a team (Captain or ViceCaptain only)");
+
+        // 6l. Admin get fair-play reports queue
+        teams.MapGet("/reports", async (
+            [FromQuery] FairPlayReportStatus? status,
+            [FromQuery] int page,
+            [FromQuery] int pageSize,
+            IQueryHandler<Malabak.Modules.Teams.Application.Teams.FairPlay.GetReports.GetFairPlayReportsQuery, Result<PagedList<FairPlayReportDto>>> handler,
+            CancellationToken ct) =>
+        {
+            var query = new Malabak.Modules.Teams.Application.Teams.FairPlay.GetReports.GetFairPlayReportsQuery(status, page, pageSize);
+            var result = await handler.HandleAsync(query, ct);
+            return ToResult(result);
+        })
+        .RequireAuthorization(Permissions.AdminDisputesResolve)
+        .WithName("GetFairPlayReportsQueue")
+        .WithSummary("Get fair-play reports queue for admin moderation (Admin only)");
+
+        // 6m. Admin review fair-play report
+        teams.MapPost("/reports/{id:guid}/review", async (
+            Guid id,
+            [FromBody] ReviewFairPlayReportRequest request,
+            ClaimsPrincipal user,
+            ICommandHandler<Malabak.Modules.Teams.Application.Teams.FairPlay.ReviewReport.ReviewFairPlayReportCommand, Result<FairPlayReportDto>> handler,
+            CancellationToken ct) =>
+        {
+            var adminId = user.GetUserId()!.Value;
+            var command = new Malabak.Modules.Teams.Application.Teams.FairPlay.ReviewReport.ReviewFairPlayReportCommand(
+                id,
+                adminId,
+                request.IsApproved,
+                request.Penalty,
+                request.PointsDeducted,
+                request.AdminNotes);
+
+            var result = await handler.HandleAsync(command, ct);
+            return ToResult(result);
+        })
+        .RequireAuthorization(Permissions.AdminDisputesResolve)
+        .WithName("ReviewFairPlayReport")
+        .WithSummary("Admin review fair-play report (approve with penalty or dismiss) (Admin only)");
+
+        // 6n. Team appeal fair-play report
+        teams.MapPost("/reports/{id:guid}/appeal", async (
+            Guid id,
+            [FromBody] AppealFairPlayReportRequest request,
+            ClaimsPrincipal user,
+            ICommandHandler<Malabak.Modules.Teams.Application.Teams.FairPlay.AppealReport.AppealFairPlayReportCommand, Result<FairPlayReportDto>> handler,
+            CancellationToken ct) =>
+        {
+            var captainId = user.GetUserId()!.Value;
+            var command = new Malabak.Modules.Teams.Application.Teams.FairPlay.AppealReport.AppealFairPlayReportCommand(
+                id,
+                captainId,
+                request.AppealReason);
+
+            var result = await handler.HandleAsync(command, ct);
+            return ToResult(result);
+        })
+        .WithName("AppealFairPlayReport")
+        .WithSummary("Appeal an approved fair-play report penalty (Captain of reported team only)");
+
+        // 6o. Admin resolve fair-play appeal
+        teams.MapPost("/reports/{id:guid}/appeal/resolve", async (
+            Guid id,
+            [FromBody] ResolveFairPlayAppealRequest request,
+            ClaimsPrincipal user,
+            ICommandHandler<Malabak.Modules.Teams.Application.Teams.FairPlay.ResolveAppeal.ResolveFairPlayAppealCommand, Result<FairPlayReportDto>> handler,
+            CancellationToken ct) =>
+        {
+            var adminId = user.GetUserId()!.Value;
+            var command = new Malabak.Modules.Teams.Application.Teams.FairPlay.ResolveAppeal.ResolveFairPlayAppealCommand(
+                id,
+                adminId,
+                request.UpholdViolation,
+                request.AdminNotes);
+
+            var result = await handler.HandleAsync(command, ct);
+            return ToResult(result);
+        })
+        .RequireAuthorization(Permissions.AdminDisputesResolve)
+        .WithName("ResolveFairPlayAppeal")
+        .WithSummary("Admin resolve a fair-play report appeal (uphold or overturn) (Admin only)");
+
         // 7. My teams
         var me = app.MapGroup("/api/v{version:apiVersion}/me")
             .WithApiVersionSet(apiVersionSet)

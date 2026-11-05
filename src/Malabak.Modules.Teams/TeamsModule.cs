@@ -37,6 +37,7 @@ public static class TeamsModule
         services.AddSingleton<Malabak.SharedKernel.Ranking.IRankingStrategy, Malabak.SharedKernel.Ranking.Glicko2RankingStrategy>();
         services.AddSingleton<Malabak.SharedKernel.Ranking.EloRankingStrategy>();
         services.AddSingleton<Malabak.SharedKernel.Ranking.Glicko2RankingStrategy>();
+        services.AddSingleton<ILeaderboardCache, MemoryLeaderboardCache>();
 
         // Commands
         services.AddScoped<ICommandHandler<CreateTeamCommand, Result<TeamDetailDto>>, CreateTeamHandler>();
@@ -49,6 +50,10 @@ public static class TeamsModule
         services.AddScoped<ICommandHandler<DeclineJoinRequestCommand, Result>, DeclineJoinRequestHandler>();
         services.AddScoped<ICommandHandler<LeaveTeamCommand, Result>, LeaveTeamHandler>();
         services.AddScoped<ICommandHandler<UpdateTeamSettingsCommand, Result>, UpdateTeamSettingsHandler>();
+        services.AddScoped<ICommandHandler<Application.Teams.FairPlay.SubmitReport.SubmitFairPlayReportCommand, Result<FairPlayReportDto>>, Application.Teams.FairPlay.SubmitReport.SubmitFairPlayReportHandler>();
+        services.AddScoped<ICommandHandler<Application.Teams.FairPlay.ReviewReport.ReviewFairPlayReportCommand, Result<FairPlayReportDto>>, Application.Teams.FairPlay.ReviewReport.ReviewFairPlayReportHandler>();
+        services.AddScoped<ICommandHandler<Application.Teams.FairPlay.AppealReport.AppealFairPlayReportCommand, Result<FairPlayReportDto>>, Application.Teams.FairPlay.AppealReport.AppealFairPlayReportHandler>();
+        services.AddScoped<ICommandHandler<Application.Teams.FairPlay.ResolveAppeal.ResolveFairPlayAppealCommand, Result<FairPlayReportDto>>, Application.Teams.FairPlay.ResolveAppeal.ResolveFairPlayAppealHandler>();
 
         // Queries
         services.AddScoped<IQueryHandler<GetTeamByIdQuery, Result<TeamDetailDto>>, GetTeamByIdHandler>();
@@ -57,6 +62,8 @@ public static class TeamsModule
         services.AddScoped<IQueryHandler<GetTeamProfileQuery, Result<TeamProfileDto>>, GetTeamProfileHandler>();
         services.AddScoped<IQueryHandler<GetTeamStatsQuery, Result<TeamStatsDto>>, GetTeamStatsHandler>();
         services.AddScoped<IQueryHandler<GetTeamJoinRequestsQuery, Result<IReadOnlyList<TeamJoinRequestDto>>>, GetTeamJoinRequestsHandler>();
+        services.AddScoped<IQueryHandler<Application.Teams.Queries.GetTeamLeaderboard.GetTeamLeaderboardQuery, Result<PagedList<TeamLeaderboardEntryDto>>>, Application.Teams.Queries.GetTeamLeaderboard.GetTeamLeaderboardHandler>();
+        services.AddScoped<IQueryHandler<Application.Teams.FairPlay.GetReports.GetFairPlayReportsQuery, Result<PagedList<FairPlayReportDto>>>, Application.Teams.FairPlay.GetReports.GetFairPlayReportsHandler>();
 
         return services;
     }

@@ -166,6 +166,106 @@ namespace Malabak.Modules.Teams.Infrastructure.Migrations
                     b.ToTable("teams", "teams");
                 });
 
+            modelBuilder.Entity("Malabak.Modules.Teams.Domain.TeamFairPlayReport", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("AdminAppealNotes")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<DateTime?>("AdminAppealResolvedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("AdminAppealResolvedByUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("AdminDecisionNotes")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<DateTime?>("AdminReviewedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("AdminReviewedByUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("AppealReason")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<DateTime?>("AppealedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("AppealedByPlayerId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Category")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("DeletedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<string>("EvidenceUrls")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<Guid?>("MatchId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("PenaltyType")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("PointsDeducted")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("ReportedTeamId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ReporterPlayerId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ReporterTeamId")
+                        .HasColumnType("uuid");
+
+                    b.Property<uint>("RowVersion")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedAtUtc");
+
+                    b.HasIndex("ReportedTeamId");
+
+                    b.HasIndex("ReporterTeamId");
+
+                    b.HasIndex("Status");
+
+                    b.ToTable("fair_play_reports", "teams");
+                });
+
             modelBuilder.Entity("Malabak.Modules.Teams.Domain.TeamJoinRequest", b =>
                 {
                     b.Property<Guid>("Id")

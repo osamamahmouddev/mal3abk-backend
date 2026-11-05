@@ -140,3 +140,67 @@ public sealed record UpdateTeamSettingsRequest(
     bool IsPublic,
     bool IsRecruiting,
     bool IsOpenForChallenges);
+
+public sealed record TeamLeaderboardEntryDto(
+    int Rank,
+    Guid TeamId,
+    string Name,
+    string Slug,
+    string? LogoUrl,
+    string City,
+    string Governorate,
+    double Rating,
+    double RatingDeviation,
+    int MatchesPlayed,
+    int Wins,
+    int Draws,
+    int Losses,
+    int Points,
+    int GoalsFor,
+    int GoalsAgainst,
+    int GoalDifference,
+    double WinPercentage);
+
+public sealed record FairPlayReportDto(
+    Guid Id,
+    Guid ReporterTeamId,
+    Guid ReporterPlayerId,
+    Guid ReportedTeamId,
+    string ReportedTeamName,
+    Guid? MatchId,
+    FairPlayReportCategory Category,
+    string Description,
+    string? EvidenceUrls,
+    FairPlayReportStatus Status,
+    FairPlayPenaltyType PenaltyType,
+    int? PointsDeducted,
+    string? AdminDecisionNotes,
+    Guid? AdminReviewedByUserId,
+    DateTime? AdminReviewedAtUtc,
+    string? AppealReason,
+    Guid? AppealedByPlayerId,
+    DateTime? AppealedAtUtc,
+    string? AdminAppealNotes,
+    Guid? AdminAppealResolvedByUserId,
+    DateTime? AdminAppealResolvedAtUtc,
+    DateTime CreatedAtUtc);
+
+public sealed record SubmitFairPlayReportRequest(
+    Guid ReporterTeamId,
+    FairPlayReportCategory Category,
+    string Description,
+    Guid? MatchId = null,
+    string? EvidenceUrls = null);
+
+public sealed record ReviewFairPlayReportRequest(
+    bool IsApproved,
+    FairPlayPenaltyType Penalty,
+    int? PointsDeducted,
+    string AdminNotes);
+
+public sealed record AppealFairPlayReportRequest(
+    string AppealReason);
+
+public sealed record ResolveFairPlayAppealRequest(
+    bool UpholdViolation,
+    string AdminNotes);

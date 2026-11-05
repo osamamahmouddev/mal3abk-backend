@@ -14,6 +14,7 @@ public sealed class TeamsDbContext : BaseDbContext, ITeamsDbContext
     public DbSet<Team> Teams => Set<Team>();
     public DbSet<TeamMember> TeamMembers => Set<TeamMember>();
     public DbSet<TeamJoinRequest> TeamJoinRequests => Set<TeamJoinRequest>();
+    public DbSet<TeamFairPlayReport> FairPlayReports => Set<TeamFairPlayReport>();
 
     public TeamsDbContext(
         DbContextOptions<TeamsDbContext> options,
