@@ -1,0 +1,49 @@
+using Malabak.Modules.Teams.Application.Common;
+using Malabak.Modules.Teams.Domain;
+using Malabak.SharedKernel;
+using Microsoft.EntityFrameworkCore;
+
+namespace Malabak.Modules.Teams.Application.Teams.Invitations.AcceptTeamInvitation;
+
+public sealed class AcceptTeamInvitationHandler : ICommandHandler<AcceptTeamInvitationCommand, Result<TeamDetailDto>>
+{
+    private readonly ITeamsDbContext _dbContext;
+    private readonly IClock _clock;
+
+    public AcceptTeamInvitationHandler(ITeamsDbContext dbContext, IClock clock)
+    {
+        _dbContext = dbContext;
+        _clock = clock;
+    }
+
+    public async Task<Result<TeamDetailDto>> HandleAsync(AcceptTeamInvitationCommand command, CancellationToken cancellationToken = default)
+    {
+        var normalizedCode = command.InviteCode.Trim().ToUpperInvariant();
+
+        var team = await _dbContext.Teams
+            .Include(t => t.Members)
+            .FirstOrDefaultAsync(t => t.InviteCode == normalizedCode, cancellationToken);
+
+        if (team is null)
+        {
+            return Result.Failure<TeamDetailDto>(TeamErrors.InvalidInviteCode);
+        }
+
+        var joinResult = team.JoinWithInviteCode(normalizedCode, command.PlayerId, _clock.UtcNow);
+        if (!joinResult.IsSuccess)
+        {
+            return Result.Failure<TeamDetailDto>(joinResult.Error);
+        }
+
+        var member = joinResult.Value;
+        if (_dbContext.TeamMembers.Entry(member).State == EntityState.Detached)
+        {
+            _dbContext.TeamMembers.Add(member);
+        }
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        // Player is now a member, so include private info (invite code)
+        return Result.Success(TeamMapper.ToDetailDto(team, includePrivateInfo: true));
+    }
+}

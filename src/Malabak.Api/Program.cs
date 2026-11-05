@@ -27,8 +27,14 @@ using Malabak.Modules.Identity;
 using Malabak.Modules.Identity.Application.Common;
 using Malabak.Modules.Identity.Application.Sessions;
 using Malabak.Modules.Identity.Infrastructure;
+using Malabak.Modules.Matches;
+using Malabak.Modules.Matches.Application.Common;
+using Malabak.Modules.Matches.Infrastructure;
 using Malabak.Modules.Notifications;
 using Malabak.Modules.Notifications.Infrastructure;
+using Malabak.Modules.Teams;
+using Malabak.Modules.Teams.Application.Common;
+using Malabak.Modules.Teams.Infrastructure;
 using Malabak.Modules.Venues;
 using Malabak.Modules.Venues.Application.Common;
 using Malabak.Modules.Venues.Infrastructure;
@@ -207,6 +213,16 @@ builder.Services.AddDbContext<BookingDbContext>(options =>
     options.UseNpgsql(postgresConnectionString, npgsql =>
         npgsql.MigrationsHistoryTable("__EFMigrationsHistory", BookingDbContext.Schema)));
 
+builder.Services.AddDbContext<TeamsDbContext>(options =>
+    options.UseNpgsql(postgresConnectionString, npgsql =>
+        npgsql.MigrationsHistoryTable("__EFMigrationsHistory", TeamsDbContext.Schema)));
+builder.Services.AddScoped<ITeamsDbContext>(sp => sp.GetRequiredService<TeamsDbContext>());
+
+builder.Services.AddDbContext<MatchesDbContext>(options =>
+    options.UseNpgsql(postgresConnectionString, npgsql =>
+        npgsql.MigrationsHistoryTable("__EFMigrationsHistory", MatchesDbContext.Schema)));
+builder.Services.AddScoped<IMatchesDbContext>(sp => sp.GetRequiredService<MatchesDbContext>());
+
 builder.Services.AddDbContext<MediaDbContext>(options =>
     options.UseNpgsql(postgresConnectionString, npgsql =>
         npgsql.MigrationsHistoryTable("__EFMigrationsHistory", MediaDbContext.Schema)));
@@ -236,6 +252,8 @@ builder.Services.AddHostedService<Malabak.Api.Infrastructure.AccountAnonymizatio
 builder.Services.AddIdentityModule(builder.Configuration);
 builder.Services.AddVenuesModule();
 builder.Services.AddBookingModule();
+builder.Services.AddTeamsModule();
+builder.Services.AddMatchesModule();
 var fcmSection = builder.Configuration.GetSection("Push:Fcm");
 builder.Services.AddNotificationsModule(string.IsNullOrWhiteSpace(fcmSection["PrivateKeyPem"])
     ? null
@@ -252,6 +270,7 @@ if (args.Contains("--migrate"))
     await scope.ServiceProvider.GetRequiredService<IdentityDbContext>().Database.MigrateAsync();
     await scope.ServiceProvider.GetRequiredService<VenuesDbContext>().Database.MigrateAsync();
     await scope.ServiceProvider.GetRequiredService<BookingDbContext>().Database.MigrateAsync();
+    await scope.ServiceProvider.GetRequiredService<TeamsDbContext>().Database.MigrateAsync();
     await scope.ServiceProvider.GetRequiredService<MediaDbContext>().Database.MigrateAsync();
     await scope.ServiceProvider.GetRequiredService<NotificationsDbContext>().Database.MigrateAsync();
     await scope.ServiceProvider.GetRequiredService<SecurityDbContext>().Database.MigrateAsync();
@@ -265,6 +284,7 @@ if (app.Configuration.GetValue<bool>("Database:MigrateOnStartup"))
     await scope.ServiceProvider.GetRequiredService<IdentityDbContext>().Database.MigrateAsync();
     await scope.ServiceProvider.GetRequiredService<VenuesDbContext>().Database.MigrateAsync();
     await scope.ServiceProvider.GetRequiredService<BookingDbContext>().Database.MigrateAsync();
+    await scope.ServiceProvider.GetRequiredService<TeamsDbContext>().Database.MigrateAsync();
     await scope.ServiceProvider.GetRequiredService<MediaDbContext>().Database.MigrateAsync();
     await scope.ServiceProvider.GetRequiredService<NotificationsDbContext>().Database.MigrateAsync();
     await scope.ServiceProvider.GetRequiredService<SecurityDbContext>().Database.MigrateAsync();
@@ -440,6 +460,9 @@ app.MapPlayerVenueListEndpoints(apiVersionSet);
 app.MapPrivacyEndpoints(apiVersionSet);
 app.MapRealtimeEndpoints(apiVersionSet);
 app.MapBookingEndpoints(apiVersionSet);
+app.MapTeamEndpoints(apiVersionSet);
+app.MapChallengeEndpoints(apiVersionSet);
+app.MapMatchEndpoints(apiVersionSet);
 
 // WebSockets only (SECURITY.md): long polling and server-sent events would validate the single-use ticket on every request.
 app.MapHub<BookingHub>("/hubs/booking", options => options.Transports = Microsoft.AspNetCore.Http.Connections.HttpTransportType.WebSockets);

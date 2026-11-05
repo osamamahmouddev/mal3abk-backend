@@ -1,6 +1,70 @@
+using Malabak.Modules.Teams.Application.Common;
+using Malabak.Modules.Teams.Application.Teams.CreateTeam;
+using Malabak.Modules.Teams.Application.Teams.Invitations.AcceptTeamInvitation;
+using Malabak.Modules.Teams.Application.Teams.Invitations.CreateTeamInvitation;
+using Malabak.Modules.Teams.Application.Teams.JoinRequests.ApproveJoinRequest;
+using Malabak.Modules.Teams.Application.Teams.JoinRequests.DeclineJoinRequest;
+using Malabak.Modules.Teams.Application.Teams.JoinRequests.GetTeamJoinRequests;
+using Malabak.Modules.Teams.Application.Teams.JoinRequests.RequestToJoinTeam;
+using Malabak.Modules.Teams.Application.Teams.Members.LeaveTeam;
+using Malabak.Modules.Teams.Application.Teams.Members.RemoveTeamMember;
+using Malabak.Modules.Teams.Application.Teams.Members.TransferCaptaincy;
+using Malabak.Modules.Teams.Application.Teams.Queries.DiscoverTeams;
+using Malabak.Modules.Teams.Application.Teams.Queries.GetMyTeams;
+using Malabak.Modules.Teams.Application.Teams.Queries.GetTeamById;
+using Malabak.Modules.Teams.Application.Teams.Queries.GetTeamProfile;
+using Malabak.Modules.Teams.Application.Teams.Queries.GetTeamStats;
+using Malabak.Modules.Teams.Application.Teams.Settings.UpdateTeamSettings;
+using Malabak.Modules.Teams.Domain;
+using Malabak.Modules.Teams.Infrastructure.Services;
+using Malabak.SharedKernel;
+using Microsoft.Extensions.DependencyInjection;
+
 namespace Malabak.Modules.Teams;
 
 public static class TeamsModule
 {
     public const string Schema = "teams";
+
+    public static IServiceCollection AddTeamsModule(this IServiceCollection services)
+    {
+        // Domain services / generators
+        services.AddScoped<ITeamSlugGenerator, TeamSlugGenerator>();
+        services.AddScoped<ITeamInviteCodeGenerator, TeamInviteCodeGenerator>();
+        services.AddScoped<Malabak.SharedKernel.Contracts.ITeamCaptaincyChecker, TeamCaptaincyChecker>();
+        services.AddScoped<Malabak.SharedKernel.Contracts.ITeamMatchResultRecorder, TeamMatchResultRecorder>();
+        services.AddScoped<Malabak.SharedKernel.Contracts.ITeamRankingRecalculator, TeamRankingRecalculator>();
+        services.AddSingleton<Malabak.SharedKernel.Ranking.IRankingStrategy, Malabak.SharedKernel.Ranking.Glicko2RankingStrategy>();
+        services.AddSingleton<Malabak.SharedKernel.Ranking.EloRankingStrategy>();
+        services.AddSingleton<Malabak.SharedKernel.Ranking.Glicko2RankingStrategy>();
+        services.AddSingleton<ILeaderboardCache, MemoryLeaderboardCache>();
+
+        // Commands
+        services.AddScoped<ICommandHandler<CreateTeamCommand, Result<TeamDetailDto>>, CreateTeamHandler>();
+        services.AddScoped<ICommandHandler<CreateTeamInvitationCommand, Result<TeamInvitationDto>>, CreateTeamInvitationHandler>();
+        services.AddScoped<ICommandHandler<AcceptTeamInvitationCommand, Result<TeamDetailDto>>, AcceptTeamInvitationHandler>();
+        services.AddScoped<ICommandHandler<RemoveTeamMemberCommand, Result>, RemoveTeamMemberHandler>();
+        services.AddScoped<ICommandHandler<TransferCaptaincyCommand, Result>, TransferCaptaincyHandler>();
+        services.AddScoped<ICommandHandler<RequestToJoinTeamCommand, Result<TeamJoinRequestDto>>, RequestToJoinTeamHandler>();
+        services.AddScoped<ICommandHandler<ApproveJoinRequestCommand, Result>, ApproveJoinRequestHandler>();
+        services.AddScoped<ICommandHandler<DeclineJoinRequestCommand, Result>, DeclineJoinRequestHandler>();
+        services.AddScoped<ICommandHandler<LeaveTeamCommand, Result>, LeaveTeamHandler>();
+        services.AddScoped<ICommandHandler<UpdateTeamSettingsCommand, Result>, UpdateTeamSettingsHandler>();
+        services.AddScoped<ICommandHandler<Application.Teams.FairPlay.SubmitReport.SubmitFairPlayReportCommand, Result<FairPlayReportDto>>, Application.Teams.FairPlay.SubmitReport.SubmitFairPlayReportHandler>();
+        services.AddScoped<ICommandHandler<Application.Teams.FairPlay.ReviewReport.ReviewFairPlayReportCommand, Result<FairPlayReportDto>>, Application.Teams.FairPlay.ReviewReport.ReviewFairPlayReportHandler>();
+        services.AddScoped<ICommandHandler<Application.Teams.FairPlay.AppealReport.AppealFairPlayReportCommand, Result<FairPlayReportDto>>, Application.Teams.FairPlay.AppealReport.AppealFairPlayReportHandler>();
+        services.AddScoped<ICommandHandler<Application.Teams.FairPlay.ResolveAppeal.ResolveFairPlayAppealCommand, Result<FairPlayReportDto>>, Application.Teams.FairPlay.ResolveAppeal.ResolveFairPlayAppealHandler>();
+
+        // Queries
+        services.AddScoped<IQueryHandler<GetTeamByIdQuery, Result<TeamDetailDto>>, GetTeamByIdHandler>();
+        services.AddScoped<IQueryHandler<GetMyTeamsQuery, Result<IReadOnlyList<TeamSummaryDto>>>, GetMyTeamsHandler>();
+        services.AddScoped<IQueryHandler<DiscoverTeamsQuery, Result<PagedList<TeamDiscoveryDto>>>, DiscoverTeamsHandler>();
+        services.AddScoped<IQueryHandler<GetTeamProfileQuery, Result<TeamProfileDto>>, GetTeamProfileHandler>();
+        services.AddScoped<IQueryHandler<GetTeamStatsQuery, Result<TeamStatsDto>>, GetTeamStatsHandler>();
+        services.AddScoped<IQueryHandler<GetTeamJoinRequestsQuery, Result<IReadOnlyList<TeamJoinRequestDto>>>, GetTeamJoinRequestsHandler>();
+        services.AddScoped<IQueryHandler<Application.Teams.Queries.GetTeamLeaderboard.GetTeamLeaderboardQuery, Result<PagedList<TeamLeaderboardEntryDto>>>, Application.Teams.Queries.GetTeamLeaderboard.GetTeamLeaderboardHandler>();
+        services.AddScoped<IQueryHandler<Application.Teams.FairPlay.GetReports.GetFairPlayReportsQuery, Result<PagedList<FairPlayReportDto>>>, Application.Teams.FairPlay.GetReports.GetFairPlayReportsHandler>();
+
+        return services;
+    }
 }

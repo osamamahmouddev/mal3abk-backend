@@ -1,0 +1,60 @@
+using Malabak.SharedKernel;
+
+namespace Malabak.Modules.Matches.Domain;
+
+public static class MatchErrors
+{
+    public static readonly Error NotFound =
+        Error.NotFound("Match.NotFound", "The requested match was not found.");
+
+    public static readonly Error SameTeam =
+        Error.Validation("Match.SameTeam", "A team cannot schedule a match against itself.");
+
+    public static readonly Error ScheduleConflict =
+        Error.Conflict("Match.ScheduleConflict", "One or both teams have a conflicting match scheduled during this time window.");
+
+    public static readonly Error InvalidDuration =
+        Error.Validation("Match.InvalidDuration", "Match duration must be between 30 and 240 minutes.");
+
+    public static readonly Error InvalidScheduledTime =
+        Error.Validation("Match.InvalidScheduledTime", "Scheduled start time cannot be in the past.");
+
+    public static readonly Error NotAuthorizedCaptain =
+        Error.Forbidden("Match.NotAuthorizedCaptain", "Only the captain or vice-captain of a participating team can manage the match.");
+
+    public static readonly Error InvalidStatus =
+        Error.Validation("Match.InvalidStatus", "The match is not in a valid state for this action.");
+
+    public static readonly Error AlreadyLinkedToBooking =
+        Error.Conflict("Match.AlreadyLinkedToBooking", "The match is already linked to a pitch booking.");
+
+    public static readonly Error BookingMismatch =
+        Error.Validation("Match.BookingMismatch", "The provided booking identifier is invalid.");
+
+    public static readonly Error ResultAlreadySubmitted =
+        Error.Conflict("Match.ResultAlreadySubmitted", "A match result has already been submitted and is pending verification or confirmed.");
+
+    public static readonly Error ResultNotPendingVerification =
+        Error.Conflict("Match.ResultNotPendingVerification", "The match result is not awaiting verification.");
+
+    public static readonly Error CannotVerifyOwnResult =
+        Error.Forbidden("Match.CannotVerifyOwnResult", "A team captain cannot verify their own submitted result. The opposing captain must verify.");
+
+    public static readonly Error InvalidScore =
+        Error.Validation("Match.InvalidScore", "Scores must be non-negative integers between 0 and 99.");
+
+    public static readonly Error DisputeReasonRequired =
+        Error.Validation("Match.DisputeReasonRequired", "A dispute reason is required when disputing a match result.");
+
+    public static readonly Error MatchNotDisputed =
+        Error.Conflict("Match.NotDisputed", "The match is not currently in a disputed state.");
+
+    public static readonly Error ResolutionNotesRequired =
+        Error.Validation("Match.ResolutionNotesRequired", "Resolution notes explaining the official ruling are required.");
+
+    public static readonly Error OfficialScoresRequired =
+        Error.Validation("Match.OfficialScoresRequired", "Official home and away scores must be provided when setting an official score.");
+
+    public static readonly Error InvalidResolutionAction =
+        Error.Validation("Match.InvalidResolutionAction", "Invalid dispute resolution action specified.");
+}

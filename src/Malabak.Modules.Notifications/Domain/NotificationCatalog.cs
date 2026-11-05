@@ -17,6 +17,8 @@ public static class DeepLinks
     public static string Venue(string venueId) => $"malabak://venue/{Uri.EscapeDataString(venueId)}";
     public static string VenueManage(string venueId) => $"malabak://venue-manager/venue/{Uri.EscapeDataString(venueId)}";
     public static string Team(string teamId) => $"malabak://team/{Uri.EscapeDataString(teamId)}";
+    public static string Match(string matchId) => $"malabak://match/{Uri.EscapeDataString(matchId)}";
+    public static string Challenge(string challengeId) => $"malabak://challenge/{Uri.EscapeDataString(challengeId)}";
     public const string SecuritySettings = "malabak://settings/security";
 
     internal static string? From(IReadOnlyDictionary<string, string> data, string key, Func<string, string> build) =>
@@ -72,10 +74,50 @@ public static class NotificationCatalog
             "تسجيل دخول من جهاز جديد", "تم تسجيل الدخول إلى حسابك من {device}. إذا لم تكن أنت، سجّل الخروج من كل الأجهزة.",
             "New device sign-in", "Your account was signed in from {device}. If this wasn't you, sign out all devices.",
             _ => DeepLinks.SecuritySettings),
+        [NotificationTypes.TeamInvitationReceived] = new(NotificationCategory.Teams,
+            "دعوة للانضمام إلى فريق", "تمت دعوتك للانضمام إلى فريق {teamName}. كود الدعوة: {inviteCode}",
+            "Team invitation", "You have been invited to join {teamName}. Invite code: {inviteCode}",
+            d => DeepLinks.From(d, "teamId", DeepLinks.Team)),
         [NotificationTypes.TeamChallengeReceived] = new(NotificationCategory.Teams,
             "تحدي جديد", "فريق {teamName} يتحداك!",
             "New challenge", "{teamName} challenged your team!",
-            d => DeepLinks.From(d, "teamId", DeepLinks.Team))
+            d => DeepLinks.From(d, "challengeId", DeepLinks.Challenge) ?? DeepLinks.From(d, "teamId", DeepLinks.Team)),
+        [NotificationTypes.TeamChallengeAccepted] = new(NotificationCategory.Teams,
+            "تم قبول التحدي!", "وافق فريق {teamName} على التحدي وتمت جدولة المباراة يوم {matchDate}.",
+            "Challenge accepted!", "{teamName} accepted your challenge! Match is scheduled for {matchDate}.",
+            d => DeepLinks.From(d, "matchId", DeepLinks.Match) ?? DeepLinks.From(d, "teamId", DeepLinks.Team)),
+        [NotificationTypes.TeamChallengeDeclined] = new(NotificationCategory.Teams,
+            "تم رفض التحدي", "اعتذر فريق {teamName} عن قبول التحدي. السبب: {reason}",
+            "Challenge declined", "{teamName} declined your challenge. Reason: {reason}",
+            d => DeepLinks.From(d, "teamId", DeepLinks.Team)),
+        [NotificationTypes.TeamChallengeCountered] = new(NotificationCategory.Teams,
+            "موعد بديل للتحدي", "اقترح فريق {teamName} موعداً بديلاً للتحدي يوم {newDate}.",
+            "Challenge counter-proposal", "{teamName} proposed an alternative time for the challenge on {newDate}.",
+            d => DeepLinks.From(d, "challengeId", DeepLinks.Challenge) ?? DeepLinks.From(d, "teamId", DeepLinks.Team)),
+        [NotificationTypes.TeamRankingUpdated] = new(NotificationCategory.Teams,
+            "تحديث تصنيف الفريق", "تم تحديث تصنيف فريقك {teamName} ليصبح {newRating} نقطة.",
+            "Team ranking updated", "Your team {teamName} rating was updated to {newRating} pts.",
+            d => DeepLinks.From(d, "teamId", DeepLinks.Team)),
+        [NotificationTypes.MatchScheduled] = new(NotificationCategory.Teams,
+            "مباراة جديدة مجدولة", "تم تحديد موعد مباراة جديدة لفريقك يوم {matchDate}.",
+            "Match scheduled", "A new match has been scheduled for your team on {matchDate}.",
+            d => DeepLinks.From(d, "matchId", DeepLinks.Match)),
+        [NotificationTypes.MatchResultSubmitted] = new(NotificationCategory.Teams,
+            "نتيجة مباراة بحاجة للتأكيد", "قام كابتن فريق {submittingTeam} بإدخال نتيجة المباراة ({score}). برجاء التأكيد أو الاعتراض.",
+            "Match result submitted", "Captain of {submittingTeam} submitted match score ({score}). Please confirm or dispute.",
+            d => DeepLinks.From(d, "matchId", DeepLinks.Match)),
+        [NotificationTypes.MatchResultConfirmed] = new(NotificationCategory.Teams,
+            "تم تأكيد نتيجة المباراة", "تم تأكيد نتيجة مباراتكم ({score}) رسمياً.",
+            "Match result confirmed", "Your match result ({score}) has been officially confirmed.",
+            d => DeepLinks.From(d, "matchId", DeepLinks.Match)),
+        [NotificationTypes.MatchResultDisputed] = new(NotificationCategory.Teams,
+            "تم الاعتراض على نتيجة المباراة", "قام كابتن فريق {disputingTeam} بالاعتراض على نتيجة المباراة وتم تحويلها للمراجعة.",
+            "Match result disputed", "{disputingTeam} disputed the match result and it has been routed to moderation.",
+            d => DeepLinks.From(d, "matchId", DeepLinks.Match)),
+        [NotificationTypes.MatchDisputeResolved] = new(NotificationCategory.Teams,
+            "تم الفصل في نتيجة المباراة المتنازع عليها", "تم الفصل في النزاع حول مباراتكم بواسطة إدارة المنصة: {decision}",
+            "Match dispute resolved", "The dispute regarding your match has been resolved by platform administration: {decision}",
+            d => DeepLinks.From(d, "matchId", DeepLinks.Match))
     };
 
     public static bool TryGet(string type, out NotificationTemplate template) => _templates.TryGetValue(type, out template!);
