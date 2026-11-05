@@ -1,6 +1,7 @@
 using FluentAssertions;
 using Malabak.Modules.Matches.Application.Challenges.GetChallengeById;
 using Malabak.Modules.Matches.Application.Challenges.GetTeamChallenges;
+using Malabak.Modules.Matches.Application.Challenges.LinkBooking;
 using Malabak.Modules.Matches.Application.Challenges.RespondToChallenge;
 using Malabak.Modules.Matches.Application.Challenges.SendChallenge;
 using Malabak.Modules.Matches.Application.Common;
@@ -267,6 +268,61 @@ public sealed class TeamChallengeTests
         var detailRes = await getByIdHandler.HandleAsync(new GetChallengeByIdQuery(challengeId, captainA));
         detailRes.IsSuccess.Should().BeTrue();
         detailRes.Value.Status.Should().Be(ChallengeStatus.Accepted);
+        detailRes.Value.BookingDeepLink.Should().NotBeNull();
+        detailRes.Value.BookingDeepLink.Should().StartWith("malabak://booking/create?challengeId=");
+    }
+
+    [Fact]
+    public async Task ChallengeToBookingLinking_IndependentStatusesAndDeepLink_FlowAsync()
+    {
+        await using var db = CreateInMemoryDb();
+        var mockCaptaincy = new FakeCaptaincyChecker();
+
+        var linkHandler = new LinkChallengeBookingHandler(db, mockCaptaincy, _clock);
+
+        var teamA = Guid.NewGuid();
+        var teamB = Guid.NewGuid();
+        var captainA = Guid.NewGuid();
+        var captainB = Guid.NewGuid();
+        var venueId = Guid.NewGuid();
+        var pitchId = Guid.NewGuid();
+
+        mockCaptaincy.RegisterTeam(teamA, "Alpha FC", captainA);
+        mockCaptaincy.RegisterTeam(teamB, "Beta FC", captainB);
+
+        var challenge = TeamChallenge.Create(
+            Guid.NewGuid(), teamA, teamB, captainA, _clock.UtcNow.AddDays(2), _clock.UtcNow,
+            proposedVenueId: venueId, proposedPitchId: pitchId, proposedVenueName: "City Arena").Value;
+
+        // Challenge is Pending
+        challenge.GetBookingDeepLink().Should().Contain($"venueId={venueId}").And.Contain($"pitchId={pitchId}");
+        challenge.BookingId.Should().BeNull();
+
+        db.TeamChallenges.Add(challenge);
+        await db.SaveChangesAsync();
+
+        // 1. Linking booking before acceptance must fail
+        var preAcceptLink = await linkHandler.HandleAsync(new LinkChallengeBookingCommand(challenge.Id, teamA, captainA, Guid.NewGuid()));
+        preAcceptLink.IsSuccess.Should().BeFalse();
+        preAcceptLink.Error.Should().Be(ChallengeErrors.InvalidStatus);
+
+        // 2. Accept challenge (acceptance does NOT automatically create booking)
+        challenge.Accept(teamB, captainB, _clock.UtcNow);
+        await db.SaveChangesAsync();
+        challenge.BookingId.Should().BeNull("acceptance must never automatically book a pitch");
+
+        // 3. Unauthorized captain cannot link
+        var unauthorizedLink = await linkHandler.HandleAsync(new LinkChallengeBookingCommand(challenge.Id, teamA, Guid.NewGuid(), Guid.NewGuid()));
+        unauthorizedLink.IsSuccess.Should().BeFalse();
+        unauthorizedLink.Error.Should().Be(ChallengeErrors.NotAuthorizedCaptain);
+
+        // 4. Captain links a created booking
+        var bookingId = Guid.NewGuid();
+        var linkRes = await linkHandler.HandleAsync(new LinkChallengeBookingCommand(challenge.Id, teamA, captainA, bookingId));
+        linkRes.IsSuccess.Should().BeTrue();
+        linkRes.Value.BookingId.Should().Be(bookingId);
+        linkRes.Value.Status.Should().Be(ChallengeStatus.Accepted, "challenge status remains Accepted independently");
+        linkRes.Value.BookingDeepLink.Should().Contain($"challengeId={challenge.Id}");
     }
 
     private sealed class FakeCaptaincyChecker : ITeamCaptaincyChecker

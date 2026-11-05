@@ -22,6 +22,8 @@ public sealed record TeamChallengeDto(
     DateTime? DeclinedAtUtc,
     string? DeclinedReason,
     Guid? MatchId,
+    Guid? BookingId,
+    string? BookingDeepLink,
     DateTime CreatedAtUtc);
 
 public sealed record SendChallengeRequest(
@@ -51,3 +53,7 @@ public sealed record RespondToChallengeRequest(
     string? NewProposedVenueName,
     string? Notes,
     string? DeclineReason);
+
+public sealed record LinkChallengeBookingRequest(
+    Guid TeamId,
+    Guid BookingId);

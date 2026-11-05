@@ -43,26 +43,10 @@ public sealed class GetChallengeByIdHandler : IQueryHandler<GetChallengeByIdQuer
 
         var callerTeamId = isChallengerCaptain ? challenge.ChallengerTeamId : challenge.ChallengedTeamId;
 
-        return Result.Success(new TeamChallengeDto(
-            challenge.Id,
-            challenge.ChallengerTeamId,
+        return Result.Success(ChallengeMapper.ToDto(
+            challenge,
             challengerName,
-            challenge.ChallengedTeamId,
             challengedName,
-            challenge.ChallengerCaptainId,
-            challenge.ProposedDateUtc,
-            challenge.ProposedDurationMinutes,
-            challenge.ProposedPitchId,
-            challenge.ProposedVenueId,
-            challenge.ProposedVenueName,
-            challenge.Notes,
-            challenge.Status,
-            challenge.CurrentTurnTeamId,
-            IsMyTurn: challenge.CurrentTurnTeamId == callerTeamId,
-            challenge.AcceptedAtUtc,
-            challenge.DeclinedAtUtc,
-            challenge.DeclinedReason,
-            challenge.MatchId,
-            challenge.CreatedAtUtc));
+            callerTeamId));
     }
 }

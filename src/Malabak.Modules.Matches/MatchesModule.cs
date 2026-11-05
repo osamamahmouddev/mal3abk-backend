@@ -1,5 +1,6 @@
 using Malabak.Modules.Matches.Application.Challenges.GetChallengeById;
 using Malabak.Modules.Matches.Application.Challenges.GetTeamChallenges;
+using Malabak.Modules.Matches.Application.Challenges.LinkBooking;
 using Malabak.Modules.Matches.Application.Challenges.RespondToChallenge;
 using Malabak.Modules.Matches.Application.Challenges.SendChallenge;
 using Malabak.Modules.Matches.Application.Common;
@@ -17,6 +18,7 @@ public static class MatchesModule
         // Commands
         services.AddScoped<ICommandHandler<SendChallengeCommand, Result<TeamChallengeDto>>, SendChallengeHandler>();
         services.AddScoped<ICommandHandler<RespondToChallengeCommand, Result<TeamChallengeDto>>, RespondToChallengeHandler>();
+        services.AddScoped<ICommandHandler<LinkChallengeBookingCommand, Result<TeamChallengeDto>>, LinkChallengeBookingHandler>();
 
         // Queries
         services.AddScoped<IQueryHandler<GetChallengeByIdQuery, Result<TeamChallengeDto>>, GetChallengeByIdHandler>();

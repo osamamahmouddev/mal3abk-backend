@@ -3,6 +3,7 @@ using Asp.Versioning.Builder;
 using Malabak.Api.Infrastructure.Authorization;
 using Malabak.Modules.Matches.Application.Challenges.GetChallengeById;
 using Malabak.Modules.Matches.Application.Challenges.GetTeamChallenges;
+using Malabak.Modules.Matches.Application.Challenges.LinkBooking;
 using Malabak.Modules.Matches.Application.Challenges.RespondToChallenge;
 using Malabak.Modules.Matches.Application.Challenges.SendChallenge;
 using Malabak.Modules.Matches.Application.Common;
@@ -75,6 +76,22 @@ public static class ChallengeEndpoints
         })
         .WithName("RespondToChallenge")
         .WithSummary("Respond to a challenge: Accept, Decline, or CounterPropose (Acceptance does not automatically book a pitch)");
+
+        // 2b. Link pitch booking to accepted challenge
+        matches.MapPost("/{id:guid}/link-booking", async (
+            Guid id,
+            ClaimsPrincipal user,
+            [FromBody] LinkChallengeBookingRequest request,
+            ICommandHandler<LinkChallengeBookingCommand, Result<TeamChallengeDto>> handler,
+            CancellationToken ct) =>
+        {
+            var callerId = user.GetUserId()!.Value;
+            var command = new LinkChallengeBookingCommand(id, request.TeamId, callerId, request.BookingId);
+            var result = await handler.HandleAsync(command, ct);
+            return ToResult(result);
+        })
+        .WithName("LinkChallengeBooking")
+        .WithSummary("Link an accepted challenge to a pitch booking");
 
         // 3. Get challenge by ID
         matches.MapGet("/{id:guid}", async (

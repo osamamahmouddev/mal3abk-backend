@@ -53,11 +53,14 @@ public sealed class TeamChallengeConfiguration : IEntityTypeConfiguration<TeamCh
 
         builder.Property(c => c.MatchId);
 
+        builder.Property(c => c.BookingId);
+
         builder.Property(c => c.RowVersion)
             .IsRowVersion();
 
         builder.HasIndex(c => new { c.ChallengerTeamId, c.Status });
         builder.HasIndex(c => new { c.ChallengedTeamId, c.Status });
+        builder.HasIndex(c => c.BookingId);
         builder.HasIndex(c => c.ProposedDateUtc);
     }
 }

@@ -93,26 +93,10 @@ public sealed class RespondToChallengeHandler : ICommandHandler<RespondToChallen
         var challengerName = command.RespondingTeamId == challenge.ChallengerTeamId ? respondingTeamName : otherTeamName;
         var challengedName = command.RespondingTeamId == challenge.ChallengedTeamId ? respondingTeamName : otherTeamName;
 
-        return Result.Success(new TeamChallengeDto(
-            challenge.Id,
-            challenge.ChallengerTeamId,
+        return Result.Success(ChallengeMapper.ToDto(
+            challenge,
             challengerName,
-            challenge.ChallengedTeamId,
             challengedName,
-            challenge.ChallengerCaptainId,
-            challenge.ProposedDateUtc,
-            challenge.ProposedDurationMinutes,
-            challenge.ProposedPitchId,
-            challenge.ProposedVenueId,
-            challenge.ProposedVenueName,
-            challenge.Notes,
-            challenge.Status,
-            challenge.CurrentTurnTeamId,
-            IsMyTurn: challenge.CurrentTurnTeamId == command.RespondingTeamId,
-            challenge.AcceptedAtUtc,
-            challenge.DeclinedAtUtc,
-            challenge.DeclinedReason,
-            challenge.MatchId,
-            challenge.CreatedAtUtc));
+            command.RespondingTeamId));
     }
 }

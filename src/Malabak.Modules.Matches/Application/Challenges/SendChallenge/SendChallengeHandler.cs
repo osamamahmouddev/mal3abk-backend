@@ -85,26 +85,10 @@ public sealed class SendChallengeHandler : ICommandHandler<SendChallengeCommand,
                 cancellationToken);
         }
 
-        return Result.Success(new TeamChallengeDto(
-            challenge.Id,
-            challenge.ChallengerTeamId,
+        return Result.Success(ChallengeMapper.ToDto(
+            challenge,
             challengerName,
-            challenge.ChallengedTeamId,
             challengedName,
-            challenge.ChallengerCaptainId,
-            challenge.ProposedDateUtc,
-            challenge.ProposedDurationMinutes,
-            challenge.ProposedPitchId,
-            challenge.ProposedVenueId,
-            challenge.ProposedVenueName,
-            challenge.Notes,
-            challenge.Status,
-            challenge.CurrentTurnTeamId,
-            IsMyTurn: false, // Turn is with challenged team
-            challenge.AcceptedAtUtc,
-            challenge.DeclinedAtUtc,
-            challenge.DeclinedReason,
-            challenge.MatchId,
-            challenge.CreatedAtUtc));
+            command.ChallengerTeamId));
     }
 }

@@ -24,6 +24,7 @@ public sealed class TeamChallenge : Entity<Guid>
     public DateTime? DeclinedAtUtc { get; private set; }
     public string? DeclinedReason { get; private set; }
     public Guid? MatchId { get; private set; }
+    public Guid? BookingId { get; private set; }
 
     private TeamChallenge()
     {
@@ -229,5 +230,35 @@ public sealed class TeamChallenge : Entity<Guid>
     {
         MatchId = matchId;
         SetUpdatedAt(nowUtc);
+    }
+
+    public Result LinkBooking(Guid bookingId, Guid callerTeamId, DateTime nowUtc)
+    {
+        if (Status != ChallengeStatus.Accepted)
+        {
+            return Result.Failure(ChallengeErrors.InvalidStatus);
+        }
+
+        if (callerTeamId != ChallengerTeamId && callerTeamId != ChallengedTeamId)
+        {
+            return Result.Failure(ChallengeErrors.NotAuthorizedCaptain);
+        }
+
+        if (bookingId == Guid.Empty)
+        {
+            return Result.Failure(Error.Validation("Challenge.InvalidBookingId", "Booking ID cannot be empty."));
+        }
+
+        BookingId = bookingId;
+        SetUpdatedAt(nowUtc);
+
+        return Result.Success();
+    }
+
+    public string GetBookingDeepLink()
+    {
+        var pitchParam = ProposedPitchId.HasValue ? $"&pitchId={ProposedPitchId.Value:D}" : string.Empty;
+        var venueParam = ProposedVenueId.HasValue ? $"&venueId={ProposedVenueId.Value:D}" : string.Empty;
+        return $"malabak://booking/create?challengeId={Id:D}{venueParam}{pitchParam}&date={Uri.EscapeDataString(ProposedDateUtc.ToString("o"))}&duration={ProposedDurationMinutes}";
     }
 }

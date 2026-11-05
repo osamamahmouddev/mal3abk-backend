@@ -49,27 +49,11 @@ public sealed class GetTeamChallengesHandler : IQueryHandler<GetTeamChallengesQu
             var otherTeamId = isChallenger ? challenge.ChallengedTeamId : challenge.ChallengerTeamId;
             var otherTeamName = await _captaincyChecker.GetTeamNameAsync(otherTeamId, cancellationToken) ?? "Opponent Team";
 
-            dtos.Add(new TeamChallengeDto(
-                challenge.Id,
-                challenge.ChallengerTeamId,
+            dtos.Add(ChallengeMapper.ToDto(
+                challenge,
                 isChallenger ? teamName : otherTeamName,
-                challenge.ChallengedTeamId,
                 isChallenger ? otherTeamName : teamName,
-                challenge.ChallengerCaptainId,
-                challenge.ProposedDateUtc,
-                challenge.ProposedDurationMinutes,
-                challenge.ProposedPitchId,
-                challenge.ProposedVenueId,
-                challenge.ProposedVenueName,
-                challenge.Notes,
-                challenge.Status,
-                challenge.CurrentTurnTeamId,
-                IsMyTurn: challenge.CurrentTurnTeamId == query.TeamId,
-                challenge.AcceptedAtUtc,
-                challenge.DeclinedAtUtc,
-                challenge.DeclinedReason,
-                challenge.MatchId,
-                challenge.CreatedAtUtc));
+                query.TeamId));
         }
 
         return Result.Success<IReadOnlyList<TeamChallengeDto>>(dtos);

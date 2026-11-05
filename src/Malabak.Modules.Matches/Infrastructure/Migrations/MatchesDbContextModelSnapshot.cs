@@ -32,6 +32,9 @@ namespace Malabak.Modules.Matches.Infrastructure.Migrations
                     b.Property<DateTime?>("AcceptedAtUtc")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<Guid?>("BookingId")
+                        .HasColumnType("uuid");
+
                     b.Property<Guid>("ChallengedTeamId")
                         .HasColumnType("uuid");
 
@@ -98,6 +101,8 @@ namespace Malabak.Modules.Matches.Infrastructure.Migrations
                         .HasColumnType("timestamp with time zone");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("BookingId");
 
                     b.HasIndex("ProposedDateUtc");
 
