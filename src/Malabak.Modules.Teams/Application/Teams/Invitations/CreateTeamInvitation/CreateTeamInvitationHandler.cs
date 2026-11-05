@@ -1,6 +1,7 @@
 using Malabak.Modules.Teams.Application.Common;
 using Malabak.Modules.Teams.Domain;
 using Malabak.SharedKernel;
+using Malabak.SharedKernel.Contracts;
 using Microsoft.EntityFrameworkCore;
 
 namespace Malabak.Modules.Teams.Application.Teams.Invitations.CreateTeamInvitation;
@@ -10,15 +11,18 @@ public sealed class CreateTeamInvitationHandler : ICommandHandler<CreateTeamInvi
     private readonly ITeamsDbContext _dbContext;
     private readonly IClock _clock;
     private readonly ITeamInviteCodeGenerator _inviteCodeGenerator;
+    private readonly INotificationPublisher? _notificationPublisher;
 
     public CreateTeamInvitationHandler(
         ITeamsDbContext dbContext,
         IClock clock,
-        ITeamInviteCodeGenerator inviteCodeGenerator)
+        ITeamInviteCodeGenerator inviteCodeGenerator,
+        INotificationPublisher? notificationPublisher = null)
     {
         _dbContext = dbContext;
         _clock = clock;
         _inviteCodeGenerator = inviteCodeGenerator;
+        _notificationPublisher = notificationPublisher;
     }
 
     public async Task<Result<TeamInvitationDto>> HandleAsync(CreateTeamInvitationCommand command, CancellationToken cancellationToken = default)
@@ -50,6 +54,22 @@ public sealed class CreateTeamInvitationHandler : ICommandHandler<CreateTeamInvi
         }
 
         await _dbContext.SaveChangesAsync(cancellationToken);
+
+        if (_notificationPublisher is not null && command.InvitedPlayerId.HasValue && command.InvitedPlayerId.Value != Guid.Empty)
+        {
+            await _notificationPublisher.PublishAsync(
+                new NotificationRequest(
+                    command.InvitedPlayerId.Value,
+                    NotificationTypes.TeamInvitationReceived,
+                    new Dictionary<string, string>
+                    {
+                        ["teamName"] = team.Name,
+                        ["teamId"] = team.Id.ToString("D"),
+                        ["inviteCode"] = team.InviteCode
+                    },
+                    $"team-invitation:{team.Id}:{command.InvitedPlayerId.Value}"),
+                cancellationToken);
+        }
 
         return Result.Success(new TeamInvitationDto(team.Id, team.InviteCode, team.InviteCodeExpiresAtUtc));
     }

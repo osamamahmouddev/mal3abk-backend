@@ -106,7 +106,7 @@ public static class TeamEndpoints
             CancellationToken ct) =>
         {
             var playerId = user.GetUserId()!.Value;
-            var command = new CreateTeamInvitationCommand(id, playerId, request?.ValidityDays ?? 7);
+            var command = new CreateTeamInvitationCommand(id, playerId, request?.ValidityDays ?? 7, request?.InvitedPlayerId);
             var result = await handler.HandleAsync(command, ct);
             return ToResult(result);
         })
@@ -494,7 +494,7 @@ public static class TeamEndpoints
         string? LogoUrl,
         string? CoverUrl);
 
-    public sealed record CreateInvitationApiRequest(int? ValidityDays);
+    public sealed record CreateInvitationApiRequest(int? ValidityDays, Guid? InvitedPlayerId = null);
 
     public sealed record AcceptInvitationApiRequest(string InviteCode);
 

@@ -117,35 +117,69 @@ public sealed class RespondToChallengeHandler : ICommandHandler<RespondToChallen
         var respondingTeamName = await _captaincyChecker.GetTeamNameAsync(command.RespondingTeamId, cancellationToken) ?? "Opponent Team";
         var otherTeamName = await _captaincyChecker.GetTeamNameAsync(otherTeamId, cancellationToken) ?? "Your Team";
 
-        if (otherCaptainId.HasValue && otherCaptainId.Value != Guid.Empty && command.Action == ChallengeResponseAction.CounterPropose)
+        if (otherCaptainId.HasValue && otherCaptainId.Value != Guid.Empty)
         {
-            await _notificationPublisher.PublishAsync(
-                new NotificationRequest(
-                    otherCaptainId.Value,
-                    NotificationTypes.TeamChallengeReceived,
-                    new Dictionary<string, string>
-                    {
-                        ["teamName"] = respondingTeamName,
-                        ["teamId"] = command.RespondingTeamId.ToString("D"),
-                        ["challengeId"] = challenge.Id.ToString("D")
-                    },
-                    $"challenge-counter:{challenge.Id}:{challenge.ProposedDateUtc:yyyyMMddHHmm}"),
-                cancellationToken);
-        }
-        else if (otherCaptainId.HasValue && otherCaptainId.Value != Guid.Empty && command.Action == ChallengeResponseAction.Accept && createdMatch is not null)
-        {
-            await _notificationPublisher.PublishAsync(
-                new NotificationRequest(
-                    otherCaptainId.Value,
-                    NotificationTypes.MatchScheduled,
-                    new Dictionary<string, string>
-                    {
-                        ["opponentTeam"] = respondingTeamName,
-                        ["matchDate"] = createdMatch.ScheduledStartUtc.ToString("yyyy-MM-dd HH:mm"),
-                        ["matchId"] = createdMatch.Id.ToString("D")
-                    },
-                    $"match-sched:{createdMatch.Id}:{otherCaptainId.Value}"),
-                cancellationToken);
+            if (command.Action == ChallengeResponseAction.CounterPropose)
+            {
+                await _notificationPublisher.PublishAsync(
+                    new NotificationRequest(
+                        otherCaptainId.Value,
+                        NotificationTypes.TeamChallengeCountered,
+                        new Dictionary<string, string>
+                        {
+                            ["teamName"] = respondingTeamName,
+                            ["newDate"] = challenge.ProposedDateUtc.ToString("yyyy-MM-dd HH:mm"),
+                            ["teamId"] = command.RespondingTeamId.ToString("D"),
+                            ["challengeId"] = challenge.Id.ToString("D")
+                        },
+                        $"challenge-counter:{challenge.Id}:{challenge.ProposedDateUtc:yyyyMMddHHmm}"),
+                    cancellationToken);
+            }
+            else if (command.Action == ChallengeResponseAction.Decline)
+            {
+                await _notificationPublisher.PublishAsync(
+                    new NotificationRequest(
+                        otherCaptainId.Value,
+                        NotificationTypes.TeamChallengeDeclined,
+                        new Dictionary<string, string>
+                        {
+                            ["teamName"] = respondingTeamName,
+                            ["reason"] = command.DeclineReason ?? "No reason specified",
+                            ["teamId"] = command.RespondingTeamId.ToString("D"),
+                            ["challengeId"] = challenge.Id.ToString("D")
+                        },
+                        $"challenge-decline:{challenge.Id}"),
+                    cancellationToken);
+            }
+            else if (command.Action == ChallengeResponseAction.Accept && createdMatch is not null)
+            {
+                await _notificationPublisher.PublishAsync(
+                    new NotificationRequest(
+                        otherCaptainId.Value,
+                        NotificationTypes.TeamChallengeAccepted,
+                        new Dictionary<string, string>
+                        {
+                            ["teamName"] = respondingTeamName,
+                            ["matchDate"] = createdMatch.ScheduledStartUtc.ToString("yyyy-MM-dd HH:mm"),
+                            ["matchId"] = createdMatch.Id.ToString("D"),
+                            ["teamId"] = command.RespondingTeamId.ToString("D")
+                        },
+                        $"challenge-accept:{challenge.Id}:{createdMatch.Id}"),
+                    cancellationToken);
+
+                await _notificationPublisher.PublishAsync(
+                    new NotificationRequest(
+                        otherCaptainId.Value,
+                        NotificationTypes.MatchScheduled,
+                        new Dictionary<string, string>
+                        {
+                            ["opponentTeam"] = respondingTeamName,
+                            ["matchDate"] = createdMatch.ScheduledStartUtc.ToString("yyyy-MM-dd HH:mm"),
+                            ["matchId"] = createdMatch.Id.ToString("D")
+                        },
+                        $"match-sched:{createdMatch.Id}:{otherCaptainId.Value}"),
+                    cancellationToken);
+            }
         }
 
         var challengerName = command.RespondingTeamId == challenge.ChallengerTeamId ? respondingTeamName : otherTeamName;

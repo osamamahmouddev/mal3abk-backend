@@ -6,4 +6,5 @@ namespace Malabak.Modules.Teams.Application.Teams.Invitations.CreateTeamInvitati
 public sealed record CreateTeamInvitationCommand(
     Guid TeamId,
     Guid RequestingPlayerId,
-    int? ValidityDays = 7) : ICommand<Result<TeamInvitationDto>>;
+    int? ValidityDays = 7,
+    Guid? InvitedPlayerId = null) : ICommand<Result<TeamInvitationDto>>;

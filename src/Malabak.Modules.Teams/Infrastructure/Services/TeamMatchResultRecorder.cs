@@ -11,15 +11,18 @@ public sealed class TeamMatchResultRecorder : ITeamMatchResultRecorder
     private readonly ITeamsDbContext _dbContext;
     private readonly IRankingStrategy _rankingStrategy;
     private readonly IClock _clock;
+    private readonly INotificationPublisher? _notificationPublisher;
 
     public TeamMatchResultRecorder(
         ITeamsDbContext dbContext,
         IRankingStrategy rankingStrategy,
-        IClock clock)
+        IClock clock,
+        INotificationPublisher? notificationPublisher = null)
     {
         _dbContext = dbContext;
         _rankingStrategy = rankingStrategy;
         _clock = clock;
+        _notificationPublisher = notificationPublisher;
     }
 
     public async Task RecordConfirmedResultAsync(
@@ -101,5 +104,40 @@ public sealed class TeamMatchResultRecorder : ITeamMatchResultRecorder
         }
 
         await _dbContext.SaveChangesAsync(cancellationToken);
+
+        if (_notificationPublisher is not null)
+        {
+            if (homeTeam is not null && homeTeam.CaptainId != Guid.Empty)
+            {
+                await _notificationPublisher.PublishAsync(
+                    new NotificationRequest(
+                        homeTeam.CaptainId,
+                        NotificationTypes.TeamRankingUpdated,
+                        new Dictionary<string, string>
+                        {
+                            ["teamName"] = homeTeam.Name,
+                            ["teamId"] = homeTeam.Id.ToString("D"),
+                            ["newRating"] = Math.Round(homeTeam.Rating).ToString()
+                        },
+                        $"team-ranking:{homeTeam.Id}:{homeTeam.MatchesPlayed}"),
+                    cancellationToken);
+            }
+
+            if (awayTeam is not null && awayTeam.CaptainId != Guid.Empty)
+            {
+                await _notificationPublisher.PublishAsync(
+                    new NotificationRequest(
+                        awayTeam.CaptainId,
+                        NotificationTypes.TeamRankingUpdated,
+                        new Dictionary<string, string>
+                        {
+                            ["teamName"] = awayTeam.Name,
+                            ["teamId"] = awayTeam.Id.ToString("D"),
+                            ["newRating"] = Math.Round(awayTeam.Rating).ToString()
+                        },
+                        $"team-ranking:{awayTeam.Id}:{awayTeam.MatchesPlayed}"),
+                    cancellationToken);
+            }
+        }
     }
 }
