@@ -33,6 +33,10 @@ public static class TeamsModule
         services.AddScoped<ITeamInviteCodeGenerator, TeamInviteCodeGenerator>();
         services.AddScoped<Malabak.SharedKernel.Contracts.ITeamCaptaincyChecker, TeamCaptaincyChecker>();
         services.AddScoped<Malabak.SharedKernel.Contracts.ITeamMatchResultRecorder, TeamMatchResultRecorder>();
+        services.AddScoped<Malabak.SharedKernel.Contracts.ITeamRankingRecalculator, TeamRankingRecalculator>();
+        services.AddSingleton<Malabak.SharedKernel.Ranking.IRankingStrategy, Malabak.SharedKernel.Ranking.Glicko2RankingStrategy>();
+        services.AddSingleton<Malabak.SharedKernel.Ranking.EloRankingStrategy>();
+        services.AddSingleton<Malabak.SharedKernel.Ranking.Glicko2RankingStrategy>();
 
         // Commands
         services.AddScoped<ICommandHandler<CreateTeamCommand, Result<TeamDetailDto>>, CreateTeamHandler>();

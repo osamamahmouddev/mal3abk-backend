@@ -36,6 +36,12 @@ public static class MatchesModule
         services.AddScoped<ICommandHandler<SubmitMatchResultCommand, Result<MatchDto>>, SubmitMatchResultHandler>();
         services.AddScoped<ICommandHandler<VerifyMatchResultCommand, Result<MatchDto>>, VerifyMatchResultHandler>();
 
+        // Domain Event Handlers
+        services.AddScoped<Malabak.SharedKernel.Events.IDomainEventHandler<Malabak.Modules.Matches.Domain.Events.MatchResultConfirmedDomainEvent>, Malabak.Modules.Matches.Application.Matches.Events.MatchResultConfirmedDomainEventHandler>();
+
+        // Background / Hangfire Jobs
+        services.AddScoped<Malabak.Modules.Matches.Infrastructure.Jobs.RankingRecalculationJob>();
+
         // Queries - Challenges
         services.AddScoped<IQueryHandler<GetChallengeByIdQuery, Result<TeamChallengeDto>>, GetChallengeByIdHandler>();
         services.AddScoped<IQueryHandler<GetTeamChallengesQuery, Result<IReadOnlyList<TeamChallengeDto>>>, GetTeamChallengesHandler>();

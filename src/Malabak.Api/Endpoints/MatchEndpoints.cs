@@ -202,6 +202,18 @@ public static class MatchEndpoints
         .RequireAuthorization(Permissions.AdminDisputesResolve)
         .WithName("GetDisputedMatchesQueue")
         .WithSummary("Get disputed matches queue for moderation (Admin only)");
+
+        // 10. Admin trigger ranking recalculation
+        matches.MapPost("/rankings/recalculate", async (
+            Malabak.Modules.Matches.Infrastructure.Jobs.RankingRecalculationJob job,
+            CancellationToken ct) =>
+        {
+            var matchCount = await job.ExecuteRecalculationAsync(ct);
+            return Results.Ok(new { MatchesReplayed = matchCount, Message = "Rankings recalculation completed successfully." });
+        })
+        .RequireAuthorization(Permissions.AdminDisputesResolve)
+        .WithName("RecalculateTeamRankings")
+        .WithSummary("Trigger on-demand team ranking recalculation across all confirmed matches (Admin only)");
     }
 
     private static IResult ToResult(Result result)

@@ -36,6 +36,8 @@ public sealed class Team : Entity<Guid>
     public int Losses { get; private set; }
     public int GoalsFor { get; private set; }
     public int GoalsAgainst { get; private set; }
+    public int Points => (Wins * 3) + Draws;
+    public int GoalDifference => GoalsFor - GoalsAgainst;
 
     public IReadOnlyCollection<TeamMember> Members => _members.AsReadOnly();
     public IReadOnlyCollection<TeamJoinRequest> JoinRequests => _joinRequests.AsReadOnly();
@@ -498,6 +500,26 @@ public sealed class Team : Entity<Guid>
         if (isLoss) Losses++;
         GoalsFor += goalsFor;
         GoalsAgainst += goalsAgainst;
+        SetUpdatedAt(nowUtc);
+    }
+
+    public void ResetStats(DateTime nowUtc)
+    {
+        Rating = 1500.0;
+        RatingDeviation = 350.0;
+        RatingVolatility = 0.06;
+        MatchesPlayed = 0;
+        Wins = 0;
+        Draws = 0;
+        Losses = 0;
+        GoalsFor = 0;
+        GoalsAgainst = 0;
+        SetUpdatedAt(nowUtc);
+    }
+
+    public void ApplyInactivityDecay(double newRatingDeviation, DateTime nowUtc)
+    {
+        RatingDeviation = Math.Min(350.0, Math.Max(RatingDeviation, newRatingDeviation));
         SetUpdatedAt(nowUtc);
     }
 }

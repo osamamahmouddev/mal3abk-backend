@@ -2,6 +2,7 @@ using Malabak.Modules.Matches.Application.Common;
 using Malabak.Modules.Matches.Domain;
 using Malabak.SharedKernel;
 using Malabak.SharedKernel.Contracts;
+using Malabak.SharedKernel.Events;
 using Microsoft.EntityFrameworkCore;
 
 namespace Malabak.Modules.Matches.Application.Matches.VerifyResult;
@@ -12,6 +13,7 @@ public sealed class VerifyMatchResultHandler : ICommandHandler<VerifyMatchResult
     private readonly ITeamCaptaincyChecker _captaincyChecker;
     private readonly ITeamMatchResultRecorder _teamMatchResultRecorder;
     private readonly INotificationPublisher _notificationPublisher;
+    private readonly IDomainEventDispatcher? _domainEventDispatcher;
     private readonly IClock _clock;
 
     public VerifyMatchResultHandler(
@@ -19,13 +21,15 @@ public sealed class VerifyMatchResultHandler : ICommandHandler<VerifyMatchResult
         ITeamCaptaincyChecker captaincyChecker,
         ITeamMatchResultRecorder teamMatchResultRecorder,
         INotificationPublisher notificationPublisher,
-        IClock clock)
+        IClock clock,
+        IDomainEventDispatcher? domainEventDispatcher = null)
     {
         _dbContext = dbContext;
         _captaincyChecker = captaincyChecker;
         _teamMatchResultRecorder = teamMatchResultRecorder;
         _notificationPublisher = notificationPublisher;
         _clock = clock;
+        _domainEventDispatcher = domainEventDispatcher;
     }
 
     public async Task<Result<MatchDto>> HandleAsync(VerifyMatchResultCommand command, CancellationToken cancellationToken = default)
@@ -56,15 +60,22 @@ public sealed class VerifyMatchResultHandler : ICommandHandler<VerifyMatchResult
             return Result.Failure<MatchDto>(verifyResult.Error);
         }
 
-        // Confirmed results become official and update team stats
+        // Confirmed results become official and update team stats via event handler or recorder
         if (command.Action == MatchVerificationAction.Confirm)
         {
-            await _teamMatchResultRecorder.RecordConfirmedResultAsync(
-                match.HomeTeamId,
-                match.AwayTeamId,
-                match.HomeScore!.Value,
-                match.AwayScore!.Value,
-                cancellationToken);
+            if (_domainEventDispatcher is not null)
+            {
+                await _domainEventDispatcher.DispatchAsync(match.DomainEvents, cancellationToken);
+            }
+            else
+            {
+                await _teamMatchResultRecorder.RecordConfirmedResultAsync(
+                    match.HomeTeamId,
+                    match.AwayTeamId,
+                    match.HomeScore!.Value,
+                    match.AwayScore!.Value,
+                    cancellationToken);
+            }
         }
 
         await _dbContext.SaveChangesAsync(cancellationToken);
