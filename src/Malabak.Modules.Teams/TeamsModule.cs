@@ -7,6 +7,8 @@ using Malabak.Modules.Teams.Application.Teams.Members.TransferCaptaincy;
 using Malabak.Modules.Teams.Application.Teams.Queries.DiscoverTeams;
 using Malabak.Modules.Teams.Application.Teams.Queries.GetMyTeams;
 using Malabak.Modules.Teams.Application.Teams.Queries.GetTeamById;
+using Malabak.Modules.Teams.Application.Teams.Queries.GetTeamProfile;
+using Malabak.Modules.Teams.Application.Teams.Queries.GetTeamStats;
 using Malabak.Modules.Teams.Domain;
 using Malabak.Modules.Teams.Infrastructure.Services;
 using Malabak.SharedKernel;
@@ -35,6 +37,8 @@ public static class TeamsModule
         services.AddScoped<IQueryHandler<GetTeamByIdQuery, Result<TeamDetailDto>>, GetTeamByIdHandler>();
         services.AddScoped<IQueryHandler<GetMyTeamsQuery, Result<IReadOnlyList<TeamSummaryDto>>>, GetMyTeamsHandler>();
         services.AddScoped<IQueryHandler<DiscoverTeamsQuery, Result<PagedList<TeamDiscoveryDto>>>, DiscoverTeamsHandler>();
+        services.AddScoped<IQueryHandler<GetTeamProfileQuery, Result<TeamProfileDto>>, GetTeamProfileHandler>();
+        services.AddScoped<IQueryHandler<GetTeamStatsQuery, Result<TeamStatsDto>>, GetTeamStatsHandler>();
 
         return services;
     }

@@ -22,7 +22,7 @@ public sealed class GetMyTeamsHandler : IQueryHandler<GetMyTeamsQuery, Result<IR
             .OrderByDescending(t => t.Rating)
             .ToListAsync(cancellationToken);
 
-        var dtos = teams.Select(TeamMapper.ToSummaryDto).ToList();
+        var dtos = teams.Select(t => TeamMapper.ToSummaryDto(t, query.PlayerId)).ToList();
 
         return Result.Success<IReadOnlyList<TeamSummaryDto>>(dtos);
     }

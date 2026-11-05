@@ -23,7 +23,8 @@ public sealed record TeamSummaryDto(
     double Rating,
     int MatchesPlayed,
     bool IsRecruiting,
-    bool IsOpenForChallenges);
+    bool IsOpenForChallenges,
+    TeamRole? MyRole = null);
 
 public sealed record TeamDetailDto(
     Guid Id,
@@ -72,6 +73,52 @@ public sealed record TeamDiscoveryDto(
     bool IsOpenForChallenges,
     bool CanBeChallenged,
     DateTime? LastActivityAtUtc);
+
+public sealed record TeamStatsDto(
+    int MatchesPlayed,
+    int Wins,
+    int Draws,
+    int Losses,
+    int GoalsFor,
+    int GoalsAgainst,
+    int GoalDifference,
+    double WinPercentage,
+    double Rating,
+    int Rank);
+
+public sealed record MatchSummaryDto(
+    Guid MatchId,
+    Guid HomeTeamId,
+    string HomeTeamName,
+    Guid AwayTeamId,
+    string AwayTeamName,
+    int? HomeScore,
+    int? AwayScore,
+    string Status,
+    DateTime ScheduledAtUtc);
+
+public sealed record TeamProfileDto(
+    Guid Id,
+    string Name,
+    string Slug,
+    string? Description,
+    string? LogoUrl,
+    string? CoverUrl,
+    string City,
+    string Governorate,
+    string? District,
+    Guid CaptainId,
+    bool IsPublic,
+    bool IsRecruiting,
+    bool IsOpenForChallenges,
+    bool CanBeChallenged,
+    bool IsCallerMember,
+    TeamRole? CallerRole,
+    string? InviteCode,
+    TeamStatsDto Stats,
+    IReadOnlyList<TeamMemberDto> Roster,
+    IReadOnlyList<MatchSummaryDto> RecentMatches,
+    IReadOnlyList<MatchSummaryDto> UpcomingMatches);
 
 public sealed record PagedList<T>(
     IReadOnlyList<T> Items,

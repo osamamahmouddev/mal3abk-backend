@@ -10,6 +10,8 @@ using Malabak.Modules.Teams.Application.Teams.Members.TransferCaptaincy;
 using Malabak.Modules.Teams.Application.Teams.Queries.DiscoverTeams;
 using Malabak.Modules.Teams.Application.Teams.Queries.GetMyTeams;
 using Malabak.Modules.Teams.Application.Teams.Queries.GetTeamById;
+using Malabak.Modules.Teams.Application.Teams.Queries.GetTeamProfile;
+using Malabak.Modules.Teams.Application.Teams.Queries.GetTeamStats;
 using Malabak.SharedKernel;
 using Malabak.SharedKernel.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -164,6 +166,32 @@ public static class TeamEndpoints
         })
         .WithName("GetTeamById")
         .WithSummary("Get team details and roster");
+
+        // 6b. Get team profile (header, roster, stats, challenge eligibility, upcoming/recent matches)
+        teams.MapGet("/{id:guid}/profile", async (
+            Guid id,
+            ClaimsPrincipal user,
+            IQueryHandler<GetTeamProfileQuery, Result<TeamProfileDto>> handler,
+            CancellationToken ct) =>
+        {
+            var requestingPlayerId = user.GetUserId();
+            var result = await handler.HandleAsync(new GetTeamProfileQuery(id, requestingPlayerId), ct);
+            return ToResult(result);
+        })
+        .WithName("GetTeamProfile")
+        .WithSummary("Get full team profile including stats projection and roster");
+
+        // 6c. Get team statistics projection
+        teams.MapGet("/{id:guid}/stats", async (
+            Guid id,
+            IQueryHandler<GetTeamStatsQuery, Result<TeamStatsDto>> handler,
+            CancellationToken ct) =>
+        {
+            var result = await handler.HandleAsync(new GetTeamStatsQuery(id), ct);
+            return ToResult(result);
+        })
+        .WithName("GetTeamStats")
+        .WithSummary("Get projected team statistics (W/D/L, goals, win %, ranking)");
 
         // 7. My teams
         var me = app.MapGroup("/api/v{version:apiVersion}/me")

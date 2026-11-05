@@ -7,6 +7,8 @@ using Malabak.Modules.Teams.Application.Teams.Members.TransferCaptaincy;
 using Malabak.Modules.Teams.Application.Teams.Queries.DiscoverTeams;
 using Malabak.Modules.Teams.Application.Teams.Queries.GetMyTeams;
 using Malabak.Modules.Teams.Application.Teams.Queries.GetTeamById;
+using Malabak.Modules.Teams.Application.Teams.Queries.GetTeamProfile;
+using Malabak.Modules.Teams.Application.Teams.Queries.GetTeamStats;
 using Malabak.Modules.Teams.Domain;
 using Malabak.Modules.Teams.Domain.Events;
 using Malabak.Modules.Teams.Infrastructure;
@@ -471,5 +473,110 @@ public sealed class TeamTests
 
         var myTeamDto = result.Value.Items.First(t => t.Id == myTeam.Id);
         myTeamDto.CanBeChallenged.Should().BeFalse("player cannot challenge their own team");
+    }
+
+    [Fact]
+    public async Task GetTeamProfile_ShouldReturnHeaderRosterAndStatsProjectionAsync()
+    {
+        await using var db = CreateInMemoryDb();
+        var handler = new GetTeamProfileHandler(db);
+
+        var captainId = Guid.NewGuid();
+        var memberId = Guid.NewGuid();
+
+        var team = Team.Create(Guid.NewGuid(), "Champions FC", "champions-fc", "Cairo", "Cairo", captainId, "CMP001", _clock.UtcNow).Value;
+        team.JoinWithInviteCode("CMP001", memberId, _clock.UtcNow);
+        team.RecordMatchResult(isWin: true, isDraw: false, isLoss: false, goalsFor: 4, goalsAgainst: 1, _clock.UtcNow);
+        team.RecordMatchResult(isWin: false, isDraw: true, isLoss: false, goalsFor: 2, goalsAgainst: 2, _clock.UtcNow);
+        team.UpdateRanking(1650.0, 200.0, 0.05, _clock.UtcNow);
+
+        db.Teams.Add(team);
+        await db.SaveChangesAsync();
+
+        // Act - Member views profile
+        var profileRes = await handler.HandleAsync(new GetTeamProfileQuery(team.Id, memberId));
+
+        // Assert
+        profileRes.IsSuccess.Should().BeTrue();
+        var profile = profileRes.Value;
+        profile.Name.Should().Be("Champions FC");
+        profile.IsCallerMember.Should().BeTrue();
+        profile.CallerRole.Should().Be(TeamRole.Member);
+        profile.InviteCode.Should().Be("CMP001");
+        profile.Roster.Should().HaveCount(2);
+
+        // Stats projection
+        profile.Stats.MatchesPlayed.Should().Be(2);
+        profile.Stats.Wins.Should().Be(1);
+        profile.Stats.Draws.Should().Be(1);
+        profile.Stats.Losses.Should().Be(0);
+        profile.Stats.GoalsFor.Should().Be(6);
+        profile.Stats.GoalsAgainst.Should().Be(3);
+        profile.Stats.GoalDifference.Should().Be(3);
+        profile.Stats.WinPercentage.Should().Be(50.0);
+        profile.Stats.Rating.Should().Be(1650.0);
+        profile.Stats.Rank.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task GetTeamProfile_PrivateTeam_ShouldBeHiddenFromNonMembersAsync()
+    {
+        await using var db = CreateInMemoryDb();
+        var handler = new GetTeamProfileHandler(db);
+
+        var captainId = Guid.NewGuid();
+        var strangerId = Guid.NewGuid();
+
+        var privateTeam = Team.Create(Guid.NewGuid(), "Stealth FC", "stealth-fc", "Cairo", "Cairo", captainId, "STL001", _clock.UtcNow, isPublic: false).Value;
+        db.Teams.Add(privateTeam);
+        await db.SaveChangesAsync();
+
+        // Act 1: Stranger views private team
+        var strangerRes = await handler.HandleAsync(new GetTeamProfileQuery(privateTeam.Id, strangerId));
+        strangerRes.IsSuccess.Should().BeFalse();
+        strangerRes.Error.Should().Be(TeamErrors.NotFound);
+
+        // Act 2: Captain views private team
+        var captainRes = await handler.HandleAsync(new GetTeamProfileQuery(privateTeam.Id, captainId));
+        captainRes.IsSuccess.Should().BeTrue();
+        captainRes.Value.Name.Should().Be("Stealth FC");
+    }
+
+    [Fact]
+    public async Task GetTeamStats_ShouldCalculateWinPercentageGoalDiffAndRankAsync()
+    {
+        await using var db = CreateInMemoryDb();
+        var handler = new GetTeamStatsHandler(db);
+
+        var cap1 = Guid.NewGuid();
+        var cap2 = Guid.NewGuid();
+
+        var team1 = Team.Create(Guid.NewGuid(), "Top Dogs", "top-dogs", "Cairo", "Cairo", cap1, "TOP001", _clock.UtcNow).Value;
+        team1.UpdateRanking(1800.0, 150.0, 0.05, _clock.UtcNow);
+        team1.RecordMatchResult(isWin: true, isDraw: false, isLoss: false, goalsFor: 3, goalsAgainst: 0, _clock.UtcNow);
+        team1.RecordMatchResult(isWin: true, isDraw: false, isLoss: false, goalsFor: 2, goalsAgainst: 1, _clock.UtcNow);
+        team1.RecordMatchResult(isWin: false, isDraw: false, isLoss: true, goalsFor: 0, goalsAgainst: 1, _clock.UtcNow);
+
+        var team2 = Team.Create(Guid.NewGuid(), "Challengers", "challengers", "Cairo", "Cairo", cap2, "CHL002", _clock.UtcNow).Value;
+        team2.UpdateRanking(1900.0, 150.0, 0.05, _clock.UtcNow);
+
+        db.Teams.AddRange(team1, team2);
+        await db.SaveChangesAsync();
+
+        // Act
+        var statsRes = await handler.HandleAsync(new GetTeamStatsQuery(team1.Id));
+
+        // Assert
+        statsRes.IsSuccess.Should().BeTrue();
+        var stats = statsRes.Value;
+        stats.MatchesPlayed.Should().Be(3);
+        stats.Wins.Should().Be(2);
+        stats.Losses.Should().Be(1);
+        stats.GoalsFor.Should().Be(5);
+        stats.GoalsAgainst.Should().Be(2);
+        stats.GoalDifference.Should().Be(3);
+        stats.WinPercentage.Should().Be(66.7);
+        stats.Rating.Should().Be(1800.0);
+        stats.Rank.Should().Be(2, "team2 has rating 1900 so team1 is rank 2");
     }
 }
