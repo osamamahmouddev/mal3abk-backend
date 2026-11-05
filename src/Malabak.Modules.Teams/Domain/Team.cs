@@ -20,6 +20,7 @@ public sealed class Team : Entity<Guid>
     public DateTime? InviteCodeExpiresAtUtc { get; private set; }
     public bool IsRecruiting { get; private set; } = true;
     public bool IsOpenForChallenges { get; private set; } = true;
+    public bool IsPublic { get; private set; } = true;
 
     // Pluggable Ranking & Glicko-2 defaults (ADR 0008)
     public double Rating { get; private set; } = 1500.0;
@@ -51,7 +52,8 @@ public sealed class Team : Entity<Guid>
         string? district = null,
         string? logoUrl = null,
         string? coverUrl = null,
-        DateTime? inviteCodeExpiresAtUtc = null)
+        DateTime? inviteCodeExpiresAtUtc = null,
+        bool isPublic = true)
     {
         if (string.IsNullOrWhiteSpace(name))
         {
@@ -89,6 +91,7 @@ public sealed class Team : Entity<Guid>
             InviteCodeExpiresAtUtc = inviteCodeExpiresAtUtc,
             IsRecruiting = true,
             IsOpenForChallenges = true,
+            IsPublic = isPublic,
             Rating = 1500.0,
             RatingDeviation = 350.0,
             RatingVolatility = 0.06,
@@ -278,7 +281,8 @@ public sealed class Team : Entity<Guid>
         bool isRecruiting,
         bool isOpenForChallenges,
         Guid requestedByPlayerId,
-        DateTime nowUtc)
+        DateTime nowUtc,
+        bool? isPublic = null)
     {
         var caller = _members.FirstOrDefault(m => m.PlayerId == requestedByPlayerId && m.IsActive);
         if (caller is null || (caller.Role != TeamRole.Captain && caller.Role != TeamRole.ViceCaptain))
@@ -305,8 +309,25 @@ public sealed class Team : Entity<Guid>
         CoverUrl = coverUrl?.Trim();
         IsRecruiting = isRecruiting;
         IsOpenForChallenges = isOpenForChallenges;
+        if (isPublic.HasValue)
+        {
+            IsPublic = isPublic.Value;
+        }
         SetUpdatedAt(nowUtc);
 
+        return Result.Success();
+    }
+
+    public Result SetPrivacy(bool isPublic, Guid requestedByPlayerId, DateTime nowUtc)
+    {
+        var caller = _members.FirstOrDefault(m => m.PlayerId == requestedByPlayerId && m.IsActive);
+        if (caller is null || (caller.Role != TeamRole.Captain && caller.Role != TeamRole.ViceCaptain))
+        {
+            return Result.Failure(TeamErrors.NotCaptainOrViceCaptain);
+        }
+
+        IsPublic = isPublic;
+        SetUpdatedAt(nowUtc);
         return Result.Success();
     }
 

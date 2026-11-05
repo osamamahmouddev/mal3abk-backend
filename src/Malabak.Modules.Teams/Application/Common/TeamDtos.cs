@@ -55,3 +55,26 @@ public sealed record TeamInvitationDto(
     Guid TeamId,
     string InviteCode,
     DateTime? ExpiresAtUtc);
+
+public sealed record TeamDiscoveryDto(
+    Guid Id,
+    string Name,
+    string Slug,
+    string? Description,
+    string? LogoUrl,
+    string City,
+    string Governorate,
+    string? District,
+    double Rating,
+    int MemberCount,
+    int MatchesPlayed,
+    bool IsRecruiting,
+    bool IsOpenForChallenges,
+    bool CanBeChallenged,
+    DateTime? LastActivityAtUtc);
+
+public sealed record PagedList<T>(
+    IReadOnlyList<T> Items,
+    int TotalCount,
+    int Page,
+    int PageSize);

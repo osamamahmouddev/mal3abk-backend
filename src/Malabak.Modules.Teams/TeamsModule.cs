@@ -4,6 +4,7 @@ using Malabak.Modules.Teams.Application.Teams.Invitations.AcceptTeamInvitation;
 using Malabak.Modules.Teams.Application.Teams.Invitations.CreateTeamInvitation;
 using Malabak.Modules.Teams.Application.Teams.Members.RemoveTeamMember;
 using Malabak.Modules.Teams.Application.Teams.Members.TransferCaptaincy;
+using Malabak.Modules.Teams.Application.Teams.Queries.DiscoverTeams;
 using Malabak.Modules.Teams.Application.Teams.Queries.GetMyTeams;
 using Malabak.Modules.Teams.Application.Teams.Queries.GetTeamById;
 using Malabak.Modules.Teams.Domain;
@@ -33,6 +34,7 @@ public static class TeamsModule
         // Queries
         services.AddScoped<IQueryHandler<GetTeamByIdQuery, Result<TeamDetailDto>>, GetTeamByIdHandler>();
         services.AddScoped<IQueryHandler<GetMyTeamsQuery, Result<IReadOnlyList<TeamSummaryDto>>>, GetMyTeamsHandler>();
+        services.AddScoped<IQueryHandler<DiscoverTeamsQuery, Result<PagedList<TeamDiscoveryDto>>>, DiscoverTeamsHandler>();
 
         return services;
     }

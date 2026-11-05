@@ -64,6 +64,10 @@ public sealed class TeamConfiguration : IEntityTypeConfiguration<Team>
             .HasDefaultValue(true)
             .IsRequired();
 
+        builder.Property(t => t.IsPublic)
+            .HasDefaultValue(true)
+            .IsRequired();
+
         builder.Property(t => t.Rating)
             .HasDefaultValue(1500.0)
             .IsRequired();

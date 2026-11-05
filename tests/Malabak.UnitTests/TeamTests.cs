@@ -4,6 +4,7 @@ using Malabak.Modules.Teams.Application.Teams.Invitations.AcceptTeamInvitation;
 using Malabak.Modules.Teams.Application.Teams.Invitations.CreateTeamInvitation;
 using Malabak.Modules.Teams.Application.Teams.Members.RemoveTeamMember;
 using Malabak.Modules.Teams.Application.Teams.Members.TransferCaptaincy;
+using Malabak.Modules.Teams.Application.Teams.Queries.DiscoverTeams;
 using Malabak.Modules.Teams.Application.Teams.Queries.GetMyTeams;
 using Malabak.Modules.Teams.Application.Teams.Queries.GetTeamById;
 using Malabak.Modules.Teams.Domain;
@@ -357,5 +358,118 @@ public sealed class TeamTests
 
         var myTeamsPlayer3 = await getMyTeamsHandler.HandleAsync(new GetMyTeamsQuery(player3Id));
         myTeamsPlayer3.Value.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task DiscoverTeams_ShouldFilterBySearchCityAndRating_WithPaginationAsync()
+    {
+        await using var db = CreateInMemoryDb();
+        var handler = new DiscoverTeamsHandler(db);
+
+        var captain1 = Guid.NewGuid();
+        var captain2 = Guid.NewGuid();
+        var captain3 = Guid.NewGuid();
+
+        var team1 = Team.Create(Guid.NewGuid(), "Cairo Falcons", "cairo-falcons", "Cairo", "Cairo", captain1, "CFC001", _clock.UtcNow).Value;
+        team1.UpdateRanking(1600.0, 300.0, 0.06, _clock.UtcNow);
+
+        var team2 = Team.Create(Guid.NewGuid(), "Cairo Eagles", "cairo-eagles", "Cairo", "Cairo", captain2, "CEC002", _clock.UtcNow).Value;
+        team2.UpdateRanking(1400.0, 300.0, 0.06, _clock.UtcNow);
+
+        var team3 = Team.Create(Guid.NewGuid(), "Alexandria Sharks", "alex-sharks", "Alexandria", "Alexandria", captain3, "ASH003", _clock.UtcNow).Value;
+        team3.UpdateRanking(1700.0, 250.0, 0.06, _clock.UtcNow);
+
+        db.Teams.AddRange(team1, team2, team3);
+        await db.SaveChangesAsync();
+
+        // 1. Search text filter
+        var searchRes = await handler.HandleAsync(new DiscoverTeamsQuery(Search: "Eagles"));
+        searchRes.IsSuccess.Should().BeTrue();
+        searchRes.Value.TotalCount.Should().Be(1);
+        searchRes.Value.Items[0].Name.Should().Be("Cairo Eagles");
+
+        // 2. City filter
+        var cityRes = await handler.HandleAsync(new DiscoverTeamsQuery(City: "Cairo"));
+        cityRes.IsSuccess.Should().BeTrue();
+        cityRes.Value.TotalCount.Should().Be(2);
+
+        // 3. Rating range filter
+        var ratingRes = await handler.HandleAsync(new DiscoverTeamsQuery(MinRating: 1500.0));
+        ratingRes.IsSuccess.Should().BeTrue();
+        ratingRes.Value.TotalCount.Should().Be(2);
+        ratingRes.Value.Items.Should().Contain(t => t.Name == "Alexandria Sharks");
+        ratingRes.Value.Items.Should().Contain(t => t.Name == "Cairo Falcons");
+
+        // 4. Pagination
+        var pagedRes = await handler.HandleAsync(new DiscoverTeamsQuery(Page: 1, PageSize: 2));
+        pagedRes.IsSuccess.Should().BeTrue();
+        pagedRes.Value.Items.Should().HaveCount(2);
+        pagedRes.Value.TotalCount.Should().Be(3);
+    }
+
+    [Fact]
+    public async Task DiscoverTeams_ShouldProtectPrivateTeams_FromDiscoveryAsync()
+    {
+        await using var db = CreateInMemoryDb();
+        var handler = new DiscoverTeamsHandler(db);
+
+        var cap1 = Guid.NewGuid();
+        var cap2 = Guid.NewGuid();
+
+        // Public team
+        var publicTeam = Team.Create(Guid.NewGuid(), "Public Lions", "public-lions", "Cairo", "Cairo", cap1, "PUB001", _clock.UtcNow, isPublic: true).Value;
+
+        // Private team
+        var privateTeam = Team.Create(Guid.NewGuid(), "Secret Agents", "secret-agents", "Cairo", "Cairo", cap2, "SEC002", _clock.UtcNow, isPublic: false).Value;
+
+        db.Teams.AddRange(publicTeam, privateTeam);
+        await db.SaveChangesAsync();
+
+        // Act - Discover all
+        var result = await handler.HandleAsync(new DiscoverTeamsQuery());
+
+        // Assert - Private team must NOT be returned in discovery
+        result.IsSuccess.Should().BeTrue();
+        result.Value.TotalCount.Should().Be(1);
+        result.Value.Items.Should().ContainSingle(t => t.Id == publicTeam.Id);
+        result.Value.Items.Should().NotContain(t => t.Id == privateTeam.Id);
+    }
+
+    [Fact]
+    public async Task DiscoverTeams_ShouldCorrectlySetChallengeEligibilityFlagAsync()
+    {
+        await using var db = CreateInMemoryDb();
+        var handler = new DiscoverTeamsHandler(db);
+
+        var myPlayerId = Guid.NewGuid();
+        var opponentCaptainId = Guid.NewGuid();
+
+        // 1. Team open for challenges where caller is not a member
+        var openTeam = Team.Create(Guid.NewGuid(), "Open FC", "open-fc", "Cairo", "Cairo", opponentCaptainId, "OPN001", _clock.UtcNow).Value;
+
+        // 2. Team closed for challenges
+        var closedTeam = Team.Create(Guid.NewGuid(), "Closed FC", "closed-fc", "Cairo", "Cairo", opponentCaptainId, "CLS002", _clock.UtcNow).Value;
+        closedTeam.UpdateProfile("Closed FC", null, "Cairo", "Cairo", null, null, null, isRecruiting: false, isOpenForChallenges: false, opponentCaptainId, _clock.UtcNow);
+
+        // 3. Team where caller is Captain/Member
+        var myTeam = Team.Create(Guid.NewGuid(), "My Squad", "my-squad", "Cairo", "Cairo", myPlayerId, "MYS003", _clock.UtcNow).Value;
+
+        db.Teams.AddRange(openTeam, closedTeam, myTeam);
+        await db.SaveChangesAsync();
+
+        // Act - Discover with RequestingPlayerId
+        var result = await handler.HandleAsync(new DiscoverTeamsQuery(RequestingPlayerId: myPlayerId));
+
+        // Assert
+        result.IsSuccess.Should().BeTrue();
+
+        var openDto = result.Value.Items.First(t => t.Id == openTeam.Id);
+        openDto.CanBeChallenged.Should().BeTrue();
+
+        var closedDto = result.Value.Items.First(t => t.Id == closedTeam.Id);
+        closedDto.CanBeChallenged.Should().BeFalse();
+
+        var myTeamDto = result.Value.Items.First(t => t.Id == myTeam.Id);
+        myTeamDto.CanBeChallenged.Should().BeFalse("player cannot challenge their own team");
     }
 }

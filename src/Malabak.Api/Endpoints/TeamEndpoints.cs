@@ -7,6 +7,7 @@ using Malabak.Modules.Teams.Application.Teams.Invitations.AcceptTeamInvitation;
 using Malabak.Modules.Teams.Application.Teams.Invitations.CreateTeamInvitation;
 using Malabak.Modules.Teams.Application.Teams.Members.RemoveTeamMember;
 using Malabak.Modules.Teams.Application.Teams.Members.TransferCaptaincy;
+using Malabak.Modules.Teams.Application.Teams.Queries.DiscoverTeams;
 using Malabak.Modules.Teams.Application.Teams.Queries.GetMyTeams;
 using Malabak.Modules.Teams.Application.Teams.Queries.GetTeamById;
 using Malabak.SharedKernel;
@@ -24,6 +25,44 @@ public static class TeamEndpoints
             .MapToApiVersion(1, 0)
             .RequireAuthorization(Permissions.TeamsParticipate)
             .WithTags("Teams");
+
+        // 0. Discover public teams
+        teams.MapGet("/", async (
+            ClaimsPrincipal user,
+            [FromQuery] string? search,
+            [FromQuery] string? city,
+            [FromQuery] string? governorate,
+            [FromQuery] string? district,
+            [FromQuery] double? minRating,
+            [FromQuery] double? maxRating,
+            [FromQuery] bool? isRecruiting,
+            [FromQuery] bool? isOpenForChallenges,
+            [FromQuery] string? sortBy,
+            [FromQuery] int? page,
+            [FromQuery] int? pageSize,
+            IQueryHandler<DiscoverTeamsQuery, Result<PagedList<TeamDiscoveryDto>>> handler,
+            CancellationToken ct) =>
+        {
+            var requestingPlayerId = user.GetUserId();
+            var query = new DiscoverTeamsQuery(
+                search,
+                city,
+                governorate,
+                district,
+                minRating,
+                maxRating,
+                isRecruiting,
+                isOpenForChallenges,
+                sortBy,
+                page ?? 1,
+                pageSize ?? 20,
+                requestingPlayerId);
+
+            var result = await handler.HandleAsync(query, ct);
+            return ToResult(result);
+        })
+        .WithName("DiscoverTeams")
+        .WithSummary("Discover public teams with filters, pagination, and challenge eligibility");
 
         // 1. Create team (Creator becomes Captain)
         teams.MapPost("/", async (
