@@ -46,7 +46,7 @@ public sealed record HomeFeedQuery(double? Latitude = null, double? Longitude = 
 /// Home feed (TASK-304): one call for the player's home screen. Nearby and popular share a single venue search (and the
 /// cached availability behind it); each section is isolated so one failing source degrades only its own block. The
 /// upcoming booking and team activity blocks are placeholders until bookings (TASK-401) and teams ship; sponsored items
-/// are behind a feature flag and have no source yet.
+/// are behind a feature flag and come from admin-scheduled featured placements (TASK-711).
 /// </summary>
 public sealed class HomeFeed
 {
@@ -60,8 +60,13 @@ public sealed class HomeFeed
     private readonly IClock _clock;
     private readonly ILogger<HomeFeed> _logger;
 
-    public HomeFeed(VenueExplore explore, VenuesDbContext dbContext, HomeFeedSettings settings, IFeatureFlags flags, IClock clock, ILogger<HomeFeed> logger)
+    private readonly Featured.FeaturedVenueService? _featured;
+
+    public HomeFeed(
+        VenueExplore explore, VenuesDbContext dbContext, HomeFeedSettings settings, IFeatureFlags flags, IClock clock, ILogger<HomeFeed> logger,
+        Featured.FeaturedVenueService? featured = null)
     {
+        _featured = featured;
         _explore = explore;
         _dbContext = dbContext;
         _settings = settings;
@@ -87,12 +92,16 @@ public sealed class HomeFeed
 
         // Sponsored items: the admin feature flag (TASK-712), or the host setting kept for existing deployments.
         var sponsored = _settings.SponsoredItemsEnabled || await _flags.IsEnabledAsync(FeatureFlagKeys.SponsoredHomeItems, cancellationToken);
+        var sponsoredItems = sponsored && _featured is not null
+            ? await GuardAsync("sponsored", async () => HomeSection<SponsoredItem>.Of(await _featured.LiveAsync(Domain.FeaturedPlacementSlot.Home, userId, cancellationToken)),
+                HomeSection<SponsoredItem>.With(HomeSectionStatus.Unavailable))
+            : HomeSection<SponsoredItem>.Of([]);
 
         return Result.Success(new HomeFeedDto(
             nearby, popular, recent,
             HomeSection<object>.With(userId is null ? HomeSectionStatus.SignInRequired : HomeSectionStatus.ComingSoon),
             HomeSection<object>.With(HomeSectionStatus.ComingSoon),
-            sponsored ? HomeSection<SponsoredItem>.Of([]) : null,
+            sponsored ? sponsoredItems : null,
             _clock.UtcNow));
     }
 

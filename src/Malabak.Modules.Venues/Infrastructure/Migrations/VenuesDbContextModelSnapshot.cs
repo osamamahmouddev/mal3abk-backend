@@ -153,6 +153,50 @@ namespace Malabak.Modules.Venues.Infrastructure.Migrations
                     b.ToTable("favorite_venues", "venues");
                 });
 
+            modelBuilder.Entity("Malabak.Modules.Venues.Domain.FeaturedPlacement", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("CancelledAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("CreatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("EndsAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Slot")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("StartsAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Title")
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.Property<Guid>("VenueId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("VenueId");
+
+                    b.HasIndex("Slot", "StartsAtUtc", "EndsAtUtc");
+
+                    b.ToTable("featured_placements", "venues");
+                });
+
             modelBuilder.Entity("Malabak.Modules.Venues.Domain.OperatingSchedule", b =>
                 {
                     b.Property<Guid>("Id")

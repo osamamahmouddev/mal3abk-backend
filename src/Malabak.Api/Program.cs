@@ -479,6 +479,7 @@ app.MapSupportEndpoints(apiVersionSet);
 app.MapDisputeEndpoints(apiVersionSet);
 app.MapAdminModerationEndpoints(apiVersionSet);
 app.MapAdminDashboardEndpoints(apiVersionSet);
+app.MapFeaturedVenueEndpoints(apiVersionSet);
 app.MapPlatformEndpoints(apiVersionSet);
 app.MapSubscriptionEndpoints(apiVersionSet);
 app.MapPlayerVenueListEndpoints(apiVersionSet);

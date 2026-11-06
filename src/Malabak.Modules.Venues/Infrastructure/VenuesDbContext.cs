@@ -35,6 +35,7 @@ public sealed class VenuesDbContext : BaseDbContext
     // Player-private lists: no tenant filter because no venue-manager endpoint ever reads them.
     public DbSet<FavoriteVenue> FavoriteVenues => Set<FavoriteVenue>();
     public DbSet<RecentlyViewedVenue> RecentlyViewedVenues => Set<RecentlyViewedVenue>();
+    public DbSet<FeaturedPlacement> FeaturedPlacements => Set<FeaturedPlacement>();
 
     public VenuesDbContext(
         DbContextOptions<VenuesDbContext> options,
