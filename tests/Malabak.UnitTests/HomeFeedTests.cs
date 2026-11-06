@@ -88,6 +88,14 @@ public sealed class HomeFeedTests
     }
 
     [Fact]
+    public async Task SponsoredSection_CanBeTurnedOnByTheAdminFlagAsync()
+    {
+        await using var db = await SeedAsync();
+
+        (await Feed(db, flagOn: true).GetAsync(new HomeFeedQuery(), null)).Value.Sponsored.Should().NotBeNull();
+    }
+
+    [Fact]
     public async Task HalfACoordinate_IsRejectedAsync()
     {
         await using var db = await SeedAsync();
@@ -95,11 +103,11 @@ public sealed class HomeFeedTests
         (await Feed(db).GetAsync(new HomeFeedQuery(Latitude: 30), null)).Error.Should().Be(ExploreErrors.InvalidQuery);
     }
 
-    private static HomeFeed Feed(VenuesDbContext db, VenuesDbContext? recentDb = null, bool sponsored = false)
+    private static HomeFeed Feed(VenuesDbContext db, VenuesDbContext? recentDb = null, bool sponsored = false, bool flagOn = false)
     {
         var clock = new FixedClock();
         var availability = new CachedVenueAvailability(new VenueAvailabilityQuery(db, new NoBookings(), clock), new NoCache(), clock, NullLogger<CachedVenueAvailability>.Instance);
-        return new HomeFeed(new VenueExplore(db, availability, clock), recentDb ?? db, new HomeFeedSettings(sponsored), clock, NullLogger<HomeFeed>.Instance);
+        return new HomeFeed(new VenueExplore(db, availability, clock), recentDb ?? db, new HomeFeedSettings(sponsored), new Flags(flagOn), clock, NullLogger<HomeFeed>.Instance);
     }
 
     private async Task<VenuesDbContext> SeedAsync()
@@ -134,6 +142,11 @@ public sealed class HomeFeedTests
         db.PriceRules.Add(PriceRule.Create(venue.Id,
             new PriceRuleTerms(PriceRuleKind.Base, PriceAdjustment.FixedHourlyRate, null, "Base", 400, null, null, null, null, null, null, null), _now).Value);
         return venue.Id;
+    }
+
+    private sealed class Flags(bool on) : IFeatureFlags
+    {
+        public Task<bool> IsEnabledAsync(string key, CancellationToken cancellationToken = default) => Task.FromResult(on && key == FeatureFlagKeys.SponsoredHomeItems);
     }
 
     private sealed class NoBookings : IUpcomingBookingsReader

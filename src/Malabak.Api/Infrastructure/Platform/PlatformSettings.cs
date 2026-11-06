@@ -1,0 +1,292 @@
+using System.Collections.Concurrent;
+using System.Globalization;
+using Malabak.SharedKernel;
+using Malabak.SharedKernel.Contracts;
+using Microsoft.EntityFrameworkCore;
+
+namespace Malabak.Api.Infrastructure.Platform;
+
+public enum SettingType
+{
+    Integer = 0,
+    Boolean = 1,
+    Text = 2
+}
+
+/// <summary>A setting the platform knows: its type, default and allowed range. Unknown keys cannot be stored.</summary>
+public sealed record SettingDefinition(string Key, SettingType Type, string Default, string Description, int? Min = null, int? Max = null, int? MaxLength = null);
+
+public sealed record FlagDefinition(string Key, string Description, bool Public = false);
+
+/// <summary>Typed settings and flags with their defaults (TASK-712).</summary>
+public static class PlatformCatalog
+{
+    public static readonly IReadOnlyList<SettingDefinition> Settings =
+    [
+        new(PlatformSettingKeys.HoldMinutes, SettingType.Integer, "30", "Default minutes a slot is held while the player uploads the deposit proof (new venue policies).", 5, 120),
+        new(PlatformSettingKeys.ProofReviewMinutes, SettingType.Integer, "120", "Default minutes a venue has to review a deposit proof (new venue policies).", 15, 1440),
+        new(PlatformSettingKeys.OtpMaxPerHour, SettingType.Integer, "5", "Most sign-in codes one phone can request per hour.", 1, 20),
+        new(PlatformSettingKeys.OtpResendCooldownSeconds, SettingType.Integer, "60", "Seconds before a new code can be requested.", 30, 600),
+        new(PlatformSettingKeys.RankingWinPoints, SettingType.Integer, "3", "Ranking points for a win.", 0, 10),
+        new(PlatformSettingKeys.RankingDrawPoints, SettingType.Integer, "1", "Ranking points for a draw.", 0, 10),
+        new(PlatformSettingKeys.RankingLossPoints, SettingType.Integer, "0", "Ranking points for a loss.", 0, 10),
+        new(PlatformSettingKeys.MaintenanceEnabled, SettingType.Boolean, "false", "Maintenance mode: the apps show the message and the API refuses non-admin requests."),
+        new(PlatformSettingKeys.MaintenanceMessage, SettingType.Text, "نعمل على تحسين الخدمة وهنرجع قريب.", "Message shown during maintenance.", MaxLength: 300),
+    ];
+
+    public static readonly IReadOnlyList<FlagDefinition> Flags =
+    [
+        new(FeatureFlagKeys.SponsoredHomeItems, "Sponsored items in the player home feed (always labeled).", Public: true),
+        new(FeatureFlagKeys.FeaturedVenues, "Featured venues placement chosen by admins.", Public: true),
+        new(FeatureFlagKeys.PaymentGateway, "Online deposit payment through a gateway (post-MVP)."),
+        new(FeatureFlagKeys.Tournaments, "Tournaments (post-MVP).", Public: true),
+        new(FeatureFlagKeys.Reviews, "Venue reviews (post-MVP).", Public: true),
+        new(FeatureFlagKeys.Referrals, "Referral rewards (post-MVP).", Public: true),
+    ];
+
+    private static string BoolText(bool value) => value ? "true" : "false";
+
+    public static SettingDefinition? Setting(string key) => Settings.FirstOrDefault(s => s.Key == key);
+
+    public static FlagDefinition? Flag(string key) => Flags.FirstOrDefault(f => f.Key == key);
+
+    /// <summary>Normalized value when valid for the definition, otherwise null.</summary>
+    public static string? Normalize(SettingDefinition definition, string? value)
+    {
+        var raw = value?.Trim() ?? string.Empty;
+        return definition.Type switch
+        {
+            SettingType.Integer => int.TryParse(raw, NumberStyles.Integer, CultureInfo.InvariantCulture, out var n)
+                && (definition.Min is null || n >= definition.Min) && (definition.Max is null || n <= definition.Max)
+                ? n.ToString(CultureInfo.InvariantCulture)
+                : null,
+            SettingType.Boolean => bool.TryParse(raw, out var b) ? BoolText(b) : null,
+            _ => raw.Length > 0 && raw.Length <= (definition.MaxLength ?? 1000) ? raw : null
+        };
+    }
+}
+
+public sealed class PlatformSetting
+{
+    public string Key { get; set; } = string.Empty;
+    public string Value { get; set; } = string.Empty;
+    public DateTime UpdatedAtUtc { get; set; }
+    public Guid? UpdatedBy { get; set; }
+}
+
+public sealed class FeatureFlag
+{
+    public string Key { get; set; } = string.Empty;
+    public bool Enabled { get; set; }
+    public DateTime UpdatedAtUtc { get; set; }
+    public Guid? UpdatedBy { get; set; }
+}
+
+public sealed class PlatformDbContext : DbContext
+{
+    public const string Schema = "platform";
+
+    public DbSet<PlatformSetting> Settings => Set<PlatformSetting>();
+    public DbSet<FeatureFlag> Flags => Set<FeatureFlag>();
+
+    public PlatformDbContext(DbContextOptions<PlatformDbContext> options)
+        : base(options)
+    {
+    }
+
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
+    {
+        modelBuilder.HasDefaultSchema(Schema);
+        modelBuilder.Entity<PlatformSetting>(b =>
+        {
+            b.ToTable("settings");
+            b.HasKey(s => s.Key);
+            b.Property(s => s.Key).HasMaxLength(100);
+            b.Property(s => s.Value).HasMaxLength(1000).IsRequired();
+        });
+        modelBuilder.Entity<FeatureFlag>(b =>
+        {
+            b.ToTable("feature_flags");
+            b.HasKey(f => f.Key);
+            b.Property(f => f.Key).HasMaxLength(100);
+        });
+    }
+}
+
+public sealed record SettingDto(string Key, string Type, string Value, string Default, bool IsDefault, string Description, int? Min, int? Max, int? MaxLength, DateTime? UpdatedAtUtc, Guid? UpdatedBy);
+
+public sealed record FlagDto(string Key, bool Enabled, string Description, bool Public, DateTime? UpdatedAtUtc, Guid? UpdatedBy);
+
+public sealed record PlatformStatusDto(bool Maintenance, string? Message, IReadOnlyList<string> EnabledFeatures);
+
+public static class PlatformErrors
+{
+    public static readonly Error UnknownSetting = new("Platform.UnknownSetting", "This setting does not exist.");
+    public static readonly Error InvalidValue = new("Platform.InvalidValue", "The value is not valid for this setting (check its type and range).");
+    public static readonly Error UnknownFlag = new("Platform.UnknownFlag", "This feature flag does not exist.");
+}
+
+/// <summary>
+/// Settings and flags service. Reads are cached per instance for <see cref="CacheLifetime"/> (other instances see a change
+/// within that time); writes are validated against the catalog and audited with before/after values.
+/// </summary>
+public sealed class PlatformService : IPlatformSettings, IFeatureFlags
+{
+    public static readonly TimeSpan CacheLifetime = TimeSpan.FromSeconds(30);
+
+    private static readonly ConcurrentDictionary<string, (string Value, DateTime At)> _settingCache = new();
+    private static readonly ConcurrentDictionary<string, (bool Value, DateTime At)> _flagCache = new();
+
+    private readonly PlatformDbContext _dbContext;
+    private readonly IAuditLog _audit;
+    private readonly IClock _clock;
+
+    public PlatformService(PlatformDbContext dbContext, IAuditLog audit, IClock clock)
+    {
+        _dbContext = dbContext;
+        _audit = audit;
+        _clock = clock;
+    }
+
+    public async Task<int> GetIntAsync(string key, CancellationToken cancellationToken = default) =>
+        int.Parse(await ValueAsync(key, cancellationToken), CultureInfo.InvariantCulture);
+
+    public async Task<bool> GetBoolAsync(string key, CancellationToken cancellationToken = default) =>
+        await ValueAsync(key, cancellationToken) == "true";
+
+    public Task<string> GetStringAsync(string key, CancellationToken cancellationToken = default) => ValueAsync(key, cancellationToken);
+
+    public async Task<bool> IsEnabledAsync(string key, CancellationToken cancellationToken = default)
+    {
+        if (PlatformCatalog.Flag(key) is null)
+        {
+            return false;
+        }
+
+        if (_flagCache.TryGetValue(key, out var cached) && _clock.UtcNow - cached.At < CacheLifetime)
+        {
+            return cached.Value;
+        }
+
+        var enabled = await _dbContext.Flags.AsNoTracking().Where(f => f.Key == key).Select(f => f.Enabled).FirstOrDefaultAsync(cancellationToken);
+        _flagCache[key] = (enabled, _clock.UtcNow);
+        return enabled;
+    }
+
+    public async Task<IReadOnlyList<SettingDto>> ListSettingsAsync(CancellationToken cancellationToken = default)
+    {
+        var stored = await _dbContext.Settings.AsNoTracking().ToDictionaryAsync(s => s.Key, cancellationToken);
+        return PlatformCatalog.Settings.Select(d =>
+        {
+            stored.TryGetValue(d.Key, out var row);
+            return new SettingDto(d.Key, d.Type.ToString(), row?.Value ?? d.Default, d.Default, row is null || row.Value == d.Default, d.Description,
+                d.Min, d.Max, d.MaxLength, row?.UpdatedAtUtc, row?.UpdatedBy);
+        }).ToList();
+    }
+
+    public async Task<IReadOnlyList<FlagDto>> ListFlagsAsync(CancellationToken cancellationToken = default)
+    {
+        var stored = await _dbContext.Flags.AsNoTracking().ToDictionaryAsync(f => f.Key, cancellationToken);
+        return PlatformCatalog.Flags.Select(d =>
+        {
+            stored.TryGetValue(d.Key, out var row);
+            return new FlagDto(d.Key, row?.Enabled ?? false, d.Description, d.Public, row?.UpdatedAtUtc, row?.UpdatedBy);
+        }).ToList();
+    }
+
+    public async Task<Result<SettingDto>> UpdateSettingAsync(string key, string? value, Guid adminId, string? reason, CancellationToken cancellationToken = default)
+    {
+        var definition = PlatformCatalog.Setting(key);
+        if (definition is null)
+        {
+            return Result.Failure<SettingDto>(PlatformErrors.UnknownSetting);
+        }
+
+        var normalized = PlatformCatalog.Normalize(definition, value);
+        if (normalized is null)
+        {
+            return Result.Failure<SettingDto>(PlatformErrors.InvalidValue);
+        }
+
+        var row = await _dbContext.Settings.FirstOrDefaultAsync(s => s.Key == key, cancellationToken);
+        var before = row?.Value ?? definition.Default;
+        if (row is null)
+        {
+            row = new PlatformSetting { Key = key };
+            _dbContext.Settings.Add(row);
+        }
+
+        row.Value = normalized;
+        row.UpdatedAtUtc = _clock.UtcNow;
+        row.UpdatedBy = adminId;
+        await _dbContext.SaveChangesAsync(cancellationToken);
+        _settingCache.TryRemove(key, out _);
+
+        await _audit.RecordAsync(new AuditEntry("platform.setting_changed", "PlatformSetting", key, adminId, AuditActorType.Admin,
+            new { Value = before }, new { Value = normalized }, reason), cancellationToken);
+        return Result.Success((await ListSettingsAsync(cancellationToken)).First(s => s.Key == key));
+    }
+
+    public async Task<Result<FlagDto>> UpdateFlagAsync(string key, bool enabled, Guid adminId, string? reason, CancellationToken cancellationToken = default)
+    {
+        if (PlatformCatalog.Flag(key) is null)
+        {
+            return Result.Failure<FlagDto>(PlatformErrors.UnknownFlag);
+        }
+
+        var row = await _dbContext.Flags.FirstOrDefaultAsync(f => f.Key == key, cancellationToken);
+        var before = row?.Enabled ?? false;
+        if (row is null)
+        {
+            row = new FeatureFlag { Key = key };
+            _dbContext.Flags.Add(row);
+        }
+
+        row.Enabled = enabled;
+        row.UpdatedAtUtc = _clock.UtcNow;
+        row.UpdatedBy = adminId;
+        await _dbContext.SaveChangesAsync(cancellationToken);
+        _flagCache.TryRemove(key, out _);
+
+        await _audit.RecordAsync(new AuditEntry("platform.flag_changed", "FeatureFlag", key, adminId, AuditActorType.Admin,
+            new { Enabled = before }, new { Enabled = enabled }, reason), cancellationToken);
+        return Result.Success((await ListFlagsAsync(cancellationToken)).First(f => f.Key == key));
+    }
+
+    /// <summary>What clients need before anything else: maintenance state and which public features are on.</summary>
+    public async Task<PlatformStatusDto> StatusAsync(CancellationToken cancellationToken = default)
+    {
+        var maintenance = await GetBoolAsync(PlatformSettingKeys.MaintenanceEnabled, cancellationToken);
+        var enabled = new List<string>();
+        foreach (var key in PlatformCatalog.Flags.Where(f => f.Public).Select(f => f.Key))
+        {
+            if (await IsEnabledAsync(key, cancellationToken))
+            {
+                enabled.Add(key);
+            }
+        }
+
+        return new PlatformStatusDto(maintenance, maintenance ? await GetStringAsync(PlatformSettingKeys.MaintenanceMessage, cancellationToken) : null, enabled);
+    }
+
+    /// <summary>Test hook: forget cached values.</summary>
+    public static void ClearCache()
+    {
+        _settingCache.Clear();
+        _flagCache.Clear();
+    }
+
+    private async Task<string> ValueAsync(string key, CancellationToken cancellationToken)
+    {
+        var definition = PlatformCatalog.Setting(key) ?? throw new ArgumentException($"Unknown platform setting '{key}'.", nameof(key));
+        if (_settingCache.TryGetValue(key, out var cached) && _clock.UtcNow - cached.At < CacheLifetime)
+        {
+            return cached.Value;
+        }
+
+        var stored = await _dbContext.Settings.AsNoTracking().Where(s => s.Key == key).Select(s => s.Value).FirstOrDefaultAsync(cancellationToken);
+        var value = stored is not null && PlatformCatalog.Normalize(definition, stored) is { } valid ? valid : definition.Default;
+        _settingCache[key] = (value, _clock.UtcNow);
+        return value;
+    }
+}

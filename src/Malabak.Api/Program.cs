@@ -243,6 +243,13 @@ builder.Services.AddDbContext<Malabak.Modules.Audit.Infrastructure.AuditDbContex
 builder.Services.AddScoped<Malabak.SharedKernel.Contracts.IAuditRequestContext, Malabak.Api.Infrastructure.Audit.HttpAuditRequestContext>();
 builder.Services.AddAuditModule();
 
+builder.Services.AddDbContext<Malabak.Api.Infrastructure.Platform.PlatformDbContext>(options =>
+    options.UseNpgsql(postgresConnectionString, npgsql =>
+        npgsql.MigrationsHistoryTable("__EFMigrationsHistory", Malabak.Api.Infrastructure.Platform.PlatformDbContext.Schema)));
+builder.Services.AddScoped<Malabak.Api.Infrastructure.Platform.PlatformService>();
+builder.Services.AddScoped<Malabak.SharedKernel.Contracts.IPlatformSettings>(sp => sp.GetRequiredService<Malabak.Api.Infrastructure.Platform.PlatformService>());
+builder.Services.AddScoped<Malabak.SharedKernel.Contracts.IFeatureFlags>(sp => sp.GetRequiredService<Malabak.Api.Infrastructure.Platform.PlatformService>());
+
 // 12. Field-level encryption, blind indexes and the persisted Data Protection key ring
 builder.Services.AddFieldEncryption(builder.Configuration, builder.Environment, postgresConnectionString);
 
@@ -350,6 +357,7 @@ if (app.Environment.IsDevelopment() || app.Environment.IsStaging() || app.Enviro
 }
 
 app.UseMalabakSecurity();
+app.UseMiddleware<Malabak.Api.Infrastructure.Platform.MaintenanceModeMiddleware>();
 app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
@@ -453,6 +461,7 @@ app.MapBookingQuoteEndpoints(apiVersionSet);
 app.MapVenueCustomerEndpoints(apiVersionSet);
 app.MapVenueReportEndpoints(apiVersionSet);
 app.MapAdminAuditEndpoints(apiVersionSet);
+app.MapPlatformEndpoints(apiVersionSet);
 app.MapPlayerVenueListEndpoints(apiVersionSet);
 app.MapPrivacyEndpoints(apiVersionSet);
 app.MapRealtimeEndpoints(apiVersionSet);

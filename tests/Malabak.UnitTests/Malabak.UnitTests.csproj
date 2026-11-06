@@ -18,6 +18,7 @@
     <ProjectReference Include="..\..\src\Malabak.Modules.Audit\Malabak.Modules.Audit.csproj" />
     <ProjectReference Include="..\..\src\Malabak.Modules.Subscriptions\Malabak.Modules.Subscriptions.csproj" />
     <ProjectReference Include="..\..\src\Malabak.Modules.Support\Malabak.Modules.Support.csproj" />
+    <ProjectReference Include="..\..\src\Malabak.Api\Malabak.Api.csproj" />
   </ItemGroup>
 
   <ItemGroup>

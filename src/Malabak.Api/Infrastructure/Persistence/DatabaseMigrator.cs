@@ -28,6 +28,7 @@ public static class DatabaseMigrator
         typeof(NotificationsDbContext),
         typeof(SecurityDbContext),
         typeof(AuditDbContext),
+        typeof(Platform.PlatformDbContext),
     ];
 
     public static async Task MigrateAllAsync(IServiceProvider services, CancellationToken cancellationToken = default)

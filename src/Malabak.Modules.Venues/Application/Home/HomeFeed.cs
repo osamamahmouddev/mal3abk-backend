@@ -1,6 +1,7 @@
 using Malabak.Modules.Venues.Application.Explore;
 using Malabak.Modules.Venues.Infrastructure;
 using Malabak.SharedKernel;
+using Malabak.SharedKernel.Contracts;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
@@ -36,7 +37,7 @@ public sealed record HomeFeedDto(
     HomeSection<SponsoredItem>? Sponsored,
     DateTime GeneratedAtUtc);
 
-/// <summary>Home feed switches (host configuration, <c>Features:SponsoredHomeItems</c>).</summary>
+/// <summary>Home feed switches (host configuration, <c>Features:SponsoredHomeItems</c>; the admin flag can also turn sponsored items on).</summary>
 public sealed record HomeFeedSettings(bool SponsoredItemsEnabled);
 
 public sealed record HomeFeedQuery(double? Latitude = null, double? Longitude = null, string? City = null, string? Area = null);
@@ -55,14 +56,16 @@ public sealed class HomeFeed
     private readonly VenueExplore _explore;
     private readonly VenuesDbContext _dbContext;
     private readonly HomeFeedSettings _settings;
+    private readonly IFeatureFlags _flags;
     private readonly IClock _clock;
     private readonly ILogger<HomeFeed> _logger;
 
-    public HomeFeed(VenueExplore explore, VenuesDbContext dbContext, HomeFeedSettings settings, IClock clock, ILogger<HomeFeed> logger)
+    public HomeFeed(VenueExplore explore, VenuesDbContext dbContext, HomeFeedSettings settings, IFeatureFlags flags, IClock clock, ILogger<HomeFeed> logger)
     {
         _explore = explore;
         _dbContext = dbContext;
         _settings = settings;
+        _flags = flags;
         _clock = clock;
         _logger = logger;
     }
@@ -82,11 +85,14 @@ public sealed class HomeFeed
             ? await GuardAsync("recently_viewed", () => RecentlyViewedAsync(user, cancellationToken), HomeSection<ExploreVenueCard>.With(HomeSectionStatus.Unavailable))
             : HomeSection<ExploreVenueCard>.With(HomeSectionStatus.SignInRequired);
 
+        // Sponsored items: the admin feature flag (TASK-712), or the host setting kept for existing deployments.
+        var sponsored = _settings.SponsoredItemsEnabled || await _flags.IsEnabledAsync(FeatureFlagKeys.SponsoredHomeItems, cancellationToken);
+
         return Result.Success(new HomeFeedDto(
             nearby, popular, recent,
             HomeSection<object>.With(userId is null ? HomeSectionStatus.SignInRequired : HomeSectionStatus.ComingSoon),
             HomeSection<object>.With(HomeSectionStatus.ComingSoon),
-            _settings.SponsoredItemsEnabled ? HomeSection<SponsoredItem>.Of([]) : null,
+            sponsored ? HomeSection<SponsoredItem>.Of([]) : null,
             _clock.UtcNow));
     }
 
