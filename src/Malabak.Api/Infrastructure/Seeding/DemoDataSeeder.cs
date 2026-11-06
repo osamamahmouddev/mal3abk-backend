@@ -2,9 +2,11 @@ using Malabak.Modules.Booking.Domain;
 using Malabak.Modules.Booking.Infrastructure;
 using Malabak.Modules.Identity.Domain;
 using Malabak.Modules.Identity.Infrastructure;
+using Malabak.Modules.Venues.Application.PaymentMethods;
 using Malabak.Modules.Venues.Domain;
 using Malabak.Modules.Venues.Infrastructure;
 using Malabak.SharedKernel;
+using Malabak.SharedKernel.Security;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -17,6 +19,7 @@ public sealed class DemoDataSeeder : IDataSeeder
     private readonly IdentityDbContext _identityDbContext;
     private readonly VenuesDbContext _venuesDbContext;
     private readonly BookingDbContext? _bookingDbContext;
+    private readonly IFieldCipher? _fieldCipher;
     private readonly ILogger<DemoDataSeeder> _logger;
 
     public DemoDataSeeder(
@@ -24,13 +27,15 @@ public sealed class DemoDataSeeder : IDataSeeder
         IdentityDbContext identityDbContext,
         VenuesDbContext venuesDbContext,
         ILogger<DemoDataSeeder> logger,
-        BookingDbContext? bookingDbContext = null)
+        BookingDbContext? bookingDbContext = null,
+        IFieldCipher? fieldCipher = null)
     {
         _environment = environment;
         _identityDbContext = identityDbContext;
         _venuesDbContext = venuesDbContext;
         _logger = logger;
         _bookingDbContext = bookingDbContext;
+        _fieldCipher = fieldCipher;
     }
 
     public async Task SeedAsync(CancellationToken cancellationToken = default)
@@ -45,6 +50,7 @@ public sealed class DemoDataSeeder : IDataSeeder
 
         var (player1, player2, venueOwner) = await SeedDemoUsersAsync(cancellationToken);
         var (venueAhly, pitchAhly1, pitchAhly2) = await SeedDemoVenuesAndPitchesAsync(venueOwner.Id, cancellationToken);
+        await MakeDemoVenueBookableAsync(venueAhly, pitchAhly2.Id, venueOwner.Id, cancellationToken);
 
         if (_bookingDbContext != null)
         {
@@ -137,7 +143,7 @@ public sealed class DemoDataSeeder : IDataSeeder
                 venueId: ahlyVenueId,
                 name: "ملعب التتش الصغير (خماسي)",
                 turfType: SurfaceType.ArtificialTurfValue,
-                capacity: 10,
+                capacity: 5,
                 lengthMeters: 40.0m,
                 widthMeters: 20.0m,
                 photos: ["https://assets.malabak.app/demo/pitch_5a.jpg"],
@@ -155,7 +161,7 @@ public sealed class DemoDataSeeder : IDataSeeder
                 venueId: ahlyVenueId,
                 name: "ملعب النجوم (سباعي)",
                 turfType: SurfaceType.ArtificialTurfValue,
-                capacity: 14,
+                capacity: 7,
                 lengthMeters: 55.0m,
                 widthMeters: 35.0m,
                 photos: ["https://assets.malabak.app/demo/pitch_7a.jpg"],
@@ -166,6 +172,93 @@ public sealed class DemoDataSeeder : IDataSeeder
 
         await _venuesDbContext.SaveChangesAsync(cancellationToken);
         return (venueAhly, pitch1, pitch2);
+    }
+
+    /// <summary>
+    /// Gives the demo venue what a player needs to find and book it: opening hours, prices, a booking policy,
+    /// a deposit payment method, and an approved, published listing. Each part is added only when missing.
+    /// </summary>
+    private async Task MakeDemoVenueBookableAsync(Venue venue, Guid largePitchId, Guid ownerId, CancellationToken cancellationToken)
+    {
+        var now = DateTime.UtcNow;
+        var venueId = venue.Id;
+
+        if (!await _venuesDbContext.OperatingSchedules.AnyAsync(s => s.VenueId == venueId, cancellationToken))
+        {
+            var schedules = Enum.GetValues<DayOfWeek>()
+                .Select(day => OperatingSchedule.Create(Guid.NewGuid(), venueId, day, new TimeOnly(9, 0), new TimeOnly(23, 0), 60, now))
+                .ToList();
+            await _venuesDbContext.OperatingSchedules.AddRangeAsync(schedules, cancellationToken);
+        }
+
+        if (!await _venuesDbContext.PriceRules.AnyAsync(r => r.VenueId == venueId, cancellationToken))
+        {
+            var rules = new[]
+            {
+                PriceRule.Create(venueId, new PriceRuleTerms(PriceRuleKind.Base, PriceAdjustment.FixedHourlyRate, null, "السعر الأساسي", 400m, null, null, null, null, null, null, null), now),
+                PriceRule.Create(venueId, new PriceRuleTerms(PriceRuleKind.Base, PriceAdjustment.FixedHourlyRate, largePitchId, "سعر الملعب السباعي", 600m, null, null, null, null, null, null, null), now),
+            };
+            foreach (var rule in rules)
+            {
+                if (rule.IsFailure)
+                {
+                    throw new InvalidOperationException($"Demo price rule is invalid: {rule.Error.Code}");
+                }
+
+                await _venuesDbContext.PriceRules.AddAsync(rule.Value, cancellationToken);
+            }
+        }
+
+        var deposit = DepositRule.Create(DepositType.Percentage, 30m);
+
+        if (!await _venuesDbContext.Policies.AnyAsync(p => p.VenueId == venueId, cancellationToken))
+        {
+            var terms = new BookingPolicyTerms(
+                Deposit: deposit,
+                ProofSubmissionWindowMinutes: 30,
+                ManualReviewWindowMinutes: 60,
+                CancellationDeadlineHours: 24,
+                RefundEligibility: RefundEligibility.PartialRefund,
+                RefundPercentage: 50m,
+                NoShowRule: NoShowRule.ForfeitDeposit,
+                LateArrivalGraceMinutes: 10,
+                AllowReschedule: true,
+                RescheduleDeadlineHours: 12,
+                PendingBookingsBlockSlots: true,
+                Terms: "الإلغاء قبل الموعد بـ 24 ساعة يسترد نصف العربون.");
+            await _venuesDbContext.Policies.AddAsync(VenuePolicy.CreateVersion(venueId, null, terms, ownerId, now), cancellationToken);
+        }
+
+        // Account details are encrypted at rest, so the payment method needs the field cipher.
+        if (_fieldCipher is not null && !await _venuesDbContext.PaymentMethods.AnyAsync(m => m.VenueId == venueId, cancellationToken))
+        {
+            var method = VenuePaymentMethod.Create(
+                Guid.NewGuid(),
+                venueId,
+                PaymentMethodType.MobileWallet,
+                "حسن شحاتة",
+                "حوّل العربون وارفع صورة الإيصال.",
+                deposit,
+                now);
+            const string walletNumber = "01000000001";
+            var ciphertext = await _fieldCipher.EncryptAsync(walletNumber, PaymentMethodMapping.EncryptionContext(method.Id), cancellationToken);
+            method.SetAccountDetails(ciphertext, walletNumber, now);
+            await _venuesDbContext.PaymentMethods.AddAsync(method, cancellationToken);
+        }
+
+        if (venue.ApprovalStatus is VenueApprovalStatus.Draft)
+        {
+            var submitted = venue.SubmitForApproval(ownerId, null, now);
+            var approved = venue.Approve(ownerId, "Demo data", now);
+            await _venuesDbContext.ApprovalEvents.AddRangeAsync([submitted.Value, approved.Value], cancellationToken);
+        }
+
+        if (venue.IsApproved && !venue.IsPublished)
+        {
+            venue.SetPublished(true, now);
+        }
+
+        await _venuesDbContext.SaveChangesAsync(cancellationToken);
     }
 
     private async Task SeedDemoBookingsAsync(

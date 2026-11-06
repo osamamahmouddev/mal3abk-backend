@@ -1,9 +1,12 @@
+using System.Text;
 using FluentAssertions;
 using Malabak.Api.Infrastructure.Seeding;
 using Malabak.Modules.Booking.Infrastructure;
 using Malabak.Modules.Identity.Domain;
 using Malabak.Modules.Identity.Infrastructure;
+using Malabak.Modules.Venues.Domain;
 using Malabak.Modules.Venues.Infrastructure;
+using Malabak.SharedKernel.Security;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -70,7 +73,8 @@ public sealed class DataSeederIntegrationTests
             identityDb,
             venuesDb,
             NullLogger<DemoDataSeeder>.Instance,
-            bookingDb);
+            bookingDb,
+            new PlainTextCipher());
 
         // Act - First run
         await seeder.SeedAsync();
@@ -91,6 +95,14 @@ public sealed class DataSeederIntegrationTests
 
         var pitches = await venuesDb.Pitches.Where(p => p.VenueId == venue.Id).ToListAsync();
         pitches.Should().HaveCount(2);
+
+        // Assert - Demo venue is bookable by players
+        venue.ApprovalStatus.Should().Be(VenueApprovalStatus.Approved);
+        venue.IsPublished.Should().BeTrue();
+        (await venuesDb.OperatingSchedules.CountAsync(s => s.VenueId == venue.Id)).Should().Be(7);
+        (await venuesDb.PriceRules.CountAsync(r => r.VenueId == venue.Id)).Should().Be(2);
+        (await venuesDb.Policies.CountAsync(p => p.VenueId == venue.Id && p.IsCurrent)).Should().Be(1);
+        (await venuesDb.PaymentMethods.CountAsync(m => m.VenueId == venue.Id)).Should().Be(1);
 
         // Assert - Demo Bookings
         var bookings = await bookingDb.Bookings.ToListAsync();
@@ -131,6 +143,18 @@ public sealed class DataSeederIntegrationTests
         prodEnv.IsProduction().Should().BeTrue();
         var usersCount = await identityDb.Users.CountAsync();
         usersCount.Should().Be(0);
+    }
+
+    private sealed class PlainTextCipher : IFieldCipher
+    {
+        public ValueTask<byte[]> EncryptAsync(string plaintext, FieldEncryptionContext context, CancellationToken cancellationToken = default) =>
+            ValueTask.FromResult(Encoding.UTF8.GetBytes(plaintext));
+
+        public ValueTask<string> DecryptAsync(byte[] ciphertext, FieldEncryptionContext context, CancellationToken cancellationToken = default) =>
+            ValueTask.FromResult(Encoding.UTF8.GetString(ciphertext));
+
+        public ValueTask<bool> NeedsReEncryptionAsync(byte[] ciphertext, CancellationToken cancellationToken = default) =>
+            ValueTask.FromResult(false);
     }
 
     private sealed class TestHostEnvironment : IHostEnvironment
