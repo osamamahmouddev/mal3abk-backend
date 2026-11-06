@@ -24691,6 +24691,10 @@
           "createdAtUtc": {
             "type": "string",
             "format": "date-time"
+          },
+          "pitchName": {
+            "type": "string",
+            "nullable": true
           }
         },
         "additionalProperties": false
@@ -24760,6 +24764,14 @@
           "createdAtUtc": {
             "type": "string",
             "format": "date-time"
+          },
+          "venueName": {
+            "type": "string",
+            "nullable": true
+          },
+          "pitchName": {
+            "type": "string",
+            "nullable": true
           }
         },
         "additionalProperties": false

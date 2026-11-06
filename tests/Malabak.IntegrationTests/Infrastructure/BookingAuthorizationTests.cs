@@ -58,8 +58,24 @@ public sealed class BookingAuthorizationTests : IClassFixture<BookingDatabaseFix
         own.IsSuccess.Should().BeTrue();
         own.Value.Venue.Should().NotBeNull("the confirmation screen needs the venue's name and where it is");
         own.Value.Venue!.Latitude.Should().NotBeNull();
+        own.Value.PitchName.Should().Be(FakeVenueDirectory.PitchName);
         foreign.IsFailure.Should().BeTrue();
         foreign.Error.Should().Be(BookingErrors.NotFound, "a booking that is not yours must look like one that does not exist");
+    }
+
+    [Fact]
+    public async Task MyBookings_NameTheVenueAndPitchAsync()
+    {
+        var (_, playerId) = await SaveBookingAsync();
+        await using var context = _database.CreateContext();
+        var handler = new PlayerBookingQueriesHandler(context, new Malabak.SharedKernel.Time.FakeClock(), new FakeVenueDirectory());
+
+        var result = await handler.HandleAsync(new GetPlayerBookingsQuery(playerId, "all"));
+
+        result.IsSuccess.Should().BeTrue();
+        var item = result.Value.Items.Should().ContainSingle().Subject;
+        item.VenueName.Should().Be(FakeVenueDirectory.VenueName);
+        item.PitchName.Should().Be(FakeVenueDirectory.PitchName);
     }
 
     private async Task<(Guid BookingId, Guid PlayerId)> SaveBookingAsync()

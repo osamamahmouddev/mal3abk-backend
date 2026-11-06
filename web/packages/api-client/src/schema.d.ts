@@ -4691,6 +4691,7 @@ export interface components {
             statusHistory: components["schemas"]["PlayerStatusHistoryDto"][];
             /** Format: date-time */
             createdAtUtc: string;
+            pitchName?: string | null;
         };
         PlayerBookingSummaryDto: {
             /** Format: uuid */
@@ -4715,6 +4716,8 @@ export interface components {
             allowedActions: components["schemas"]["PlayerAllowedActions"];
             /** Format: date-time */
             createdAtUtc: string;
+            venueName?: string | null;
+            pitchName?: string | null;
         };
         PlayerBookingSummaryDtoPagedList: {
             items: components["schemas"]["PlayerBookingSummaryDto"][];
