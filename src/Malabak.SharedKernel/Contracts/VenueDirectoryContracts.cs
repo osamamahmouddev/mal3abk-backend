@@ -25,6 +25,9 @@ public interface IVenueDirectory
     /// <summary>Venue names by id, for notification text. Venues that do not exist are left out.</summary>
     Task<IReadOnlyDictionary<Guid, string>> GetVenueNamesAsync(IReadOnlyCollection<Guid> venueIds, CancellationToken cancellationToken = default);
 
+    /// <summary>Pitch names by id, for booking lists. Pitches that do not exist are left out.</summary>
+    Task<IReadOnlyDictionary<Guid, string>> GetPitchNamesAsync(IReadOnlyCollection<Guid> pitchIds, CancellationToken cancellationToken = default);
+
     /// <summary>
     /// The users who may act on the venue with the given permission (see <c>Permissions</c>): its owner, who may do everything
     /// there, and the staff whose role includes it.

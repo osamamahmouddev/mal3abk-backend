@@ -329,6 +329,30 @@ public sealed class MatchTests
     }
 
     [Fact]
+    public async Task UpcomingQuery_KeepsRecentlyFinishedMatchesAwaitingAResultAsync()
+    {
+        using var db = CreateInMemoryDb();
+        var captaincy = new FakeCaptaincyChecker();
+        var teamA = Guid.NewGuid();
+        var teamB = Guid.NewGuid();
+        captaincy.RegisterTeam(teamA, "Team Alpha", Guid.NewGuid());
+        captaincy.RegisterTeam(teamB, "Team Beta", Guid.NewGuid());
+
+        var awaitingResult = Match.Schedule(
+            null, teamA, teamB, _clock.UtcNow.AddDays(-3), 60, null, null, null, null, null, _clock.UtcNow.AddDays(-4)).Value;
+        var stale = Match.Schedule(
+            null, teamA, teamB, _clock.UtcNow.AddDays(-9), 60, null, null, null, null, null, _clock.UtcNow.AddDays(-10)).Value;
+        db.Matches.AddRange(awaitingResult, stale);
+        await db.SaveChangesAsync();
+
+        var result = await new GetUpcomingMatchesHandler(db, captaincy, _clock)
+            .HandleAsync(new GetUpcomingMatchesQuery(TeamId: teamA));
+
+        result.IsSuccess.Should().BeTrue();
+        result.Value.Items.Should().ContainSingle(m => m.Id == awaitingResult.Id);
+    }
+
+    [Fact]
     public async Task RespondToChallenge_Accept_ShouldCreateMatch_AndCheckConflictsAsync()
     {
         using var db = CreateInMemoryDb();

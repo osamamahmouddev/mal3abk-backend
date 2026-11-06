@@ -1,6 +1,7 @@
 using Malabak.Modules.Teams.Application.Common;
 using Malabak.Modules.Teams.Domain;
 using Malabak.SharedKernel;
+using Malabak.SharedKernel.Contracts;
 using Microsoft.EntityFrameworkCore;
 
 namespace Malabak.Modules.Teams.Application.Teams.CreateTeam;
@@ -8,6 +9,7 @@ namespace Malabak.Modules.Teams.Application.Teams.CreateTeam;
 public sealed class CreateTeamHandler : ICommandHandler<CreateTeamCommand, Result<TeamDetailDto>>
 {
     private readonly ITeamsDbContext _dbContext;
+    private readonly IUserAccountsContract? _accounts;
     private readonly IClock _clock;
     private readonly ITeamSlugGenerator _slugGenerator;
     private readonly ITeamInviteCodeGenerator _inviteCodeGenerator;
@@ -16,8 +18,10 @@ public sealed class CreateTeamHandler : ICommandHandler<CreateTeamCommand, Resul
         ITeamsDbContext dbContext,
         IClock clock,
         ITeamSlugGenerator slugGenerator,
-        ITeamInviteCodeGenerator inviteCodeGenerator)
+        ITeamInviteCodeGenerator inviteCodeGenerator,
+        IUserAccountsContract? accounts = null)
     {
+        _accounts = accounts;
         _dbContext = dbContext;
         _clock = clock;
         _slugGenerator = slugGenerator;
@@ -69,6 +73,7 @@ public sealed class CreateTeamHandler : ICommandHandler<CreateTeamCommand, Resul
 
         await _dbContext.SaveChangesAsync(cancellationToken);
 
-        return Result.Success(TeamMapper.ToDetailDto(team, includePrivateInfo: true));
+        var detail = TeamMapper.ToDetailDto(team, includePrivateInfo: true);
+        return Result.Success(detail with { Members = await detail.Members.WithNamesAsync(_accounts, cancellationToken) });
     }
 }

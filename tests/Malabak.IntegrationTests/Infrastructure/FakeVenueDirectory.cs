@@ -6,6 +6,7 @@ namespace Malabak.IntegrationTests.Infrastructure;
 internal sealed class FakeVenueDirectory : IVenueDirectory
 {
     public const string VenueName = "Test Venue";
+    public const string PitchName = "Pitch 1";
 
     private readonly IReadOnlyList<Guid> _staff;
 
@@ -38,6 +39,9 @@ internal sealed class FakeVenueDirectory : IVenueDirectory
 
     public Task<IReadOnlyDictionary<Guid, string>> GetVenueNamesAsync(IReadOnlyCollection<Guid> venueIds, CancellationToken cancellationToken = default) =>
         Task.FromResult<IReadOnlyDictionary<Guid, string>>(venueIds.Distinct().ToDictionary(id => id, _ => VenueName));
+
+    public Task<IReadOnlyDictionary<Guid, string>> GetPitchNamesAsync(IReadOnlyCollection<Guid> pitchIds, CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyDictionary<Guid, string>>(pitchIds.Distinct().ToDictionary(id => id, _ => PitchName));
 
     public Task<IReadOnlyList<Guid>> GetStaffUserIdsAsync(Guid venueId, string permission, CancellationToken cancellationToken = default) => Task.FromResult(_staff);
 }

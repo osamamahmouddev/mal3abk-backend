@@ -1,6 +1,7 @@
 using Malabak.Modules.Teams.Application.Common;
 using Malabak.Modules.Teams.Domain;
 using Malabak.SharedKernel;
+using Malabak.SharedKernel.Contracts;
 using Microsoft.EntityFrameworkCore;
 
 namespace Malabak.Modules.Teams.Application.Teams.Queries.GetTeamById;
@@ -8,10 +9,12 @@ namespace Malabak.Modules.Teams.Application.Teams.Queries.GetTeamById;
 public sealed class GetTeamByIdHandler : IQueryHandler<GetTeamByIdQuery, Result<TeamDetailDto>>
 {
     private readonly ITeamsDbContext _dbContext;
+    private readonly IUserAccountsContract? _accounts;
 
-    public GetTeamByIdHandler(ITeamsDbContext dbContext)
+    public GetTeamByIdHandler(ITeamsDbContext dbContext, IUserAccountsContract? accounts = null)
     {
         _dbContext = dbContext;
+        _accounts = accounts;
     }
 
     public async Task<Result<TeamDetailDto>> HandleAsync(GetTeamByIdQuery query, CancellationToken cancellationToken = default)
@@ -29,6 +32,7 @@ public sealed class GetTeamByIdHandler : IQueryHandler<GetTeamByIdQuery, Result<
         var isCallerMember = query.RequestingPlayerId.HasValue &&
             team.Members.Any(m => m.PlayerId == query.RequestingPlayerId.Value && m.IsActive);
 
-        return Result.Success(TeamMapper.ToDetailDto(team, includePrivateInfo: isCallerMember));
+        var detail = TeamMapper.ToDetailDto(team, includePrivateInfo: isCallerMember);
+        return Result.Success(detail with { Members = await detail.Members.WithNamesAsync(_accounts, cancellationToken) });
     }
 }

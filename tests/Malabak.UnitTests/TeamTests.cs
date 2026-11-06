@@ -525,6 +525,20 @@ public sealed class TeamTests
     }
 
     [Fact]
+    public async Task GetTeamProfile_RosterIncludesPlayerNamesAsync()
+    {
+        await using var db = CreateInMemoryDb();
+        var captainId = Guid.NewGuid();
+        var team = Team.Create(Guid.NewGuid(), "Names FC", "names-fc", "Cairo", "Cairo", captainId, "NMS001", _clock.UtcNow).Value;
+        db.Teams.Add(team);
+        await db.SaveChangesAsync();
+
+        var profile = await new GetTeamProfileHandler(db, new NamedAccounts()).HandleAsync(new GetTeamProfileQuery(team.Id, captainId));
+
+        profile.Value.Roster.Should().ContainSingle(m => m.PlayerId == captainId && m.PlayerName == "Player");
+    }
+
+    [Fact]
     public async Task GetTeamProfile_PrivateTeam_ShouldBeHiddenFromNonMembersAsync()
     {
         await using var db = CreateInMemoryDb();
@@ -774,5 +788,21 @@ public sealed class TeamTests
         // 5. Leave team
         var leaveRes = await leaveHandler.HandleAsync(new LeaveTeamCommand(team.Id, applicantId));
         leaveRes.IsSuccess.Should().BeTrue();
+    }
+
+    private sealed class NamedAccounts : Malabak.SharedKernel.Contracts.IUserAccountsContract
+    {
+        public string? NormalizePhone(string phoneNumber) => phoneNumber;
+
+        public Task<bool> MatchesContactAsync(Guid userId, string? email, string? normalizedPhone, CancellationToken cancellationToken = default) =>
+            Task.FromResult(false);
+
+        public Task<IReadOnlyDictionary<Guid, string>> GetFullNamesAsync(IReadOnlyCollection<Guid> userIds, CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyDictionary<Guid, string>>(userIds.ToDictionary(id => id, _ => "Player"));
+
+        public Task GrantRoleAsync(Guid userId, string role, CancellationToken cancellationToken = default) => Task.CompletedTask;
+
+        public Task SendStaffInvitationAsync(string? email, string? normalizedPhone, string venueName, string role, string rawToken,
+            CancellationToken cancellationToken = default) => Task.CompletedTask;
     }
 }

@@ -56,6 +56,18 @@ public sealed class VenueDirectory : IVenueDirectory
             .ToDictionaryAsync(v => v.Id, v => v.Name, cancellationToken);
     }
 
+    public async Task<IReadOnlyDictionary<Guid, string>> GetPitchNamesAsync(IReadOnlyCollection<Guid> pitchIds, CancellationToken cancellationToken = default)
+    {
+        if (pitchIds.Count == 0)
+        {
+            return new Dictionary<Guid, string>();
+        }
+
+        return await _dbContext.Pitches.IgnoreQueryFilters().AsNoTracking()
+            .Where(p => pitchIds.Contains(p.Id) && !p.IsDeleted)
+            .ToDictionaryAsync(p => p.Id, p => p.Name, cancellationToken);
+    }
+
     public async Task<IReadOnlyList<Guid>> GetStaffUserIdsAsync(Guid venueId, string permission, CancellationToken cancellationToken = default)
     {
         var ownerId = await _dbContext.Venues.IgnoreQueryFilters().AsNoTracking()

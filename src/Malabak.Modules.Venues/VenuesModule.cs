@@ -91,6 +91,7 @@ public static class VenuesModule
 
         // Lets other modules ask which venue a pitch belongs to, a venue's name and its staff, without reading Venues' tables
         services.AddScoped<IVenueDirectory, VenueDirectory>();
+        services.AddScoped<IVenuePaymentDirectory, VenuePaymentDirectory>();
 
         // Booking policies (versioned)
         services.AddScoped<IBookingPolicyProvider, BookingPolicyProvider>();
