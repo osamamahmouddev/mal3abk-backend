@@ -5,6 +5,8 @@ using Malabak.Modules.Venues.Domain;
 using Malabak.Modules.Venues.Infrastructure;
 using Malabak.SharedKernel;
 using Microsoft.Extensions.Logging;
+using Malabak.SharedKernel.Contracts;
+using Microsoft.EntityFrameworkCore;
 
 namespace Malabak.Modules.Venues.Application.Venues.CreateVenue;
 
@@ -12,17 +14,20 @@ public sealed class CreateVenueHandler : ICommandHandler<CreateVenueCommand, Res
 {
     private readonly IVenueRepository _venueRepository;
     private readonly VenuesDbContext _dbContext;
+    private readonly IEntitlementService _entitlements;
     private readonly IClock _clock;
     private readonly ILogger<CreateVenueHandler> _logger;
 
     public CreateVenueHandler(
         IVenueRepository venueRepository,
         VenuesDbContext dbContext,
+        IEntitlementService entitlements,
         IClock clock,
         ILogger<CreateVenueHandler> logger)
     {
         _venueRepository = venueRepository;
         _dbContext = dbContext;
+        _entitlements = entitlements;
         _clock = clock;
         _logger = logger;
     }
@@ -32,6 +37,14 @@ public sealed class CreateVenueHandler : ICommandHandler<CreateVenueCommand, Res
         CancellationToken cancellationToken = default)
     {
         var nowUtc = _clock.UtcNow;
+
+        // Plan limit on venues per owner, checked on the server (TASK-060).
+        var owned = await _dbContext.Venues.CountAsync(v => v.OwnerId == command.OwnerId && !v.IsDeleted, cancellationToken);
+        var allowed = await _entitlements.EnsureWithinLimitAsync(command.OwnerId, EntitlementResource.Venues, owned, cancellationToken);
+        if (allowed.IsFailure)
+        {
+            return Result.Failure<VenueDto>(allowed.Error);
+        }
 
         var baseSlug = GenerateSlug(command.Name);
         var finalSlug = baseSlug;

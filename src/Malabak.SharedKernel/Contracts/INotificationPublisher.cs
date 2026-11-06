@@ -38,4 +38,9 @@ public static class NotificationTypes
     public const string MatchResultConfirmed = "match.result_confirmed";
     public const string MatchResultDisputed = "match.result_disputed";
     public const string MatchDisputeResolved = "match.dispute_resolved";
+    public const string SubscriptionExpiring = "subscription.expiring";
+    public const string SubscriptionGraceStarted = "subscription.grace_started";
+    public const string SubscriptionExpired = "subscription.expired";
+    public const string SubscriptionPaymentRecorded = "subscription.payment_recorded";
+    public const string SubscriptionSuspended = "subscription.suspended";
 }

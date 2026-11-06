@@ -29,6 +29,7 @@ public static class DatabaseMigrator
         typeof(SecurityDbContext),
         typeof(AuditDbContext),
         typeof(Platform.PlatformDbContext),
+        typeof(Malabak.Modules.Subscriptions.Infrastructure.SubscriptionsDbContext),
     ];
 
     public static async Task MigrateAllAsync(IServiceProvider services, CancellationToken cancellationToken = default)

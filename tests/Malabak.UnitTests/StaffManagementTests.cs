@@ -175,7 +175,7 @@ public sealed class StaffManagementTests
             VenueStaffMember.Create(venue.Id, _inviteeId, VenueStaffRole.Manager, _ownerId, _clock.UtcNow),
             VenueStaffMember.Create(venue.Id, receptionistId, VenueStaffRole.Receptionist, _ownerId, _clock.UtcNow));
         await db.SaveChangesAsync();
-        var handler = new CreatePitchHandler(new VenueRepository(db), new PitchRepository(db), db, _clock, NullLogger<CreatePitchHandler>.Instance);
+        var handler = new CreatePitchHandler(new VenueRepository(db), new PitchRepository(db), db, new AllowAllEntitlements(), _clock, NullLogger<CreatePitchHandler>.Instance);
 
         CreatePitchCommand Cmd(Guid userId) => new(venue.Id, userId, "P", SurfaceType.ArtificialTurfValue, 5, null, null, null);
 

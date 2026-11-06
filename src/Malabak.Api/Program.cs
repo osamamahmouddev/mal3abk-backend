@@ -42,6 +42,7 @@ using Malabak.Modules.Venues.Infrastructure;
 using Malabak.SharedKernel;
 using Malabak.SharedKernel.Time;
 using Malabak.Modules.Audit;
+using Malabak.Modules.Subscriptions;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
@@ -242,6 +243,11 @@ builder.Services.AddDbContext<Malabak.Modules.Audit.Infrastructure.AuditDbContex
         npgsql.MigrationsHistoryTable("__EFMigrationsHistory", Malabak.Modules.Audit.Infrastructure.AuditDbContext.Schema)));
 builder.Services.AddScoped<Malabak.SharedKernel.Contracts.IAuditRequestContext, Malabak.Api.Infrastructure.Audit.HttpAuditRequestContext>();
 builder.Services.AddAuditModule();
+
+builder.Services.AddDbContext<Malabak.Modules.Subscriptions.Infrastructure.SubscriptionsDbContext>(options =>
+    options.UseNpgsql(postgresConnectionString, npgsql =>
+        npgsql.MigrationsHistoryTable("__EFMigrationsHistory", Malabak.Modules.Subscriptions.Infrastructure.SubscriptionsDbContext.Schema)));
+builder.Services.AddSubscriptionsModule();
 
 builder.Services.AddDbContext<Malabak.Api.Infrastructure.Platform.PlatformDbContext>(options =>
     options.UseNpgsql(postgresConnectionString, npgsql =>
@@ -462,6 +468,7 @@ app.MapVenueCustomerEndpoints(apiVersionSet);
 app.MapVenueReportEndpoints(apiVersionSet);
 app.MapAdminAuditEndpoints(apiVersionSet);
 app.MapPlatformEndpoints(apiVersionSet);
+app.MapSubscriptionEndpoints(apiVersionSet);
 app.MapPlayerVenueListEndpoints(apiVersionSet);
 app.MapPrivacyEndpoints(apiVersionSet);
 app.MapRealtimeEndpoints(apiVersionSet);

@@ -20,6 +20,7 @@ public static class DeepLinks
     public static string Match(string matchId) => $"malabak://match/{Uri.EscapeDataString(matchId)}";
     public static string Challenge(string challengeId) => $"malabak://challenge/{Uri.EscapeDataString(challengeId)}";
     public const string SecuritySettings = "malabak://settings/security";
+    public const string Billing = "malabak://venue-manager/billing";
 
     internal static string? From(IReadOnlyDictionary<string, string> data, string key, Func<string, string> build) =>
         data.TryGetValue(key, out var value) && !string.IsNullOrWhiteSpace(value) ? build(value) : null;
@@ -117,7 +118,27 @@ public static class NotificationCatalog
         [NotificationTypes.MatchDisputeResolved] = new(NotificationCategory.Teams,
             "تم الفصل في نتيجة المباراة المتنازع عليها", "تم الفصل في النزاع حول مباراتكم بواسطة إدارة المنصة: {decision}",
             "Match dispute resolved", "The dispute regarding your match has been resolved by platform administration: {decision}",
-            d => DeepLinks.From(d, "matchId", DeepLinks.Match))
+            d => DeepLinks.From(d, "matchId", DeepLinks.Match)),
+        [NotificationTypes.SubscriptionExpiring] = new(NotificationCategory.Payments,
+            "اشتراكك قرب يخلص", "اشتراك باقة {planName} بينتهي يوم {endDate}. جدّده عشان تقدر تضيف ملاعب وموظفين.",
+            "Your subscription ends soon", "Your {planName} subscription ends on {endDate}. Renew it to keep adding pitches and staff.",
+            _ => DeepLinks.Billing),
+        [NotificationTypes.SubscriptionGraceStarted] = new(NotificationCategory.Payments,
+            "فترة سماح للاشتراك", "اشتراكك خلص، وعندك فترة سماح لحد {graceEnd}. الحجوزات شغالة عادي.",
+            "Subscription grace period", "Your subscription ended; you have a grace period until {graceEnd}. Bookings keep working.",
+            _ => DeepLinks.Billing),
+        [NotificationTypes.SubscriptionExpired] = new(NotificationCategory.Payments,
+            "انتهى الاشتراك", "اشتراكك انتهى. الحجوزات الحالية شغالة، لكن مش هتقدر تضيف ملاعب أو موظفين لحد التجديد.",
+            "Subscription expired", "Your subscription expired. Existing bookings keep working, but you can't add pitches or staff until you renew.",
+            _ => DeepLinks.Billing),
+        [NotificationTypes.SubscriptionPaymentRecorded] = new(NotificationCategory.Payments,
+            "تم تسجيل الدفع", "اتسجل دفع {amount} لاشتراك {planName}، والاشتراك ساري لحد {endDate}. الفاتورة رقم {invoiceNumber}.",
+            "Payment recorded", "A payment of {amount} for {planName} was recorded; your subscription runs until {endDate}. Invoice {invoiceNumber}.",
+            _ => DeepLinks.Billing),
+        [NotificationTypes.SubscriptionSuspended] = new(NotificationCategory.Payments,
+            "تم إيقاف الاشتراك", "تم إيقاف اشتراكك: {reason}. تواصل مع الدعم.",
+            "Subscription suspended", "Your subscription was suspended: {reason}. Please contact support.",
+            _ => DeepLinks.Billing)
     };
 
     public static bool TryGet(string type, out NotificationTemplate template) => _templates.TryGetValue(type, out template!);

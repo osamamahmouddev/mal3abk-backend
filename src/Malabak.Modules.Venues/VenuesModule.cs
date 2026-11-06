@@ -100,7 +100,8 @@ public static class VenuesModule
         services.AddScoped<IQueryHandler<GetBookingPolicyPreviewQuery, Result<BookingPolicyPreviewDto>>, GetBookingPolicyPreviewHandler>();
 
         // Staff management & invitations
-        services.AddScoped<IStaffQuotaPolicy, DefaultStaffQuotaPolicy>();
+        services.AddScoped<IStaffQuotaPolicy, Application.Subscriptions.EntitlementStaffQuotaPolicy>();
+        services.AddScoped<IOwnerUsageReader, Application.Subscriptions.OwnerUsageReader>();
         services.AddScoped<StaffManagementHandlers>();
         services.AddScoped<ICommandHandler<InviteStaffCommand, Result<StaffInvitationDto>>>(sp => sp.GetRequiredService<StaffManagementHandlers>());
         services.AddScoped<ICommandHandler<ResendStaffInvitationCommand, Result>>(sp => sp.GetRequiredService<StaffManagementHandlers>());
