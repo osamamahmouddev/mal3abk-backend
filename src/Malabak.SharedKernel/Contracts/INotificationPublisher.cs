@@ -24,6 +24,9 @@ public static class NotificationTypes
     public const string BookingReminder2h = "booking.reminder_2h";
     public const string VenueApproved = "venue.approved";
     public const string VenueRejected = "venue.rejected";
+    public const string VenueSuspended = "venue.suspended";
+    public const string VenueReactivated = "venue.reactivated";
+    public const string VenueOwnershipReceived = "venue.ownership_received";
     public const string VenueInfoRequested = "venue.info_requested";
     public const string StaffInvitationAccepted = "staff.invitation_accepted";
     public const string NewDeviceSignIn = "security.new_device";

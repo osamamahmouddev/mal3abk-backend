@@ -18,7 +18,7 @@ public sealed class BookingUserActivityProvider : IUserActivityProvider
 
     public async Task<UserActivitySummary> GetAsync(Guid userId, int take, CancellationToken cancellationToken = default)
     {
-        var mine = _dbContext.Bookings.AsNoTracking().Where(b => b.PlayerId == userId && b.CustomerName == null);
+        var mine = _dbContext.Bookings.AsNoTracking().Where(b => b.PlayerId == userId && !b.IsManualBooking);
         var counts = await mine.GroupBy(b => b.Status).Select(g => new { Status = g.Key, Count = g.Count() }).ToListAsync(cancellationToken);
         var recent = await mine.OrderByDescending(b => b.StartUtc).Take(take)
             .Select(b => new { b.BookingReference, b.Status, b.StartUtc, b.Id })

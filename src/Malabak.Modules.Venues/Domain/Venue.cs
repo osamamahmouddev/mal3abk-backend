@@ -204,6 +204,90 @@ public sealed class Venue : Entity<Guid>
         return Result.Success(approvalEvent);
     }
 
+    public const int MaxAdminNoteLength = 2000;
+
+    /// <summary>Internal admin note (never shown to owners or players).</summary>
+    public string? AdminNote { get; private set; }
+
+    /// <summary>Whether the venue was published when suspended, so reactivation restores it as it was.</summary>
+    public bool PublishedBeforeSuspension { get; private set; }
+
+    /// <summary>Admin takes an approved venue down (complaints, fraud, unpaid subscription). Bookings already made stay.</summary>
+    public Result<VenueApprovalEvent> Suspend(Guid adminId, string reason, DateTime nowUtc)
+    {
+        if (ApprovalStatus != VenueApprovalStatus.Approved)
+        {
+            return Result.Failure<VenueApprovalEvent>(VenueApprovalErrors.InvalidTransition(ApprovalStatus, "suspend"));
+        }
+
+        if (string.IsNullOrWhiteSpace(reason))
+        {
+            return Result.Failure<VenueApprovalEvent>(VenueApprovalErrors.MessageRequired);
+        }
+
+        var published = IsPublished;
+        var result = Transition(VenueApprovalAction.Suspended, VenueApprovalStatus.Suspended, adminId, reason, nowUtc);
+        if (result.IsSuccess)
+        {
+            PublishedBeforeSuspension = published;
+        }
+
+        return result;
+    }
+
+    public Result<VenueApprovalEvent> Reactivate(Guid adminId, string reason, DateTime nowUtc)
+    {
+        if (ApprovalStatus != VenueApprovalStatus.Suspended)
+        {
+            return Result.Failure<VenueApprovalEvent>(VenueApprovalErrors.InvalidTransition(ApprovalStatus, "reactivate"));
+        }
+
+        if (string.IsNullOrWhiteSpace(reason))
+        {
+            return Result.Failure<VenueApprovalEvent>(VenueApprovalErrors.MessageRequired);
+        }
+
+        var result = Transition(VenueApprovalAction.Reactivated, VenueApprovalStatus.Approved, adminId, reason, nowUtc);
+        if (result.IsSuccess)
+        {
+            IsPublished = PublishedBeforeSuspension;
+            PublishedBeforeSuspension = false;
+        }
+
+        return result;
+    }
+
+    /// <summary>Admin moves the venue to another owner (sale, wrong account). Recorded in the approval history.</summary>
+    public Result<VenueApprovalEvent> TransferOwnership(Guid newOwnerId, Guid adminId, string reason, DateTime nowUtc)
+    {
+        if (newOwnerId == Guid.Empty || newOwnerId == OwnerId)
+        {
+            return Result.Failure<VenueApprovalEvent>(Error.Validation("Venue.InvalidOwner", "Choose a different owner."));
+        }
+
+        if (string.IsNullOrWhiteSpace(reason) || reason.Trim().Length > VenueApprovalEvent.MaxMessageLength)
+        {
+            return Result.Failure<VenueApprovalEvent>(VenueApprovalErrors.MessageRequired);
+        }
+
+        var approvalEvent = VenueApprovalEvent.Create(Id, VenueApprovalAction.OwnershipTransferred, ApprovalStatus, ApprovalStatus, adminId, reason, nowUtc);
+        OwnerId = newOwnerId;
+        UpdatedAtUtc = nowUtc;
+        return Result.Success(approvalEvent);
+    }
+
+    public void SetAdminNote(string? note, DateTime nowUtc)
+    {
+        var trimmed = string.IsNullOrWhiteSpace(note) ? null : note.Trim();
+        if (trimmed?.Length > MaxAdminNoteLength)
+        {
+            throw new ArgumentException("Admin note too long.", nameof(note));
+        }
+
+        AdminNote = trimmed;
+        UpdatedAtUtc = nowUtc;
+    }
+
     public void SetPublished(bool isPublished, DateTime nowUtc)
     {
         if (isPublished && !IsApproved)

@@ -7,7 +7,10 @@ public enum VenueApprovalStatus
     Submitted = 1,
     NeedsInfo = 2,
     Approved = 3,
-    Rejected = 4
+    Rejected = 4,
+
+    /// <summary>Taken down by an admin (TASK-702): hidden and not bookable until reactivated.</summary>
+    Suspended = 5
 }
 
 public enum VenueApprovalAction
@@ -15,7 +18,10 @@ public enum VenueApprovalAction
     Submitted = 0,
     Approved = 1,
     Rejected = 2,
-    InfoRequested = 3
+    InfoRequested = 3,
+    Suspended = 4,
+    Reactivated = 5,
+    OwnershipTransferred = 6
 }
 
 /// <summary>One step of the approval conversation (owner submissions and admin decisions, with their messages).</summary>

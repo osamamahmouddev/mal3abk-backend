@@ -43,23 +43,35 @@ public static class VenueApprovalEndpoints
         admin.MapGet("/pending-approval", async ([FromQuery] int? page, [FromQuery] int? pageSize,
             IQueryHandler<GetPendingVenueApprovalsQuery, Result<IReadOnlyList<PendingVenueApprovalDto>>> handler, CancellationToken ct) =>
             ToResult(await handler.HandleAsync(new GetPendingVenueApprovalsQuery(page ?? 1, pageSize ?? 20), ct)))
+        .Produces<IReadOnlyList<PendingVenueApprovalDto>>()
         .WithName("GetPendingVenueApprovals")
         .WithSummary("Venues waiting for an approval decision, oldest first");
+
+        // TASK-061 contract path; same queue as /pending-approval (kept for existing clients).
+        admin.MapGet("/approval-queue", async ([FromQuery] int? page, [FromQuery] int? pageSize,
+            IQueryHandler<GetPendingVenueApprovalsQuery, Result<IReadOnlyList<PendingVenueApprovalDto>>> handler, CancellationToken ct) =>
+            ToResult(await handler.HandleAsync(new GetPendingVenueApprovalsQuery(page ?? 1, pageSize ?? 20), ct)))
+        .Produces<IReadOnlyList<PendingVenueApprovalDto>>()
+        .WithName("GetVenueApprovalQueue")
+        .WithSummary("Venue approval queue, oldest submission first (approval status is separate from the owner's published status)");
 
         admin.MapPost("/{venueId:guid}/approve", (Guid venueId, ClaimsPrincipal user, [FromBody] ApprovalMessageApiRequest? request,
             ICommandHandler<DecideVenueApprovalCommand, Result<VenueApprovalDto>> handler, CancellationToken ct) =>
             DecideAsync(handler, venueId, user, VenueApprovalDecision.Approve, request?.Message, ct))
+        .Produces<VenueApprovalDto>()
         .WithName("ApproveVenue");
 
         admin.MapPost("/{venueId:guid}/reject", (Guid venueId, ClaimsPrincipal user, [FromBody] ApprovalMessageApiRequest request,
             ICommandHandler<DecideVenueApprovalCommand, Result<VenueApprovalDto>> handler, CancellationToken ct) =>
             DecideAsync(handler, venueId, user, VenueApprovalDecision.Reject, request.Message, ct))
+        .Produces<VenueApprovalDto>()
         .WithName("RejectVenue")
         .WithSummary("Reject a submitted venue (reason required)");
 
         admin.MapPost("/{venueId:guid}/request-info", (Guid venueId, ClaimsPrincipal user, [FromBody] ApprovalMessageApiRequest request,
             ICommandHandler<DecideVenueApprovalCommand, Result<VenueApprovalDto>> handler, CancellationToken ct) =>
             DecideAsync(handler, venueId, user, VenueApprovalDecision.RequestInfo, request.Message, ct))
+        .Produces<VenueApprovalDto>()
         .WithName("RequestVenueInfo")
         .WithSummary("Ask the owner for more information (message required)");
     }

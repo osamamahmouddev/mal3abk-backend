@@ -35,6 +35,8 @@ public static class BookingModule
         // Cross-module contracts
         services.AddScoped<IUpcomingBookingsReader, UpcomingBookingsReader>();
         services.AddScoped<Malabak.SharedKernel.Contracts.IUserActivityProvider, Application.Admin.BookingUserActivityProvider>();
+        services.AddScoped<Malabak.SharedKernel.Contracts.IVenueBookingStatsReader, Application.Admin.VenueBookingStatsReader>();
+        services.AddScoped<Application.Admin.AdminBookingService>();
         services.AddScoped<IPersonalDataContributor, BookingPersonalData>();
 
         // Handlers

@@ -513,6 +513,10 @@ namespace Malabak.Modules.Venues.Infrastructure.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)");
 
+                    b.Property<string>("AdminNote")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
                     b.Property<string>("ApprovalStatus")
                         .IsRequired()
                         .ValueGeneratedOnAdd()
@@ -581,6 +585,11 @@ namespace Malabak.Modules.Venues.Infrastructure.Migrations
                     b.Property<string>("Photos")
                         .IsRequired()
                         .HasColumnType("text");
+
+                    b.Property<bool>("PublishedBeforeSuspension")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false);
 
                     b.Property<uint>("RowVersion")
                         .IsConcurrencyToken()
