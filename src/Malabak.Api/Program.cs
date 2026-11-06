@@ -43,6 +43,7 @@ using Malabak.SharedKernel;
 using Malabak.SharedKernel.Time;
 using Malabak.Modules.Audit;
 using Malabak.Modules.Subscriptions;
+using Malabak.Modules.Support;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
@@ -248,6 +249,11 @@ builder.Services.AddDbContext<Malabak.Modules.Subscriptions.Infrastructure.Subsc
     options.UseNpgsql(postgresConnectionString, npgsql =>
         npgsql.MigrationsHistoryTable("__EFMigrationsHistory", Malabak.Modules.Subscriptions.Infrastructure.SubscriptionsDbContext.Schema)));
 builder.Services.AddSubscriptionsModule();
+
+builder.Services.AddDbContext<Malabak.Modules.Support.Infrastructure.SupportDbContext>(options =>
+    options.UseNpgsql(postgresConnectionString, npgsql =>
+        npgsql.MigrationsHistoryTable("__EFMigrationsHistory", Malabak.Modules.Support.Infrastructure.SupportDbContext.Schema)));
+builder.Services.AddSupportModule();
 
 builder.Services.AddDbContext<Malabak.Api.Infrastructure.Platform.PlatformDbContext>(options =>
     options.UseNpgsql(postgresConnectionString, npgsql =>
@@ -469,6 +475,7 @@ app.MapVenueReportEndpoints(apiVersionSet);
 app.MapAdminAuditEndpoints(apiVersionSet);
 app.MapAdminUserEndpoints(apiVersionSet);
 app.MapAdminVenueBookingEndpoints(apiVersionSet);
+app.MapSupportEndpoints(apiVersionSet);
 app.MapPlatformEndpoints(apiVersionSet);
 app.MapSubscriptionEndpoints(apiVersionSet);
 app.MapPlayerVenueListEndpoints(apiVersionSet);

@@ -21,6 +21,7 @@ public static class DeepLinks
     public static string Challenge(string challengeId) => $"malabak://challenge/{Uri.EscapeDataString(challengeId)}";
     public const string SecuritySettings = "malabak://settings/security";
     public const string Billing = "malabak://venue-manager/billing";
+    public static string SupportTicket(string ticketId) => $"malabak://support/tickets/{Uri.EscapeDataString(ticketId)}";
 
     internal static string? From(IReadOnlyDictionary<string, string> data, string key, Func<string, string> build) =>
         data.TryGetValue(key, out var value) && !string.IsNullOrWhiteSpace(value) ? build(value) : null;
@@ -147,6 +148,23 @@ public static class NotificationCatalog
             "تم تسجيل الدفع", "اتسجل دفع {amount} لاشتراك {planName}، والاشتراك ساري لحد {endDate}. الفاتورة رقم {invoiceNumber}.",
             "Payment recorded", "A payment of {amount} for {planName} was recorded; your subscription runs until {endDate}. Invoice {invoiceNumber}.",
             _ => DeepLinks.Billing),
+        // Support conversations are transactional (the person asked for help), so they use the always-on category.
+        [NotificationTypes.SupportTicketReplied] = new(NotificationCategory.Security,
+            "رد جديد من الدعم", "رد فريق الدعم على تذكرتك {ticketNumber}.",
+            "New reply from support", "Support replied to your ticket {ticketNumber}.",
+            d => DeepLinks.From(d, "ticketId", DeepLinks.SupportTicket)),
+        [NotificationTypes.SupportTicketResolved] = new(NotificationCategory.Security,
+            "تم حل تذكرتك", "تم حل تذكرتك {ticketNumber}: {reason}",
+            "Ticket resolved", "Your ticket {ticketNumber} was resolved: {reason}",
+            d => DeepLinks.From(d, "ticketId", DeepLinks.SupportTicket)),
+        [NotificationTypes.PaymentDisputeOpened] = new(NotificationCategory.Payments,
+            "تم فتح نزاع على الدفع", "تم فتح نزاع على دفع الحجز {bookingReference} وسيتم مراجعته من فريق ملعبك.",
+            "Payment dispute opened", "A payment dispute was opened for booking {bookingReference}; the Malabak team will review it.",
+            d => DeepLinks.From(d, "bookingId", DeepLinks.Booking)),
+        [NotificationTypes.PaymentDisputeResolved] = new(NotificationCategory.Payments,
+            "تم الفصل في النزاع", "تم الفصل في نزاع الحجز {bookingReference}: {outcome}",
+            "Payment dispute resolved", "The dispute on booking {bookingReference} was resolved: {outcome}",
+            d => DeepLinks.From(d, "bookingId", DeepLinks.Booking)),
         [NotificationTypes.SubscriptionSuspended] = new(NotificationCategory.Payments,
             "تم إيقاف الاشتراك", "تم إيقاف اشتراكك: {reason}. تواصل مع الدعم.",
             "Subscription suspended", "Your subscription was suspended: {reason}. Please contact support.",

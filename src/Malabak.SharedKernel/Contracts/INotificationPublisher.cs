@@ -46,4 +46,8 @@ public static class NotificationTypes
     public const string SubscriptionExpired = "subscription.expired";
     public const string SubscriptionPaymentRecorded = "subscription.payment_recorded";
     public const string SubscriptionSuspended = "subscription.suspended";
+    public const string SupportTicketReplied = "support.ticket_replied";
+    public const string SupportTicketResolved = "support.ticket_resolved";
+    public const string PaymentDisputeOpened = "dispute.opened";
+    public const string PaymentDisputeResolved = "dispute.resolved";
 }
