@@ -83,7 +83,10 @@ public sealed class VerifyOtpHandler : ICommandHandler<VerifyOtpCommand, Result<
 
         // 3. User Lookup or Auto-Registration for Players
         var nowUtc = _clock.UtcNow;
+        // The soft-delete filter would hide an account in its deletion grace period, and re-registering its
+        // number would then violate the unique index, so deleted accounts are looked up too.
         var user = await _dbContext.Users
+            .IgnoreQueryFilters()
             .FirstOrDefaultAsync(u => u.PhoneNumber == normalizedPhone, cancellationToken);
 
         // ADR-0007: during the 30-day grace period the owner of the number (proven by this OTP) may cancel the

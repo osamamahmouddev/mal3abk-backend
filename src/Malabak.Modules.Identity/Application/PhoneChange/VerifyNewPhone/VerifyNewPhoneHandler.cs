@@ -98,8 +98,10 @@ public sealed class VerifyNewPhoneHandler : ICommandHandler<VerifyNewPhoneComman
         // Atomic transaction: Update user phone, rotate security stamp, revoke active refresh tokens, complete request
         await using (var transaction = await _dbContext.Database.BeginTransactionAsync(cancellationToken))
         {
-            // Re-verify new phone is still not taken by another user
+            // Re-verify new phone is still not taken by another user. Accounts in their deletion grace period
+            // still own their number, so they are included.
             var isTaken = await _dbContext.Users
+                .IgnoreQueryFilters()
                 .AnyAsync(u => u.PhoneNumber == request.NewPhoneNumber && u.Id != user.Id, cancellationToken);
 
             if (isTaken)
