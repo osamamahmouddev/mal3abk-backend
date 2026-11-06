@@ -226,6 +226,116 @@ namespace Malabak.Modules.Booking.Migrations
                     b.ToTable("booking_status_histories", "booking");
                 });
 
+            modelBuilder.Entity("Malabak.Modules.Booking.Domain.DisputeEvidence", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("AuthorId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("DisputeId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<Guid?>("ProofId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Side")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DisputeId", "CreatedAtUtc");
+
+                    b.ToTable("dispute_evidence", "booking");
+                });
+
+            modelBuilder.Entity("Malabak.Modules.Booking.Domain.PaymentDispute", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("BookingId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("DeletedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("OpenedBy")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)");
+
+                    b.Property<Guid?>("OpenedByUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Outcome")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<Guid>("PlayerId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<string>("ResolutionNote")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<DateTime?>("ResolvedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("ReviewerId")
+                        .HasColumnType("uuid");
+
+                    b.Property<uint>("RowVersion")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(15)
+                        .HasColumnType("character varying(15)");
+
+                    b.Property<DateTime?>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("VenueId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BookingId")
+                        .IsUnique()
+                        .HasFilter("\"Status\" <> 'Resolved'");
+
+                    b.HasIndex("VenueId");
+
+                    b.HasIndex("Status", "CreatedAtUtc");
+
+                    b.ToTable("payment_disputes", "booking");
+                });
+
             modelBuilder.Entity("Malabak.Modules.Booking.Domain.PaymentProof", b =>
                 {
                     b.Property<Guid>("Id")
@@ -560,6 +670,15 @@ namespace Malabak.Modules.Booking.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("Malabak.Modules.Booking.Domain.DisputeEvidence", b =>
+                {
+                    b.HasOne("Malabak.Modules.Booking.Domain.PaymentDispute", null)
+                        .WithMany("Evidence")
+                        .HasForeignKey("DisputeId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("Malabak.Modules.Booking.Domain.PaymentProof", b =>
                 {
                     b.HasOne("Malabak.Modules.Booking.Domain.Booking", null)
@@ -576,6 +695,11 @@ namespace Malabak.Modules.Booking.Migrations
                     b.Navigation("Proofs");
 
                     b.Navigation("Refunds");
+                });
+
+            modelBuilder.Entity("Malabak.Modules.Booking.Domain.PaymentDispute", b =>
+                {
+                    b.Navigation("Evidence");
                 });
 #pragma warning restore 612, 618
         }
