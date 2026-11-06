@@ -41,6 +41,7 @@ using Malabak.Modules.Venues.Application.Common;
 using Malabak.Modules.Venues.Infrastructure;
 using Malabak.SharedKernel;
 using Malabak.SharedKernel.Time;
+using Malabak.Modules.Audit;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
@@ -235,6 +236,12 @@ builder.Services.AddScoped<Malabak.SharedKernel.Contracts.IPersonalDataContribut
 builder.Services.AddDbContext<NotificationsDbContext>(options =>
     options.UseNpgsql(postgresConnectionString, npgsql =>
         npgsql.MigrationsHistoryTable("__EFMigrationsHistory", NotificationsDbContext.Schema)));
+
+builder.Services.AddDbContext<Malabak.Modules.Audit.Infrastructure.AuditDbContext>(options =>
+    options.UseNpgsql(postgresConnectionString, npgsql =>
+        npgsql.MigrationsHistoryTable("__EFMigrationsHistory", Malabak.Modules.Audit.Infrastructure.AuditDbContext.Schema)));
+builder.Services.AddScoped<Malabak.SharedKernel.Contracts.IAuditRequestContext, Malabak.Api.Infrastructure.Audit.HttpAuditRequestContext>();
+builder.Services.AddAuditModule();
 
 // 12. Field-level encryption, blind indexes and the persisted Data Protection key ring
 builder.Services.AddFieldEncryption(builder.Configuration, builder.Environment, postgresConnectionString);
@@ -445,6 +452,7 @@ app.MapPublicVenueEndpoints(apiVersionSet);
 app.MapBookingQuoteEndpoints(apiVersionSet);
 app.MapVenueCustomerEndpoints(apiVersionSet);
 app.MapVenueReportEndpoints(apiVersionSet);
+app.MapAdminAuditEndpoints(apiVersionSet);
 app.MapPlayerVenueListEndpoints(apiVersionSet);
 app.MapPrivacyEndpoints(apiVersionSet);
 app.MapRealtimeEndpoints(apiVersionSet);

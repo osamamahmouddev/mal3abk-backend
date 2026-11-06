@@ -1,16 +1,16 @@
-using System.Text.Json;
 using Malabak.Modules.Venues.Application.Common;
-using Microsoft.Extensions.Logging;
+using Malabak.SharedKernel.Contracts;
 
 namespace Malabak.Modules.Venues.Infrastructure.Services;
 
+/// <summary>Venues-module audit adapter: forwards to the platform's append-only audit trail (TASK-062).</summary>
 public sealed class LoggingVenueAuditLogger : IVenueAuditLogger
 {
-    private readonly ILogger<LoggingVenueAuditLogger> _logger;
+    private readonly IAuditLog _audit;
 
-    public LoggingVenueAuditLogger(ILogger<LoggingVenueAuditLogger> logger)
+    public LoggingVenueAuditLogger(IAuditLog audit)
     {
-        _logger = logger;
+        _audit = audit;
     }
 
     public Task LogAsync(
@@ -19,17 +19,6 @@ public sealed class LoggingVenueAuditLogger : IVenueAuditLogger
         Guid entityId,
         Guid userId,
         object? metadata = null,
-        CancellationToken cancellationToken = default)
-    {
-        var metaJson = metadata != null ? JsonSerializer.Serialize(metadata) : null;
-        _logger.LogInformation(
-            "AUDIT: [{Action}] Entity: {EntityName}({EntityId}) By User: {UserId}. Metadata: {Metadata}",
-            action,
-            entityName,
-            entityId,
-            userId,
-            metaJson);
-
-        return Task.CompletedTask;
-    }
+        CancellationToken cancellationToken = default) =>
+        _audit.RecordAsync(new AuditEntry(action, entityName, entityId.ToString("D"), userId, AuditActorType.User, After: metadata), cancellationToken);
 }
