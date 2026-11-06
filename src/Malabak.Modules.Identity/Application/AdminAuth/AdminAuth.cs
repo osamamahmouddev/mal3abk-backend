@@ -134,6 +134,11 @@ public sealed class AdminAuthHandlers :
             return await FailAsync(user, nowUtc, PasswordAuthErrors.InvalidCredentials, cancellationToken);
         }
 
+        if (user.IsSuspended)
+        {
+            return Result.Failure<AdminLoginResponse>(PasswordAuthErrors.AccountSuspended);
+        }
+
         // Correct password but no TOTP yet: only a short enrollment ticket, never a session.
         if (!user.TwoFactorEnabled)
         {
@@ -228,7 +233,7 @@ public sealed class AdminAuthHandlers :
         }
 
         var user = await _dbContext.Users.FirstOrDefaultAsync(u => u.Id == token.UserId && !u.IsDeleted, cancellationToken);
-        if (token.IsExpired(nowUtc) || user is null || !user.Roles.Any(AdminRoles.Contains) || !user.TwoFactorEnabled
+        if (token.IsExpired(nowUtc) || user is null || user.IsSuspended || !user.Roles.Any(AdminRoles.Contains) || !user.TwoFactorEnabled
             || !await _sessions.TouchAsync(token.FamilyId, cancellationToken))
         {
             token.Revoke("admin_session_ended", nowUtc);

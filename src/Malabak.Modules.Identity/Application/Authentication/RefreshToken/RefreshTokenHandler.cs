@@ -100,7 +100,7 @@ public sealed class RefreshTokenHandler : ICommandHandler<RefreshTokenCommand, R
             .FirstOrDefaultAsync(u => u.Id == token.UserId, cancellationToken);
 
         // A revoked device session can no longer be refreshed, even with an unrevoked token.
-        if (user is null || (_sessions is not null && !await _sessions.TouchAsync(token.FamilyId, cancellationToken)))
+        if (user is null || user.IsSuspended || (_sessions is not null && !await _sessions.TouchAsync(token.FamilyId, cancellationToken)))
         {
             return Result.Failure<RefreshTokenResponse>(new Error(
                 "Identity.UserNotFound",

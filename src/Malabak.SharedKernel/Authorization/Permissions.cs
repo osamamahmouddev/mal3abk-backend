@@ -33,7 +33,9 @@ public static class Permissions
     public const string StaffManage = "venue.staff.manage";
 
     // Platform administration
+    public const string AdminUsersView = "admin.users.view";
     public const string AdminUsersManage = "admin.users.manage";
+    public const string AdminAccountsManage = "admin.accounts.manage";
     public const string AdminVenuesApprove = "admin.venues.approve";
     public const string AdminBookingsView = "admin.bookings.view";
     public const string AdminDisputesResolve = "admin.disputes.resolve";
@@ -68,7 +70,9 @@ public static class Permissions
         BookingsCreate,
         TeamsParticipate,
         VenuesManage,
+        AdminUsersView,
         AdminUsersManage,
+        AdminAccountsManage,
         AdminVenuesApprove,
         AdminBookingsView,
         AdminDisputesResolve,

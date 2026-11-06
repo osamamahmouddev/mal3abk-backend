@@ -93,7 +93,7 @@ public static class AdminAuthEndpoints
         {
             "Identity.LoginThrottled" => StatusCodes.Status429TooManyRequests,
             "Identity.SessionNotFound" => StatusCodes.Status404NotFound,
-            "Identity.CaptchaRequired" or "Identity.TwoFactorRequired" => StatusCodes.Status403Forbidden,
+            "Identity.CaptchaRequired" or "Identity.TwoFactorRequired" or "Identity.AccountSuspended" => StatusCodes.Status403Forbidden,
             "Identity.InvalidCredentials" or "Identity.InvalidTotpCode" or "Identity.InvalidRefreshToken" => StatusCodes.Status401Unauthorized,
             _ => StatusCodes.Status400BadRequest
         };

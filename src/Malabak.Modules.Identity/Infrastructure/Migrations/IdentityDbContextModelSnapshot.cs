@@ -370,6 +370,13 @@ namespace Malabak.Modules.Identity.Infrastructure.Migrations
                         .HasMaxLength(20)
                         .HasColumnType("character varying(20)");
 
+                    b.Property<DateTime?>("SuspendedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("SuspensionReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
                     b.Property<byte[]>("TotpSecretCiphertext")
                         .HasColumnType("bytea");
 
@@ -391,6 +398,8 @@ namespace Malabak.Modules.Identity.Infrastructure.Migrations
 
                     b.HasIndex("PhoneNumber")
                         .IsUnique();
+
+                    b.HasIndex("SuspendedAtUtc");
 
                     b.ToTable("users", "identity");
                 });

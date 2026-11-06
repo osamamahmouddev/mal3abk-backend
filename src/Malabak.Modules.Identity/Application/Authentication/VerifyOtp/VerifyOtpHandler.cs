@@ -105,6 +105,12 @@ public sealed class VerifyOtpHandler : ICommandHandler<VerifyOtpCommand, Result<
             _logger.LogInformation("AUDIT: account {UserId} restored during the deletion grace period", user.Id);
         }
 
+        if (user is { IsSuspended: true })
+        {
+            _logger.LogWarning("Sign-in refused for suspended account {UserId}", user.Id);
+            return Result.Failure<VerifyOtpResponse>(new Error("Identity.AccountSuspended", "This account is suspended. Contact support."));
+        }
+
         var isNewUser = false;
         if (user is null)
         {

@@ -16,7 +16,7 @@ public sealed class UserPermissionService : IUserPermissionService
     {
         var user = await _dbContext.Users
             .AsNoTracking()
-            .Where(u => u.Id == userId && !u.IsDeleted)
+            .Where(u => u.Id == userId && !u.IsDeleted && u.SuspendedAtUtc == null)
             .Select(u => new { u.Id, u.Roles })
             .FirstOrDefaultAsync(cancellationToken);
 
