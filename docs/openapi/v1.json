@@ -2131,7 +2131,7 @@
         "tags": [
           "Bookings"
         ],
-        "summary": "Where the player sends this booking's deposit, while it can still be paid (account details revealed and audited)",
+        "summary": "Where the player sends this booking\u0027s deposit, while it can still be paid (account details revealed and audited)",
         "operationId": "GetBookingPaymentMethods",
         "parameters": [
           {
@@ -21565,6 +21565,35 @@
         },
         "additionalProperties": false
       },
+      "BookingPaymentMethodDto": {
+        "required": [
+          "accountDetails",
+          "id",
+          "methodType",
+          "recipientName"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "methodType": {
+            "type": "string"
+          },
+          "recipientName": {
+            "type": "string"
+          },
+          "accountDetails": {
+            "type": "string"
+          },
+          "instructions": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
       "BookingPolicyApiRequest": {
         "required": [
           "allowReschedule",
@@ -22077,35 +22106,6 @@
         "type": "object",
         "properties": {
           "reason": {
-            "type": "string",
-            "nullable": true
-          }
-        },
-        "additionalProperties": false
-      },
-      "BookingPaymentMethodDto": {
-        "required": [
-          "accountDetails",
-          "id",
-          "methodType",
-          "recipientName"
-        ],
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "methodType": {
-            "type": "string"
-          },
-          "recipientName": {
-            "type": "string"
-          },
-          "accountDetails": {
-            "type": "string"
-          },
-          "instructions": {
             "type": "string",
             "nullable": true
           }

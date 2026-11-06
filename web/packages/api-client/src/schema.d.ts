@@ -3686,6 +3686,14 @@ export interface components {
             /** Format: date-time */
             createdAtUtc: string;
         };
+        BookingPaymentMethodDto: {
+            /** Format: uuid */
+            id: string;
+            methodType: string;
+            recipientName: string;
+            accountDetails: string;
+            instructions?: string | null;
+        };
         BookingPolicyApiRequest: {
             depositType: components["schemas"]["DepositType"];
             /** Format: double */
@@ -3860,14 +3868,6 @@ export interface components {
         };
         CancelMatchRequest: {
             reason?: string | null;
-        };
-        BookingPaymentMethodDto: {
-            /** Format: uuid */
-            id: string;
-            methodType: string;
-            recipientName: string;
-            accountDetails: string;
-            instructions?: string | null;
         };
         CancelPreviewResponse: {
             canCancel: boolean;
