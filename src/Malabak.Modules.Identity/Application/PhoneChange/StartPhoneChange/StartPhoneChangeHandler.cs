@@ -95,8 +95,10 @@ public sealed class StartPhoneChangeHandler : ICommandHandler<StartPhoneChangeCo
                 $"Phone number can only be changed once every 7 days. Next change allowed on: {nextAllowedDate:yyyy-MM-dd HH:mm:ss} UTC."));
         }
 
-        // 5. Ensure new phone is not already in use by another user
+        // 5. Ensure new phone is not already in use by another user, including accounts in their deletion grace
+        // period, which still own their number.
         var isTaken = await _dbContext.Users
+            .IgnoreQueryFilters()
             .AnyAsync(u => u.PhoneNumber == normalizedNewPhone && u.Id != user.Id, cancellationToken);
 
         if (isTaken)

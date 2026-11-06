@@ -100,7 +100,8 @@ public sealed class PasswordAccountHandlers :
             return Result.Failure(PasswordAuthErrors.WeakPassword(violations));
         }
 
-        if (await _dbContext.Users.AnyAsync(u => u.Email == email || u.PhoneNumber == phone.Value, cancellationToken))
+        // Accounts in their deletion grace period still hold their email and number.
+        if (await _dbContext.Users.IgnoreQueryFilters().AnyAsync(u => u.Email == email || u.PhoneNumber == phone.Value, cancellationToken))
         {
             return Result.Failure(PasswordAuthErrors.RegistrationFailed);
         }
