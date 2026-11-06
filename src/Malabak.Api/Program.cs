@@ -12,6 +12,7 @@ using Malabak.Api.Infrastructure.Idempotency;
 using Malabak.Api.Infrastructure.Localization;
 using Malabak.Api.Infrastructure.Logging;
 using Malabak.Api.Infrastructure.Media;
+using Malabak.Api.Infrastructure.Persistence;
 using Malabak.Api.Infrastructure.OpenApi;
 using Malabak.Api.Infrastructure.OpenTelemetry;
 using Malabak.Api.Infrastructure.Outbox;
@@ -267,13 +268,7 @@ var app = builder.Build();
 if (args.Contains("--migrate"))
 {
     using var scope = app.Services.CreateScope();
-    await scope.ServiceProvider.GetRequiredService<IdentityDbContext>().Database.MigrateAsync();
-    await scope.ServiceProvider.GetRequiredService<VenuesDbContext>().Database.MigrateAsync();
-    await scope.ServiceProvider.GetRequiredService<BookingDbContext>().Database.MigrateAsync();
-    await scope.ServiceProvider.GetRequiredService<TeamsDbContext>().Database.MigrateAsync();
-    await scope.ServiceProvider.GetRequiredService<MediaDbContext>().Database.MigrateAsync();
-    await scope.ServiceProvider.GetRequiredService<NotificationsDbContext>().Database.MigrateAsync();
-    await scope.ServiceProvider.GetRequiredService<SecurityDbContext>().Database.MigrateAsync();
+    await DatabaseMigrator.MigrateAllAsync(scope.ServiceProvider);
     return;
 }
 
@@ -281,13 +276,7 @@ if (args.Contains("--migrate"))
 if (app.Configuration.GetValue<bool>("Database:MigrateOnStartup"))
 {
     using var scope = app.Services.CreateScope();
-    await scope.ServiceProvider.GetRequiredService<IdentityDbContext>().Database.MigrateAsync();
-    await scope.ServiceProvider.GetRequiredService<VenuesDbContext>().Database.MigrateAsync();
-    await scope.ServiceProvider.GetRequiredService<BookingDbContext>().Database.MigrateAsync();
-    await scope.ServiceProvider.GetRequiredService<TeamsDbContext>().Database.MigrateAsync();
-    await scope.ServiceProvider.GetRequiredService<MediaDbContext>().Database.MigrateAsync();
-    await scope.ServiceProvider.GetRequiredService<NotificationsDbContext>().Database.MigrateAsync();
-    await scope.ServiceProvider.GetRequiredService<SecurityDbContext>().Database.MigrateAsync();
+    await DatabaseMigrator.MigrateAllAsync(scope.ServiceProvider);
 }
 
 // CLI Data Seeding Commands
