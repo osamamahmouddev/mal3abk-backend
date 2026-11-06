@@ -1,3 +1,4 @@
+using Malabak.Api.Infrastructure.Audit;
 using System.Security.Claims;
 using Asp.Versioning.Builder;
 using Malabak.Api.Infrastructure.Authorization;
@@ -378,6 +379,7 @@ public static class TeamEndpoints
             return ToResult(result);
         })
         .RequireAuthorization(Permissions.AdminDisputesResolve)
+        .Audited("admin.fair_play_report.reviewed", "TeamFairPlayReport")
         .WithName("ReviewFairPlayReport")
         .WithSummary("Admin review fair-play report (approve with penalty or dismiss) (Admin only)");
 
@@ -420,6 +422,7 @@ public static class TeamEndpoints
             return ToResult(result);
         })
         .RequireAuthorization(Permissions.AdminDisputesResolve)
+        .Audited("admin.fair_play_appeal.resolved", "TeamFairPlayReport")
         .WithName("ResolveFairPlayAppeal")
         .WithSummary("Admin resolve a fair-play report appeal (uphold or overturn) (Admin only)");
 

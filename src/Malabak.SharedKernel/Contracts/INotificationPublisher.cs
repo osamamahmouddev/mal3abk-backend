@@ -41,6 +41,9 @@ public static class NotificationTypes
     public const string MatchResultConfirmed = "match.result_confirmed";
     public const string MatchResultDisputed = "match.result_disputed";
     public const string MatchDisputeResolved = "match.dispute_resolved";
+    public const string TeamSuspended = "team.suspended";
+    public const string TeamReactivated = "team.reactivated";
+    public const string MatchResultCorrected = "match.result_corrected";
     public const string SubscriptionExpiring = "subscription.expiring";
     public const string SubscriptionGraceStarted = "subscription.grace_started";
     public const string SubscriptionExpired = "subscription.expired";

@@ -26,6 +26,7 @@ public static class MatchesModule
     {
         // Commands - Challenges
         services.AddScoped<ICommandHandler<SendChallengeCommand, Result<TeamChallengeDto>>, SendChallengeHandler>();
+        services.AddScoped<Application.Admin.AdminMatchModerationService>();
         services.AddScoped<ICommandHandler<RespondToChallengeCommand, Result<TeamChallengeDto>>, RespondToChallengeHandler>();
         services.AddScoped<ICommandHandler<LinkChallengeBookingCommand, Result<TeamChallengeDto>>, LinkChallengeBookingHandler>();
 

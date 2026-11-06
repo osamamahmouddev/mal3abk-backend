@@ -477,6 +477,7 @@ app.MapAdminUserEndpoints(apiVersionSet);
 app.MapAdminVenueBookingEndpoints(apiVersionSet);
 app.MapSupportEndpoints(apiVersionSet);
 app.MapDisputeEndpoints(apiVersionSet);
+app.MapAdminModerationEndpoints(apiVersionSet);
 app.MapPlatformEndpoints(apiVersionSet);
 app.MapSubscriptionEndpoints(apiVersionSet);
 app.MapPlayerVenueListEndpoints(apiVersionSet);

@@ -21,7 +21,9 @@ public sealed class TeamCaptaincyChecker : ITeamCaptaincyChecker
             .AnyAsync(m => m.TeamId == teamId
                         && m.PlayerId == playerId
                         && m.IsActive
-                        && (m.Role == TeamRole.Captain || m.Role == TeamRole.ViceCaptain),
+                        && (m.Role == TeamRole.Captain || m.Role == TeamRole.ViceCaptain)
+                        // A suspended team (TASK-705) cannot act through its captains: no challenges, results or bookings.
+                        && _dbContext.Teams.Any(t => t.Id == teamId && t.SuspendedAtUtc == null),
                 cancellationToken);
     }
 
@@ -48,7 +50,7 @@ public sealed class TeamCaptaincyChecker : ITeamCaptaincyChecker
         return await _dbContext.Teams
             .AsNoTracking()
             .Where(t => t.Id == teamId)
-            .Select(t => t.IsPublic && t.IsOpenForChallenges)
+            .Select(t => t.IsPublic && t.IsOpenForChallenges && t.SuspendedAtUtc == null)
             .FirstOrDefaultAsync(cancellationToken);
     }
 }

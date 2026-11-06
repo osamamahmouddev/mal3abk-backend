@@ -68,6 +68,9 @@ public sealed class TeamConfiguration : IEntityTypeConfiguration<Team>
             .HasDefaultValue(true)
             .IsRequired();
 
+        builder.Ignore(t => t.IsSuspended);
+        builder.Property(t => t.SuspensionReason).HasMaxLength(Team.MaxSuspensionReasonLength);
+
         builder.Property(t => t.Rating)
             .HasDefaultValue(1500.0)
             .IsRequired();

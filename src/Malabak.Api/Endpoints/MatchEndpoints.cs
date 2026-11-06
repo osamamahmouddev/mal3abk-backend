@@ -1,3 +1,4 @@
+using Malabak.Api.Infrastructure.Audit;
 using System.Security.Claims;
 using Asp.Versioning.Builder;
 using FluentValidation;
@@ -213,6 +214,7 @@ public static class MatchEndpoints
             return Results.Ok(new { MatchesReplayed = matchCount, Message = "Rankings recalculation completed successfully." });
         })
         .RequireAuthorization(Permissions.AdminDisputesResolve)
+        .Audited("admin.rankings.recalculated", "Ranking", "version")
         .WithName("RecalculateTeamRankings")
         .WithSummary("Trigger on-demand team ranking recalculation across all confirmed matches (Admin only)");
 
@@ -244,6 +246,7 @@ public static class MatchEndpoints
             return ToResult(result);
         })
         .RequireAuthorization(Permissions.AdminDisputesResolve)
+        .Audited("admin.match_dispute.resolved", "Match")
         .WithName("ResolveMatchDispute")
         .WithSummary("Resolve a disputed match result with official score or cancellation (Admin only)");
 
