@@ -15,6 +15,29 @@ namespace Malabak.Api.Infrastructure.Seeding;
 
 public sealed class DemoDataSeeder : IDataSeeder
 {
+    private const string _legacyDemoPhotoHost = "https://assets.malabak.app/demo/";
+
+    private static readonly string[] _venuePhotos =
+    [
+        DemoPhoto("1431324155629-1a6deb1dec8d"),
+        DemoPhoto("1556056504-5c7696c4c28d"),
+        DemoPhoto("1551958219-acbc608c6377"),
+        DemoPhoto("1529900748604-07564a03e7a6"),
+        DemoPhoto("1459865264687-595d652de67e"),
+    ];
+
+    private static readonly string[] _fiveASidePhotos =
+    [
+        DemoPhoto("1575361204480-aadea25e6e68"),
+        DemoPhoto("1574629810360-7efbbe195018"),
+    ];
+
+    private static readonly string[] _sevenASidePhotos =
+    [
+        DemoPhoto("1543326727-cf6c39e8f84c"),
+        DemoPhoto("1522778119026-d647f0596c20"),
+    ];
+
     private readonly IHostEnvironment _environment;
     private readonly IdentityDbContext _identityDbContext;
     private readonly VenuesDbContext _venuesDbContext;
@@ -127,7 +150,7 @@ public sealed class DemoDataSeeder : IDataSeeder
                 longitude: 31.3301,
                 phoneNumber: "+201000000001",
                 facilities: ReferenceDataSeeder.StandardFacilities,
-                photos: ["https://assets.malabak.app/demo/ahly_main.jpg"],
+                photos: _venuePhotos,
                 createdAtUtc: now);
 
             await _venuesDbContext.Venues.AddAsync(venueAhly, cancellationToken);
@@ -146,7 +169,7 @@ public sealed class DemoDataSeeder : IDataSeeder
                 capacity: 5,
                 lengthMeters: 40.0m,
                 widthMeters: 20.0m,
-                photos: ["https://assets.malabak.app/demo/pitch_5a.jpg"],
+                photos: _fiveASidePhotos,
                 createdAtUtc: now);
 
             await _venuesDbContext.Pitches.AddAsync(pitch1, cancellationToken);
@@ -164,14 +187,47 @@ public sealed class DemoDataSeeder : IDataSeeder
                 capacity: 7,
                 lengthMeters: 55.0m,
                 widthMeters: 35.0m,
-                photos: ["https://assets.malabak.app/demo/pitch_7a.jpg"],
+                photos: _sevenASidePhotos,
                 createdAtUtc: now);
 
             await _venuesDbContext.Pitches.AddAsync(pitch2, cancellationToken);
         }
 
+        ReplaceLegacyPhotos(venueAhly.Photos, _venuePhotos, venueAhly.RemovePhoto, venueAhly.AddPhoto, now);
+        ReplaceLegacyPhotos(pitch1.Photos, _fiveASidePhotos, pitch1.RemovePhoto, pitch1.AddPhoto, now);
+        ReplaceLegacyPhotos(pitch2.Photos, _sevenASidePhotos, pitch2.RemovePhoto, pitch2.AddPhoto, now);
+
         await _venuesDbContext.SaveChangesAsync(cancellationToken);
         return (venueAhly, pitch1, pitch2);
+    }
+
+    /// <summary>Openly licensed football photos (Unsplash) for the demo venue gallery.</summary>
+    private static string DemoPhoto(string unsplashId) =>
+        $"https://images.unsplash.com/photo-{unsplashId}?w=1200&q=80&auto=format&fit=crop";
+
+    /// <summary>Earlier seeds pointed at demo files that were never hosted; swap them for real photos.</summary>
+    private static void ReplaceLegacyPhotos(
+        IReadOnlyCollection<string> current,
+        IEnumerable<string> replacements,
+        Func<string, DateTime, bool> remove,
+        Func<string, DateTime, bool> add,
+        DateTime nowUtc)
+    {
+        var legacy = current.Where(url => url.StartsWith(_legacyDemoPhotoHost, StringComparison.Ordinal)).ToList();
+        if (legacy.Count == 0)
+        {
+            return;
+        }
+
+        foreach (var url in legacy)
+        {
+            remove(url, nowUtc);
+        }
+
+        foreach (var url in replacements)
+        {
+            add(url, nowUtc);
+        }
     }
 
     /// <summary>

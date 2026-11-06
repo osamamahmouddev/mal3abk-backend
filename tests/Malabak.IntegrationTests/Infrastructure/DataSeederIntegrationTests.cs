@@ -99,6 +99,7 @@ public sealed class DataSeederIntegrationTests
         // Assert - Demo venue is bookable by players
         venue.ApprovalStatus.Should().Be(VenueApprovalStatus.Approved);
         venue.IsPublished.Should().BeTrue();
+        venue.Photos.Should().HaveCount(5).And.OnlyContain(url => url.StartsWith("https://images.unsplash.com/", StringComparison.Ordinal));
         (await venuesDb.OperatingSchedules.CountAsync(s => s.VenueId == venue.Id)).Should().Be(7);
         (await venuesDb.PriceRules.CountAsync(r => r.VenueId == venue.Id)).Should().Be(2);
         (await venuesDb.Policies.CountAsync(p => p.VenueId == venue.Id && p.IsCurrent)).Should().Be(1);
