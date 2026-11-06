@@ -103,6 +103,7 @@ public static class VenuesModule
         services.AddScoped<IStaffQuotaPolicy, Application.Subscriptions.EntitlementStaffQuotaPolicy>();
         services.AddScoped<IOwnerUsageReader, Application.Subscriptions.OwnerUsageReader>();
         services.AddScoped<Application.Admin.AdminVenueService>();
+        services.AddScoped<Malabak.SharedKernel.Contracts.IAdminMetricsProvider, Application.Admin.VenueMetricsProvider>();
         services.AddScoped<StaffManagementHandlers>();
         services.AddScoped<ICommandHandler<InviteStaffCommand, Result<StaffInvitationDto>>>(sp => sp.GetRequiredService<StaffManagementHandlers>());
         services.AddScoped<ICommandHandler<ResendStaffInvitationCommand, Result>>(sp => sp.GetRequiredService<StaffManagementHandlers>());

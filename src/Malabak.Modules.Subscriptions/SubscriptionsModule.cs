@@ -18,6 +18,7 @@ public static class SubscriptionsModule
         services.AddScoped<InvoiceService>();
         services.AddScoped<IInvoiceNumberGenerator, InvoiceNumberGenerator>();
         services.AddScoped<SubscriptionLifecycleJob>();
+        services.AddScoped<IAdminMetricsProvider, SubscriptionMetricsProvider>();
         return services;
     }
 }

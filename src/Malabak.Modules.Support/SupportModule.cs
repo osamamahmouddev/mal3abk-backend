@@ -13,6 +13,7 @@ public static class SupportModule
     {
         services.AddScoped<SupportTicketService>();
         services.AddScoped<IVenueComplaintsReader>(sp => sp.GetRequiredService<SupportTicketService>());
+        services.AddScoped<IAdminMetricsProvider, SupportMetricsProvider>();
         return services;
     }
 }

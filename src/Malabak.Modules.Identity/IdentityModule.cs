@@ -84,6 +84,7 @@ public static class IdentityModule
         services.AddScoped<SessionService>();
         services.AddScoped<Malabak.Modules.Identity.Application.Admin.AdminUserService>();
         services.AddScoped<Malabak.Modules.Identity.Application.Admin.AdminAccountService>();
+        services.AddScoped<Malabak.SharedKernel.Contracts.IAdminMetricsProvider, Malabak.Modules.Identity.Application.Admin.UserMetricsProvider>();
 
         // Player profile & onboarding
         services.AddScoped<Malabak.Modules.Identity.Application.Profile.ProfileHandlers>();

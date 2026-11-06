@@ -38,6 +38,7 @@ public static class BookingModule
         services.AddScoped<Malabak.SharedKernel.Contracts.IVenueBookingStatsReader, Application.Admin.VenueBookingStatsReader>();
         services.AddScoped<Application.Admin.AdminBookingService>();
         services.AddScoped<Application.Disputes.PaymentDisputeService>();
+        services.AddScoped<Malabak.SharedKernel.Contracts.IAdminMetricsProvider, Application.Admin.BookingMetricsProvider>();
         services.AddScoped<IPersonalDataContributor, BookingPersonalData>();
 
         // Handlers
