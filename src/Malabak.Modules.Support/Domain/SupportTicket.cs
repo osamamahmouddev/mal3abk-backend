@@ -55,7 +55,7 @@ public sealed class SupportTicket
     public const int MaxSubjectLength = 200;
     public const int MaxBodyLength = 4000;
     public const int MaxReasonLength = 1000;
-    private const string NumberAlphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+    private const string _numberAlphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 
     private readonly List<TicketMessage> _messages = [];
 
@@ -255,7 +255,7 @@ public sealed class SupportTicket
     }
 
     private static string NewNumber() =>
-        "SUP-" + new string(RandomNumberGenerator.GetItems<char>(NumberAlphabet, 6));
+        "SUP-" + new string(RandomNumberGenerator.GetItems<char>(_numberAlphabet, 6));
 }
 
 public sealed class TicketMessage
