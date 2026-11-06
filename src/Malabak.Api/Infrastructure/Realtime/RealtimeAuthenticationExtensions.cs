@@ -3,6 +3,7 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using Malabak.Api.Infrastructure.Authorization;
 using Malabak.Api.Infrastructure.Configuration;
+using Malabak.Api.Infrastructure.Redis;
 using Malabak.Modules.Identity.Application.Common;
 using Malabak.SharedKernel;
 using Malabak.SharedKernel.Caching;
@@ -107,8 +108,11 @@ public static class RealtimeAuthenticationExtensions
         var redisOptions = configuration.GetSection(RedisOptions.SectionName).Get<RedisOptions>();
         if (redisOptions != null && !string.IsNullOrWhiteSpace(redisOptions.ConnectionString))
         {
-            signalRBuilder.AddStackExchangeRedis(redisOptions.ConnectionString, redis =>
+            // Same TLS, CA trust, password and timeouts as the app's own Redis connection; a bare connection
+            // string would skip the CA and fail the TLS handshake against a private certificate authority.
+            signalRBuilder.AddStackExchangeRedis(redis =>
             {
+                redis.Configuration = RedisConnectionFactory.CreateConfigurationOptions(redisOptions);
                 redis.Configuration.ChannelPrefix = StackExchange.Redis.RedisChannel.Literal("malabak:signalr:");
             });
         }
