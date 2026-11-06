@@ -6,6 +6,7 @@ using Malabak.Api.Infrastructure.Idempotency;
 using Malabak.Api.Infrastructure.Media;
 using Malabak.Api.Infrastructure.Security;
 using Malabak.Modules.Booking.Application.Bookings.CancelBooking;
+using Malabak.Modules.Booking.Application.Bookings.PaymentDetails;
 using Malabak.Modules.Booking.Application.Bookings.CreateBooking;
 using Malabak.Modules.Booking.Application.Bookings.ManualBooking;
 using Malabak.Modules.Booking.Application.Bookings.NoShow;
@@ -179,6 +180,22 @@ public static class BookingEndpoints
         .RequireDistributedRateLimiting("booking-cancel", permitLimit: 10, windowSeconds: 60)
         .WithName("CancelBooking")
         .WithSummary("Cancel booking if within cancellation policy deadline");
+
+        bookings.MapGet("/{id:guid}/payment-methods", async (
+            Guid id,
+            ClaimsPrincipal user,
+            HttpContext httpContext,
+            IQueryHandler<GetBookingPaymentMethodsQuery, Result<IReadOnlyList<BookingPaymentMethodDto>>> handler,
+            CancellationToken ct) =>
+        {
+            httpContext.Response.Headers.CacheControl = "no-store";
+            var result = await handler.HandleAsync(new GetBookingPaymentMethodsQuery(id, user.GetUserId()!.Value), ct);
+            return result.ToHttpResult(httpContext: httpContext);
+        })
+        .RequireAuthorization()
+        .Produces<IReadOnlyList<BookingPaymentMethodDto>>()
+        .WithName("GetBookingPaymentMethods")
+        .WithSummary("Where the player sends this booking's deposit, while it can still be paid (account details revealed and audited)");
 
         // Cancel Preview (TASK-406)
         bookings.MapGet("/{id:guid}/cancel/preview", async (

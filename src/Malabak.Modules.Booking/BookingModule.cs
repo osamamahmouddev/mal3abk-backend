@@ -4,6 +4,7 @@ using Malabak.Modules.Booking.Application.Bookings.CancelBooking;
 using Malabak.Modules.Booking.Application.Bookings.CreateBooking;
 using Malabak.Modules.Booking.Application.Bookings.ManualBooking;
 using Malabak.Modules.Booking.Application.Bookings.NoShow;
+using Malabak.Modules.Booking.Application.Bookings.PaymentDetails;
 using Malabak.Modules.Booking.Application.Bookings.PlayerQueries;
 using Malabak.Modules.Booking.Application.Bookings.Proofs;
 using Malabak.Modules.Booking.Application.Bookings.Refunds;
@@ -42,6 +43,7 @@ public static class BookingModule
         services.AddScoped<ICommandHandler<CancelBookingCommand, Result>, CancelBookingHandler>();
         services.AddScoped<ICommandHandler<VenueCancelBookingCommand, Result>, VenueCancelBookingHandler>();
         services.AddScoped<IQueryHandler<GetCancelPreviewQuery, Result<CancelPreviewResponse>>, GetCancelPreviewHandler>();
+        services.AddScoped<IQueryHandler<GetBookingPaymentMethodsQuery, Result<IReadOnlyList<BookingPaymentMethodDto>>>, GetBookingPaymentMethodsHandler>();
         services.AddScoped<ICommandHandler<CreateManualBookingCommand, Result<ManualBookingResponse>>, CreateManualBookingHandler>();
         services.AddScoped<ICommandHandler<RecordManualRefundCommand, Result>, RecordManualRefundHandler>();
         services.AddScoped<ICommandHandler<MarkNoShowCommand, Result>, MarkNoShowHandler>();
