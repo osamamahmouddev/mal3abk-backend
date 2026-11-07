@@ -1,225 +1,200 @@
 "use client";
 
 import React, { useState } from "react";
-import Link from "next/link";
-import { Page, PageHeader, Pill, ReasonModal, ReasonRequest, Toast, Tone, btnSmall, card, chip, inputClass, muted, rowCls, thCls, toArabicDigits, useRevealOnSelect } from "@/components/ui";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import type { Schemas } from "@malabak/api-client";
+import { KV, Page, PageHeader, Pill, ReasonModal, type ReasonRequest, SearchBox, btnDanger, btnOutline, btnSmall, card, muted } from "@/components/ui";
+import { Drawer, Pager, QueryState, Section, Select, Table, fmtDate, fmtDateTime, num, useNotice } from "@/components/admin";
+import { api, unwrap } from "@/lib/api";
+import { useStepUp } from "@/lib/stepup";
 
-type Status = "active" | "flagged" | "suspended";
-// name, phone, area, joined, bookings, no-shows, reports, status, teams
-type Player = [string, string, string, string, number, number, number, Status, string];
+type Row = Schemas["AdminUserListItem"];
 
-const PLAYERS: Player[] = [
-  ["أحمد سامي", "0100 234 5678", "مدينة نصر", "مارس", 23, 0, 0, "active", "فريق النجوم (كابتن)"],
-  ["يوسف حسن", "0111 765 4321", "مدينة نصر", "أبريل", 9, 1, 0, "active", "فريق النجوم"],
-  ["عمر خالد", "0122 345 6789", "مصر الجديدة", "يناير", 31, 0, 0, "active", "فريق النجوم، الصقور"],
-  ["مازن رأفت", "0155 111 2233", "التجمع", "مايو", 6, 3, 2, "flagged", "شباب التجمع"],
-  ["كريم عادل", "0100 999 8877", "المعادي", "فبراير", 14, 0, 0, "active", "المعادي يونايتد"],
-  ["حازم فوزي", "0128 444 5566", "الشيخ زايد", "يونيو", 2, 2, 3, "suspended", "من غير فريق"],
-  ["محمد طارق", "0109 777 6655", "مدينة نصر", "يوليو", 1, 0, 0, "active", "من غير فريق"],
+const ROLES: [string, string][] = [
+  ["", "كل الأدوار"],
+  ["Player", "لاعب"],
+  ["VenueOwner", "مالك ملعب"],
+  ["VenueStaff", "موظف ملعب"],
+  ["Admin", "أدمن"],
+  ["SupportAgent", "دعم"],
+  ["Finance", "مالية"],
 ];
-
-const STATUS: Record<Status, [string, Tone]> = {
-  active: ["نشط", "ok"],
-  flagged: ["عليه بلاغات", "warn"],
-  suspended: ["موقوف", "bad"],
-};
-
-const ACTIVITY: Record<number, string[]> = {
-  0: ["حجز ملعب ١ — ملعب النجوم، السبت ٨ م", "رفع إثبات عربون ٥٠ ج.م", "تحدّى فريق الصقور"],
-  3: ["اتعلّم عليه No-show في ملعب الرواد", "بلاغ من كابتن فريق: ألفاظ في الشات", "بلاغ من ملعب: ماحضرش وماردش"],
-  5: ["اتوقف بعد ٣ بلاغات مؤكدة", "رفع إثبات دفع متكرر لنفس الصورة", "لغى ٢ حجز بعد المهلة"],
-};
+const STATUSES: [string, string][] = [
+  ["", "كل الحالات"],
+  ["Active", "نشط"],
+  ["Suspended", "موقوف"],
+  ["Deleted", "محذوف"],
+];
+const STATUS_TONE = { Active: "ok", Suspended: "bad", Deleted: "neutral" } as const;
+const PAGE_SIZE = 25;
 
 export default function UsersPage() {
   const [q, setQ] = useState("");
-  const [filter, setFilter] = useState<"all" | Status>("all");
-  const [sel, setSel] = useState(0);
-  const detailsRef = useRevealOnSelect<HTMLElement>(sel);
-  const [statusOverride, setStatusOverride] = useState<Record<number, Status>>({});
-  const [notes, setNotes] = useState<Record<number, string>>({});
-  const [modal, setModal] = useState<ReasonRequest | null>(null);
-  const [toast, setToast] = useState<string | null>(null);
+  const [role, setRole] = useState("");
+  const [status, setStatus] = useState("");
+  const [page, setPage] = useState(1);
+  const [selected, setSelected] = useState<string | null>(null);
 
-  const statusOf = (i: number) => statusOverride[i] ?? PLAYERS[i][7];
-  const query = q.trim();
-  const idx = PLAYERS.map((_, i) => i).filter(
-    (i) =>
-      (filter === "all" || statusOf(i) === filter) &&
-      (!query || PLAYERS[i][0].includes(query) || PLAYERS[i][1].replace(/\s/g, "").includes(query.replace(/\s/g, "")))
-  );
-  const u = PLAYERS[sel];
-  const ust = statusOf(sel);
-  const note = notes[sel] || (ust === "suspended" ? "موقوف: رفع نفس إثبات الدفع لأكتر من حجز." : "");
+  const users = useQuery({
+    queryKey: ["admin-users", q, role, status, page],
+    queryFn: () =>
+      unwrap(
+        api.GET("/api/v1/admin/users", {
+          params: { query: { q: q || undefined, role: role || undefined, status: status || undefined, page, pageSize: PAGE_SIZE } },
+        }),
+      ),
+  });
 
   return (
     <Page>
-      <PageHeader title="المستخدمين (اللاعيبة)" sub={`${toArabicDigits("21,480").replace(",", "٬")} لاعب · ${toArabicDigits(idx.length)} في النتيجة`}>
-        <button
-          type="button"
-          onClick={() => setToast("الملف بيتجهّز — من غير أرقام الموبايل كاملة لحماية البيانات.")}
-          className="min-h-[38px] px-3.5 rounded-[10px] border border-[#C9CFD9] bg-white text-ink text-[13px] font-semibold"
-        >
-          تصدير CSV
-        </button>
-      </PageHeader>
-
-      <div className="flex flex-wrap gap-2.5 items-center">
-        <input aria-label="بحث" value={q} onChange={(e) => setQ(e.target.value)} placeholder="ابحث بالاسم أو رقم الموبايل" className={`${inputClass} flex-[1_1_260px] min-w-0`} />
-        <div className="flex gap-1.5 flex-wrap">
-          {(
-            [
-              ["all", "الكل"],
-              ["active", "نشط"],
-              ["flagged", "عليه بلاغات"],
-              ["suspended", "موقوف"],
-            ] as const
-          ).map(([id, label]) => (
-            <button key={id} type="button" aria-pressed={filter === id} onClick={() => setFilter(id)} className={chip(filter === id)}>
-              {label}
-            </button>
-          ))}
+      <PageHeader title="المستخدمين" sub="الأرقام مخفية في القائمة. فتح تفاصيل أي مستخدم بيتسجل في سجل التدقيق." />
+      <div className="flex flex-wrap gap-2">
+        <div className="flex-[1_1_260px]">
+          <SearchBox value={q} onChange={(v) => { setQ(v); setPage(1); }} placeholder="اسم، رقم، إيميل أو ID" />
         </div>
+        <Select label="الدور" value={role} onChange={(v) => { setRole(v); setPage(1); }} options={ROLES} />
+        <Select label="الحالة" value={status} onChange={(v) => { setStatus(v); setPage(1); }} options={STATUSES} />
       </div>
-
-      <div className="flex flex-wrap gap-4 items-start">
-        <section className={`flex-[999_1_520px] min-w-0 ${card} rounded-[20px] overflow-x-auto`}>
-          <table className="w-full border-collapse text-sm min-w-[620px]">
-            <thead>
-              <tr className={`${muted} text-[13px]`}>
-                <th scope="col" className={`${thCls} !px-4`}>
-                  اللاعب
-                </th>
-                {["المنطقة", "الحجوزات", "ماجاش", "بلاغات", "الحالة"].map((h) => (
-                  <th key={h} scope="col" className={thCls}>
-                    {h}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {idx.map((i) => {
-                const [name, phone, area, , b, ns, rp] = PLAYERS[i];
-                const [label, tone] = STATUS[statusOf(i)];
-                return (
-                  <tr key={i} className={rowCls(i === sel)} onClick={() => setSel(i)}>
-                    <td className="px-4 py-3">
-                      <button type="button" aria-pressed={i === sel} onClick={() => setSel(i)} className="bg-transparent p-0 text-right flex flex-col gap-0.5 text-slate-900">
-                        <span className="text-sm font-bold">{name}</span>
-                        <span className={`text-xs ${muted}`} dir="ltr">
-                          {toArabicDigits(phone)}
-                        </span>
-                      </button>
-                    </td>
-                    <td className="px-2 py-3">{area}</td>
-                    <td className="px-2 py-3 font-bold">{toArabicDigits(b)}</td>
-                    <td className="px-2 py-3">{toArabicDigits(ns)}</td>
-                    <td className="px-2 py-3">{toArabicDigits(rp)}</td>
-                    <td className="px-2 py-3">
-                      <Pill tone={tone}>{label}</Pill>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-          {idx.length === 0 && <p className={`p-8 text-center ${muted}`}>مفيش لاعيبة بالبحث ده.</p>}
-        </section>
-
-        <aside ref={detailsRef} aria-label="ملف اللاعب" className={`scroll-mt-20 flex-[1_1_320px] min-w-0 ${card} rounded-[20px] p-5 flex flex-col gap-3.5`}>
-          <div className="flex items-center gap-3">
-            <span className="w-[52px] h-[52px] rounded-full bg-ink text-white flex items-center justify-center text-xl font-bold">{u[0].charAt(0)}</span>
-            <span className="flex-1 flex flex-col gap-0.5">
-              <span className="text-lg font-bold">{u[0]}</span>
-              <span className={`text-[13px] ${muted}`}>
-                {u[2]} · عضو من {u[3]}
-              </span>
-            </span>
-            <Pill tone={STATUS[ust][1]}>{STATUS[ust][0]}</Pill>
-          </div>
-          <div className="grid grid-cols-3 gap-2">
-            {(
-              [
-                [u[4], "حجز"],
-                [u[5], "ماجاش"],
-                [u[6], "بلاغات"],
-              ] as const
-            ).map(([v, l]) => (
-              <div key={l} className="bg-surface rounded-xl p-2.5 text-center flex flex-col gap-0.5">
-                <span className="text-xl font-bold">{toArabicDigits(v)}</span>
-                <span className={`text-xs ${muted}`}>{l}</span>
-              </div>
-            ))}
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <span className="text-[13px] font-bold">الفرق</span>
-            <span className="text-sm text-[#3B4352]">{u[8]}</span>
-          </div>
-          <div className="flex flex-col gap-2">
-            <span className="text-[13px] font-bold">آخر النشاط</span>
-            {(ACTIVITY[sel] ?? ["حجز آخر ماتش من أسبوع", "عدّل بيانات الملف الشخصي", "انضم لفريق بكود دعوة"]).map((l) => (
-              <div key={l} className="flex gap-2 text-[13px]">
-                <span className="w-1.5 h-1.5 rounded-full bg-brand-red mt-[7px] shrink-0" />
-                <span className="flex-1">{l}</span>
-              </div>
-            ))}
-          </div>
-          {note && <div className="bg-[#FDECEA] text-[#A8261C] rounded-xl px-3 py-2.5 text-[13px]">{note}</div>}
-          <div className="flex gap-2 flex-wrap">
-            <Link href="/bookings" className={`${btnSmall} !min-h-[38px] !px-3.5 !rounded-[10px] !text-[13px] flex items-center`}>
-              حجوزاته
-            </Link>
-            <button
-              type="button"
-              onClick={() => setToast(`اتبعت تحذير لـ ${u[0]} بإشعار و SMS.`)}
-              className={`${btnSmall} !min-h-[38px] !px-3.5 !rounded-[10px] !text-[13px]`}
-            >
-              إرسال تحذير
-            </button>
-            {ust !== "suspended" ? (
-              <button
-                type="button"
-                onClick={() =>
-                  setModal({
-                    title: `إيقاف حساب ${u[0]}؟`,
-                    body: "مش هيقدر يحجز أو يتحدى. حجوزاته المأكدة الجاية هتفضل، والملاعب هتتبلّغ.",
-                    confirmLabel: "إيقاف",
-                    onConfirm: (r) => {
-                      setStatusOverride({ ...statusOverride, [sel]: "suspended" });
-                      setNotes({ ...notes, [sel]: `موقوف: ${r}` });
-                      setToast("اتوقف الحساب واتسجل في سجل التدقيق.");
-                    },
-                  })
-                }
-                className="min-h-[38px] px-3.5 rounded-[10px] bg-brand-red text-white text-[13px] font-bold"
-              >
-                إيقاف الحساب
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={() =>
-                  setModal({
-                    title: `رفع الإيقاف عن ${u[0]}؟`,
-                    body: "هيرجع يقدر يحجز عادي.",
-                    confirmLabel: "رفع الإيقاف",
-                    onConfirm: () => {
-                      setStatusOverride({ ...statusOverride, [sel]: "active" });
-                      setNotes({ ...notes, [sel]: "" });
-                      setToast("الحساب رجع نشط.");
-                    },
-                  })
-                }
-                className="min-h-[38px] px-3.5 rounded-[10px] bg-ink text-white text-[13px] font-bold"
-              >
-                رفع الإيقاف
-              </button>
-            )}
-          </div>
-        </aside>
-      </div>
-
-      <ReasonModal request={modal} onClose={() => setModal(null)} />
-      <Toast message={toast} onClose={() => setToast(null)} />
+      <QueryState query={users} isEmpty={(d) => d.items.length === 0} empty="مفيش مستخدمين بالبحث ده.">
+        {(data) => (
+          <>
+            <Table<Row>
+              caption="المستخدمين"
+              rows={data.items}
+              rowKey={(r) => r.id}
+              selected={selected}
+              onSelect={(r) => setSelected(r.id)}
+              columns={[
+                { title: "الاسم", cell: (r) => <strong>{r.fullName}</strong> },
+                { title: "الرقم", cell: (r) => <span dir="ltr" className="font-inter">{r.maskedPhone}</span> },
+                { title: "الإيميل", cell: (r) => r.email ?? "—" },
+                { title: "الأدوار", cell: (r) => r.roles.join("، ") },
+                { title: "الحالة", cell: (r) => <Pill tone={STATUS_TONE[r.status as keyof typeof STATUS_TONE] ?? "neutral"}>{r.status}</Pill> },
+                { title: "التسجيل", cell: (r) => fmtDate(r.createdAtUtc) },
+              ]}
+            />
+            <Pager page={page} pageSize={PAGE_SIZE} total={data.total} onChange={setPage} />
+          </>
+        )}
+      </QueryState>
+      <UserDrawer userId={selected} onClose={() => setSelected(null)} />
     </Page>
+  );
+}
+
+function UserDrawer({ userId, onClose }: { userId: string | null; onClose: () => void }) {
+  const queryClient = useQueryClient();
+  const stepUp = useStepUp();
+  const notice = useNotice();
+  const [reason, setReason] = useState<ReasonRequest | null>(null);
+  const [code, setCode] = useState<Schemas["ImpersonationCodeDto"] | null>(null);
+
+  const detail = useQuery({
+    queryKey: ["admin-user", userId],
+    enabled: !!userId,
+    queryFn: () => unwrap(api.GET("/api/v1/admin/users/{userId}", { params: { path: { userId: userId! } } })),
+  });
+  const history = useQuery({
+    queryKey: ["admin-user-history", userId],
+    enabled: !!userId,
+    queryFn: () => unwrap(api.GET("/api/v1/admin/users/{userId}/history", { params: { path: { userId: userId! } } })),
+  });
+
+  const refresh = () => queryClient.invalidateQueries({ queryKey: ["admin-user"] }).then(() => queryClient.invalidateQueries({ queryKey: ["admin-users"] }));
+  const action = useMutation({
+    mutationFn: async ({ kind, text }: { kind: "suspend" | "reactivate" | "revoke" | "impersonate"; text: string }) => {
+      const path = { userId: userId! };
+      if (kind === "suspend") return stepUp((headers) => unwrap(api.POST("/api/v1/admin/users/{userId}/suspend", { params: { path }, headers, body: { reason: text } })));
+      if (kind === "reactivate") return unwrap(api.POST("/api/v1/admin/users/{userId}/reactivate", { params: { path }, body: { reason: text } }));
+      if (kind === "revoke") return unwrap(api.POST("/api/v1/admin/users/{userId}/sessions/revoke", { params: { path }, body: { reason: text } }));
+      const issued = await stepUp((headers) => unwrap(api.POST("/api/v1/admin/impersonate", { headers, body: { userId: userId!, reason: text } })));
+      setCode(issued);
+      return issued;
+    },
+    onSuccess: async (_, { kind }) => {
+      notice.ok({ suspend: "اتوقف الحساب واتقفلت كل جلساته.", reactivate: "اترفع الإيقاف.", revoke: "اتقفلت كل جلسات المستخدم.", impersonate: "الكود جاهز (صالح ٦٠ ثانية)." }[kind]);
+      await refresh();
+    },
+    onError: notice.fail,
+  });
+
+  const ask = (kind: "suspend" | "reactivate" | "revoke" | "impersonate", title: string, body: string, confirmLabel: string) =>
+    setReason({ title, body, confirmLabel, onConfirm: (text) => action.mutate({ kind, text }) });
+
+  return (
+    <Drawer title="تفاصيل المستخدم" open={!!userId} onClose={() => { setCode(null); notice.clear(); onClose(); }}>
+      {notice.node}
+      <QueryState query={detail}>
+        {(u) => (
+          <>
+            <div className={`${card} rounded-[16px] p-4 flex flex-col gap-2`}>
+              <strong className="text-[17px]">{u.fullName}</strong>
+              <KV k="الرقم"><span dir="ltr" className="font-inter">{u.phoneNumber}</span></KV>
+              <KV k="الإيميل">{u.email ?? "—"}</KV>
+              <KV k="الأدوار">{u.roles.join("، ")}</KV>
+              <KV k="الحالة">{u.status}{u.suspensionReason ? ` — ${u.suspensionReason}` : ""}</KV>
+              <KV k="المنطقة">{[u.city, u.area].filter(Boolean).join("، ") || "—"}</KV>
+              <KV k="التحقق بخطوتين">{u.twoFactorEnabled ? "مفعّل" : "مش مفعّل"}</KV>
+              <KV k="جلسات نشطة">{num(u.activeSessions)} (آخر نشاط {fmtDateTime(u.lastActivityAtUtc)})</KV>
+              <KV k="تاريخ التسجيل">{fmtDate(u.createdAtUtc)}</KV>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {u.status === "Active" && (
+                <button type="button" className={btnDanger} onClick={() => ask("suspend", "إيقاف الحساب", "المستخدم هيتقفل من كل الأجهزة ومش هيقدر يدخل لحد ما ترفع الإيقاف.", "إيقاف")}>
+                  إيقاف الحساب
+                </button>
+              )}
+              {u.status === "Suspended" && (
+                <button type="button" className={btnOutline} onClick={() => ask("reactivate", "رفع الإيقاف", "الحساب هيرجع يشتغل عادي.", "رفع الإيقاف")}>
+                  رفع الإيقاف
+                </button>
+              )}
+              {u.status !== "Deleted" && (
+                <button type="button" className={btnSmall} onClick={() => ask("revoke", "قفل كل الجلسات", "مفيد لو الحساب اتسرق. المستخدم هيسجّل دخول تاني.", "قفل الجلسات")}>
+                  قفل كل الجلسات
+                </button>
+              )}
+              {u.status === "Active" && (
+                <button
+                  type="button"
+                  className={btnSmall}
+                  onClick={() => ask("impersonate", "الدخول بصفة المستخدم", "هتاخد كود صالح ٦٠ ثانية لمرة واحدة. العميل هيوصله إشعار، ومفيش تغيير باسورد أو رقم أو بيانات دفع.", "إصدار كود")}
+                >
+                  دخول للمساعدة
+                </button>
+              )}
+            </div>
+            {code && (
+              <div className={`${card} rounded-[16px] p-4 flex flex-col gap-2 border-2 border-brand-red`}>
+                <strong>كود الدخول (مرة واحدة، {num(code.expiresInSeconds)} ثانية)</strong>
+                <code dir="ltr" className="font-inter text-[12px] break-all bg-[#F6F7FA] rounded-lg p-2 select-all">{code.code}</code>
+                <span className={`text-xs ${muted}`}>افتح تطبيق الملاعب على /impersonate والصق الكود. الجلسة ١٥ دقيقة وفيها بانر واضح.</span>
+              </div>
+            )}
+          </>
+        )}
+      </QueryState>
+      <Section title="السجل">
+        <QueryState query={history}>
+          {(parts) => (
+            <div className="flex flex-col gap-3">
+              {parts.map((part) => (
+                <div key={part.source} className={`${card} rounded-[14px] p-3 flex flex-col gap-1.5`}>
+                  <strong className="text-sm">{part.source === "bookings" ? "الحجوزات" : "المجتمع"} ({num(part.total)})</strong>
+                  <span className={`text-xs ${muted}`}>{Object.entries(part.counts).map(([k, v]) => `${k}: ${num(v)}`).join(" · ") || "—"}</span>
+                  {part.recent.map((item) => (
+                    <div key={`${item.kind}-${item.detail}-${item.occurredAtUtc}`} className="flex justify-between text-[13px] border-t border-[#EEF0F5] pt-1.5">
+                      <span>{item.reference}</span>
+                      <span className={muted}>{item.status} · {fmtDate(item.occurredAtUtc)}</span>
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </div>
+          )}
+        </QueryState>
+      </Section>
+      <ReasonModal request={reason} onClose={() => setReason(null)} />
+    </Drawer>
   );
 }

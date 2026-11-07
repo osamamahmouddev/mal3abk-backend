@@ -1,176 +1,137 @@
 "use client";
 
 import React, { useState } from "react";
-import Link from "next/link";
-import { Page, PageHeader, Pill, Segmented, card, muted, toArabicDigits } from "@/components/ui";
+import { useQuery } from "@tanstack/react-query";
+import type { Schemas } from "@malabak/api-client";
+import { Page, PageHeader, Segmented, card, money, muted } from "@/components/ui";
+import { QueryState, num } from "@/components/admin";
+import { api, unwrap } from "@/lib/api";
 
-type Period = "week" | "month" | "q";
+type Dashboard = Schemas["AdminDashboardDto"];
 
-const PERIODS: Record<Period, { label: string; k: string[] }> = {
-  week: { label: "٢٠ – ٢٦ يوليو ٢٠٢٦", k: ["٢١٬٤٨٠", "+٦١٠", "٨٤", "٢٣١", "٧٤٢", "٥٩٠", "٧٨", "[الإيراد]"] },
-  month: { label: "يوليو ٢٠٢٦ (١ – ٢٦)", k: ["٢١٬٤٨٠", "+٢٬٣٤٠", "٨٤", "٢٣١", "٢٬٨٩٠", "٢٬٣١٥", "٧٨", "[الإيراد]"] },
-  q: { label: "الربع الثالث ٢٠٢٦", k: ["٢١٬٤٨٠", "+٢٬٣٤٠", "٨٤", "٢٣١", "٢٬٨٩٠", "٢٬٣١٥", "٧٨", "[الإيراد]"] },
-};
-
-const KPI_LABELS: [string, string][] = [
-  ["إجمالي اللاعبين", "مسجلين"],
-  ["لاعبين جدد", "في الفترة"],
-  ["ملاعب نشطة", "معتمدة ومنشورة"],
-  ["ملاعب فرعية", "نشطة"],
-  ["طلبات حجز", "في الفترة"],
-  ["حجوزات مؤكدة", "عربون معتمد من الملعب"],
-  ["اشتراكات نشطة", "مدفوعة أو في التجربة"],
-  ["الإيراد الشهري المتكرر", "من اشتراكات مؤكد دفعها بس"],
+const PERIODS: [string, string][] = [
+  ["7", "٧ أيام"],
+  ["30", "٣٠ يوم"],
+  ["90", "٩٠ يوم"],
 ];
 
-const WEEKS = [310, 345, 390, 420, 405, 480, 525, 590];
-const SUBS: [string, number][] = [
-  ["Starter", 31],
-  ["Growth", 29],
-  ["Pro", 6],
-  ["تجربة مجانية", 12],
+/** Headline tiles: label, figure key, how to show it, and the exact definition shown on hover/focus. */
+const TILES: { key: string; label: string; money?: boolean; hint: string }[] = [
+  { key: "users.total", label: "المستخدمين", hint: "حسابات غير محذوفة دلوقتي" },
+  { key: "users.new", label: "مستخدمين جداد", hint: "اللي سجّلوا في الفترة" },
+  { key: "venues.active", label: "ملاعب نشطة", hint: "معتمدة ومنشورة دلوقتي" },
+  { key: "pitches.active", label: "ملاعب فرعية نشطة", hint: "الملاعب الفرعية الشغالة في ملاعب نشطة" },
+  { key: "bookings.created", label: "حجوزات اتعملت", hint: "حجوزات اتعملت في الفترة (من غير المسودات)" },
+  { key: "bookings.confirmed", label: "حجوزات اتأكدت", hint: "حجوزات اتأكدت في الفترة (بوقت التأكيد)" },
+  { key: "subscriptions.active", label: "اشتراكات مدفوعة", hint: "اشتراكات Active أو Grace دلوقتي" },
+  { key: "mrr", label: "MRR", money: true, hint: "إيراد شهري متكرر: سعر الباقة الشهري، والسنوي ÷ ١٢، للاشتراكات المدفوعة دلوقتي" },
+  { key: "revenue.collected", label: "إيراد محصّل", money: true, hint: "مدفوعات اتسجلت في الفترة، من غير الفواتير الملغاة" },
+  { key: "venues.pending_approval", label: "ملاعب مستنية موافقة", hint: "طلبات مستنية قرار دلوقتي" },
+  { key: "disputes.open", label: "نزاعات مفتوحة", hint: "نزاعات إيصالات لسه متحلتش" },
+  { key: "support.open", label: "تذاكر مفتوحة", hint: "تذاكر دعم مش محلولة ولا مقفولة" },
 ];
 
-const rowLink = "flex gap-3 items-center px-3 py-2.5 rounded-[10px] bg-[#F8F9FB] text-slate-900 hover:bg-[#F1F3F7]";
+const SERIES: { key: string; label: string; money?: boolean }[] = [
+  { key: "bookings.created", label: "الحجوزات يوميًا" },
+  { key: "users.new", label: "المستخدمين الجداد يوميًا" },
+  { key: "revenue.collected", label: "الإيراد المحصّل يوميًا", money: true },
+];
 
 export default function OverviewPage() {
-  const [period, setPeriod] = useState<Period>("month");
-  const P = PERIODS[period];
+  const [days, setDays] = useState("30");
+  const dashboard = useQuery({
+    queryKey: ["dashboard", days],
+    queryFn: () => {
+      const to = new Date();
+      const from = new Date(to.getTime() - (Number(days) - 1) * 86_400_000);
+      const iso = (d: Date) => d.toISOString().slice(0, 10);
+      return unwrap(api.GET("/api/v1/admin/dashboard", { params: { query: { from: iso(from), to: iso(to) } } }));
+    },
+  });
 
   return (
-    <Page className="gap-5">
-      <PageHeader title="نظرة عامة على المنصة" sub={P.label}>
-        <Segmented
-          label="الفترة"
-          value={period}
-          onChange={setPeriod}
-          items={[
-            ["week", "الأسبوع"],
-            ["month", "الشهر"],
-            ["q", "الربع"],
-          ]}
-        />
+    <Page>
+      <PageHeader title="نظرة عامة" sub="الأرقام بتوقيت القاهرة. الأرقام اللي عليها «دلوقتي» مش بتتأثر بالفترة.">
+        <Segmented label="الفترة" items={PERIODS} value={days} onChange={setDays} />
       </PageHeader>
-
-      <div className="grid gap-3 grid-cols-2 md:grid-cols-[repeat(auto-fit,minmax(min(170px,100%),1fr))]">
-        {KPI_LABELS.map(([label, sub], i) => (
-          <div key={label} className={`${card} rounded-[18px] px-4 py-3.5 flex flex-col gap-1 ${i === 7 ? "!border-ink" : ""}`}>
-            <span className={`text-[13px] ${muted}`}>{label}</span>
-            <span className="text-[26px] font-bold">{P.k[i]}</span>
-            <span className={`text-xs ${muted}`}>{sub}</span>
-          </div>
-        ))}
-      </div>
-
-      <div className="flex flex-wrap gap-4 items-start">
-        <section className={`flex-[1_1_360px] min-w-0 ${card} rounded-[18px] px-5 py-4 flex flex-col gap-3`}>
-          <div className="flex justify-between items-center">
-            <h2 className="text-base font-bold">ملاعب مستنية الموافقة</h2>
-            <Link href="/approvals" className="text-[13px] font-semibold text-ink">
-              عرض الكل (٤)
-            </Link>
-          </div>
-          <Link href="/approvals" className={rowLink}>
-            <span className="flex-1 flex flex-col">
-              <span className="text-sm font-bold">ملاعب الرواد — التجمع الخامس</span>
-              <span className={`text-xs ${muted}`}>٤ ملاعب · قدّم من يومين</span>
-            </span>
-            <Pill tone="warn">مستندات كاملة</Pill>
-          </Link>
-          <Link href="/approvals" className={rowLink}>
-            <span className="flex-1 flex flex-col">
-              <span className="text-sm font-bold">نادي الشباب — مدينة نصر</span>
-              <span className={`text-xs ${muted}`}>٢ ملعب · قدّم امبارح</span>
-            </span>
-            <Pill tone="neutral">ناقص مستند</Pill>
-          </Link>
-        </section>
-
-        <section className={`flex-[1_1_360px] min-w-0 ${card} rounded-[18px] px-5 py-4 flex flex-col gap-3`}>
-          <div className="flex justify-between items-center">
-            <h2 className="text-base font-bold">نزاعات مفتوحة</h2>
-            <Link href="/disputes" className="text-[13px] font-semibold text-ink">
-              عرض الكل (٣)
-            </Link>
-          </div>
-          <Link href="/disputes" className={rowLink}>
-            <span className="flex-1 flex flex-col">
-              <span className="text-sm font-bold">العربون اتحوّل والملعب رافض</span>
-              <span className={`text-xs ${muted}`}>
-                <span dir="ltr">KH-2507-0121</span> · ملعب المدينة · من ٥ ساعات
-              </span>
-            </span>
-            <Pill tone="bad">عاجل</Pill>
-          </Link>
-          <Link href="/disputes" className={rowLink}>
-            <span className="flex-1 flex flex-col">
-              <span className="text-sm font-bold">اعتراض على نتيجة ماتش</span>
-              <span className={`text-xs ${muted}`}>الصقور ضد النجوم · ١٩ يوليو</span>
-            </span>
-            <Pill tone="warn">عادي</Pill>
-          </Link>
-        </section>
-      </div>
-
-      <div className="flex flex-wrap gap-4 items-start">
-        <section className={`flex-[2_1_420px] min-w-0 ${card} rounded-[18px] px-5 py-4 flex flex-col gap-3`}>
-          <h2 className="text-base font-bold">الحجوزات المؤكدة أسبوعياً</h2>
-          <div
-            role="img"
-            aria-label={`الحجوزات المؤكدة آخر ٨ أسابيع: ${WEEKS.map(toArabicDigits).join("، ")}`}
-            className="grid grid-cols-8 gap-2.5 items-end h-[160px]"
-          >
-            {WEEKS.map((v, i) => (
-              <div key={i} className="flex flex-col items-center gap-1 h-full justify-end">
-                <span className="text-[11px] text-[#3B4352]">{toArabicDigits(v)}</span>
-                <div
-                  className={`w-full max-w-[36px] rounded-t-md rounded-b-sm ${i === 7 ? "bg-brand-red" : "bg-navy-900"}`}
-                  style={{ height: Math.round((v / 600) * 110) }}
-                />
-                <span className={`text-[11px] ${muted}`}>أ{toArabicDigits(i + 1)}</span>
-              </div>
-            ))}
-          </div>
-        </section>
-        <section className={`flex-[1_1_280px] min-w-0 ${card} rounded-[18px] px-5 py-4 flex flex-col gap-3`}>
-          <h2 className="text-base font-bold">توزيع الاشتراكات</h2>
-          {SUBS.map(([label, v]) => (
-            <div key={label} className="flex flex-col gap-1">
-              <div className="flex justify-between text-[13px]">
-                <span>{label}</span>
-                <span className="font-bold">{toArabicDigits(v)}</span>
-              </div>
-              <div className="h-2 rounded bg-[#EEF0F5] overflow-hidden">
-                <div
-                  className={`h-full ${label === "تجربة مجانية" ? "bg-brand-gold" : "bg-navy-900"}`}
-                  style={{ width: `${Math.round((v / 31) * 100)}%` }}
-                />
-              </div>
-            </div>
-          ))}
-        </section>
-      </div>
-
-      <section className={`${card} rounded-[18px] px-5 py-4 flex flex-col gap-2.5`}>
-        <div className="flex justify-between items-center">
-          <h2 className="text-base font-bold">آخر الإجراءات (سجل التدقيق)</h2>
-          <Link href="/audit" className="text-[13px] font-semibold text-ink">
-            سجل كامل
-          </Link>
-        </div>
-        {[
-          ["سارة منصور", "وافقت على ملعب «أكاديمية الدلتا — فرع ٢»", "١٠:١٢ ص"],
-          ["عمرو حمدي", "فعّل اشتراك Growth لـ«ملاعب الرواد» بعد تأكيد التحويل", "أمس ٦:٤٠ م"],
-          ["سارة منصور", "أوقفت حساب لاعب بعد ٣ بلاغات مؤكدة — السبب مسجل", "أمس ٢:١٥ م"],
-        ].map(([who, what, when]) => (
-          <div key={what} className="flex gap-2.5 text-sm">
-            <span className="flex-1">
-              <strong>{who}</strong> {what}
-            </span>
-            <span className={`text-xs ${muted}`}>{when}</span>
-          </div>
-        ))}
-      </section>
+      <QueryState query={dashboard}>{(data) => <DashboardView data={data} />}</QueryState>
     </Page>
+  );
+}
+
+function DashboardView({ data }: { data: Dashboard }) {
+  const tiles = TILES.filter((t) => t.key in data.figures);
+  return (
+    <>
+      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3">
+        {tiles.map((t) => (
+          <div key={t.key} className={`${card} rounded-[16px] p-4 flex flex-col gap-1`} title={t.hint}>
+            <span className={`text-[13px] ${muted}`}>{t.label}</span>
+            <strong className="text-[22px]">{t.money ? money(data.figures[t.key]) : num(data.figures[t.key])}</strong>
+            <span className={`text-[11px] ${muted}`}>{t.hint}</span>
+          </div>
+        ))}
+      </div>
+
+      <div className="grid md:grid-cols-2 gap-3">
+        {SERIES.filter((s) => data.series[s.key]).map((s) => (
+          <Bars key={s.key} title={s.label} points={data.series[s.key]} asMoney={s.money} />
+        ))}
+        {Object.entries(data.distributions).map(([key, values]) => (
+          <Distribution key={key} title={DISTRIBUTION_TITLES[key] ?? key} values={values} />
+        ))}
+      </div>
+    </>
+  );
+}
+
+const DISTRIBUTION_TITLES: Record<string, string> = {
+  "bookings.by_status": "الحجوزات حسب الحالة (في الفترة)",
+  "users.by_role": "الحسابات حسب الدور",
+  "venues.active_by_city": "الملاعب النشطة حسب المدينة",
+  "subscriptions.by_plan": "الاشتراكات المدفوعة حسب الباقة",
+  "support.open_by_category": "التذاكر المفتوحة حسب النوع",
+};
+
+function Bars({ title, points, asMoney }: { title: string; points: Schemas["SeriesPoint"][]; asMoney?: boolean }) {
+  const max = Math.max(1, ...points.map((p) => p.value));
+  const total = points.reduce((sum, p) => sum + p.value, 0);
+  return (
+    <figure className={`${card} rounded-[16px] p-4 flex flex-col gap-3`}>
+      <figcaption className="flex justify-between text-sm font-bold">
+        <span>{title}</span>
+        <span className={muted}>{asMoney ? money(total) : num(total)}</span>
+      </figcaption>
+      <div className="flex items-end gap-[2px] h-28" role="img" aria-label={`${title}: الإجمالي ${asMoney ? money(total) : num(total)}`}>
+        {points.map((p) => (
+          <div
+            key={p.day}
+            title={`${p.day}: ${asMoney ? money(p.value) : num(p.value)}`}
+            className="flex-1 bg-brand-red/80 rounded-t-[3px] min-h-[2px]"
+            style={{ height: `${(p.value / max) * 100}%` }}
+          />
+        ))}
+      </div>
+    </figure>
+  );
+}
+
+function Distribution({ title, values }: { title: string; values: Record<string, number> }) {
+  const entries = Object.entries(values).sort((a, b) => b[1] - a[1]);
+  const total = Math.max(1, entries.reduce((s, [, v]) => s + v, 0));
+  return (
+    <section className={`${card} rounded-[16px] p-4 flex flex-col gap-2`}>
+      <h2 className="text-sm font-bold">{title}</h2>
+      {entries.length === 0 && <span className={`text-sm ${muted}`}>مفيش بيانات.</span>}
+      {entries.map(([k, v]) => (
+        <div key={k} className="flex items-center gap-2 text-[13px]">
+          <span className="w-28 truncate">{k}</span>
+          <div className="flex-1 h-2 rounded bg-[#EEF0F5] overflow-hidden">
+            <div className="h-full bg-navy-900" style={{ width: `${(v / total) * 100}%` }} />
+          </div>
+          <span className="w-10 text-left">{num(v)}</span>
+        </div>
+      ))}
+    </section>
   );
 }

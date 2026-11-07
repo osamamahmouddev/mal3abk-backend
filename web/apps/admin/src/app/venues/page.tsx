@@ -1,254 +1,232 @@
 "use client";
 
 import React, { useState } from "react";
-import Link from "next/link";
-import { KV, Page, PageHeader, Pill, ReasonModal, ReasonRequest, Switch, Toast, Tone, btnSmall, card, chip, inputClass, muted, rowCls, thCls, toArabicDigits, useRevealOnSelect } from "@/components/ui";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import type { Schemas } from "@malabak/api-client";
+import { KV, Page, PageHeader, Pill, ReasonModal, type ReasonRequest, SearchBox, btnDanger, btnOutline, btnPrimary, btnSmall, card, inputClass, money, muted } from "@/components/ui";
+import { Drawer, Field, Pager, QueryState, Section, Select, Table, TextInput, fmtDate, fmtDateTime, num, useNotice } from "@/components/admin";
+import { api, unwrap } from "@/lib/api";
+import { useStepUp } from "@/lib/stepup";
 
-type Status = "live" | "pending" | "overdue" | "suspended";
-type City = "cai" | "giz" | "del";
-// name, area, city, plan, pitches, bookings this month, rating, status, owner, renewal
-type Venue = [string, string, City, string, number, number, number, Status, string, string];
+type Row = Schemas["AdminVenueListItem"];
 
-const VENUES: Venue[] = [
-  ["ملعب النجوم — مدينة نصر", "مدينة نصر", "cai", "Growth", 3, 312, 4.8, "live", "محمود عبد الله", "١٤ أغسطس"],
-  ["ملاعب الرواد", "مصر الجديدة", "cai", "Growth", 4, 268, 4.6, "live", "هشام الرواد", "٢ أغسطس"],
-  ["أكاديمية الدلتا — فرع ٢", "المنصورة", "del", "Starter", 2, 41, 4.4, "live", "وليد السيد", "٢٠ أغسطس"],
-  ["ستاد الشباب", "الشيخ زايد", "giz", "Pro", 6, 520, 4.9, "live", "شركة الشباب للرياضة", "١ سبتمبر"],
-  ["ملعب الحي — المعادي", "المعادي", "cai", "Starter", 1, 0, 0, "overdue", "سامح لطفي", "متأخر ٦ أيام"],
-  ["ملعب النجوم — التجمع", "التجمع الخامس", "cai", "Growth", 2, 0, 0, "pending", "محمود عبد الله", "—"],
-  ["جرين فيلد", "الهرم", "giz", "Starter", 2, 18, 3.1, "suspended", "عادل منير", "—"],
+const STATUSES: [string, string][] = [
+  ["", "كل الحالات"],
+  ["Approved", "معتمد"],
+  ["Submitted", "مستني موافقة"],
+  ["NeedsInfo", "محتاج معلومات"],
+  ["Rejected", "مرفوض"],
+  ["Suspended", "موقوف"],
+  ["Draft", "مسودة"],
 ];
-
-const STATUS: Record<Status, [string, Tone]> = {
-  live: ["منشور", "ok"],
-  pending: ["مستني موافقة", "warn"],
-  overdue: ["اشتراك متأخر", "warn"],
-  suspended: ["موقوف", "bad"],
-};
-
-const pitchPattern =
-  "radial-gradient(closest-side circle at 50% 50%, transparent 0 32%, rgba(255,255,255,0.55) 32% 36%, transparent 36%), linear-gradient(90deg, transparent calc(50% - 1px), rgba(255,255,255,0.55) calc(50% - 1px) calc(50% + 1px), transparent calc(50% + 1px)), repeating-linear-gradient(90deg, #2E8B55 0 12.5%, #287D4C 12.5% 25%)";
-
-const actionBtn = `${btnSmall} !min-h-[38px] !px-3.5 !rounded-[10px] !text-[13px] flex items-center`;
+const TONE: Record<string, "ok" | "warn" | "bad" | "neutral"> = { Approved: "ok", Submitted: "warn", NeedsInfo: "warn", Rejected: "bad", Suspended: "bad", Draft: "neutral" };
+const PAGE_SIZE = 25;
 
 export default function VenuesPage() {
   const [q, setQ] = useState("");
-  const [filter, setFilter] = useState<"all" | Exclude<Status, "pending">>("all");
-  const [city, setCity] = useState<"all" | City>("all");
-  const [sel, setSel] = useState(0);
-  const detailsRef = useRevealOnSelect<HTMLElement>(sel);
-  const [statusOverride, setStatusOverride] = useState<Record<number, Status>>({});
-  const [hidden, setHidden] = useState<Record<number, boolean>>({});
-  const [notes, setNotes] = useState<Record<number, string>>({});
-  const [modal, setModal] = useState<ReasonRequest | null>(null);
-  const [toast, setToast] = useState<string | null>(null);
+  const [status, setStatus] = useState("");
+  const [page, setPage] = useState(1);
+  const [selected, setSelected] = useState<string | null>(null);
 
-  const statusOf = (i: number) => statusOverride[i] ?? VENUES[i][7];
-  const query = q.trim();
-  const idx = VENUES.map((_, i) => i).filter(
-    (i) =>
-      (filter === "all" || statusOf(i) === filter) &&
-      (city === "all" || VENUES[i][2] === city) &&
-      (!query || VENUES[i][0].includes(query) || VENUES[i][8].includes(query))
-  );
-  const v = VENUES[sel];
-  const vst = statusOf(sel);
-  const visible = vst === "live" && !hidden[sel];
-  const note =
-    notes[sel] ||
-    (vst === "suspended"
-      ? "موقوف: شكاوي متكررة من رفض إثباتات دفع صحيحة."
-      : vst === "overdue"
-        ? "الاشتراك متأخر — الملعب هيتخفى أوتوماتيك بعد ٧ أيام."
-        : "");
+  const venues = useQuery({
+    queryKey: ["admin-venues", q, status, page],
+    queryFn: () =>
+      unwrap(api.GET("/api/v1/admin/venues", { params: { query: { q: q || undefined, approvalStatus: status || undefined, page, pageSize: PAGE_SIZE } } })),
+  });
 
   return (
     <Page>
-      <PageHeader title="الملاعب" sub={`${toArabicDigits(231)} ملعب على المنصة · ${toArabicDigits(idx.length)} في النتيجة`}>
-        <Link href="/approvals" className="min-h-[42px] px-4 rounded-xl bg-ink text-white text-sm font-bold flex items-center gap-2 hover:text-white">
-          طلبات الموافقة <span className="bg-brand-red rounded-[10px] px-2 text-xs">٤</span>
-        </Link>
-      </PageHeader>
-
-      <div className="flex flex-wrap gap-2.5 items-center">
-        <input aria-label="بحث" value={q} onChange={(e) => setQ(e.target.value)} placeholder="ابحث باسم الملعب أو المالك" className={`${inputClass} flex-[1_1_240px] min-w-0`} />
-        <div className="flex gap-1.5 flex-wrap">
-          {(
-            [
-              ["all", "الكل"],
-              ["live", "منشور"],
-              ["overdue", "اشتراك متأخر"],
-              ["suspended", "موقوف"],
-            ] as const
-          ).map(([id, label]) => (
-            <button key={id} type="button" aria-pressed={filter === id} onClick={() => setFilter(id)} className={chip(filter === id)}>
-              {label}
-            </button>
-          ))}
+      <PageHeader title="الملاعب" sub="حالة الاعتماد منفصلة عن نشر المالك. الإيقاف بيخفي الملعب ويوقف الحجز الجديد، والحجوزات القديمة بتفضل." />
+      <div className="flex flex-wrap gap-2">
+        <div className="flex-[1_1_260px]">
+          <SearchBox value={q} onChange={(v) => { setQ(v); setPage(1); }} placeholder="اسم الملعب أو المدينة أو المنطقة" />
         </div>
-        <div className="flex gap-1.5 flex-wrap">
-          {(
-            [
-              ["all", "كل المحافظات"],
-              ["cai", "القاهرة"],
-              ["giz", "الجيزة"],
-              ["del", "الدلتا"],
-            ] as const
-          ).map(([id, label]) => (
-            <button key={id} type="button" aria-pressed={city === id} onClick={() => setCity(id)} className={chip(city === id)}>
-              {label}
-            </button>
-          ))}
-        </div>
+        <Select label="الحالة" value={status} onChange={(v) => { setStatus(v); setPage(1); }} options={STATUSES} />
       </div>
-
-      <div className="flex flex-wrap gap-4 items-start">
-        <section className={`flex-[999_1_520px] min-w-0 ${card} rounded-[20px] overflow-x-auto`}>
-          <table className="w-full border-collapse text-sm min-w-[640px]">
-            <thead>
-              <tr className={`${muted} text-[13px]`}>
-                <th scope="col" className={`${thCls} !px-4`}>
-                  الملعب
-                </th>
-                {["الباقة", "ملاعب", "حجوزات الشهر", "التقييم", "الحالة"].map((h) => (
-                  <th key={h} scope="col" className={thCls}>
-                    {h}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {idx.map((i) => {
-                const r = VENUES[i];
-                const [label, tone] = STATUS[statusOf(i)];
-                return (
-                  <tr key={i} className={rowCls(i === sel)} onClick={() => setSel(i)}>
-                    <td className="px-4 py-3">
-                      <button type="button" aria-pressed={i === sel} onClick={() => setSel(i)} className="bg-transparent p-0 text-right flex flex-col gap-0.5 text-slate-900">
-                        <span className="text-sm font-bold">{r[0]}</span>
-                        <span className={`text-xs ${muted}`}>{r[1]}</span>
-                      </button>
-                    </td>
-                    <td className="px-2 py-3">{r[3]}</td>
-                    <td className="px-2 py-3">{toArabicDigits(r[4])}</td>
-                    <td className="px-2 py-3 font-bold">{toArabicDigits(r[5])}</td>
-                    <td className="px-2 py-3">{r[6] ? `★ ${toArabicDigits(String(r[6]).replace(".", "٫"))}` : "—"}</td>
-                    <td className="px-2 py-3">
-                      <Pill tone={tone}>{label}</Pill>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-          {idx.length === 0 && <p className={`p-8 text-center ${muted}`}>مفيش ملاعب بالفلتر ده.</p>}
-        </section>
-
-        <aside ref={detailsRef} aria-label="تفاصيل الملعب" className={`scroll-mt-20 flex-[1_1_320px] min-w-0 ${card} rounded-[20px] overflow-hidden flex flex-col`}>
-          <div className="h-[110px]" style={{ background: pitchPattern }} />
-          <div className="px-5 pt-[18px] pb-5 flex flex-col gap-3">
-            <div className="flex items-center gap-2">
-              <h2 className="flex-1 text-lg font-bold">{v[0]}</h2>
-              <Pill tone={STATUS[vst][1]}>{STATUS[vst][0]}</Pill>
-            </div>
-            <KV k="المالك">
-              <b className="font-semibold">{v[8]}</b>
-            </KV>
-            <KV k="المنطقة">
-              <b className="font-semibold">{v[1]}</b>
-            </KV>
-            <KV k="الباقة">
-              <b className="font-semibold">
-                {v[3]} · تجديد {v[9]}
-              </b>
-            </KV>
-            <KV k="الملاعب">
-              <b className="font-semibold">{toArabicDigits(v[4])}</b>
-            </KV>
-            <KV k="حجوزات الشهر">
-              <b className="font-semibold">{toArabicDigits(v[5])}</b>
-            </KV>
-            {note && <div className="bg-[#FDECEA] text-[#A8261C] rounded-xl px-3 py-2.5 text-[13px]">{note}</div>}
-            <div className="flex items-center gap-2.5 bg-surface rounded-xl px-3 py-2.5">
-              <span className="flex-1 flex flex-col">
-                <span className="text-sm font-semibold">ظاهر في البحث</span>
-                <span className={`text-xs ${muted}`}>
-                  {vst === "live" ? (visible ? "اللاعيبة شايفينه ويقدروا يحجزوا" : "مخفي بقرار إداري") : "مش متاح في الحالة دي"}
-                </span>
-              </span>
-              <Switch
-                on={visible}
-                label="إظهار الملعب في البحث"
-                disabled={vst !== "live"}
-                onToggle={() => {
-                  if (vst !== "live") return;
-                  setHidden({ ...hidden, [sel]: visible });
-                  setToast(visible ? "الملعب اتخفى من البحث. الحجوزات الحالية زي ما هي." : "الملعب رجع ظاهر.");
-                }}
-              />
-            </div>
-            <div className="flex gap-2 flex-wrap">
-              <Link href="/billing" className={actionBtn}>
-                الاشتراك
-              </Link>
-              <Link href="/featured" className={actionBtn}>
-                تمييز
-              </Link>
-              <button type="button" onClick={() => setToast(`اتفتحت تذكرة دعم مع ${v[8]}.`)} className={actionBtn}>
-                كلّم المالك
-              </button>
-              {(vst === "live" || vst === "overdue") && (
-                <button
-                  type="button"
-                  onClick={() =>
-                    setModal({
-                      title: `إيقاف ${v[0]}؟`,
-                      body: "الملعب هيختفي ومش هيستقبل حجوزات جديدة. الحجوزات المأكدة هنتواصل مع أصحابها.",
-                      confirmLabel: "إيقاف",
-                      onConfirm: (r) => {
-                        setStatusOverride({ ...statusOverride, [sel]: "suspended" });
-                        setNotes({ ...notes, [sel]: `موقوف: ${r}` });
-                        setToast("اتوقف الملعب واتبعت إشعار للمالك.");
-                      },
-                    })
-                  }
-                  className="min-h-[38px] px-3.5 rounded-[10px] bg-brand-red text-white text-[13px] font-bold"
-                >
-                  إيقاف الملعب
-                </button>
-              )}
-              {vst === "suspended" && (
-                <button
-                  type="button"
-                  onClick={() =>
-                    setModal({
-                      title: `إعادة تشغيل ${v[0]}؟`,
-                      body: "الملعب هيرجع منشور ويقبل حجوزات.",
-                      confirmLabel: "إعادة التشغيل",
-                      onConfirm: () => {
-                        setStatusOverride({ ...statusOverride, [sel]: "live" });
-                        setNotes({ ...notes, [sel]: "" });
-                        setToast("الملعب رجع منشور.");
-                      },
-                    })
-                  }
-                  className="min-h-[38px] px-3.5 rounded-[10px] bg-ink text-white text-[13px] font-bold"
-                >
-                  إعادة التشغيل
-                </button>
-              )}
-              {vst === "pending" && (
-                <Link href="/approvals" className="min-h-[38px] px-3.5 rounded-[10px] bg-ink text-white text-[13px] font-bold flex items-center hover:text-white">
-                  راجع الطلب
-                </Link>
-              )}
-            </div>
-          </div>
-        </aside>
-      </div>
-
-      <ReasonModal request={modal} onClose={() => setModal(null)} />
-      <Toast message={toast} onClose={() => setToast(null)} />
+      <QueryState query={venues} isEmpty={(d) => d.items.length === 0} empty="مفيش ملاعب بالبحث ده.">
+        {(data) => (
+          <>
+            <Table<Row>
+              caption="الملاعب"
+              rows={data.items}
+              rowKey={(r) => r.id}
+              selected={selected}
+              onSelect={(r) => setSelected(r.id)}
+              columns={[
+                { title: "الملعب", cell: (r) => <strong>{r.name}</strong> },
+                { title: "المكان", cell: (r) => `${r.city}، ${r.area}` },
+                { title: "الملاعب الفرعية", cell: (r) => num(r.pitches) },
+                { title: "الاعتماد", cell: (r) => <Pill tone={TONE[r.approvalStatus] ?? "neutral"}>{r.approvalStatus}</Pill> },
+                { title: "منشور", cell: (r) => (r.isPublished ? "أيوه" : "لأ") },
+                { title: "الإضافة", cell: (r) => fmtDate(r.createdAtUtc) },
+              ]}
+            />
+            <Pager page={page} pageSize={PAGE_SIZE} total={data.total} onChange={setPage} />
+          </>
+        )}
+      </QueryState>
+      <VenueDrawer venueId={selected} onClose={() => setSelected(null)} />
     </Page>
+  );
+}
+
+function VenueDrawer({ venueId, onClose }: { venueId: string | null; onClose: () => void }) {
+  const queryClient = useQueryClient();
+  const stepUp = useStepUp();
+  const notice = useNotice();
+  const [reason, setReason] = useState<ReasonRequest | null>(null);
+  const [note, setNote] = useState<string | null>(null);
+  const [newOwner, setNewOwner] = useState("");
+
+  const detail = useQuery({
+    queryKey: ["admin-venue", venueId],
+    enabled: !!venueId,
+    queryFn: () => unwrap(api.GET("/api/v1/admin/venues/{venueId}", { params: { path: { venueId: venueId! } } })),
+  });
+  const complaints = useQuery({
+    queryKey: ["admin-venue-complaints", venueId],
+    enabled: !!venueId,
+    queryFn: () => unwrap(api.GET("/api/v1/admin/venues/{venueId}/complaints", { params: { path: { venueId: venueId! } } })),
+  });
+
+  type Kind = "suspend" | "reactivate" | "ask" | "note" | "owner";
+  const action = useMutation({
+    mutationFn: ({ kind, text }: { kind: Kind; text: string }) => {
+      const path = { venueId: venueId! };
+      switch (kind) {
+        case "suspend":
+          return stepUp((headers) => unwrap(api.POST("/api/v1/admin/venues/{venueId}/suspend", { params: { path }, headers, body: { reason: text } })));
+        case "reactivate":
+          return unwrap(api.POST("/api/v1/admin/venues/{venueId}/reactivate", { params: { path }, body: { reason: text } }));
+        case "ask":
+          return unwrap(api.POST("/api/v1/admin/venues/{venueId}/ask-owner", { params: { path }, body: { reason: text } }));
+        case "note":
+          return unwrap(api.PUT("/api/v1/admin/venues/{venueId}/admin-note", { params: { path }, body: { note: text } }));
+        default:
+          return stepUp((headers) =>
+            unwrap(api.POST("/api/v1/admin/venues/{venueId}/ownership", { params: { path }, headers, body: { newOwnerId: newOwner.trim(), reason: text } })),
+          );
+      }
+    },
+    onSuccess: async (_, { kind }) => {
+      notice.ok({ suspend: "اتوقف الملعب.", reactivate: "الملعب رجع نشط.", ask: "اتبعت الطلب للمالك.", note: "اتحفظت الملاحظة.", owner: "اتنقلت الملكية." }[kind]);
+      setNote(null);
+      setNewOwner("");
+      await queryClient.invalidateQueries({ queryKey: ["admin-venue"] });
+      await queryClient.invalidateQueries({ queryKey: ["admin-venues"] });
+    },
+    onError: notice.fail,
+  });
+  const ask = (kind: Kind, title: string, body: string, confirmLabel: string) =>
+    setReason({ title, body, confirmLabel, onConfirm: (text) => action.mutate({ kind, text }) });
+
+  return (
+    <Drawer title="تفاصيل الملعب" open={!!venueId} onClose={() => { notice.clear(); onClose(); }}>
+      {notice.node}
+      <QueryState query={detail}>
+        {(v) => (
+          <>
+            <div className={`${card} rounded-[16px] p-4 flex flex-col gap-2`}>
+              <strong className="text-[17px]">{v.name}</strong>
+              <KV k="العنوان">{v.address}، {v.area}، {v.city}</KV>
+              <KV k="المالك">{v.ownerName ?? v.ownerId}</KV>
+              <KV k="الاعتماد"><Pill tone={TONE[v.approvalStatus] ?? "neutral"}>{v.approvalStatus}</Pill></KV>
+              <KV k="منشور">{v.isPublished ? "أيوه" : "لأ"}</KV>
+              <KV k="الموظفين">{num(v.staffCount)}</KV>
+            </div>
+            <Section title="آخر ٣٠ يوم">
+              <div className="grid grid-cols-3 gap-2 text-center text-sm">
+                <Stat label="حجوزات" value={num(v.last30Days.total)} />
+                <Stat label="مؤكدة/مكتملة" value={num(v.last30Days.confirmed + v.last30Days.completed)} />
+                <Stat label="ملغاة/غياب" value={num(v.last30Days.cancelled + v.last30Days.noShow)} />
+                <Stat label="قيمة المؤكد" value={money(v.last30Days.confirmedValue)} />
+                <Stat label="مستنية دفع" value={num(v.last30Days.pending)} />
+                <Stat label="آخر حجز" value={fmtDate(v.last30Days.lastBookingStartUtc)} />
+              </div>
+            </Section>
+            <Section title={`الملاعب الفرعية (${num(v.pitches.length)})`}>
+              {v.pitches.map((p) => (
+                <div key={p.id} className="flex justify-between text-[13px] border-b border-[#EEF0F5] py-1.5">
+                  <span>{p.name} · {p.turfType} · {num(p.capacity)} لاعب</span>
+                  <span className={muted}>{p.isActive ? "شغال" : "متوقف"}</span>
+                </div>
+              ))}
+            </Section>
+            <div className="flex flex-wrap gap-2">
+              {v.approvalStatus === "Approved" && (
+                <button type="button" className={btnDanger} onClick={() => ask("suspend", "إيقاف الملعب", "الملعب هيختفي من اللاعبين ومفيش حجز جديد. المالك هيوصله السبب.", "إيقاف")}>
+                  إيقاف
+                </button>
+              )}
+              {v.approvalStatus === "Suspended" && (
+                <button type="button" className={btnOutline} onClick={() => ask("reactivate", "إعادة التفعيل", "الملعب هيرجع لحالة النشر اللي كان عليها.", "تفعيل")}>
+                  إعادة التفعيل
+                </button>
+              )}
+              <button type="button" className={btnSmall} onClick={() => ask("ask", "طلب معلومات من المالك", "اكتب المطلوب بالظبط. الحالة مش هتتغير.", "إرسال")}>
+                طلب معلومات
+              </button>
+            </div>
+            <Section title="ملاحظة داخلية (مش بتظهر للمالك)">
+              <textarea
+                aria-label="ملاحظة داخلية"
+                value={note ?? v.adminNote ?? ""}
+                onChange={(e) => setNote(e.target.value)}
+                className={`${inputClass} min-h-[80px]`}
+                maxLength={2000}
+              />
+              <button type="button" className={btnPrimary} disabled={note === null} onClick={() => action.mutate({ kind: "note", text: note ?? "" })}>
+                حفظ الملاحظة
+              </button>
+            </Section>
+            <Section title="نقل الملكية">
+              <Field label="ID الحساب الجديد">
+                <TextInput dir="ltr" value={newOwner} onChange={(e) => setNewOwner(e.target.value)} placeholder="00000000-0000-0000-0000-000000000000" />
+              </Field>
+              <button
+                type="button"
+                className={btnOutline}
+                disabled={!/^[0-9a-f-]{36}$/i.test(newOwner.trim())}
+                onClick={() => ask("owner", "نقل الملكية", "الحساب الجديد هياخد دور مالك ملعب وهيوصله إشعار.", "نقل")}
+              >
+                نقل الملكية
+              </button>
+            </Section>
+            <Section title="السجل">
+              {v.history.map((e) => (
+                <div key={`${e.action}-${e.occurredAtUtc}`} className="text-[13px] border-b border-[#EEF0F5] py-1.5">
+                  <strong>{e.action}</strong> <span className={muted}>{e.fromStatus} ← {e.toStatus} · {fmtDateTime(e.occurredAtUtc)}</span>
+                  {e.message && <p className={muted}>{e.message}</p>}
+                </div>
+              ))}
+            </Section>
+          </>
+        )}
+      </QueryState>
+      <Section title="الشكاوى">
+        <QueryState query={complaints} isEmpty={(d) => d.length === 0} empty="مفيش شكاوى.">
+          {(list) => (
+            <>
+              {list.map((c) => (
+                <div key={c.ticketId} className="flex justify-between text-[13px] border-b border-[#EEF0F5] py-1.5">
+                  <span>{c.number} · {c.subject}</span>
+                  <span className={muted}>{c.status} · {fmtDate(c.createdAtUtc)}</span>
+                </div>
+              ))}
+            </>
+          )}
+        </QueryState>
+      </Section>
+      <ReasonModal request={reason} onClose={() => setReason(null)} />
+    </Drawer>
+  );
+}
+
+function Stat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="bg-[#F6F7FA] rounded-xl p-2 flex flex-col gap-0.5">
+      <span className={`text-[11px] ${muted}`}>{label}</span>
+      <strong>{value}</strong>
+    </div>
   );
 }

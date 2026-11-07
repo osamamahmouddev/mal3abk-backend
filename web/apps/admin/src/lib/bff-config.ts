@@ -7,5 +7,16 @@ export const bffConfig: BffConfig = {
   refreshPath: "/api/v1/admin/auth/refresh",
   logoutPath: "/api/v1/admin/auth/logout",
   loginPath: "/login",
-  allowedPaths: [/^\/api\/v1\/admin\/(venues|sessions)(\/|$)/, /^\/api\/v1\/me$/, /^\/api\/v1\/reference\//, /^\/api\/v1\/media\/[0-9a-f-]+\/[a-z]+$/],
+  // Only what the admin console uses. The API still checks every permission; this list keeps the proxy from
+  // becoming a general-purpose gateway with the admin's token.
+  allowedPaths: [
+    /^\/api\/v1\/admin\//,
+    /^\/api\/v1\/auth\/step-up\/?$/,
+    /^\/api\/v1\/teams\/reports(\/|$)/,
+    /^\/api\/v1\/matches\/(disputes|rankings\/recalculate|[0-9a-f-]+\/disputes\/resolve)$/,
+    /^\/api\/v1\/me(\/permissions)?$/,
+    /^\/api\/v1\/plans$/,
+    /^\/api\/v1\/reference\//,
+    /^\/api\/v1\/media\/[0-9a-f-]+\/[a-z]+$/,
+  ],
 };
