@@ -110,6 +110,12 @@ namespace Malabak.Modules.Subscriptions.Infrastructure.Migrations
                     b.Property<DateTime>("CurrentPeriodEndUtc")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<bool>("CurrentPeriodPaid")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime>("CurrentPeriodStartUtc")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<string>("Cycle")
                         .IsRequired()
                         .HasMaxLength(10)

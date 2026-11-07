@@ -48,6 +48,12 @@ public sealed class OwnerSubscription
     public SubscriptionStatus Status { get; private set; }
     public DateTime StartedAtUtc { get; private set; }
     public DateTime CurrentPeriodEndUtc { get; private set; }
+
+    /// <summary>Start of the running period (the payment covering an unpaid period is invoiced from here).</summary>
+    public DateTime CurrentPeriodStartUtc { get; private set; }
+
+    /// <summary>Whether the running period has been paid (false for a plan assigned without a trial until the first payment).</summary>
+    public bool CurrentPeriodPaid { get; private set; }
     public DateTime? GraceEndsAtUtc { get; private set; }
     public string? StatusReason { get; private set; }
     public DateTime UpdatedAtUtc { get; private set; }
@@ -70,7 +76,9 @@ public sealed class OwnerSubscription
             Cycle = cycle,
             Status = trial ? SubscriptionStatus.Trial : SubscriptionStatus.Active,
             StartedAtUtc = nowUtc,
+            CurrentPeriodStartUtc = nowUtc,
             CurrentPeriodEndUtc = trial ? nowUtc.AddDays(plan.TrialDays) : Extend(nowUtc, cycle),
+            CurrentPeriodPaid = false,
             UpdatedAtUtc = nowUtc
         };
         subscription.Record(SubscriptionEventType.Assigned, actorId, nowUtc, toPlanId: plan.Id, note: trial ? $"Trial {plan.TrialDays} days" : null);
@@ -96,11 +104,35 @@ public sealed class OwnerSubscription
     }
 
     /// <summary>A manual payment covers the next period: from the current end (or now, if it already passed).</summary>
+    /// <summary>
+    /// Records a manual payment and returns the period it pays for. The first payment of a running, unpaid period (a plan
+    /// assigned without a trial) pays that period; a payment while the period is already paid extends it by one cycle; a
+    /// payment after a trial, grace or expiry starts a new period today.
+    /// </summary>
     public (DateTime PeriodStart, DateTime PeriodEnd) RecordPayment(Guid actorId, string? note, DateTime nowUtc)
     {
-        var start = CurrentPeriodEndUtc > nowUtc && Status is SubscriptionStatus.Active ? CurrentPeriodEndUtc : nowUtc;
-        var end = Extend(start, Cycle);
+        var running = Status is SubscriptionStatus.Active && CurrentPeriodEndUtc > nowUtc;
+        DateTime start;
+        DateTime end;
+        if (running && !CurrentPeriodPaid)
+        {
+            start = CurrentPeriodStartUtc;
+            end = CurrentPeriodEndUtc;
+        }
+        else if (running)
+        {
+            start = CurrentPeriodEndUtc;
+            end = Extend(start, Cycle);
+        }
+        else
+        {
+            start = nowUtc;
+            end = Extend(nowUtc, Cycle);
+            CurrentPeriodStartUtc = nowUtc;
+        }
+
         CurrentPeriodEndUtc = end;
+        CurrentPeriodPaid = true;
         GraceEndsAtUtc = null;
         Status = SubscriptionStatus.Active;
         StatusReason = null;
