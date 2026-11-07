@@ -1,5 +1,6 @@
 using Malabak.Api.Infrastructure.Media;
 using Malabak.Api.Infrastructure.Security;
+using Malabak.Modules.Audit.Infrastructure;
 using Malabak.Modules.Booking.Infrastructure;
 using Malabak.Modules.Identity.Infrastructure;
 using Malabak.Modules.Matches.Infrastructure;
@@ -26,6 +27,10 @@ public static class DatabaseMigrator
         typeof(MediaDbContext),
         typeof(NotificationsDbContext),
         typeof(SecurityDbContext),
+        typeof(AuditDbContext),
+        typeof(Platform.PlatformDbContext),
+        typeof(Malabak.Modules.Subscriptions.Infrastructure.SubscriptionsDbContext),
+        typeof(Malabak.Modules.Support.Infrastructure.SupportDbContext),
     ];
 
     public static async Task MigrateAllAsync(IServiceProvider services, CancellationToken cancellationToken = default)

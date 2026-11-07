@@ -73,6 +73,17 @@ resource "cloudflare_record" "staging_api" {
   comment = "Malabak Staging API Gateway"
 }
 
+# Staging web apps (behind Cloudflare Access, TASK-720)
+resource "cloudflare_record" "staging_web" {
+  zone_id = var.cloudflare_zone_id
+  name    = "staging"
+  content = var.enable_cloudflare_tunnel ? "${cloudflare_tunnel.origin_tunnel.id}.cfargotunnel.com" : var.origin_ip
+  type    = var.enable_cloudflare_tunnel ? "CNAME" : "A"
+  proxied = true
+  ttl     = 1
+  comment = "Malabak Staging web - Protected by Zero Trust Access"
+}
+
 # Security TXT Records: SPF, DMARC (prevent origin IP leakage via mail)
 resource "cloudflare_record" "spf" {
   zone_id = var.cloudflare_zone_id

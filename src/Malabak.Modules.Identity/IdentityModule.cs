@@ -82,6 +82,9 @@ public static class IdentityModule
         services.AddScoped<ISessionStore, RedisSessionStore>();
         services.AddScoped<Malabak.SharedKernel.Contracts.ISessionActivityChecker, SessionActivityChecker>();
         services.AddScoped<SessionService>();
+        services.AddScoped<Malabak.Modules.Identity.Application.Admin.AdminUserService>();
+        services.AddScoped<Malabak.Modules.Identity.Application.Admin.AdminAccountService>();
+        services.AddScoped<Malabak.SharedKernel.Contracts.IAdminMetricsProvider, Malabak.Modules.Identity.Application.Admin.UserMetricsProvider>();
 
         // Player profile & onboarding
         services.AddScoped<Malabak.Modules.Identity.Application.Profile.ProfileHandlers>();
@@ -108,6 +111,8 @@ public static class IdentityModule
         // logging come from RedisConnectionFactory). No in-memory fallback: if Redis is down, OTP
         // requests fail closed instead of being checked per instance (SECURITY.md).
         services.AddSingleton<IOtpStore, RedisOtpStore>();
+        services.AddSingleton<Malabak.Modules.Identity.Application.Admin.IImpersonationCodeStore, RedisImpersonationCodeStore>();
+        services.AddScoped<Malabak.Modules.Identity.Application.Admin.ImpersonationService>();
 
         // Command Handlers - Authentication
         services.AddScoped<ICommandHandler<SendOtpCommand, Result<SendOtpResponse>>, SendOtpHandler>();

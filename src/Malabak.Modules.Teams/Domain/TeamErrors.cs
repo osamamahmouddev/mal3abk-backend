@@ -5,6 +5,7 @@ namespace Malabak.Modules.Teams.Domain;
 public static class TeamErrors
 {
     public static readonly Error NotFound = Error.NotFound("Team.NotFound", "The team was not found.");
+    public static readonly Error Suspended = Error.Conflict("Team.Suspended", "This team is suspended by Malabak and cannot do this right now.");
     public static readonly Error SlugAlreadyExists = Error.Conflict("Team.SlugAlreadyExists", "A team with this slug already exists.");
     public static readonly Error NameAlreadyExists = Error.Conflict("Team.NameAlreadyExists", "A team with this name already exists in this city.");
     public static readonly Error InvalidName = Error.Validation("Team.InvalidName", "The team name is invalid.");

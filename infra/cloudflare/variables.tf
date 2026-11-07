@@ -46,3 +46,34 @@ variable "enable_cloudflare_tunnel" {
   type        = bool
   default     = true
 }
+
+variable "staff_email_domain" {
+  description = "Company email domain whose accounts count as Malabak staff in Access (TASK-720)"
+  type        = string
+  default     = "malabak.app"
+}
+
+variable "engineering_allowed_emails" {
+  description = "Engineers allowed to open the Hangfire dashboard and internal Swagger"
+  type        = list(string)
+  default     = ["security@malabak.app"]
+}
+
+variable "access_ip_allowlist" {
+  description = "Optional office/VPN CIDRs required on top of identity for admin, staging and Hangfire (empty = identity only)"
+  type        = list(string)
+  default     = []
+}
+
+variable "google_sso_client_id" {
+  description = "Google Workspace OAuth client id for Access SSO (empty = one-time PIN only)"
+  type        = string
+  default     = ""
+}
+
+variable "google_sso_client_secret" {
+  description = "Google Workspace OAuth client secret for Access SSO"
+  type        = string
+  default     = ""
+  sensitive   = true
+}

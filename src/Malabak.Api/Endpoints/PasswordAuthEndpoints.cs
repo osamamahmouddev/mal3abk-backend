@@ -91,7 +91,7 @@ public static class PasswordAuthEndpoints
         {
             "Identity.LoginThrottled" => StatusCodes.Status429TooManyRequests,
             "Identity.InvalidCredentials" or "Identity.InvalidTotpCode" => StatusCodes.Status401Unauthorized,
-            "Identity.EmailNotVerified" or "Identity.TwoFactorRequired" or "Identity.CaptchaRequired" => StatusCodes.Status403Forbidden,
+            "Identity.EmailNotVerified" or "Identity.TwoFactorRequired" or "Identity.CaptchaRequired" or "Identity.AccountSuspended" => StatusCodes.Status403Forbidden,
             _ => StatusCodes.Status400BadRequest
         };
         return Results.Problem(title: error.Code, detail: error.Description, statusCode: status);

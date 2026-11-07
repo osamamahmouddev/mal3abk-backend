@@ -24,9 +24,13 @@ public static class NotificationTypes
     public const string BookingReminder2h = "booking.reminder_2h";
     public const string VenueApproved = "venue.approved";
     public const string VenueRejected = "venue.rejected";
+    public const string VenueSuspended = "venue.suspended";
+    public const string VenueReactivated = "venue.reactivated";
+    public const string VenueOwnershipReceived = "venue.ownership_received";
     public const string VenueInfoRequested = "venue.info_requested";
     public const string StaffInvitationAccepted = "staff.invitation_accepted";
     public const string NewDeviceSignIn = "security.new_device";
+    public const string ImpersonationStarted = "security.impersonation_started";
     public const string TeamInvitationReceived = "team.invitation_received";
     public const string TeamChallengeReceived = "team.challenge_received";
     public const string TeamChallengeAccepted = "team.challenge_accepted";
@@ -38,4 +42,16 @@ public static class NotificationTypes
     public const string MatchResultConfirmed = "match.result_confirmed";
     public const string MatchResultDisputed = "match.result_disputed";
     public const string MatchDisputeResolved = "match.dispute_resolved";
+    public const string TeamSuspended = "team.suspended";
+    public const string TeamReactivated = "team.reactivated";
+    public const string MatchResultCorrected = "match.result_corrected";
+    public const string SubscriptionExpiring = "subscription.expiring";
+    public const string SubscriptionGraceStarted = "subscription.grace_started";
+    public const string SubscriptionExpired = "subscription.expired";
+    public const string SubscriptionPaymentRecorded = "subscription.payment_recorded";
+    public const string SubscriptionSuspended = "subscription.suspended";
+    public const string SupportTicketReplied = "support.ticket_replied";
+    public const string SupportTicketResolved = "support.ticket_resolved";
+    public const string PaymentDisputeOpened = "dispute.opened";
+    public const string PaymentDisputeResolved = "dispute.resolved";
 }

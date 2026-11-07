@@ -106,3 +106,15 @@ jobs:
           name: venue-e2e-traces
           path: web/apps/venue/test-results
           retention-days: 7
+
+      - name: Admin console E2E (role navigation, permission states, step-up)
+        working-directory: ./web/apps/admin
+        run: pnpm e2e
+
+      - name: Upload admin Playwright traces on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: admin-e2e-traces
+          path: web/apps/admin/test-results
+          retention-days: 7

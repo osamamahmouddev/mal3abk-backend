@@ -100,7 +100,10 @@ public static class VenuesModule
         services.AddScoped<IQueryHandler<GetBookingPolicyPreviewQuery, Result<BookingPolicyPreviewDto>>, GetBookingPolicyPreviewHandler>();
 
         // Staff management & invitations
-        services.AddScoped<IStaffQuotaPolicy, DefaultStaffQuotaPolicy>();
+        services.AddScoped<IStaffQuotaPolicy, Application.Subscriptions.EntitlementStaffQuotaPolicy>();
+        services.AddScoped<IOwnerUsageReader, Application.Subscriptions.OwnerUsageReader>();
+        services.AddScoped<Application.Admin.AdminVenueService>();
+        services.AddScoped<Malabak.SharedKernel.Contracts.IAdminMetricsProvider, Application.Admin.VenueMetricsProvider>();
         services.AddScoped<StaffManagementHandlers>();
         services.AddScoped<ICommandHandler<InviteStaffCommand, Result<StaffInvitationDto>>>(sp => sp.GetRequiredService<StaffManagementHandlers>());
         services.AddScoped<ICommandHandler<ResendStaffInvitationCommand, Result>>(sp => sp.GetRequiredService<StaffManagementHandlers>());
@@ -121,6 +124,7 @@ public static class VenuesModule
         services.AddScoped<Application.Explore.VenueExplore>();
         services.AddScoped<Application.Details.VenueDetailsQuery>();
         services.AddScoped<Application.Home.HomeFeed>();
+        services.AddScoped<Application.Featured.FeaturedVenueService>();
         services.AddScoped<IVenueCapacityReader, Application.Availability.VenueCapacityReader>();
         services.AddScoped<Application.Pitches.SetPitchActive>();
         services.AddScoped<Application.Quotes.BookingQuoteService>();

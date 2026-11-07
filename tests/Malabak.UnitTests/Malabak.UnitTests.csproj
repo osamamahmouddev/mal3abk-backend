@@ -15,12 +15,17 @@
     <ProjectReference Include="..\..\src\Malabak.Modules.Notifications\Malabak.Modules.Notifications.csproj" />
     <ProjectReference Include="..\..\src\Malabak.Modules.Teams\Malabak.Modules.Teams.csproj" />
     <ProjectReference Include="..\..\src\Malabak.Modules.Matches\Malabak.Modules.Matches.csproj" />
+    <ProjectReference Include="..\..\src\Malabak.Modules.Audit\Malabak.Modules.Audit.csproj" />
+    <ProjectReference Include="..\..\src\Malabak.Modules.Subscriptions\Malabak.Modules.Subscriptions.csproj" />
+    <ProjectReference Include="..\..\src\Malabak.Modules.Support\Malabak.Modules.Support.csproj" />
+    <ProjectReference Include="..\..\src\Malabak.Api\Malabak.Api.csproj" />
   </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="Microsoft.NET.Test.Sdk" />
     <PackageReference Include="xunit" />
     <PackageReference Include="xunit.runner.visualstudio" />
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
     <PackageReference Include="FluentAssertions" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" />

@@ -76,6 +76,9 @@ public sealed class UserConfiguration : IEntityTypeConfiguration<User>
         builder.Property(u => u.SkillLevel).HasConversion<string>().HasMaxLength(20);
         builder.Property(u => u.Language).HasMaxLength(5).IsRequired().HasDefaultValue(UserLanguages.Arabic);
         builder.Ignore(u => u.IsOnboardingComplete);
+        builder.Ignore(u => u.IsSuspended);
+        builder.Property(u => u.SuspensionReason).HasMaxLength(User.MaxSuspensionReasonLength);
+        builder.HasIndex(u => u.SuspendedAtUtc);
 
         // Positions stored as a short comma-separated list; snapshot as List so it fits the List backing field.
         var positionsComparer = new ValueComparer<IReadOnlyCollection<PlayerPosition>>(

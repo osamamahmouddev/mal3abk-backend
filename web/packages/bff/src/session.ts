@@ -8,6 +8,10 @@ export interface SessionUser {
   id: string;
   name: string;
   roles: string[];
+  /** Set while a Malabak support agent is signed in as this user (TASK-063): the app shows a banner. */
+  impersonatedBy?: string;
+  /** Epoch ms when the impersonation token ends (no refresh: the session ends with it). */
+  impersonationEndsAt?: number;
 }
 
 export interface SessionData {

@@ -9,22 +9,24 @@ import type { SessionUser } from "@malabak/bff/server";
 import { adminLogout } from "@/app/auth-actions";
 import { api, unwrap } from "@/lib/api";
 
-const NAV: { title: string; href: string; badge?: string }[] = [
-  { title: "نظرة عامة", href: "/overview" },
-  { title: "المستخدمين", href: "/users" },
-  { title: "الملاعب", href: "/venues" },
-  { title: "موافقات الملاعب", href: "/approvals" },
-  { title: "الحجوزات", href: "/bookings" },
-  { title: "إيصالات ونزاعات", href: "/disputes", badge: "٣" },
-  { title: "الفرق والمجتمع", href: "/teams" },
-  { title: "باقات الاشتراك", href: "/plans" },
-  { title: "الاشتراكات والفواتير", href: "/billing" },
-  { title: "ملاعب مميزة", href: "/featured" },
-  { title: "التقارير", href: "/reports" },
-  { title: "تذاكر الدعم", href: "/support", badge: "٧" },
-  { title: "إعدادات المنصة", href: "/settings" },
-  { title: "سجل التدقيق", href: "/audit" },
-];
+/** Admin app sections, keyed by the navigation keys the API returns for the signed-in staff member's permissions. */
+const SECTIONS: Record<string, { title: string; href: string }[]> = {
+  dashboard: [{ title: "نظرة عامة", href: "/overview" }],
+  users: [{ title: "المستخدمين", href: "/users" }],
+  venues: [{ title: "الملاعب", href: "/venues" }],
+  approvals: [{ title: "موافقات الملاعب", href: "/approvals" }],
+  bookings: [{ title: "الحجوزات", href: "/bookings" }],
+  disputes: [{ title: "نزاعات الإيصالات", href: "/disputes" }],
+  moderation: [{ title: "الفرق والمجتمع", href: "/teams" }],
+  support: [{ title: "تذاكر الدعم", href: "/support" }],
+  plans: [{ title: "باقات الاشتراك", href: "/plans" }],
+  subscriptions: [{ title: "الاشتراكات والفواتير", href: "/billing" }],
+  invoices: [{ title: "الإيرادات والتقارير", href: "/reports" }],
+  featured: [{ title: "ملاعب مميزة", href: "/featured" }],
+  settings: [{ title: "إعدادات المنصة", href: "/settings" }],
+  accounts: [{ title: "حسابات الفريق", href: "/accounts" }],
+  audit: [{ title: "سجل التدقيق", href: "/audit" }],
+};
 
 function Brand({ height = "h-8" }: { height?: string; size?: string }) {
   return (
@@ -45,12 +47,34 @@ function Brand({ height = "h-8" }: { height?: string; size?: string }) {
 const toArabicDigits = (n: number) => String(n).replace(/[0-9]/g, (d) => "٠١٢٣٤٥٦٧٨٩"[Number(d)]);
 
 function SideNav({ pathname, user, onClose }: { pathname: string; user: SessionUser; onClose?: () => void }) {
+  const navigation = useQuery({
+    queryKey: ["admin-navigation"],
+    queryFn: () => unwrap(api.GET("/api/v1/admin/navigation")),
+    staleTime: 5 * 60_000,
+  });
+  const keys = new Set((navigation.data ?? []).map((n) => n.key));
+  const items = Object.entries(SECTIONS)
+    .filter(([key]) => keys.has(key))
+    .flatMap(([, list]) => list)
+    .filter((item, i, all) => all.findIndex((x) => x.href === item.href) === i);
+
   const pending = useQuery({
     queryKey: ["approvals"],
+    enabled: keys.has("approvals"),
     queryFn: () => unwrap(api.GET("/api/v1/admin/venues/pending-approval", { params: { query: { page: 1, pageSize: 50 } } })),
     refetchInterval: 60_000,
   });
-  const pendingCount = pending.data?.length ?? 0;
+  const figures = useQuery({
+    queryKey: ["dashboard-badges"],
+    enabled: keys.has("dashboard"),
+    queryFn: () => unwrap(api.GET("/api/v1/admin/dashboard", {})),
+    refetchInterval: 120_000,
+  });
+  const badge: Record<string, number> = {
+    "/approvals": pending.data?.length ?? 0,
+    "/disputes": figures.data?.figures["disputes.open"] ?? 0,
+    "/support": figures.data?.figures["support.open"] ?? 0,
+  };
   const isActive = (href: string) => (href === "/overview" ? pathname === "/" || pathname === "/overview" : pathname.startsWith(href));
 
   return (
@@ -74,7 +98,8 @@ function SideNav({ pathname, user, onClose }: { pathname: string; user: SessionU
         )}
       </div>
       <nav aria-label="أقسام الإدارة" className="flex flex-col gap-0.5">
-        {NAV.map((n) => {
+        {navigation.isLoading && <div className="h-40 rounded-[9px] bg-white/[0.06] animate-pulse" />}
+        {items.map((n) => {
           const active = isActive(n.href);
           return (
             <Link
@@ -86,14 +111,9 @@ function SideNav({ pathname, user, onClose }: { pathname: string; user: SessionU
               }`}
             >
               <span className="flex-1">{n.title}</span>
-              {n.href === "/approvals" && pendingCount > 0 && (
+              {(badge[n.href] ?? 0) > 0 && (
                 <span className="min-w-[20px] h-5 px-1.5 rounded-[10px] bg-brand-red text-white text-[11px] font-bold flex items-center justify-center">
-                  {toArabicDigits(pendingCount)}
-                </span>
-              )}
-              {n.badge && (
-                <span className="min-w-[20px] h-5 px-1.5 rounded-[10px] bg-brand-red text-white text-[11px] font-bold flex items-center justify-center">
-                  {n.badge}
+                  {toArabicDigits(badge[n.href])}
                 </span>
               )}
             </Link>

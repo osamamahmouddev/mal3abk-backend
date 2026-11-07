@@ -302,6 +302,31 @@ public sealed class User : Entity<Guid>
         UpdatedAtUtc = nowUtc;
     }
 
+    public const int MaxSuspensionReasonLength = 500;
+
+    /// <summary>Set while an admin has suspended the account (TASK-701). Suspended accounts cannot sign in or refresh.</summary>
+    public DateTime? SuspendedAtUtc { get; private set; }
+    public string? SuspensionReason { get; private set; }
+    public bool IsSuspended => SuspendedAtUtc is not null;
+
+    /// <summary>Suspends the account and rotates the security stamp; the caller revokes the open sessions.</summary>
+    public void Suspend(string reason, DateTime nowUtc)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(reason);
+        SuspendedAtUtc = nowUtc;
+        SuspensionReason = reason.Trim().Length > MaxSuspensionReasonLength ? reason.Trim()[..MaxSuspensionReasonLength] : reason.Trim();
+        UpdateSecurityStamp(nowUtc);
+    }
+
+    public void Reactivate(DateTime nowUtc)
+    {
+        SuspendedAtUtc = null;
+        SuspensionReason = null;
+        FailedLoginCount = 0;
+        LoginThrottledUntilUtc = null;
+        UpdatedAtUtc = nowUtc;
+    }
+
     public void SetPassword(string passwordHash, DateTime nowUtc)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(passwordHash);

@@ -18,7 +18,10 @@ public static class RolePermissions
             [UserRole.Admin] =
             [
                 Permissions.ProfileManage,
+                Permissions.AdminUsersView,
                 Permissions.AdminUsersManage,
+                Permissions.AdminAccountsManage,
+                Permissions.AdminImpersonate,
                 Permissions.AdminVenuesApprove,
                 Permissions.AdminBookingsView,
                 Permissions.AdminDisputesResolve,
@@ -32,6 +35,8 @@ public static class RolePermissions
             [
                 Permissions.ProfileManage,
                 Permissions.SupportTicketsManage,
+                Permissions.AdminUsersView,
+                Permissions.AdminImpersonate,
                 Permissions.AdminBookingsView
             ],
             [UserRole.Finance] =
@@ -41,6 +46,9 @@ public static class RolePermissions
                 Permissions.InvoicesView
             ]
         };
+
+    /// <summary>The full role → permissions catalog (admin roles screen, TASK-713).</summary>
+    public static IReadOnlyDictionary<string, IReadOnlyCollection<string>> Catalog => _map;
 
     public static IReadOnlySet<string> For(IEnumerable<string> roles)
     {

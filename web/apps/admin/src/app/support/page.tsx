@@ -1,253 +1,186 @@
 "use client";
 
 import React, { useState } from "react";
-import Link from "next/link";
-import { Page, PageHeader, Pill, Toast, Tone, card, chip, inputClass, muted, redShadow, toArabicDigits, useRevealOnSelect } from "@/components/ui";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import type { Schemas } from "@malabak/api-client";
+import { KV, Page, PageHeader, Pill, ReasonModal, type ReasonRequest, SearchBox, btnOutline, btnPrimary, btnSmall, card, inputClass, muted } from "@/components/ui";
+import { Drawer, Pager, QueryState, Select, Table, fmtDateTime, useNotice } from "@/components/admin";
+import { api, unwrap } from "@/lib/api";
 
-type Kind = "player" | "venue";
-type Priority = "high" | "med" | "low";
-type Filter = "open" | "player" | "venue" | "closed";
-// sender: p = customer, a = support agent ("Name: text")
-type Message = ["p" | "a", string];
-// who, kind, priority, subject, time, related link, link label, messages
-type Ticket = [string, Kind, Priority, string, string, string | null, string, Message[]];
+type Row = Schemas["TicketSummaryDto"];
+const PAGE_SIZE = 25;
 
-const TICKETS: Ticket[] = [
-  ["عمر خالد", "player", "high", "دفعت العربون والحجز لسه تحت المراجعة", "من ١٠ دقايق", "/bookings", "الحجز KH-2607-0145", [["p", "حوّلت ٥٠ ج.م من ساعة والملعب لسه مأكدش، والماتش النهارده."]]],
-  [
-    "محمود عبد الله — ملعب النجوم",
-    "venue",
-    "high",
-    "عايز أفتح الفرع التاني (التجمع)",
-    "من ساعة",
-    "/approvals",
-    "طلب الموافقة",
-    [
-      ["p", "رفعت كل الورق من يومين ولسه الفرع تحت المراجعة."],
-      ["a", "سارة: بنراجع السجل التجاري وهنرد النهارده."],
-      ["p", "تمام، مستني."],
-    ],
-  ],
-  ["مازن رأفت", "player", "med", "اتسجلت عليّ غياب ظلم", "من ٣ ساعات", "/disputes", "النزاع", [["p", "وصلنا متأخرين ١٠ دقايق بس."]]],
-  ["هشام — ملاعب الرواد", "venue", "med", "الفاتورة فيها اسم الشركة غلط", "امبارح", "/billing", "الفواتير", [["p", 'محتاجين الفاتورة باسم "الرواد للاستثمار الرياضي".']]],
-  ["كريم عادل", "player", "low", "فين الرصيد بتاع الإلغاء؟", "امبارح", "/disputes", "النزاع", [["p", "مش لاقي الرصيد في حسابي."]]],
-  ["أحمد سامي", "player", "low", "عايز أغيّر كابتن الفريق", "من يومين", null, "", [["p", "هسافر شهر وعايز يوسف يبقى كابتن."]]],
-  ["سامح — ملعب الحي", "venue", "med", "الملعب اتخفى ليه؟", "من يومين", "/venues", "ملف الملعب", [["p", "الملعب مش ظاهر للاعيبة من امبارح."]]],
-  [
-    "يوسف حسن",
-    "player",
-    "low",
-    "التطبيق بيقفل وأنا برفع الإيصال",
-    "من ٤ أيام",
-    null,
-    "",
-    [
-      ["p", "سامسونج A12 أندرويد ١١."],
-      ["a", "عمرو: اتصلح في التحديث الأخير، جرّب تاني."],
-    ],
-  ],
+const STATUSES: [string, string][] = [["", "كل الحالات"], ["Open", "مفتوحة"], ["InProgress", "جاري العمل"], ["WaitingOnRequester", "مستنية رد العميل"], ["Resolved", "محلولة"], ["Closed", "مقفولة"]];
+const CATEGORIES: [string, string][] = [
+  ["", "كل الأنواع"],
+  ["Booking", "حجز"],
+  ["Deposit", "عربون"],
+  ["Refund", "استرداد"],
+  ["VenueComplaint", "شكوى ملعب"],
+  ["Account", "حساب"],
+  ["TeamMatchDispute", "نزاع فريق/ماتش"],
+  ["Subscription", "اشتراك"],
+  ["Other", "أخرى"],
 ];
-
-const KIND: Record<Kind, [string, Tone]> = { player: ["لاعب", "neutral"], venue: ["ملعب", "navy"] };
-const PRIORITY: Record<Priority, [string, Tone]> = { high: ["عاجل", "bad"], med: ["متوسط", "warn"], low: ["عادي", "neutral"] };
-const QUICK_REPLIES: [string, string][] = [
-  ["بنراجع", "شكراً إنك كلمتنا، بنراجع الموضوع وهنرد عليك خلال ساعة."],
-  ["محتاج صورة", "ممكن تبعتلنا صورة واضحة من الإيصال أو الشاشة؟"],
-  ["اتحلت", "المشكلة اتحلت، جرّب تاني ولو فيه حاجة قولنا."],
-];
-
-// TODO: the signed-in agent's name comes from the session.
-const ME = "سارة";
-const smallBtn = "min-h-[38px] px-3.5 rounded-[10px] border border-[#C9CFD9] bg-white text-ink text-[13px] font-semibold";
+const PRIORITIES: [string, string][] = [["Low", "منخفضة"], ["Normal", "عادية"], ["High", "عالية"], ["Urgent", "عاجلة"]];
+const PRIORITY_TONE: Record<string, "ok" | "warn" | "bad" | "neutral"> = { Low: "neutral", Normal: "neutral", High: "warn", Urgent: "bad" };
+const label = (list: [string, string][], v: string) => list.find(([k]) => k === v)?.[1] ?? v;
 
 export default function SupportPage() {
-  const [filter, setFilter] = useState<Filter>("open");
-  const [sel, setSel] = useState(0);
-  const detailsRef = useRevealOnSelect<HTMLElement>(sel);
-  const [reply, setReply] = useState("");
-  const [extra, setExtra] = useState<Record<number, Message[]>>({});
-  const [status, setStatus] = useState<Record<number, "open" | "closed">>({});
-  const [owners, setOwners] = useState<Record<number, string>>({});
-  const [toast, setToast] = useState<string | null>(null);
+  const [q, setQ] = useState("");
+  const [status, setStatus] = useState("");
+  const [category, setCategory] = useState("");
+  const [mine, setMine] = useState<"all" | "unassigned">("all");
+  const [page, setPage] = useState(1);
+  const [selected, setSelected] = useState<string | null>(null);
 
-  const statusOf = (i: number) => status[i] ?? (i === 7 ? "closed" : "open");
-  const idx = TICKETS.map((_, i) => i).filter((i) =>
-    filter === "open" ? statusOf(i) === "open" : filter === "closed" ? statusOf(i) === "closed" : TICKETS[i][1] === filter
-  );
-  const t = TICKETS[sel];
-  const tst = statusOf(sel);
-  const msgs = [...t[7], ...(extra[sel] ?? [])];
-  const firstAgent = t[7].find((m) => m[0] === "a");
-  const owner = owners[sel] ?? (firstAgent ? firstAgent[1].split(":")[0] : "مش متعيّن");
-  const openCount = TICKETS.filter((_, i) => statusOf(i) === "open").length;
-
-  const send = () => {
-    const text = reply.trim();
-    if (!text) return;
-    setExtra({ ...extra, [sel]: [...(extra[sel] ?? []), ["a", `${ME}: ${text}`]] });
-    if (owner === "مش متعيّن") setOwners({ ...owners, [sel]: ME });
-    setReply("");
-    setToast("اتبعت الرد بإشعار في التطبيق.");
-  };
+  const tickets = useQuery({
+    queryKey: ["admin-tickets", q, status, category, mine, page],
+    queryFn: () =>
+      unwrap(
+        api.GET("/api/v1/admin/support/tickets", {
+          params: { query: { q: q || undefined, status: status || undefined, category: category || undefined, unassigned: mine === "unassigned" || undefined, page, pageSize: PAGE_SIZE } },
+        }),
+      ),
+  });
 
   return (
     <Page>
-      <PageHeader title="تذاكر الدعم" sub={`${toArabicDigits(openCount)} تذكرة مفتوحة · متوسط أول رد ١٨ دقيقة`}>
-        <div className="flex gap-1.5 flex-wrap">
-          {(
-            [
-              ["open", "مفتوحة"],
-              ["player", "لاعيبة"],
-              ["venue", "ملاعب"],
-              ["closed", "مقفولة"],
-            ] as const
-          ).map(([id, label]) => (
-            <button key={id} type="button" aria-pressed={filter === id} onClick={() => setFilter(id)} className={chip(filter === id)}>
-              {label}
-            </button>
-          ))}
-        </div>
-      </PageHeader>
-
-      <div className="flex flex-wrap gap-4 items-start">
-        <section aria-label="التذاكر" className={`flex-[1_1_300px] min-w-0 ${card} rounded-[20px] overflow-hidden`}>
-          {idx.map((i) => {
-            const x = TICKETS[i];
-            const k = statusOf(i);
-            return (
-              <button
-                key={i}
-                type="button"
-                aria-pressed={i === sel}
-                onClick={() => {
-                  setSel(i);
-                  setReply("");
-                }}
-                className={`w-full text-right flex flex-col gap-1.5 px-4 py-3.5 border-b border-[#EEF0F5] text-slate-900 ${
-                  i === sel ? "bg-[#F3F5FB] shadow-[inset_-3px_0_0_#D63B2F]" : "bg-white"
-                }`}
-              >
-                <span className="flex items-center gap-2">
-                  <span className="flex-1 text-sm font-bold">{x[0]}</span>
-                  <span className="text-xs text-[#8A94AA]">{x[4]}</span>
-                </span>
-                <span className="text-[13px] text-[#3B4352]">{x[3]}</span>
-                <span className="flex gap-1.5">
-                  <Pill tone={KIND[x[1]][1]}>{KIND[x[1]][0]}</Pill>
-                  <Pill tone={PRIORITY[x[2]][1]}>{PRIORITY[x[2]][0]}</Pill>
-                  <Pill tone={k === "open" ? "warn" : "ok"}>{k === "open" ? "مفتوحة" : "مقفولة"}</Pill>
-                </span>
-              </button>
-            );
-          })}
-          {idx.length === 0 && <p className={`p-8 text-center ${muted}`}>مفيش تذاكر هنا.</p>}
-        </section>
-
-        <section ref={detailsRef} className={`scroll-mt-20 flex-[999_1_460px] min-w-0 ${card} rounded-[20px] p-5 flex flex-col gap-3.5`}>
-          <div className="flex items-center gap-2.5 flex-wrap">
-            <h2 className="flex-1 text-lg font-bold">{t[3]}</h2>
-            <Pill tone={tst === "open" ? "warn" : "ok"}>{tst === "open" ? "مفتوحة" : "مقفولة"}</Pill>
-          </div>
-          <div className={`flex gap-2 flex-wrap text-[13px] ${muted}`}>
-            <span>{t[0]}</span>
-            <span>·</span>
-            <span>{KIND[t[1]][0]}</span>
-            <span>·</span>
-            <span>
-              مسؤول: <b className="text-ink">{owner}</b>
-            </span>
-            {t[5] && (
-              <Link href={t[5]} className="font-bold text-ink underline">
-                {t[6]}
-              </Link>
-            )}
-          </div>
-          <div className="flex flex-col gap-2.5 bg-surface rounded-2xl p-3.5">
-            {msgs.map(([from, text], i) => {
-              const fromAgent = from === "a";
-              const body = fromAgent && text.includes(":") ? text.split(":").slice(1).join(":").trim() : text;
-              return (
-                <div key={i} className={`flex ${fromAgent ? "justify-end" : "justify-start"}`}>
-                  <div className={`max-w-[80%] rounded-[14px] px-3 py-2.5 text-sm leading-[1.6] ${fromAgent ? "bg-ink text-white" : "bg-white text-slate-900"}`}>
-                    <span className="block text-xs font-bold mb-1 opacity-75">{fromAgent ? "فريق ملعبك" : t[0]}</span>
-                    {body}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-
-          {tst === "open" ? (
-            <div className="flex flex-col gap-2.5">
-              <div className="flex gap-1.5 flex-wrap">
-                {QUICK_REPLIES.map(([label, text]) => (
-                  <button
-                    key={label}
-                    type="button"
-                    onClick={() => setReply(text)}
-                    className="min-h-[34px] px-3 rounded-full border border-[#DCE0E8] bg-white text-xs font-semibold text-[#3B4352]"
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
-              <label htmlFor="rp" className="text-[13px] font-semibold">
-                الرد
-              </label>
-              <input
-                id="rp"
-                value={reply}
-                onChange={(e) => setReply(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && send()}
-                placeholder="اكتب ردك..."
-                className={inputClass}
-              />
-              <div className="flex gap-2 flex-wrap items-center">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setOwners({ ...owners, [sel]: ME });
-                    setToast("التذكرة بقت عليكي.");
-                  }}
-                  className={smallBtn}
-                >
-                  {owner === ME ? "متعيّنة ليك" : "خليها عليّا"}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setStatus({ ...status, [sel]: "closed" });
-                    setToast("اتقفلت التذكرة واتبعت استبيان رضا.");
-                  }}
-                  className={smallBtn}
-                >
-                  قفل التذكرة
-                </button>
-                <span className="flex-1" />
-                <button
-                  type="button"
-                  disabled={!reply.trim()}
-                  onClick={send}
-                  className={`min-h-[44px] px-6 rounded-xl text-sm font-bold ${
-                    reply.trim() ? `bg-brand-red hover:bg-brand-red-hover text-white ${redShadow}` : "bg-[#E4E7EC] text-[#6B7383] cursor-not-allowed"
-                  }`}
-                >
-                  إرسال
-                </button>
-              </div>
-            </div>
-          ) : (
-            <div className="flex items-center gap-2.5 bg-[#E5F5EB] text-[#1B6E3E] rounded-xl px-3.5 py-2.5 text-sm">
-              <span className="flex-1">التذكرة مقفولة.</span>
-              <button type="button" onClick={() => setStatus({ ...status, [sel]: "open" })} className={smallBtn}>
-                إعادة فتح
-              </button>
-            </div>
-          )}
-        </section>
+      <PageHeader title="تذاكر الدعم" sub="الأعجل الأول، وبعدين الأقدم انتظارًا. الملاحظات الداخلية مش بتوصل للعميل." />
+      <div className="flex flex-wrap gap-2">
+        <div className="flex-[1_1_220px]"><SearchBox value={q} onChange={(v) => { setQ(v); setPage(1); }} placeholder="رقم التذكرة أو الموضوع" /></div>
+        <Select label="الحالة" value={status} onChange={(v) => { setStatus(v); setPage(1); }} options={STATUSES} />
+        <Select label="النوع" value={category} onChange={(v) => { setCategory(v); setPage(1); }} options={CATEGORIES} />
+        <Select label="الإسناد" value={mine} onChange={(v) => { setMine(v as "all" | "unassigned"); setPage(1); }} options={[["all", "الكل"], ["unassigned", "غير مسندة"]]} />
       </div>
-
-      <Toast message={toast} onClose={() => setToast(null)} />
+      <QueryState query={tickets} isEmpty={(d) => d.items.length === 0} empty="مفيش تذاكر.">
+        {(data) => (
+          <>
+            <Table<Row>
+              caption="التذاكر"
+              rows={data.items}
+              rowKey={(t) => t.id}
+              selected={selected}
+              onSelect={(t) => setSelected(t.id)}
+              columns={[
+                { title: "الرقم", cell: (t) => <span dir="ltr" className="font-inter">{t.number}</span> },
+                { title: "الموضوع", cell: (t) => <strong>{t.subject}</strong> },
+                { title: "النوع", cell: (t) => label(CATEGORIES, t.category) },
+                { title: "الأولوية", cell: (t) => <Pill tone={PRIORITY_TONE[t.priority] ?? "neutral"}>{label(PRIORITIES, t.priority)}</Pill> },
+                { title: "الحالة", cell: (t) => label(STATUSES, t.status) },
+                { title: "من", cell: (t) => (t.requesterKind === "Venue" ? "ملعب" : "لاعب") },
+                { title: "آخر نشاط", cell: (t) => fmtDateTime(t.lastActivityAtUtc) },
+              ]}
+            />
+            <Pager page={page} pageSize={PAGE_SIZE} total={data.total} onChange={setPage} />
+          </>
+        )}
+      </QueryState>
+      <TicketDrawer ticketId={selected} onClose={() => setSelected(null)} />
     </Page>
+  );
+}
+
+function TicketDrawer({ ticketId, onClose }: { ticketId: string | null; onClose: () => void }) {
+  const queryClient = useQueryClient();
+  const notice = useNotice();
+  const [body, setBody] = useState("");
+  const [internal, setInternal] = useState(false);
+  const [reason, setReason] = useState<ReasonRequest | null>(null);
+  const me = useQuery({ queryKey: ["me"], queryFn: () => unwrap(api.GET("/api/v1/me")), staleTime: 10 * 60_000 });
+
+  const detail = useQuery({
+    queryKey: ["admin-ticket", ticketId],
+    enabled: !!ticketId,
+    queryFn: () => unwrap(api.GET("/api/v1/admin/support/tickets/{ticketId}", { params: { path: { ticketId: ticketId! } } })),
+  });
+  const path = { ticketId: ticketId ?? "" };
+  const refresh = async (text: string) => {
+    notice.ok(text);
+    await queryClient.invalidateQueries({ queryKey: ["admin-ticket"] });
+    await queryClient.invalidateQueries({ queryKey: ["admin-tickets"] });
+  };
+  const reply = useMutation({
+    mutationFn: () => unwrap(api.POST("/api/v1/admin/support/tickets/{ticketId}/messages", { params: { path }, body: { message: body, internal } })),
+    onSuccess: () => { setBody(""); return refresh(internal ? "اتضافت ملاحظة داخلية." : "الرد اتبعت للعميل."); },
+    onError: notice.fail,
+  });
+  const assign = useMutation({
+    mutationFn: (assigneeId: string | null) => unwrap(api.PUT("/api/v1/admin/support/tickets/{ticketId}/assignee", { params: { path }, body: { assigneeId } })),
+    onSuccess: (_, id) => refresh(id ? "التذكرة اتسندت ليك." : "اتشال الإسناد."),
+    onError: notice.fail,
+  });
+  const priority = useMutation({
+    mutationFn: (value: string) => unwrap(api.PUT("/api/v1/admin/support/tickets/{ticketId}/priority", { params: { path }, body: { priority: value } })),
+    onSuccess: () => refresh("اتغيرت الأولوية."),
+    onError: notice.fail,
+  });
+  const finish = useMutation({
+    mutationFn: ({ close, text }: { close: boolean; text: string }) =>
+      close
+        ? unwrap(api.POST("/api/v1/admin/support/tickets/{ticketId}/close", { params: { path }, body: { reason: text } }))
+        : unwrap(api.POST("/api/v1/admin/support/tickets/{ticketId}/resolve", { params: { path }, body: { reason: text } })),
+    onSuccess: (_, { close }) => refresh(close ? "اتقفلت التذكرة." : "اتحلت التذكرة والعميل وصله السبب."),
+    onError: notice.fail,
+  });
+
+  return (
+    <Drawer title="تذكرة دعم" open={!!ticketId} onClose={() => { notice.clear(); onClose(); }}>
+      {notice.node}
+      <QueryState query={detail}>
+        {(d) => {
+          const t = d.ticket;
+          const closed = t.status === "Closed";
+          return (
+            <>
+              <div className={`${card} rounded-[16px] p-4 flex flex-col gap-2`}>
+                <strong className="text-[16px]">{t.subject}</strong>
+                <KV k="الرقم"><span dir="ltr" className="font-inter">{t.number}</span></KV>
+                <KV k="النوع">{label(CATEGORIES, t.category)}</KV>
+                <KV k="الحالة">{label(STATUSES, t.status)}</KV>
+                <KV k="الإسناد">{t.assigneeId ? (t.assigneeId === me.data?.userId ? "أنت" : t.assigneeId.slice(0, 8)) : "غير مسندة"}</KV>
+                {t.relatedBookingId && <KV k="حجز مرتبط"><span dir="ltr" className="font-inter text-xs">{t.relatedBookingId}</span></KV>}
+                {t.relatedVenueId && <KV k="ملعب مرتبط"><span dir="ltr" className="font-inter text-xs">{t.relatedVenueId}</span></KV>}
+                {d.resolutionReason && <KV k="سبب الحل">{d.resolutionReason}</KV>}
+              </div>
+              {!closed && (
+                <div className="flex flex-wrap gap-2 items-center">
+                  {t.assigneeId !== me.data?.userId && me.data && <button type="button" className={btnSmall} onClick={() => assign.mutate(me.data!.userId)}>إسناد ليا</button>}
+                  {t.assigneeId && <button type="button" className={btnSmall} onClick={() => assign.mutate(null)}>إلغاء الإسناد</button>}
+                  <Select label="الأولوية" value={t.priority} onChange={(v) => priority.mutate(v)} options={PRIORITIES} />
+                </div>
+              )}
+              <section className="flex flex-col gap-2" aria-label="المحادثة">
+                {d.messages.map((m) => (
+                  <div
+                    key={m.id}
+                    className={`rounded-xl p-3 text-sm leading-[1.7] ${m.isInternal ? "bg-[#FFF7E6] border border-[#F2D48A]" : m.authorKind === "Agent" ? "bg-[#EEF0F5]" : "bg-white border border-[#E2E5EC]"}`}
+                  >
+                    <span className={`text-[11px] ${muted} block`}>
+                      {m.isInternal ? "ملاحظة داخلية" : m.authorKind === "Agent" ? "الدعم" : "العميل"} · {fmtDateTime(m.createdAtUtc)}
+                    </span>
+                    <p className="whitespace-pre-wrap">{m.body}</p>
+                  </div>
+                ))}
+              </section>
+              {!closed && (
+                <>
+                  <textarea aria-label="الرد" value={body} onChange={(e) => setBody(e.target.value)} placeholder={internal ? "ملاحظة للفريق بس" : "رد للعميل"} maxLength={4000} className={`${inputClass} min-h-[90px]`} />
+                  <label className="flex gap-2 text-sm items-center"><input type="checkbox" checked={internal} onChange={(e) => setInternal(e.target.checked)} /> ملاحظة داخلية (العميل مش هيشوفها)</label>
+                  <div className="flex flex-wrap gap-2">
+                    <button type="button" className={btnPrimary} disabled={!body.trim() || reply.isPending} onClick={() => reply.mutate()}>{internal ? "إضافة ملاحظة" : "إرسال الرد"}</button>
+                    {t.status !== "Resolved" && (
+                      <button type="button" className={btnOutline} onClick={() => setReason({ title: "حل التذكرة", body: "السبب هيوصل للعميل.", confirmLabel: "حل", onConfirm: (text) => finish.mutate({ close: false, text }) })}>حل</button>
+                    )}
+                    <button type="button" className={btnSmall} onClick={() => setReason({ title: "قفل التذكرة", body: "بعد القفل مفيش ردود تاني.", confirmLabel: "قفل", onConfirm: (text) => finish.mutate({ close: true, text }) })}>قفل</button>
+                  </div>
+                </>
+              )}
+            </>
+          );
+        }}
+      </QueryState>
+      <ReasonModal request={reason} onClose={() => setReason(null)} />
+    </Drawer>
   );
 }

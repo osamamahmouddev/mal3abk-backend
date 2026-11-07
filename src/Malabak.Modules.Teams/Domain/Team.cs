@@ -121,6 +121,11 @@ public sealed class Team : Entity<Guid>
             return Result.Failure<TeamMember>(TeamErrors.PlayerNotInTeam);
         }
 
+        if (IsSuspended)
+        {
+            return Result.Failure<TeamMember>(TeamErrors.Suspended);
+        }
+
         if (!string.Equals(InviteCode, inviteCode?.Trim(), StringComparison.OrdinalIgnoreCase))
         {
             return Result.Failure<TeamMember>(TeamErrors.InvalidInviteCode);
@@ -356,6 +361,11 @@ public sealed class Team : Entity<Guid>
             return Result.Failure(TeamErrors.NotCaptainOrViceCaptain);
         }
 
+        if (IsSuspended && (isRecruiting || isOpenForChallenges))
+        {
+            return Result.Failure(TeamErrors.Suspended);
+        }
+
         IsPublic = isPublic;
         IsRecruiting = isRecruiting;
         IsOpenForChallenges = isOpenForChallenges;
@@ -374,6 +384,11 @@ public sealed class Team : Entity<Guid>
         if (playerId == Guid.Empty)
         {
             return Result.Failure<TeamJoinRequest>(TeamErrors.PlayerNotInTeam);
+        }
+
+        if (IsSuspended)
+        {
+            return Result.Failure<TeamJoinRequest>(TeamErrors.Suspended);
         }
 
         if (!IsRecruiting)
@@ -481,6 +496,46 @@ public sealed class Team : Entity<Guid>
 
         RaiseDomainEvent(new JoinRequestDeclinedDomainEvent(request.Id, Id, request.PlayerId, reviewerPlayerId));
 
+        return Result.Success();
+    }
+
+    public const int MaxSuspensionReasonLength = 500;
+
+    /// <summary>Set while platform staff have suspended the team (TASK-705): no challenges, matches or new members.</summary>
+    public DateTime? SuspendedAtUtc { get; private set; }
+    public string? SuspensionReason { get; private set; }
+    public bool IsSuspended => SuspendedAtUtc is not null;
+
+    public Result Suspend(string reason, DateTime nowUtc)
+    {
+        if (string.IsNullOrWhiteSpace(reason) || reason.Trim().Length > MaxSuspensionReasonLength)
+        {
+            return Result.Failure(Error.Validation("Team.SuspensionReasonRequired", "A suspension reason is required."));
+        }
+
+        if (IsSuspended)
+        {
+            return Result.Failure(Error.Conflict("Team.AlreadySuspended", "The team is already suspended."));
+        }
+
+        SuspendedAtUtc = nowUtc;
+        SuspensionReason = reason.Trim();
+        IsOpenForChallenges = false;
+        IsRecruiting = false;
+        UpdatedAtUtc = nowUtc;
+        return Result.Success();
+    }
+
+    public Result Reactivate(DateTime nowUtc)
+    {
+        if (!IsSuspended)
+        {
+            return Result.Failure(Error.Conflict("Team.NotSuspended", "The team is not suspended."));
+        }
+
+        SuspendedAtUtc = null;
+        SuspensionReason = null;
+        UpdatedAtUtc = nowUtc;
         return Result.Success();
     }
 

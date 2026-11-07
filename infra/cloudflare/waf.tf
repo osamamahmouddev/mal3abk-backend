@@ -55,7 +55,7 @@ resource "cloudflare_ruleset" "rate_limiting_rules" {
       response {
         status_code  = 429
         content_type = "application/problem+json"
-        content      = jsonencode({
+        content = jsonencode({
           type      = "https://malabak.app/errors/rate-limit-exceeded"
           title     = "Too Many Requests"
           status    = 429

@@ -11,6 +11,12 @@ public interface ITokenService
     /// <summary>Admin-audience tokens; the refresh token expires at the fixed end of the admin session.</summary>
     TokenResult GenerateAdminTokens(User user, DateTime sessionExpiresAtUtc, Guid? sessionId = null);
 
+    /// <summary>
+    /// Short-lived access token for support impersonation (TASK-063): issued for the customer, carrying the RFC 8693
+    /// <c>act</c> claim with the staff member's id. No refresh token is meant to be used with it.
+    /// </summary>
+    TokenResult GenerateImpersonationToken(User user, Guid sessionId, Guid actorId, TimeSpan lifetime);
+
     string GenerateRawRefreshToken();
 
     string HashRefreshToken(string rawRefreshToken);

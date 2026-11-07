@@ -106,4 +106,29 @@ public sealed class BookingRefund : Entity<Guid>
         UpdatedAtUtc = nowUtc;
         return Result.Success();
     }
+
+    /// <summary>
+    /// A dispute decision (TASK-704) that the player is owed money after all: a denied or zero refund becomes pending for
+    /// <paramref name="amount"/>. A refund already paid is a financial record and is never changed.
+    /// </summary>
+    public Result OverrideToPending(decimal amount, string reason, string decidedByUserId, DateTime nowUtc)
+    {
+        if (Status is RefundStatus.Refunded or RefundStatus.Pending)
+        {
+            return Result.Failure(BookingErrors.RefundAlreadyDecided);
+        }
+
+        if (amount <= 0 || string.IsNullOrWhiteSpace(reason))
+        {
+            return Result.Failure(BookingErrors.RefundAmountInvalid);
+        }
+
+        Status = RefundStatus.Pending;
+        ExpectedRefundAmount = amount;
+        Notes = $"Dispute decision: {reason.Trim()}";
+        RecordedByUserId = decidedByUserId;
+        RecordedAtUtc = nowUtc;
+        UpdatedAtUtc = nowUtc;
+        return Result.Success();
+    }
 }

@@ -26,14 +26,13 @@ resource "cloudflare_zone_settings_override" "malabak_tls_settings" {
     automatic_https_rewrites = "on"
 
     # 7. HTTP Strict Transport Security (HSTS) with 1-year max-age, subdomains, and preload
+    # (provider v4: the HSTS fields sit directly in security_header)
     security_header {
-      strict_transport_security {
-        enabled            = true
-        max_age            = 31536000 # 1 year
-        include_subdomains = true
-        preload            = true
-        nosniff            = true
-      }
+      enabled            = true
+      max_age            = 31536000 # 1 year
+      include_subdomains = true
+      preload            = true
+      nosniff            = true
     }
 
     # 8. WebSockets enabled for real-time SignalR notifications and match bookings

@@ -24,6 +24,7 @@ public static class PasswordAuthErrors
 {
     // One message for unknown email, wrong password and wrong role, so accounts can't be enumerated.
     public static readonly Error InvalidCredentials = new("Identity.InvalidCredentials", "Email or password is incorrect.");
+    public static readonly Error AccountSuspended = new("Identity.AccountSuspended", "This account is suspended. Contact support.");
     public static readonly Error Throttled = new("Identity.LoginThrottled", "Too many failed attempts. Please wait and try again.");
     public static readonly Error CaptchaRequired = new("Identity.CaptchaRequired", "Please complete the security check.");
     public static readonly Error EmailNotVerified = new("Identity.EmailNotVerified", "Verify your email before signing in.");

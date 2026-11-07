@@ -372,6 +372,55 @@ public sealed class Match : Entity<Guid>
         return Result.Success();
     }
 
+    /// <summary>
+    /// Admin ranking correction (TASK-705): fixes the score of a match whose result was already confirmed (e.g. a later-proven
+    /// wrong result). Rankings must be recalculated afterwards; the change is kept in the result audit trail.
+    /// </summary>
+    public Result CorrectResult(int homeScore, int awayScore, Guid adminUserId, string reason, DateTime nowUtc)
+    {
+        if (Status != MatchStatus.Completed || ResultStatus is not (ResultVerificationStatus.Confirmed or ResultVerificationStatus.AutoConfirmed))
+        {
+            return Result.Failure(Error.Conflict("Match.ResultNotConfirmed", "Only a confirmed result can be corrected."));
+        }
+
+        if (string.IsNullOrWhiteSpace(reason))
+        {
+            return Result.Failure(MatchErrors.ResolutionNotesRequired);
+        }
+
+        if (homeScore < 0 || awayScore < 0 || homeScore > 99 || awayScore > 99)
+        {
+            return Result.Failure(MatchErrors.OfficialScoresRequired);
+        }
+
+        var prevHomeScore = HomeScore;
+        var prevAwayScore = AwayScore;
+        HomeScore = homeScore;
+        AwayScore = awayScore;
+        if (homeScore > awayScore)
+        {
+            Outcome = MatchOutcome.HomeWin;
+        }
+        else if (awayScore > homeScore)
+        {
+            Outcome = MatchOutcome.AwayWin;
+        }
+        else
+        {
+            Outcome = MatchOutcome.Draw;
+        }
+
+        AdminResolvedByUserId = adminUserId;
+        AdminResolvedAtUtc = nowUtc;
+        AdminResolutionNotes = reason.Trim();
+        AdminResolutionAction = "CorrectResult";
+        UpdatedAtUtc = nowUtc;
+        _uncommittedAuditRecords.Add(MatchResultAuditRecord.Create(
+            Id, prevHomeScore, prevAwayScore, HomeScore, AwayScore, ResultStatus, ResultStatus, adminUserId, "AdminCorrection",
+            $"Result corrected. Reason: {reason.Trim()}", nowUtc));
+        return Result.Success();
+    }
+
     public Result ResolveDispute(
         MatchDisputeResolutionAction action,
         string resolutionNotes,

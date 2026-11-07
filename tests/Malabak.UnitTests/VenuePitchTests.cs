@@ -146,7 +146,7 @@ public sealed class VenuePitchTests
     {
         using var dbContext = CreateDbContext();
         var venueRepo = new VenueRepository(dbContext);
-        var handler = new CreateVenueHandler(venueRepo, dbContext, _clock, NullLogger<CreateVenueHandler>.Instance);
+        var handler = new CreateVenueHandler(venueRepo, dbContext, new AllowAllEntitlements(), _clock, NullLogger<CreateVenueHandler>.Instance);
 
         var ownerId = Guid.NewGuid();
         var command = new CreateVenueCommand(
@@ -267,7 +267,7 @@ public sealed class VenuePitchTests
         await dbContext.SaveChangesAsync();
 
         // 1. Create Pitch
-        var createPitchHandler = new CreatePitchHandler(venueRepo, pitchRepo, dbContext, _clock, NullLogger<CreatePitchHandler>.Instance);
+        var createPitchHandler = new CreatePitchHandler(venueRepo, pitchRepo, dbContext, new AllowAllEntitlements(), _clock, NullLogger<CreatePitchHandler>.Instance);
         var createCommand = new CreatePitchCommand(
             venue.Id,
             ownerId,

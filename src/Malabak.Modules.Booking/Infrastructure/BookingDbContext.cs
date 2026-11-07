@@ -18,6 +18,8 @@ public sealed class BookingDbContext : BaseDbContext, IBookingDbContext
     public DbSet<PaymentProof> PaymentProofs => Set<PaymentProof>();
     public DbSet<BookingRefund> BookingRefunds => Set<BookingRefund>();
     public DbSet<VenueCustomerNote> CustomerNotes => Set<VenueCustomerNote>();
+    public DbSet<PaymentDispute> PaymentDisputes => Set<PaymentDispute>();
+    public DbSet<DisputeEvidence> DisputeEvidence => Set<DisputeEvidence>();
 
     public BookingDbContext(DbContextOptions<BookingDbContext> options, IClock? clock = null)
         : base(options, clock)
@@ -147,6 +149,35 @@ public sealed class BookingDbContext : BaseDbContext, IBookingDbContext
             builder.Property(n => n.CustomerKey).HasMaxLength(80).IsRequired();
             builder.Property(n => n.TextCiphertext).IsRequired();
             builder.HasIndex(n => new { n.VenueId, n.CustomerKey, n.CreatedAtUtc });
+        });
+
+        modelBuilder.Entity<PaymentDispute>(builder =>
+        {
+            builder.ToTable("payment_disputes");
+            builder.HasKey(d => d.Id);
+            builder.Property(d => d.Id).ValueGeneratedNever();
+            builder.Property(d => d.OpenedBy).HasConversion<string>().HasMaxLength(10);
+            builder.Property(d => d.Status).HasConversion<string>().HasMaxLength(15);
+            builder.Property(d => d.Outcome).HasConversion<string>().HasMaxLength(20);
+            builder.Property(d => d.Reason).HasMaxLength(PaymentDispute.MaxTextLength).IsRequired();
+            builder.Property(d => d.ResolutionNote).HasMaxLength(PaymentDispute.MaxTextLength);
+            builder.HasIndex(d => new { d.Status, d.CreatedAtUtc });
+            builder.HasIndex(d => d.VenueId);
+
+            // At most one unresolved dispute per booking (enforced by the database too).
+            builder.HasIndex(d => d.BookingId).IsUnique().HasFilter("\"Status\" <> 'Resolved'");
+            builder.HasMany(d => d.Evidence).WithOne().HasForeignKey(e => e.DisputeId);
+            builder.Navigation(d => d.Evidence).UsePropertyAccessMode(PropertyAccessMode.Field);
+        });
+
+        modelBuilder.Entity<DisputeEvidence>(builder =>
+        {
+            builder.ToTable("dispute_evidence");
+            builder.HasKey(e => e.Id);
+            builder.Property(e => e.Id).ValueGeneratedNever();
+            builder.Property(e => e.Side).HasConversion<string>().HasMaxLength(10);
+            builder.Property(e => e.Note).HasMaxLength(PaymentDispute.MaxTextLength);
+            builder.HasIndex(e => new { e.DisputeId, e.CreatedAtUtc });
         });
     }
 }

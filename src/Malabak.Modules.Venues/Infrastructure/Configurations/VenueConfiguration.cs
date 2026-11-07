@@ -74,6 +74,8 @@ public sealed class VenueConfiguration : IEntityTypeConfiguration<Venue>
             .HasDefaultValue(VenueApprovalStatus.Draft);
 
         builder.Ignore(v => v.IsSearchable);
+        builder.Property(v => v.AdminNote).HasMaxLength(Venue.MaxAdminNoteLength);
+        builder.Property(v => v.PublishedBeforeSuspension).IsRequired().HasDefaultValue(false);
 
         builder.HasIndex(v => new { v.IsApproved, v.IsPublished });
         builder.HasIndex(v => v.ApprovalStatus);

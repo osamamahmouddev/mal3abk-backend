@@ -81,6 +81,12 @@ public sealed class PasswordLoginHandler : ICommandHandler<PasswordLoginCommand,
             return await FailAsync(user, nowUtc, PasswordAuthErrors.InvalidCredentials, cancellationToken);
         }
 
+        // Only revealed after the password was proven, so suspension can't be used to probe accounts.
+        if (user.IsSuspended)
+        {
+            return Result.Failure<PasswordLoginResponse>(PasswordAuthErrors.AccountSuspended);
+        }
+
         if (!user.IsEmailConfirmed)
         {
             return Result.Failure<PasswordLoginResponse>(PasswordAuthErrors.EmailNotVerified);

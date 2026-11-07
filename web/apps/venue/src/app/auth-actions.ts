@@ -2,7 +2,7 @@
 
 import { redirect } from "next/navigation";
 import type { Schemas } from "@malabak/api-client";
-import { anonymousApi, signIn, signOut } from "@malabak/bff/server";
+import { anonymousApi, apiUrl, signIn, signOut } from "@malabak/bff/server";
 import { bffConfig } from "@/lib/bff-config";
 
 export interface ActionResult {
@@ -72,4 +72,42 @@ export async function forgotPassword(email: string): Promise<ActionResult> {
 export async function resetPassword(token: string, newPassword: string): Promise<ActionResult> {
   const result = await anonymousApi("/api/v1/auth/password/reset", { token, newPassword });
   return result.ok ? { ok: true } : failure(result.problem);
+}
+
+/**
+ * Support impersonation (TASK-063): exchanges the single-use code an agent got from the admin console for a 15-minute
+ * restricted session. There is no refresh token, so the session ends when that token does.
+ */
+export async function startImpersonation(code: string): Promise<ActionResult> {
+  try {
+    return await exchangeImpersonationCode(code);
+  } catch {
+    // Network or API outage: say so instead of leaving the support agent on a spinner.
+    return { ok: false, message: "تعذّر الاتصال بالخادم. حاول تاني بعد شوية." };
+  }
+}
+
+async function exchangeImpersonationCode(code: string): Promise<ActionResult> {
+  const result = await anonymousApi<Schemas["ImpersonationTokenDto"]>("/api/v1/auth/impersonation/exchange", { code: code.trim() });
+  if (!result.ok) return { ok: false, message: "الكود غلط أو انتهى أو اتستخدم قبل كده." };
+
+  const token = result.data!;
+  // The session carries the customer's real roles and name, read with the impersonation token itself.
+  const auth = { headers: { authorization: `Bearer ${token.accessToken}` }, cache: "no-store" as const };
+  const [permissions, profile] = await Promise.all([
+    fetch(`${apiUrl()}/api/v1/me/permissions`, auth).then((r) => (r.ok ? (r.json() as Promise<Schemas["MyPermissionsResponse"]>) : null)),
+    fetch(`${apiUrl()}/api/v1/me`, auth).then((r) => (r.ok ? (r.json() as Promise<Schemas["MyProfileDto"]>) : null)),
+  ]);
+  await signIn(
+    bffConfig,
+    { accessToken: token.accessToken, refreshToken: "impersonation-has-no-refresh", expiresIn: token.expiresIn },
+    {
+      id: token.userId,
+      name: profile?.fullName ?? "حساب عميل",
+      roles: permissions?.roles ?? [],
+      impersonatedBy: token.impersonatorId,
+      impersonationEndsAt: Date.parse(token.expiresAtUtc),
+    },
+  );
+  return { ok: true };
 }

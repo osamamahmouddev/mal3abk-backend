@@ -41,6 +41,9 @@ using Malabak.Modules.Venues.Application.Common;
 using Malabak.Modules.Venues.Infrastructure;
 using Malabak.SharedKernel;
 using Malabak.SharedKernel.Time;
+using Malabak.Modules.Audit;
+using Malabak.Modules.Subscriptions;
+using Malabak.Modules.Support;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
@@ -236,6 +239,36 @@ builder.Services.AddDbContext<NotificationsDbContext>(options =>
     options.UseNpgsql(postgresConnectionString, npgsql =>
         npgsql.MigrationsHistoryTable("__EFMigrationsHistory", NotificationsDbContext.Schema)));
 
+builder.Services.AddDbContext<Malabak.Modules.Audit.Infrastructure.AuditDbContext>(options =>
+    options.UseNpgsql(postgresConnectionString, npgsql =>
+        npgsql.MigrationsHistoryTable("__EFMigrationsHistory", Malabak.Modules.Audit.Infrastructure.AuditDbContext.Schema)));
+builder.Services.AddScoped<Malabak.SharedKernel.Contracts.IAuditRequestContext, Malabak.Api.Infrastructure.Audit.HttpAuditRequestContext>();
+builder.Services.AddAuditModule();
+
+builder.Services.AddDbContext<Malabak.Modules.Subscriptions.Infrastructure.SubscriptionsDbContext>(options =>
+    options.UseNpgsql(postgresConnectionString, npgsql =>
+        npgsql.MigrationsHistoryTable("__EFMigrationsHistory", Malabak.Modules.Subscriptions.Infrastructure.SubscriptionsDbContext.Schema)));
+builder.Services.AddSubscriptionsModule();
+
+builder.Services.AddDbContext<Malabak.Modules.Support.Infrastructure.SupportDbContext>(options =>
+    options.UseNpgsql(postgresConnectionString, npgsql =>
+        npgsql.MigrationsHistoryTable("__EFMigrationsHistory", Malabak.Modules.Support.Infrastructure.SupportDbContext.Schema)));
+builder.Services.AddSupportModule();
+
+// Cloudflare Access (TASK-720): internal tools only through Zero Trust, verified by the signed assertion.
+builder.Services.Configure<Malabak.Api.Infrastructure.Security.CloudflareAccessOptions>(
+    builder.Configuration.GetSection(Malabak.Api.Infrastructure.Security.CloudflareAccessOptions.SectionName));
+builder.Services.AddHttpClient(nameof(Malabak.Api.Infrastructure.Security.CloudflareAccessValidator));
+builder.Services.AddSingleton<Malabak.Api.Infrastructure.Security.CloudflareAccessValidator>();
+
+builder.Services.AddDbContext<Malabak.Api.Infrastructure.Platform.PlatformDbContext>(options =>
+    options.UseNpgsql(postgresConnectionString, npgsql =>
+        npgsql.MigrationsHistoryTable("__EFMigrationsHistory", Malabak.Api.Infrastructure.Platform.PlatformDbContext.Schema)));
+builder.Services.AddSingleton<Malabak.Api.Infrastructure.Platform.PlatformSettingsCache>();
+builder.Services.AddScoped<Malabak.Api.Infrastructure.Platform.PlatformService>();
+builder.Services.AddScoped<Malabak.SharedKernel.Contracts.IPlatformSettings>(sp => sp.GetRequiredService<Malabak.Api.Infrastructure.Platform.PlatformService>());
+builder.Services.AddScoped<Malabak.SharedKernel.Contracts.IFeatureFlags>(sp => sp.GetRequiredService<Malabak.Api.Infrastructure.Platform.PlatformService>());
+
 // 12. Field-level encryption, blind indexes and the persisted Data Protection key ring
 builder.Services.AddFieldEncryption(builder.Configuration, builder.Environment, postgresConnectionString);
 
@@ -335,6 +368,8 @@ var localizationOptions = new RequestLocalizationOptions()
 localizationOptions.RequestCultureProviders.Insert(0, new XLocaleRequestCultureProvider());
 app.UseRequestLocalization(localizationOptions);
 
+app.UseMiddleware<Malabak.Api.Infrastructure.Security.CloudflareAccessGuardMiddleware>();
+
 // Never in Production. Staging exposes it so the team can exercise the deployed API.
 if (app.Environment.IsDevelopment() || app.Environment.IsStaging() || app.Environment.IsEnvironment("Testing"))
 {
@@ -343,8 +378,10 @@ if (app.Environment.IsDevelopment() || app.Environment.IsStaging() || app.Enviro
 }
 
 app.UseMalabakSecurity();
+app.UseMiddleware<Malabak.Api.Infrastructure.Platform.MaintenanceModeMiddleware>();
 app.UseRateLimiter();
 app.UseAuthentication();
+app.UseMiddleware<Malabak.Api.Infrastructure.Authorization.ImpersonationRestrictionMiddleware>();
 app.UseAuthorization();
 app.UseMalabakIdempotency();
 
@@ -445,6 +482,17 @@ app.MapPublicVenueEndpoints(apiVersionSet);
 app.MapBookingQuoteEndpoints(apiVersionSet);
 app.MapVenueCustomerEndpoints(apiVersionSet);
 app.MapVenueReportEndpoints(apiVersionSet);
+app.MapAdminAuditEndpoints(apiVersionSet);
+app.MapAdminUserEndpoints(apiVersionSet);
+app.MapAdminVenueBookingEndpoints(apiVersionSet);
+app.MapSupportEndpoints(apiVersionSet);
+app.MapDisputeEndpoints(apiVersionSet);
+app.MapAdminModerationEndpoints(apiVersionSet);
+app.MapAdminDashboardEndpoints(apiVersionSet);
+app.MapFeaturedVenueEndpoints(apiVersionSet);
+app.MapImpersonationEndpoints(apiVersionSet);
+app.MapPlatformEndpoints(apiVersionSet);
+app.MapSubscriptionEndpoints(apiVersionSet);
 app.MapPlayerVenueListEndpoints(apiVersionSet);
 app.MapPrivacyEndpoints(apiVersionSet);
 app.MapRealtimeEndpoints(apiVersionSet);

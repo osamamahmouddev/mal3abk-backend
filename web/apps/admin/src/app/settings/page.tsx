@@ -1,350 +1,171 @@
 "use client";
 
 import React, { useState } from "react";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import type { Schemas } from "@malabak/api-client";
+import { Page, PageHeader, Pill, ReasonModal, type ReasonRequest, Switch, Tabs, btnSmall, card, muted } from "@/components/ui";
+import { QueryState, TextInput, fmtDateTime, useNotice } from "@/components/admin";
 import { api, unwrap } from "@/lib/api";
-import { Pill, Page, Switch, Tabs, Toast, card, chip, inputClass, muted, redShadow, toArabicDigits, useRevealOnSelect } from "@/components/ui";
 
-type Tab = "booking" | "areas" | "templates" | "team" | "sessions";
-type RuleKey = "maxDep" | "proofMin" | "proofMax" | "reviewMax" | "dispute";
-type Method = "vc" | "ip" | "bank" | "cash";
-type Role = "owner" | "ops" | "finance" | "support";
-
-const RULES: [RuleKey, string, string, [number, string][]][] = [
-  ["maxDep", "أقصى نسبة عربون", "الملاعب ماتقدرش تطلب أكتر من كده", [[33, "٣٣٪"], [50, "٥٠٪"], [100, "السعر كله"]]],
-  ["proofMin", "أقل مهلة لرفع الإثبات", "عشان اللاعب يلحق يحوّل", [[10, "١٠ دقايق"], [15, "١٥ دقيقة"], [30, "٣٠ دقيقة"]]],
-  ["proofMax", "أقصى مهلة لرفع الإثبات", "عشان الميعاد مايفضلش محجوز", [[30, "٣٠ دقيقة"], [60, "ساعة"], [120, "ساعتين"]]],
-  ["reviewMax", "أقصى مهلة لمراجعة الملعب", "بعدها الحجز بيتصعّد للإدارة", [[60, "ساعة"], [180, "٣ ساعات"], [360, "٦ ساعات"]]],
-  ["dispute", "مهلة قرار النزاع", "من فتح النزاع", [[12, "١٢ ساعة"], [24, "٢٤ ساعة"], [48, "٤٨ ساعة"]]],
-];
-const METHODS: [Method, string][] = [
-  ["vc", "فودافون كاش"],
-  ["ip", "إنستاباي"],
-  ["bank", "تحويل بنكي"],
-  ["cash", "كاش في الملعب"],
-];
-const AREAS: [string, string][] = [
-  ["القاهرة", "١٤٢ ملعب"],
-  ["الجيزة", "٦١ ملعب"],
-  ["الإسكندرية", "١٨ ملعب"],
-  ["الدلتا (المنصورة وطنطا)", "١٠ ملاعب — تجريبي"],
-  ["القناة", "لسه مفيش"],
-  ["الصعيد", "لسه مفيش"],
-];
-// name, channels, default body
-const TEMPLATES: [string, string, string][] = [
-  ["تأكيد الحجز", "SMS + إشعار", "تم تأكيد حجزك في {venue} يوم {date} الساعة {time}. كود الحجز {code}."],
-  ["تذكير بالعربون", "SMS + إشعار", "فاضل {minutes} دقيقة تحوّل عربون {deposit} ج.م لـ {venue} وإلا الحجز هيتلغي."],
-  ["رفض الإثبات", "إشعار", "الملعب رفض إثبات الدفع لحجز {code}. ارفع إثبات جديد أو كلّم الدعم."],
-  ["تذكير قبل الماتش", "إشعار", "ماتشك في {venue} بعد ساعتين. متتأخرش!"],
-  ["كود الدخول", "SMS", "كود الدخول لملعبك: {otp}. ماتديهوش لحد."],
-];
-const SAMPLE: Record<string, string> = {
-  venue: "ملعب النجوم",
-  date: "السبت ٢٦ يوليو",
-  time: "٨ م",
-  code: "KH-2607-0142",
-  minutes: "١٥",
-  deposit: "٥٠",
-  otp: "٤٨٢٧",
-};
-const VARS = ["{venue}", "{date}", "{time}", "{code}", "{deposit}"];
-// Arabic SMS segment length (UCS-2).
-const SMS_SEGMENT = 70;
-
-const ADMINS: [string, Role, boolean, string][] = [
-  ["سارة منصور", "ops", true, "دلوقتي"],
-  ["عمرو حمدي", "finance", true, "من ساعة"],
-  ["ندى فاروق", "support", false, "امبارح"],
-  ["محمد الشريف", "owner", true, "من ٣ أيام"],
-];
-const ROLE_LABEL: Record<Role, string> = { owner: "مالك المنصة", ops: "عمليات", finance: "مالية", support: "دعم" };
+type Tab = "settings" | "flags" | "sessions";
 
 export default function SettingsPage() {
-  const [tab, setTab] = useState<Tab>("booking");
-  const [rules, setRules] = useState<Record<RuleKey, number>>({ maxDep: 50, proofMin: 15, proofMax: 60, reviewMax: 180, dispute: 24 });
-  const [methods, setMethods] = useState<Record<Method, boolean>>({ vc: true, ip: true, bank: true, cash: false });
-  const [areas, setAreas] = useState<Record<number, boolean>>({ 0: true, 1: true, 2: true, 3: false, 4: false, 5: false });
-  const [tpl, setTpl] = useState(0);
-  const detailsRef = useRevealOnSelect<HTMLElement>(tpl);
-  const [bodies, setBodies] = useState<Record<number, string>>({});
-  const [roles, setRoles] = useState<Record<number, Role>>({});
-  const [dirty, setDirty] = useState(false);
-  const [toast, setToast] = useState<string | null>(null);
-
-  const body = bodies[tpl] ?? TEMPLATES[tpl][2];
-  const preview = body.replace(/\{(\w+)\}/g, (_, k: string) => SAMPLE[k] ?? `{${k}}`);
-  const parts = Math.ceil(preview.length / SMS_SEGMENT);
-
-  const toggleMethod = (k: Method) => {
-    if (methods[k] && Object.values(methods).filter(Boolean).length === 1) {
-      setToast("لازم طريقة واحدة على الأقل.");
-      return;
-    }
-    setMethods({ ...methods, [k]: !methods[k] });
-    setDirty(true);
-  };
-
+  const [tab, setTab] = useState<Tab>("settings");
   return (
     <Page>
-      <div className="flex flex-wrap items-center gap-3">
-        <h1 className="flex-[1_1_240px] text-[26px] font-bold">إعدادات المنصة</h1>
-        {dirty && <span className="text-[13px] font-bold bg-[#FEF3D6] text-[#7A4D00] rounded-full px-3 py-1">فيه تعديلات مش محفوظة</span>}
-      </div>
-      <Tabs
-        value={tab}
-        onChange={setTab}
-        tabs={[
-          ["booking", "قواعد الحجز"],
-          ["areas", "المناطق"],
-          ["templates", "قوالب الرسائل"],
-          ["team", "فريق الإدارة"],
-          ["sessions", "جلسات الإدارة"],
-        ]}
-      />
-
-      {tab === "sessions" && <AdminSessions onMessage={setToast} />}
-
-      {tab === "booking" && (
-        <section className={`${card} rounded-[20px] px-5 pt-2 pb-3 flex flex-col`}>
-          {RULES.map(([k, label, hint, opts]) => (
-            <div key={k} className="flex flex-wrap items-center gap-2.5 py-3.5 border-b border-[#EEF0F5]">
-              <span className="flex-[1_1_260px] flex flex-col gap-0.5">
-                <span className="text-sm font-bold">{label}</span>
-                <span className={`text-xs ${muted}`}>{hint}</span>
-              </span>
-              <div className="flex gap-1.5 flex-wrap">
-                {opts.map(([val, l]) => (
-                  <button
-                    key={val}
-                    type="button"
-                    aria-pressed={rules[k] === val}
-                    onClick={() => {
-                      setRules({ ...rules, [k]: val });
-                      setDirty(true);
-                    }}
-                    className={chip(rules[k] === val)}
-                  >
-                    {l}
-                  </button>
-                ))}
-              </div>
-            </div>
-          ))}
-          <div className="flex flex-wrap items-center gap-2.5 py-3.5">
-            <span className="flex-[1_1_260px] flex flex-col gap-0.5">
-              <span className="text-sm font-bold">طرق دفع العربون المسموحة</span>
-              <span className={`text-xs ${muted}`}>الملاعب تختار منها بس</span>
-            </span>
-            <div className="flex gap-1.5 flex-wrap">
-              {METHODS.map(([k, label]) => (
-                <button key={k} type="button" aria-pressed={methods[k]} onClick={() => toggleMethod(k)} className={chip(methods[k])}>
-                  {label}
-                </button>
-              ))}
-            </div>
-          </div>
-        </section>
-      )}
-
-      {tab === "areas" && (
-        <section className={`${card} rounded-[20px] px-5 pt-2 pb-3`}>
-          {AREAS.map(([name, meta], i) => {
-            const on = !!areas[i];
-            return (
-              <div key={name} className="flex items-center gap-3 py-3.5 border-b border-[#EEF0F5] last:border-b-0">
-                <span className="flex-1 flex flex-col gap-0.5">
-                  <span className="text-[15px] font-bold">{name}</span>
-                  <span className={`text-[13px] ${muted}`}>
-                    {meta} · {on ? "مفتوحة للحجز" : "مقفولة"}
-                  </span>
-                </span>
-                <Switch
-                  on={on}
-                  label={`تفعيل ${name}`}
-                  onToggle={() => {
-                    setAreas({ ...areas, [i]: !on });
-                    setDirty(true);
-                  }}
-                />
-              </div>
-            );
-          })}
-        </section>
-      )}
-
-      {tab === "templates" && (
-        <div className="flex flex-wrap gap-4 items-start">
-          <section className={`flex-[1_1_280px] min-w-0 ${card} rounded-[20px] overflow-hidden`}>
-            {TEMPLATES.map(([label, ch], i) => (
-              <button
-                key={label}
-                type="button"
-                aria-pressed={tpl === i}
-                onClick={() => setTpl(i)}
-                className={`w-full text-right flex flex-col gap-0.5 px-4 py-3 border-b border-[#EEF0F5] text-slate-900 ${
-                  tpl === i ? "bg-[#F3F5FB] shadow-[inset_-3px_0_0_#D63B2F]" : "bg-white"
-                }`}
-              >
-                <span className="text-sm font-bold">{label}</span>
-                <span className={`text-xs ${muted}`}>{ch}</span>
-              </button>
-            ))}
-          </section>
-          <section ref={detailsRef} className={`scroll-mt-20 flex-[999_1_420px] min-w-0 ${card} rounded-[20px] p-5 flex flex-col gap-3`}>
-            <h2 className="text-[17px] font-bold">{TEMPLATES[tpl][0]}</h2>
-            <label htmlFor="tb" className="text-[13px] font-semibold">
-              نص الرسالة
-            </label>
-            <input
-              id="tb"
-              value={body}
-              onChange={(e) => {
-                setBodies({ ...bodies, [tpl]: e.target.value });
-                setDirty(true);
-              }}
-              className={inputClass}
-            />
-            <div className="flex gap-1.5 flex-wrap">
-              {VARS.map((v) => (
-                <button
-                  key={v}
-                  type="button"
-                  dir="ltr"
-                  onClick={() => {
-                    setBodies({ ...bodies, [tpl]: `${body} ${v}` });
-                    setDirty(true);
-                  }}
-                  className="min-h-[32px] px-2.5 rounded-lg border border-dashed border-[#9AA3B5] bg-white text-xs font-mono text-[#3B4352]"
-                >
-                  {v}
-                </button>
-              ))}
-            </div>
-            <span className="text-[13px] font-semibold">معاينة SMS</span>
-            <div className="self-start max-w-[360px] bg-[#E9EEF7] rounded-[16px_16px_4px_16px] px-3.5 py-3 text-sm leading-[1.7]">{preview}</div>
-            <span className={`text-xs font-semibold ${parts > 2 ? "text-[#A8261C]" : muted}`}>
-              {toArabicDigits(preview.length)} حرف · {toArabicDigits(parts)} {parts > 1 ? "رسايل SMS" : "رسالة SMS"}
-            </span>
-          </section>
-        </div>
-      )}
-
-      {tab === "team" && (
-        <section className={`${card} rounded-[20px] px-5 pt-2 pb-4 overflow-x-auto`}>
-          <table className="w-full border-collapse text-sm min-w-[560px]">
-            <thead>
-              <tr className={`${muted} text-[13px]`}>
-                {["العضو", "الدور", "التحقق بخطوتين", "آخر دخول"].map((h) => (
-                  <th key={h} scope="col" className="text-right px-2 py-3 font-semibold">
-                    {h}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {ADMINS.map(([name, role, tfa, last], i) => {
-                const current = roles[i] ?? role;
-                const options: Role[] = current === "owner" ? ["owner"] : ["ops", "finance", "support"];
-                return (
-                  <tr key={name} className="border-t border-[#EEF0F5]">
-                    <td className="px-2 py-3 font-bold">{name}</td>
-                    <td className="px-2 py-3">
-                      <div className="flex gap-1 flex-wrap">
-                        {options.map((r) => (
-                          <button
-                            key={r}
-                            type="button"
-                            aria-pressed={current === r}
-                            disabled={current === "owner"}
-                            onClick={() => {
-                              if (current === "owner" || current === r) return;
-                              setRoles({ ...roles, [i]: r });
-                              setToast(`${name} بقى دوره: ${ROLE_LABEL[r]}.`);
-                            }}
-                            className={chip(current === r, "min-h-[32px] px-3 rounded-[10px] text-[13px]")}
-                          >
-                            {ROLE_LABEL[r]}
-                          </button>
-                        ))}
-                      </div>
-                    </td>
-                    <td className="px-2 py-3">
-                      <Pill tone={tfa ? "ok" : "bad"}>{tfa ? "مفعّل" : "مش مفعّل"}</Pill>
-                    </td>
-                    <td className={`px-2 py-3 ${muted}`}>{last}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-          <button
-            type="button"
-            onClick={() => setToast("اتبعتت دعوة على إيميل الشغل — لازم يفعّل التحقق بخطوتين قبل أول دخول.")}
-            className="mt-3.5 min-h-[38px] px-3.5 rounded-[10px] border border-[#C9CFD9] bg-white text-ink text-[13px] font-semibold"
-          >
-            + دعوة عضو إدارة
-          </button>
-        </section>
-      )}
-
-      {tab !== "team" && (
-        <div className="flex justify-end">
-          <button
-            type="button"
-            onClick={() => {
-              setDirty(false);
-              setToast("اتحفظت الإعدادات. القواعد الجديدة بتطبّق على الحجوزات الجديدة بس.");
-            }}
-            className={`min-h-[46px] px-7 rounded-[14px] bg-brand-red hover:bg-brand-red-hover text-white text-sm font-bold ${redShadow}`}
-          >
-            حفظ
-          </button>
-        </div>
-      )}
-
-      <Toast message={toast} onClose={() => setToast(null)} />
+      <PageHeader title="إعدادات المنصة" sub="كل تغيير بيتسجل في سجل التدقيق مع القيمة القديمة والجديدة، وبيتطبق خلال ٣٠ ثانية." />
+      <Tabs<Tab> tabs={[["settings", "الإعدادات"], ["flags", "المميزات (Flags)"], ["sessions", "جلسات الإدارة"]]} value={tab} onChange={setTab} />
+      {tab === "settings" && <Settings />}
+      {tab === "flags" && <Flags />}
+      {tab === "sessions" && <Sessions />}
     </Page>
   );
 }
 
-/** Every live admin session on the platform; revoking one signs that device out at its next request. */
-function AdminSessions({ onMessage }: { onMessage: (message: string) => void }) {
+function Settings() {
+  const queryClient = useQueryClient();
+  const notice = useNotice();
+  const [drafts, setDrafts] = useState<Record<string, string>>({});
+  const [reason, setReason] = useState<ReasonRequest | null>(null);
+  const settings = useQuery({ queryKey: ["platform-settings"], queryFn: () => unwrap(api.GET("/api/v1/admin/settings")) });
+  const save = useMutation({
+    mutationFn: ({ key, value, text }: { key: string; value: string; text: string }) =>
+      unwrap(api.PUT("/api/v1/admin/settings/{key}", { params: { path: { key } }, body: { value, reason: text } })),
+    onSuccess: async (_, { key }) => {
+      notice.ok("اتحفظ الإعداد.");
+      setDrafts(({ [key]: _removed, ...rest }) => rest);
+      await queryClient.invalidateQueries({ queryKey: ["platform-settings"] });
+    },
+    onError: notice.fail,
+  });
+
+  return (
+    <>
+      {notice.node}
+      <QueryState query={settings}>
+        {(list) => (
+          <div className={`${card} rounded-[18px] divide-y divide-[#EEF0F5]`}>
+            {list.map((s: Schemas["SettingDto"]) => {
+              const draft = drafts[s.key];
+              const value = draft ?? s.value;
+              return (
+                <div key={s.key} className="p-4 flex flex-wrap gap-3 items-center">
+                  <div className="flex-[1_1_260px] flex flex-col gap-0.5">
+                    <strong className="text-sm">{s.description}</strong>
+                    <span dir="ltr" className={`text-[11px] font-inter text-right ${muted}`}>{s.key}</span>
+                    <span className={`text-[11px] ${muted}`}>
+                      الافتراضي: {s.default}
+                      {s.min !== null && s.min !== undefined ? ` · من ${s.min}` : ""}
+                      {s.max !== null && s.max !== undefined ? ` إلى ${s.max}` : ""}
+                      {s.updatedAtUtc ? ` · آخر تعديل ${fmtDateTime(s.updatedAtUtc)}` : ""}
+                    </span>
+                  </div>
+                  {s.type === "Boolean" ? (
+                    <Switch on={value === "true"} label={s.description} onToggle={() => setDrafts((d) => ({ ...d, [s.key]: value === "true" ? "false" : "true" }))} />
+                  ) : (
+                    <TextInput
+                      aria-label={s.description}
+                      className="max-w-[240px]"
+                      inputMode={s.type === "Integer" ? "numeric" : undefined}
+                      maxLength={s.maxLength ?? undefined}
+                      value={value}
+                      onChange={(e) => setDrafts((d) => ({ ...d, [s.key]: e.target.value }))}
+                    />
+                  )}
+                  {!s.isDefault && <Pill tone="navy">متعدّل</Pill>}
+                  <button
+                    type="button"
+                    className={btnSmall}
+                    disabled={draft === undefined || draft === s.value}
+                    onClick={() => setReason({ title: "تغيير إعداد", body: `${s.description}: ${s.value} ← ${draft}`, confirmLabel: "حفظ", onConfirm: (text) => save.mutate({ key: s.key, value: draft!, text }) })}
+                  >
+                    حفظ
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </QueryState>
+      <ReasonModal request={reason} onClose={() => setReason(null)} />
+    </>
+  );
+}
+
+function Flags() {
+  const queryClient = useQueryClient();
+  const notice = useNotice();
+  const [reason, setReason] = useState<ReasonRequest | null>(null);
+  const flags = useQuery({ queryKey: ["feature-flags"], queryFn: () => unwrap(api.GET("/api/v1/admin/feature-flags")) });
+  const toggle = useMutation({
+    mutationFn: ({ key, enabled, text }: { key: string; enabled: boolean; text: string }) =>
+      unwrap(api.PUT("/api/v1/admin/feature-flags/{key}", { params: { path: { key } }, body: { enabled, reason: text } })),
+    onSuccess: async (_, { enabled }) => {
+      notice.ok(enabled ? "الميزة اشتغلت." : "الميزة اتقفلت.");
+      await queryClient.invalidateQueries({ queryKey: ["feature-flags"] });
+    },
+    onError: notice.fail,
+  });
+  return (
+    <>
+      {notice.node}
+      <QueryState query={flags}>
+        {(list) => (
+          <div className={`${card} rounded-[18px] divide-y divide-[#EEF0F5]`}>
+            {list.map((f: Schemas["FlagDto"]) => (
+              <div key={f.key} className="p-4 flex gap-3 items-center">
+                <div className="flex-1 flex flex-col gap-0.5">
+                  <strong className="text-sm">{f.description}</strong>
+                  <span dir="ltr" className={`text-[11px] font-inter text-right ${muted}`}>{f.key}{f.public ? " · visible to apps" : ""}</span>
+                </div>
+                <Switch
+                  on={f.enabled}
+                  label={f.description}
+                  onToggle={() =>
+                    setReason({
+                      title: f.enabled ? "إيقاف ميزة" : "تشغيل ميزة",
+                      body: f.description,
+                      confirmLabel: f.enabled ? "إيقاف" : "تشغيل",
+                      onConfirm: (text) => toggle.mutate({ key: f.key, enabled: !f.enabled, text }),
+                    })
+                  }
+                />
+              </div>
+            ))}
+          </div>
+        )}
+      </QueryState>
+      <ReasonModal request={reason} onClose={() => setReason(null)} />
+    </>
+  );
+}
+
+function Sessions() {
+  const queryClient = useQueryClient();
+  const notice = useNotice();
   const sessions = useQuery({ queryKey: ["admin-sessions"], queryFn: () => unwrap(api.GET("/api/v1/admin/sessions")) });
   const revoke = useMutation({
     mutationFn: (sessionId: string) => unwrap(api.DELETE("/api/v1/admin/sessions/{sessionId}", { params: { path: { sessionId } } })),
-    onSuccess: async () => {
-      await sessions.refetch();
-      onMessage("الجلسة اتقفلت.");
-    },
-    onError: (e: Error) => onMessage(e.message),
+    onSuccess: async () => { notice.ok("اتقفلت الجلسة."); await queryClient.invalidateQueries({ queryKey: ["admin-sessions"] }); },
+    onError: notice.fail,
   });
-
-  const format = (iso: string) => new Date(iso).toLocaleString("ar-EG", { day: "numeric", month: "long", hour: "numeric", minute: "2-digit" });
-
   return (
-    <section className={`${card} rounded-[18px] p-5 flex flex-col gap-2`}>
-      {(sessions.data ?? []).length === 0 && <span className={`text-sm ${muted}`}>مفيش جلسات مفتوحة.</span>}
-      {(sessions.data ?? []).map((s) => (
-        <div key={s.sessionId} className="flex flex-wrap items-center gap-3 py-2.5 border-b border-[#EEF0F5] last:border-b-0">
-          <span className="flex-1 min-w-[220px] flex flex-col">
-            <span dir="ltr" className="text-right text-[13px] font-mono">
-              {s.userId}
-            </span>
-            <span className={`text-xs ${muted}`}>
-              بدأت {format(s.createdAtUtc)} · بتنتهي {format(s.expiresAtUtc)}
-            </span>
-          </span>
-          <button
-            type="button"
-            disabled={revoke.isPending}
-            onClick={() => revoke.mutate(s.sessionId)}
-            className="min-h-[36px] px-3 rounded-[10px] border border-[#F3C4BF] bg-white text-[#A8261C] text-[13px] font-semibold"
-          >
-            إنهاء الجلسة
-          </button>
-        </div>
-      ))}
-    </section>
+    <>
+      {notice.node}
+      <QueryState query={sessions} isEmpty={(d) => d.length === 0} empty="مفيش جلسات إدارة مفتوحة.">
+        {(list) => (
+          <div className={`${card} rounded-[18px] divide-y divide-[#EEF0F5]`}>
+            {list.map((s) => (
+              <div key={s.sessionId} className="p-4 flex gap-3 items-center text-sm">
+                <span className="flex-1">
+                  <span dir="ltr" className="font-inter text-xs">{s.userId.slice(0, 8)}</span> · من {fmtDateTime(s.createdAtUtc)} · تنتهي {fmtDateTime(s.expiresAtUtc)}
+                </span>
+                <button type="button" className={btnSmall} onClick={() => revoke.mutate(s.sessionId)}>قفل</button>
+              </div>
+            ))}
+          </div>
+        )}
+      </QueryState>
+    </>
   );
 }

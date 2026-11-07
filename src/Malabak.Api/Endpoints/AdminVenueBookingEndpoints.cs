@@ -1,0 +1,102 @@
+using System.Security.Claims;
+using Asp.Versioning.Builder;
+using Malabak.Api.Infrastructure.Authorization;
+using Malabak.Api.Infrastructure.Security;
+using Malabak.Modules.Booking.Application.Admin;
+using Malabak.Modules.Identity.Application.Common;
+using Malabak.Modules.Venues.Application.Admin;
+using Malabak.SharedKernel.Authorization;
+using Microsoft.AspNetCore.Mvc;
+
+namespace Malabak.Api.Endpoints;
+
+/// <summary>Admin venue management (TASK-702) and cross-venue booking monitoring (TASK-703).</summary>
+public static class AdminVenueBookingEndpoints
+{
+    public static void MapAdminVenueBookingEndpoints(this IEndpointRouteBuilder app, ApiVersionSet apiVersionSet)
+    {
+        var v1 = app.MapGroup("/api/v{version:apiVersion}/admin").WithApiVersionSet(apiVersionSet).MapToApiVersion(1, 0)
+            .AddEndpointFilter<AdminIpAllowlistFilter>();
+        MapVenues(v1.MapGroup("/venues").RequireAuthorization(Permissions.AdminVenuesApprove).WithTags("Admin Venues"));
+        MapBookings(v1.MapGroup("/bookings").RequireAuthorization(Permissions.AdminBookingsView).WithTags("Admin Bookings"));
+    }
+
+    private static void MapVenues(RouteGroupBuilder venues)
+    {
+        venues.MapGet("", async ([FromQuery] string? q, [FromQuery] string? approvalStatus, [FromQuery] Guid? ownerId, [FromQuery] int? page, [FromQuery] int? pageSize,
+                HttpContext http, AdminVenueService service, CancellationToken ct) =>
+            {
+                AdminResults.NoStore(http);
+                return AdminResults.From(await service.SearchAsync(new AdminVenueSearch(q, approvalStatus, ownerId, page ?? 1, pageSize ?? 25), ct));
+            })
+            .Produces<AdminVenuePage>().ProducesProblem(StatusCodes.Status400BadRequest)
+            .WithName("AdminSearchVenues").WithSummary("Search venues by name, city or area, approval status and owner");
+
+        venues.MapGet("/{venueId:guid}", async (Guid venueId, HttpContext http, AdminVenueService service, CancellationToken ct) =>
+            {
+                AdminResults.NoStore(http);
+                return AdminResults.From(await service.GetAsync(venueId, ct));
+            })
+            .Produces<AdminVenueDetail>().ProducesProblem(StatusCodes.Status404NotFound)
+            .WithName("AdminGetVenue").WithSummary("Venue with owner, pitch inventory, staff count, last-30-day booking figures and status history");
+
+        venues.MapPut("/{venueId:guid}/admin-note", async (Guid venueId, [FromBody] AdminNoteApiRequest request, ClaimsPrincipal user, AdminVenueService service, CancellationToken ct) =>
+                AdminResults.From(await service.SetAdminNoteAsync(venueId, request.Note, user.GetUserId()!.Value, ct)))
+            .Produces<AdminVenueDetail>().ProducesProblem(StatusCodes.Status400BadRequest)
+            .WithName("AdminSetVenueNote").WithSummary("Internal admin note (never shown to owners or players)");
+
+        venues.MapPost("/{venueId:guid}/suspend", async (Guid venueId, [FromBody] AdminReasonApiRequest request, ClaimsPrincipal user, AdminVenueService service, CancellationToken ct) =>
+                AdminResults.From(await service.SuspendAsync(venueId, request.Reason, user.GetUserId()!.Value, ct)))
+            .RequireStepUp(StepUpScopes.AdminDestructive)
+            .Produces<AdminVenueDetail>().ProducesProblem(StatusCodes.Status400BadRequest)
+            .WithName("AdminSuspendVenue").WithSummary("Hide an approved venue and stop new bookings (reason + step-up required; existing bookings stay)");
+
+        venues.MapPost("/{venueId:guid}/reactivate", async (Guid venueId, [FromBody] AdminReasonApiRequest request, ClaimsPrincipal user, AdminVenueService service, CancellationToken ct) =>
+                AdminResults.From(await service.ReactivateAsync(venueId, request.Reason, user.GetUserId()!.Value, ct)))
+            .Produces<AdminVenueDetail>().ProducesProblem(StatusCodes.Status400BadRequest)
+            .WithName("AdminReactivateVenue").WithSummary("Lift a suspension; the venue returns to its previous published state");
+
+        venues.MapPost("/{venueId:guid}/ask-owner", async (Guid venueId, [FromBody] AdminReasonApiRequest request, ClaimsPrincipal user, AdminVenueService service, CancellationToken ct) =>
+                AdminResults.From(await service.RequestInfoAsync(venueId, request.Reason, user.GetUserId()!.Value, ct)))
+            .Produces<AdminVenueDetail>().ProducesProblem(StatusCodes.Status400BadRequest)
+            .WithName("AdminAskVenueOwner").WithSummary("Ask the owner of a live venue for more information (no status change)");
+
+        venues.MapPost("/{venueId:guid}/ownership", async (Guid venueId, [FromBody] TransferOwnershipApiRequest request, ClaimsPrincipal user, AdminVenueService service, CancellationToken ct) =>
+                AdminResults.From(await service.TransferOwnershipAsync(venueId, request.NewOwnerId, request.Reason, user.GetUserId()!.Value, ct)))
+            .RequireStepUp(StepUpScopes.AdminDestructive)
+            .Produces<AdminVenueDetail>().ProducesProblem(StatusCodes.Status400BadRequest)
+            .WithName("AdminTransferVenueOwnership").WithSummary("Move the venue to another existing account (reason + step-up required)");
+    }
+
+    private static void MapBookings(RouteGroupBuilder bookings)
+    {
+        bookings.MapGet("", async ([FromQuery] string? reference, [FromQuery] Guid? venueId, [FromQuery] Guid? playerId, [FromQuery] string? status,
+                [FromQuery] DateTime? fromUtc, [FromQuery] DateTime? toUtc, [FromQuery] int? page, [FromQuery] int? pageSize,
+                HttpContext http, AdminBookingService service, CancellationToken ct) =>
+            {
+                AdminResults.NoStore(http);
+                return AdminResults.From(await service.SearchAsync(new AdminBookingSearch(reference, venueId, playerId, status, fromUtc, toUtc, page ?? 1, pageSize ?? 25), ct));
+            })
+            .Produces<AdminBookingPage>().ProducesProblem(StatusCodes.Status400BadRequest)
+            .WithName("AdminSearchBookings").WithSummary("Search bookings across venues by reference, venue, player, status and start time");
+
+        bookings.MapGet("/{bookingId:guid}", async (Guid bookingId, HttpContext http, AdminBookingService service, CancellationToken ct) =>
+            {
+                AdminResults.NoStore(http);
+                return AdminResults.From(await service.GetAsync(bookingId, ct));
+            })
+            .Produces<AdminBookingDetail>().ProducesProblem(StatusCodes.Status404NotFound)
+            .WithName("AdminGetBooking").WithSummary("Booking with status history, payment proofs (metadata) and refunds");
+
+        bookings.MapPost("/{bookingId:guid}/force-cancel", async (Guid bookingId, [FromBody] AdminReasonApiRequest request, ClaimsPrincipal user, AdminBookingService service, CancellationToken ct) =>
+                AdminResults.From(await service.ForceCancelAsync(bookingId, request.Reason, user.GetUserId()!.Value, ct)))
+            .RequireAuthorization(Permissions.AdminDisputesResolve)
+            .RequireStepUp(StepUpScopes.AdminDestructive)
+            .Produces<AdminBookingDetail>().ProducesProblem(StatusCodes.Status400BadRequest).ProducesProblem(StatusCodes.Status409Conflict)
+            .WithName("AdminForceCancelBooking").WithSummary("Cancel any active booking with a reason; the full deposit is owed back to the player");
+    }
+}
+
+public sealed record AdminNoteApiRequest(string? Note);
+
+public sealed record TransferOwnershipApiRequest(Guid NewOwnerId, string? Reason);

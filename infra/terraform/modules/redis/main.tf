@@ -40,16 +40,16 @@ resource "random_password" "redis_auth_token" {
 
 # Redis Replication Group
 resource "aws_elasticache_replication_group" "redis" {
-  replication_group_id       = "malabak-${var.environment}-redis"
-  description                = "Malabak Distributed Cache and Rate Limiter"
-  engine                     = "redis"
-  engine_version             = "7.1"
-  node_type                  = var.node_type
-  num_cache_clusters         = var.num_cache_clusters
-  parameter_group_name       = "default.redis7"
-  port                       = 6379
-  subnet_group_name          = aws_elasticache_subnet_group.redis.name
-  security_group_ids         = [aws_security_group.redis.id]
+  replication_group_id = "malabak-${var.environment}-redis"
+  description          = "Malabak Distributed Cache and Rate Limiter"
+  engine               = "redis"
+  engine_version       = "7.1"
+  node_type            = var.node_type
+  num_cache_clusters   = var.num_cache_clusters
+  parameter_group_name = "default.redis7"
+  port                 = 6379
+  subnet_group_name    = aws_elasticache_subnet_group.redis.name
+  security_group_ids   = [aws_security_group.redis.id]
 
   # Encryption & Security
   at_rest_encryption_enabled = true
