@@ -14,6 +14,15 @@ public interface IOtpStore
         TimeSpan? window = null,
         CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// How long until the oldest send attempt leaves the window, i.e. when the next code may be requested.
+    /// Zero when sending is allowed now.
+    /// </summary>
+    Task<TimeSpan> GetSendRetryAfterAsync(
+        string normalizedPhone,
+        TimeSpan? window = null,
+        CancellationToken cancellationToken = default);
+
     Task SaveOtpAsync(
         string normalizedPhone,
         string hmacHash,
