@@ -25,6 +25,9 @@ public interface IVenueDirectory
     /// <summary>Venue names by id, for notification text. Venues that do not exist are left out.</summary>
     Task<IReadOnlyDictionary<Guid, string>> GetVenueNamesAsync(IReadOnlyCollection<Guid> venueIds, CancellationToken cancellationToken = default);
 
+    /// <summary>Each venue's first gallery photo by id, for booking lists. Venues without photos are left out.</summary>
+    Task<IReadOnlyDictionary<Guid, string>> GetVenueCoverPhotosAsync(IReadOnlyCollection<Guid> venueIds, CancellationToken cancellationToken = default);
+
     /// <summary>Pitch names by id, for booking lists. Pitches that do not exist are left out.</summary>
     Task<IReadOnlyDictionary<Guid, string>> GetPitchNamesAsync(IReadOnlyCollection<Guid> pitchIds, CancellationToken cancellationToken = default);
 
