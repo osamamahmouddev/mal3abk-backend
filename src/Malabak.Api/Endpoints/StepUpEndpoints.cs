@@ -41,7 +41,8 @@ public static class StepUpEndpoints
         var status = error.Code switch
         {
             "Identity.LoginThrottled" or "Identity.OtpRateLimitExceeded" => StatusCodes.Status429TooManyRequests,
-            "Identity.StepUpFailed" => StatusCodes.Status401Unauthorized,
+            // A wrong code is not a lost session: 401 would make clients sign the user out. The session stays valid.
+            "Identity.StepUpFailed" => StatusCodes.Status400BadRequest,
             OtpDeliveryErrors.DeliveryFailedCode => StatusCodes.Status503ServiceUnavailable,
             _ => StatusCodes.Status400BadRequest
         };
