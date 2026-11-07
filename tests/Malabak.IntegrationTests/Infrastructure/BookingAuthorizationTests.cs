@@ -59,12 +59,13 @@ public sealed class BookingAuthorizationTests : IClassFixture<BookingDatabaseFix
         own.Value.Venue.Should().NotBeNull("the confirmation screen needs the venue's name and where it is");
         own.Value.Venue!.Latitude.Should().NotBeNull();
         own.Value.PitchName.Should().Be(FakeVenueDirectory.PitchName);
+        own.Value.VenueCoverPhotoUrl.Should().Be(FakeVenueDirectory.CoverPhoto);
         foreign.IsFailure.Should().BeTrue();
         foreign.Error.Should().Be(BookingErrors.NotFound, "a booking that is not yours must look like one that does not exist");
     }
 
     [Fact]
-    public async Task MyBookings_NameTheVenueAndPitchAsync()
+    public async Task MyBookings_NameTheVenueAndPitchAndShowItsPhotoAsync()
     {
         var (_, playerId) = await SaveBookingAsync();
         await using var context = _database.CreateContext();
@@ -76,6 +77,7 @@ public sealed class BookingAuthorizationTests : IClassFixture<BookingDatabaseFix
         var item = result.Value.Items.Should().ContainSingle().Subject;
         item.VenueName.Should().Be(FakeVenueDirectory.VenueName);
         item.PitchName.Should().Be(FakeVenueDirectory.PitchName);
+        item.VenueCoverPhotoUrl.Should().Be(FakeVenueDirectory.CoverPhoto);
     }
 
     private async Task<(Guid BookingId, Guid PlayerId)> SaveBookingAsync()
