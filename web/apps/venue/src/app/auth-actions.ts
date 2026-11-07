@@ -79,6 +79,15 @@ export async function resetPassword(token: string, newPassword: string): Promise
  * restricted session. There is no refresh token, so the session ends when that token does.
  */
 export async function startImpersonation(code: string): Promise<ActionResult> {
+  try {
+    return await exchangeImpersonationCode(code);
+  } catch {
+    // Network or API outage: say so instead of leaving the support agent on a spinner.
+    return { ok: false, message: "تعذّر الاتصال بالخادم. حاول تاني بعد شوية." };
+  }
+}
+
+async function exchangeImpersonationCode(code: string): Promise<ActionResult> {
   const result = await anonymousApi<Schemas["ImpersonationTokenDto"]>("/api/v1/auth/impersonation/exchange", { code: code.trim() });
   if (!result.ok) return { ok: false, message: "الكود غلط أو انتهى أو اتستخدم قبل كده." };
 

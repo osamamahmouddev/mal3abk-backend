@@ -14,10 +14,18 @@ export default function ImpersonatePage() {
     e.preventDefault();
     setBusy(true);
     setError(null);
-    const result = await startImpersonation(code);
-    setBusy(false);
-    if (result.ok) window.location.assign("/venue/overview");
-    else setError(result.message ?? "حصل خطأ.");
+    try {
+      const result = await startImpersonation(code);
+      if (result.ok) {
+        window.location.assign("/venue/overview");
+        return;
+      }
+      setError(result.message ?? "حصل خطأ.");
+    } catch {
+      setError("تعذّر الاتصال بالخادم. حاول تاني بعد شوية.");
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
