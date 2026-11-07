@@ -90,36 +90,36 @@ resource "random_password" "admin_password" {
 
 # Managed RDS PostgreSQL Instance
 resource "aws_db_instance" "postgres" {
-  identifier                  = "malabak-${var.environment}-db"
-  engine                      = "postgres"
-  engine_version              = "17.2"
-  instance_class              = var.instance_class
-  allocated_storage           = var.allocated_storage
-  max_allocated_storage       = var.max_allocated_storage
-  storage_type                = "gp3"
-  storage_encrypted           = true
-  kms_key_id                  = aws_kms_key.postgres.arn
+  identifier            = "malabak-${var.environment}-db"
+  engine                = "postgres"
+  engine_version        = "17.2"
+  instance_class        = var.instance_class
+  allocated_storage     = var.allocated_storage
+  max_allocated_storage = var.max_allocated_storage
+  storage_type          = "gp3"
+  storage_encrypted     = true
+  kms_key_id            = aws_kms_key.postgres.arn
 
-  db_name                     = var.database_name
-  username                    = var.admin_username
-  password                    = random_password.admin_password.result
+  db_name  = var.database_name
+  username = var.admin_username
+  password = random_password.admin_password.result
 
-  db_subnet_group_name        = aws_db_subnet_group.postgres.name
-  vpc_security_group_ids      = [aws_security_group.postgres.id]
-  parameter_group_name        = aws_db_parameter_group.postgres.name
+  db_subnet_group_name   = aws_db_subnet_group.postgres.name
+  vpc_security_group_ids = [aws_security_group.postgres.id]
+  parameter_group_name   = aws_db_parameter_group.postgres.name
 
   # Point-in-Time Recovery (PITR) & Automated Backups
-  backup_retention_period     = 30 # 30 days retention for continuous PITR
-  backup_window               = "01:00-03:00"
-  maintenance_window          = "Mon:03:30-Mon:05:00"
-  copy_tags_to_snapshot       = true
-  deletion_protection         = var.environment == "production" ? true : false
-  skip_final_snapshot         = var.environment == "production" ? false : true
-  final_snapshot_identifier   = "malabak-${var.environment}-db-final-snapshot"
+  backup_retention_period   = 30 # 30 days retention for continuous PITR
+  backup_window             = "01:00-03:00"
+  maintenance_window        = "Mon:03:30-Mon:05:00"
+  copy_tags_to_snapshot     = true
+  deletion_protection       = var.environment == "production" ? true : false
+  skip_final_snapshot       = var.environment == "production" ? false : true
+  final_snapshot_identifier = "malabak-${var.environment}-db-final-snapshot"
 
-  publicly_accessible         = false
-  multi_az                    = var.environment == "production" ? true : false
-  auto_minor_version_upgrade  = true
+  publicly_accessible        = false
+  multi_az                   = var.environment == "production" ? true : false
+  auto_minor_version_upgrade = true
 
   tags = {
     Name        = "malabak-${var.environment}-postgres"

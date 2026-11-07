@@ -4,12 +4,12 @@ provider "cloudflare" {
 
 # Local variables for hostnames and tags
 locals {
-  root_domain   = var.domain_name
-  api_domain    = "api.${var.domain_name}"
-  admin_domain  = "admin.${var.domain_name}"
-  venue_domain  = "venue.${var.domain_name}"
-  web_domain    = var.domain_name
-  www_domain    = "www.${var.domain_name}"
+  root_domain  = var.domain_name
+  api_domain   = "api.${var.domain_name}"
+  admin_domain = "admin.${var.domain_name}"
+  venue_domain = "venue.${var.domain_name}"
+  web_domain   = var.domain_name
+  www_domain   = "www.${var.domain_name}"
 
   tags = {
     Project     = "Malabak"
