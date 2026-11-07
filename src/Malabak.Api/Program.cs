@@ -255,6 +255,12 @@ builder.Services.AddDbContext<Malabak.Modules.Support.Infrastructure.SupportDbCo
         npgsql.MigrationsHistoryTable("__EFMigrationsHistory", Malabak.Modules.Support.Infrastructure.SupportDbContext.Schema)));
 builder.Services.AddSupportModule();
 
+// Cloudflare Access (TASK-720): internal tools only through Zero Trust, verified by the signed assertion.
+builder.Services.Configure<Malabak.Api.Infrastructure.Security.CloudflareAccessOptions>(
+    builder.Configuration.GetSection(Malabak.Api.Infrastructure.Security.CloudflareAccessOptions.SectionName));
+builder.Services.AddHttpClient(nameof(Malabak.Api.Infrastructure.Security.CloudflareAccessValidator));
+builder.Services.AddSingleton<Malabak.Api.Infrastructure.Security.CloudflareAccessValidator>();
+
 builder.Services.AddDbContext<Malabak.Api.Infrastructure.Platform.PlatformDbContext>(options =>
     options.UseNpgsql(postgresConnectionString, npgsql =>
         npgsql.MigrationsHistoryTable("__EFMigrationsHistory", Malabak.Api.Infrastructure.Platform.PlatformDbContext.Schema)));
@@ -360,6 +366,8 @@ var localizationOptions = new RequestLocalizationOptions()
     .AddSupportedUICultures("ar-EG", "en-US");
 localizationOptions.RequestCultureProviders.Insert(0, new XLocaleRequestCultureProvider());
 app.UseRequestLocalization(localizationOptions);
+
+app.UseMiddleware<Malabak.Api.Infrastructure.Security.CloudflareAccessGuardMiddleware>();
 
 // Never in Production. Staging exposes it so the team can exercise the deployed API.
 if (app.Environment.IsDevelopment() || app.Environment.IsStaging() || app.Environment.IsEnvironment("Testing"))
