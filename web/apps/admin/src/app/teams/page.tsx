@@ -62,7 +62,7 @@ function Reports({ notice }: { notice: Notice }) {
 
   const reports = useQuery({
     queryKey: ["fair-play", status, page],
-    queryFn: () => unwrap(api.GET("/api/v1/teams/reports", { params: { query: { status: Number(status) as Schemas["FairPlayReportStatus"], page, pageSize: PAGE_SIZE } } })),
+    queryFn: () => unwrap(api.GET("/api/v1/admin/moderation/reports", { params: { query: { status: Number(status) as Schemas["FairPlayReportStatus"], page, pageSize: PAGE_SIZE } } })),
   });
   const done = async (text: string) => {
     notice.ok(text);
@@ -74,7 +74,7 @@ function Reports({ notice }: { notice: Notice }) {
   const review = useMutation({
     mutationFn: ({ id, approve }: { id: string; approve: boolean }) =>
       unwrap(
-        api.POST("/api/v1/teams/reports/{id}/review", {
+        api.POST("/api/v1/admin/moderation/reports/{id}/review", {
           params: { path: { id } },
           body: {
             isApproved: approve,
@@ -89,7 +89,7 @@ function Reports({ notice }: { notice: Notice }) {
   });
   const appeal = useMutation({
     mutationFn: ({ id, uphold }: { id: string; uphold: boolean }) =>
-      unwrap(api.POST("/api/v1/teams/reports/{id}/appeal/resolve", { params: { path: { id } }, body: { upholdViolation: uphold, adminNotes: notes } })),
+      unwrap(api.POST("/api/v1/admin/moderation/reports/{id}/appeal/resolve", { params: { path: { id } }, body: { upholdViolation: uphold, adminNotes: notes } })),
     onSuccess: (_, { uphold }) => done(uphold ? "العقوبة فضلت (الطعن اترفض)." : "الطعن اتقبل والعقوبة اتلغت."),
     onError: notice.fail,
   });
@@ -162,7 +162,7 @@ function Results({ notice }: { notice: Notice }) {
 
   const disputes = useQuery({
     queryKey: ["match-disputes", page],
-    queryFn: () => unwrap(api.GET("/api/v1/matches/disputes", { params: { query: { page, pageSize: PAGE_SIZE } } })),
+    queryFn: () => unwrap(api.GET("/api/v1/admin/moderation/matches/disputes", { params: { query: { page, pageSize: PAGE_SIZE } } })),
   });
   const reset = async (text: string) => {
     notice.ok(text);
@@ -176,7 +176,7 @@ function Results({ notice }: { notice: Notice }) {
   const resolve = useMutation({
     mutationFn: ({ id, action }: { id: string; action: 1 | 2 | 3 }) =>
       unwrap(
-        api.POST("/api/v1/matches/{id}/disputes/resolve", {
+        api.POST("/api/v1/admin/moderation/matches/{id}/disputes/resolve", {
           params: { path: { id } },
           body: { action, resolutionNotes: notes, officialHomeScore: action === 2 ? Number(home) : null, officialAwayScore: action === 2 ? Number(away) : null },
         }),

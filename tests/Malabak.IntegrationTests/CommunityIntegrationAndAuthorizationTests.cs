@@ -117,8 +117,8 @@ public sealed class CommunityIntegrationAndAuthorizationTests : IClassFixture<We
     [Theory]
     [InlineData("/api/v1/teams")]
     [InlineData("/api/v1/matches")]
-    [InlineData("/api/v1/teams/reports")]
-    [InlineData("/api/v1/matches/disputes")]
+    [InlineData("/api/v1/admin/moderation/reports")]
+    [InlineData("/api/v1/admin/moderation/matches/disputes")]
     public async Task ProtectedEndpoints_WhenAnonymous_Return401UnauthorizedAsync(string endpoint)
     {
         var client = _factory.CreateClient();
@@ -135,15 +135,15 @@ public sealed class CommunityIntegrationAndAuthorizationTests : IClassFixture<We
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", tokenService.GenerateTokens(player).AccessToken);
 
         // Match disputes admin queue
-        var disputesResponse = await client.GetAsync("/api/v1/matches/disputes");
+        var disputesResponse = await client.GetAsync("/api/v1/admin/moderation/matches/disputes");
         disputesResponse.StatusCode.Should().BeOneOf(HttpStatusCode.Unauthorized, HttpStatusCode.Forbidden);
 
         // Fair play reports admin queue
-        var reportsResponse = await client.GetAsync("/api/v1/teams/reports");
+        var reportsResponse = await client.GetAsync("/api/v1/admin/moderation/reports");
         reportsResponse.StatusCode.Should().BeOneOf(HttpStatusCode.Unauthorized, HttpStatusCode.Forbidden);
 
         // Recalculate rankings admin trigger
-        var recalcResponse = await client.PostAsync("/api/v1/matches/rankings/recalculate", null);
+        var recalcResponse = await client.PostAsync("/api/v1/admin/moderation/rankings/recalculate", null);
         recalcResponse.StatusCode.Should().BeOneOf(HttpStatusCode.Unauthorized, HttpStatusCode.Forbidden);
     }
 

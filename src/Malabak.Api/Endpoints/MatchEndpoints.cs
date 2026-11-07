@@ -30,6 +30,14 @@ public static class MatchEndpoints
             .RequireAuthorization(Permissions.TeamsParticipate)
             .WithTags("Matches");
 
+        // Staff moderation of disputed results and rankings (TASK-705), under /admin for the admin token audience.
+        var moderation = app.MapGroup("/api/v{version:apiVersion}/admin/moderation")
+            .WithApiVersionSet(apiVersionSet)
+            .MapToApiVersion(1, 0)
+            .RequireAuthorization(Permissions.AdminDisputesResolve)
+            .AddEndpointFilter<AdminIpAllowlistFilter>()
+            .WithTags("Admin Moderation");
+
         // 1. Get upcoming matches
         matches.MapGet("/upcoming", async (
             [FromQuery] Guid? teamId,
@@ -191,7 +199,7 @@ public static class MatchEndpoints
         .WithSummary("Confirm or dispute submitted match results (Opposing Captain only)");
 
         // 9. Admin dispute moderation queue
-        matches.MapGet("/disputes", async (
+        moderation.MapGet("/matches/disputes", async (
             [FromQuery] int page,
             [FromQuery] int pageSize,
             IQueryHandler<GetDisputedMatchesQuery, Result<PagedList<DisputedMatchDto>>> handler,
@@ -207,7 +215,7 @@ public static class MatchEndpoints
         .WithSummary("Get disputed matches queue for moderation (Admin only)");
 
         // 10. Admin trigger ranking recalculation
-        matches.MapPost("/rankings/recalculate", async (
+        moderation.MapPost("/rankings/recalculate", async (
             Malabak.Modules.Matches.Infrastructure.Jobs.RankingRecalculationJob job,
             CancellationToken ct) =>
         {
@@ -220,7 +228,7 @@ public static class MatchEndpoints
         .WithSummary("Trigger on-demand team ranking recalculation across all confirmed matches (Admin only)");
 
         // 11. Admin resolve dispute
-        matches.MapPost("/{id:guid}/disputes/resolve", async (
+        moderation.MapPost("/matches/{id:guid}/disputes/resolve", async (
             Guid id,
             [FromBody] ResolveMatchDisputeRequest request,
             ClaimsPrincipal user,

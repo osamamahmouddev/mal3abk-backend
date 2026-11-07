@@ -36,6 +36,15 @@ public static class TeamEndpoints
             .RequireAuthorization(Permissions.TeamsParticipate)
             .WithTags("Teams");
 
+        // Staff moderation of fair-play reports (TASK-705). Admin tokens use the admin audience, so these live under /admin
+        // rather than in the player-only /teams group (a route cannot require both audiences).
+        var moderation = app.MapGroup("/api/v{version:apiVersion}/admin/moderation")
+            .WithApiVersionSet(apiVersionSet)
+            .MapToApiVersion(1, 0)
+            .RequireAuthorization(Permissions.AdminDisputesResolve)
+            .AddEndpointFilter<AdminIpAllowlistFilter>()
+            .WithTags("Admin Moderation");
+
         // 0. Discover public teams
         teams.MapGet("/", async (
             ClaimsPrincipal user,
@@ -343,7 +352,7 @@ public static class TeamEndpoints
         .WithSummary("Submit a fair-play violation report against a team (Captain or ViceCaptain only)");
 
         // 6l. Admin get fair-play reports queue
-        teams.MapGet("/reports", async (
+        moderation.MapGet("/reports", async (
             [FromQuery] FairPlayReportStatus? status,
             [FromQuery] int page,
             [FromQuery] int pageSize,
@@ -360,7 +369,7 @@ public static class TeamEndpoints
         .WithSummary("Get fair-play reports queue for admin moderation (Admin only)");
 
         // 6m. Admin review fair-play report
-        teams.MapPost("/reports/{id:guid}/review", async (
+        moderation.MapPost("/reports/{id:guid}/review", async (
             Guid id,
             [FromBody] ReviewFairPlayReportRequest request,
             ClaimsPrincipal user,
@@ -406,7 +415,7 @@ public static class TeamEndpoints
         .WithSummary("Appeal an approved fair-play report penalty (Captain of reported team only)");
 
         // 6o. Admin resolve fair-play appeal
-        teams.MapPost("/reports/{id:guid}/appeal/resolve", async (
+        moderation.MapPost("/reports/{id:guid}/appeal/resolve", async (
             Guid id,
             [FromBody] ResolveFairPlayAppealRequest request,
             ClaimsPrincipal user,

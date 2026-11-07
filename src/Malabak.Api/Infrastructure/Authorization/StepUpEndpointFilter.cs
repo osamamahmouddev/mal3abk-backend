@@ -33,9 +33,12 @@ public sealed class StepUpEndpointFilter(string scope) : IEndpointFilter
     }
 }
 
+/// <summary>Endpoint metadata saying the endpoint needs a fresh step-up token (lets tests and docs see it; the filter enforces it).</summary>
+public sealed record StepUpRequiredMetadata(string Scope);
+
 public static class StepUpEndpointExtensions
 {
     public static TBuilder RequireStepUp<TBuilder>(this TBuilder builder, string scope)
         where TBuilder : IEndpointConventionBuilder =>
-        builder.AddEndpointFilter(new StepUpEndpointFilter(scope));
+        builder.WithMetadata(new StepUpRequiredMetadata(scope)).AddEndpointFilter(new StepUpEndpointFilter(scope));
 }

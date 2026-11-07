@@ -12,8 +12,6 @@ export const bffConfig: BffConfig = {
   allowedPaths: [
     /^\/api\/v1\/admin\//,
     /^\/api\/v1\/auth\/step-up\/?$/,
-    /^\/api\/v1\/teams\/reports(\/|$)/,
-    /^\/api\/v1\/matches\/(disputes|rankings\/recalculate|[0-9a-f-]+\/disputes\/resolve)$/,
     /^\/api\/v1\/me(\/permissions)?$/,
     /^\/api\/v1\/plans$/,
     /^\/api\/v1\/reference\//,

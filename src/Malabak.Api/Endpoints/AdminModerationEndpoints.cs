@@ -12,7 +12,7 @@ namespace Malabak.Api.Endpoints;
 
 /// <summary>
 /// Team and community moderation (TASK-705): team search and suspension, and correcting confirmed match results (rankings are
-/// replayed). The report, appeal and disputed-result queues already live under <c>/teams/reports</c> and <c>/matches/disputes</c>.
+/// replayed). The report, appeal and disputed-result queues are mapped under the same prefix in TeamEndpoints and MatchEndpoints.
 /// </summary>
 public static class AdminModerationEndpoints
 {
