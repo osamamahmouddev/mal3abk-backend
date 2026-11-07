@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Logging;
 using System.Collections.Concurrent;
 using System.Globalization;
 using Malabak.SharedKernel;
@@ -134,18 +135,25 @@ public sealed class PlatformService : IPlatformSettings, IFeatureFlags
 {
     public static readonly TimeSpan CacheLifetime = TimeSpan.FromSeconds(30);
 
-    private static readonly ConcurrentDictionary<string, (string Value, DateTime At)> _settingCache = new();
-    private static readonly ConcurrentDictionary<string, (bool Value, DateTime At)> _flagCache = new();
+    private readonly ConcurrentDictionary<string, (string Value, DateTime At)> _settingCache;
+    private readonly ConcurrentDictionary<string, (bool Value, DateTime At)> _flagCache;
 
     private readonly PlatformDbContext _dbContext;
     private readonly IAuditLog _audit;
     private readonly IClock _clock;
+    private readonly ILogger<PlatformService>? _logger;
 
-    public PlatformService(PlatformDbContext dbContext, IAuditLog audit, IClock clock)
+    public PlatformService(
+        PlatformDbContext dbContext, IAuditLog audit, IClock clock, ILogger<PlatformService>? logger = null, PlatformSettingsCache? cache = null)
     {
+        // The host shares one cache (singleton); a service built without one (tests) gets its own.
+        cache ??= new PlatformSettingsCache();
+        _settingCache = cache.Settings;
+        _flagCache = cache.Flags;
         _dbContext = dbContext;
         _audit = audit;
         _clock = clock;
+        _logger = logger;
     }
 
     public async Task<int> GetIntAsync(string key, CancellationToken cancellationToken = default) =>
@@ -168,7 +176,18 @@ public sealed class PlatformService : IPlatformSettings, IFeatureFlags
             return cached.Value;
         }
 
-        var enabled = await _dbContext.Flags.AsNoTracking().Where(f => f.Key == key).Select(f => f.Enabled).FirstOrDefaultAsync(cancellationToken);
+        bool enabled;
+        try
+        {
+            enabled = await _dbContext.Flags.AsNoTracking().Where(f => f.Key == key).Select(f => f.Enabled).FirstOrDefaultAsync(cancellationToken);
+        }
+        catch (Exception ex) when (IsStoreFailure(ex))
+        {
+            // A settings read must never take the API down: keep the last known value (or "off") until the store is back.
+            _logger?.LogError(ex, "Could not read feature flag {Flag}; using the last known value", key);
+            enabled = _flagCache.TryGetValue(key, out var last) && last.Value;
+        }
+
         _flagCache[key] = (enabled, _clock.UtcNow);
         return enabled;
     }
@@ -270,12 +289,6 @@ public sealed class PlatformService : IPlatformSettings, IFeatureFlags
     }
 
     /// <summary>Test hook: forget cached values.</summary>
-    public static void ClearCache()
-    {
-        _settingCache.Clear();
-        _flagCache.Clear();
-    }
-
     private async Task<string> ValueAsync(string key, CancellationToken cancellationToken)
     {
         var definition = PlatformCatalog.Setting(key) ?? throw new ArgumentException($"Unknown platform setting '{key}'.", nameof(key));
@@ -284,9 +297,33 @@ public sealed class PlatformService : IPlatformSettings, IFeatureFlags
             return cached.Value;
         }
 
-        var stored = await _dbContext.Settings.AsNoTracking().Where(s => s.Key == key).Select(s => s.Value).FirstOrDefaultAsync(cancellationToken);
-        var value = stored is not null && PlatformCatalog.Normalize(definition, stored) is { } valid ? valid : definition.Default;
+        string value;
+        try
+        {
+            var stored = await _dbContext.Settings.AsNoTracking().Where(s => s.Key == key).Select(s => s.Value).FirstOrDefaultAsync(cancellationToken);
+            value = stored is not null && PlatformCatalog.Normalize(definition, stored) is { } valid ? valid : definition.Default;
+        }
+        catch (Exception ex) when (IsStoreFailure(ex))
+        {
+            // Same rule as flags: fall back to the last known value or the code default (e.g. maintenance stays off).
+            _logger?.LogError(ex, "Could not read platform setting {Setting}; using the last known value or the default", key);
+            value = _settingCache.TryGetValue(key, out var last) ? last.Value : definition.Default;
+        }
+
         _settingCache[key] = (value, _clock.UtcNow);
         return value;
     }
+
+    private static bool IsStoreFailure(Exception ex) =>
+        ex is System.Data.Common.DbException or TimeoutException or InvalidOperationException && ex is not ObjectDisposedException;
+}
+
+/// <summary>
+/// Process-wide cache of settings and flags (30 s per entry), registered as a singleton so every request shares it. Each
+/// instance is independent, so tests never see another test's values.
+/// </summary>
+public sealed class PlatformSettingsCache
+{
+    public ConcurrentDictionary<string, (string Value, DateTime At)> Settings { get; } = new();
+    public ConcurrentDictionary<string, (bool Value, DateTime At)> Flags { get; } = new();
 }

@@ -16,11 +16,6 @@ public sealed class PlatformSettingsTests
     private readonly RecordingAudit _audit = new();
     private readonly MutableClock _clock = new();
 
-    public PlatformSettingsTests()
-    {
-        PlatformService.ClearCache();
-    }
-
     [Theory]
     [InlineData(PlatformSettingKeys.HoldMinutes, "45", "45")]
     [InlineData(PlatformSettingKeys.HoldMinutes, " 30 ", "30")]

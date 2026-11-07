@@ -264,6 +264,7 @@ builder.Services.AddSingleton<Malabak.Api.Infrastructure.Security.CloudflareAcce
 builder.Services.AddDbContext<Malabak.Api.Infrastructure.Platform.PlatformDbContext>(options =>
     options.UseNpgsql(postgresConnectionString, npgsql =>
         npgsql.MigrationsHistoryTable("__EFMigrationsHistory", Malabak.Api.Infrastructure.Platform.PlatformDbContext.Schema)));
+builder.Services.AddSingleton<Malabak.Api.Infrastructure.Platform.PlatformSettingsCache>();
 builder.Services.AddScoped<Malabak.Api.Infrastructure.Platform.PlatformService>();
 builder.Services.AddScoped<Malabak.SharedKernel.Contracts.IPlatformSettings>(sp => sp.GetRequiredService<Malabak.Api.Infrastructure.Platform.PlatformService>());
 builder.Services.AddScoped<Malabak.SharedKernel.Contracts.IFeatureFlags>(sp => sp.GetRequiredService<Malabak.Api.Infrastructure.Platform.PlatformService>());
