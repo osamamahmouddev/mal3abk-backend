@@ -21,6 +21,7 @@ public static class RolePermissions
                 Permissions.AdminUsersView,
                 Permissions.AdminUsersManage,
                 Permissions.AdminAccountsManage,
+                Permissions.AdminImpersonate,
                 Permissions.AdminVenuesApprove,
                 Permissions.AdminBookingsView,
                 Permissions.AdminDisputesResolve,
@@ -35,6 +36,7 @@ public static class RolePermissions
                 Permissions.ProfileManage,
                 Permissions.SupportTicketsManage,
                 Permissions.AdminUsersView,
+                Permissions.AdminImpersonate,
                 Permissions.AdminBookingsView
             ],
             [UserRole.Finance] =

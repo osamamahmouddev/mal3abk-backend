@@ -44,8 +44,16 @@ public sealed class TokenService : ITokenService
         return Issue(user, _options.AdminAudience, TimeSpan.FromMinutes(minutes), sessionExpiresAtUtc, amr: ["pwd", "mfa"], sessionId);
     }
 
+    public TokenResult GenerateImpersonationToken(User user, Guid sessionId, Guid actorId, TimeSpan lifetime) =>
+        Issue(user, _options.Audience, lifetime, _clock.UtcNow + lifetime, amr: ["imp"], sessionId,
+            new Claim(ImpersonationActorClaim, $"{{\"sub\":\"{actorId:D}\"}}", JsonClaimValueTypes.Json));
+
+    /// <summary>RFC 8693 actor claim: who is acting on behalf of the subject.</summary>
+    public const string ImpersonationActorClaim = "act";
+
     // The payload is readable by anyone (base64), so no PII goes in: no phone, no email (SECURITY.md §3.3).
-    private TokenResult Issue(User user, string audience, TimeSpan accessLifetime, DateTime refreshExpiresAtUtc, string[]? amr, Guid? sessionId)
+    private TokenResult Issue(
+        User user, string audience, TimeSpan accessLifetime, DateTime refreshExpiresAtUtc, string[]? amr, Guid? sessionId, Claim? extra = null)
     {
         ArgumentNullException.ThrowIfNull(user);
 
@@ -67,6 +75,11 @@ public sealed class TokenService : ITokenService
         if (sessionId is { } sid)
         {
             claims.Add(new Claim(SessionClaim, sid.ToString("D")));
+        }
+
+        if (extra is not null)
+        {
+            claims.Add(extra);
         }
 
         var tokenDescriptor = new SecurityTokenDescriptor

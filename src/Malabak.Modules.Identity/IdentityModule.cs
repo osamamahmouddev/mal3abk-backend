@@ -111,6 +111,8 @@ public static class IdentityModule
         // logging come from RedisConnectionFactory). No in-memory fallback: if Redis is down, OTP
         // requests fail closed instead of being checked per instance (SECURITY.md).
         services.AddSingleton<IOtpStore, RedisOtpStore>();
+        services.AddSingleton<Malabak.Modules.Identity.Application.Admin.IImpersonationCodeStore, RedisImpersonationCodeStore>();
+        services.AddScoped<Malabak.Modules.Identity.Application.Admin.ImpersonationService>();
 
         // Command Handlers - Authentication
         services.AddScoped<ICommandHandler<SendOtpCommand, Result<SendOtpResponse>>, SendOtpHandler>();

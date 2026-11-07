@@ -30,6 +30,7 @@ public static class NotificationTypes
     public const string VenueInfoRequested = "venue.info_requested";
     public const string StaffInvitationAccepted = "staff.invitation_accepted";
     public const string NewDeviceSignIn = "security.new_device";
+    public const string ImpersonationStarted = "security.impersonation_started";
     public const string TeamInvitationReceived = "team.invitation_received";
     public const string TeamChallengeReceived = "team.challenge_received";
     public const string TeamChallengeAccepted = "team.challenge_accepted";

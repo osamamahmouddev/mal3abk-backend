@@ -36,6 +36,7 @@ public static class Permissions
     public const string AdminUsersView = "admin.users.view";
     public const string AdminUsersManage = "admin.users.manage";
     public const string AdminAccountsManage = "admin.accounts.manage";
+    public const string AdminImpersonate = "admin.impersonate";
     public const string AdminVenuesApprove = "admin.venues.approve";
     public const string AdminBookingsView = "admin.bookings.view";
     public const string AdminDisputesResolve = "admin.disputes.resolve";
@@ -73,6 +74,7 @@ public static class Permissions
         AdminUsersView,
         AdminUsersManage,
         AdminAccountsManage,
+        AdminImpersonate,
         AdminVenuesApprove,
         AdminBookingsView,
         AdminDisputesResolve,

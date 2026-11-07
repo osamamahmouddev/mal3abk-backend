@@ -372,6 +372,7 @@ app.UseMalabakSecurity();
 app.UseMiddleware<Malabak.Api.Infrastructure.Platform.MaintenanceModeMiddleware>();
 app.UseRateLimiter();
 app.UseAuthentication();
+app.UseMiddleware<Malabak.Api.Infrastructure.Authorization.ImpersonationRestrictionMiddleware>();
 app.UseAuthorization();
 app.UseMalabakIdempotency();
 
@@ -480,6 +481,7 @@ app.MapDisputeEndpoints(apiVersionSet);
 app.MapAdminModerationEndpoints(apiVersionSet);
 app.MapAdminDashboardEndpoints(apiVersionSet);
 app.MapFeaturedVenueEndpoints(apiVersionSet);
+app.MapImpersonationEndpoints(apiVersionSet);
 app.MapPlatformEndpoints(apiVersionSet);
 app.MapSubscriptionEndpoints(apiVersionSet);
 app.MapPlayerVenueListEndpoints(apiVersionSet);
