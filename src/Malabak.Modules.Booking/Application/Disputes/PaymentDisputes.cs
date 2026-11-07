@@ -342,7 +342,10 @@ public sealed class PaymentDisputeService
     }
 
     private Task<PaymentDispute?> LatestAsync(System.Linq.Expressions.Expression<Func<PaymentDispute, bool>> filter, CancellationToken cancellationToken) =>
-        _dbContext.PaymentDisputes.AsNoTracking().Include(d => d.Evidence).Where(filter).OrderByDescending(d => d.CreatedAtUtc).FirstOrDefaultAsync(cancellationToken);
+        _dbContext.PaymentDisputes.AsNoTracking().Include(d => d.Evidence).Where(filter)
+            // The open dispute (at most one) comes first; otherwise the most recent decision.
+            .OrderBy(d => d.Status == DisputeStatus.Resolved).ThenByDescending(d => d.CreatedAtUtc)
+            .FirstOrDefaultAsync(cancellationToken);
 
     private Task<PaymentDispute?> OpenDisputeAsync(System.Linq.Expressions.Expression<Func<PaymentDispute, bool>> filter, CancellationToken cancellationToken) =>
         _dbContext.PaymentDisputes.Include(d => d.Evidence).Where(filter).Where(d => d.Status != DisputeStatus.Resolved).FirstOrDefaultAsync(cancellationToken);
