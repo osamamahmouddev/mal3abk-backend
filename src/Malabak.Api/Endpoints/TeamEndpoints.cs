@@ -355,6 +355,7 @@ public static class TeamEndpoints
             return ToResult(result);
         })
         .RequireAuthorization(Permissions.AdminDisputesResolve)
+        .Produces<PagedList<FairPlayReportDto>>()
         .WithName("GetFairPlayReportsQueue")
         .WithSummary("Get fair-play reports queue for admin moderation (Admin only)");
 
@@ -380,6 +381,7 @@ public static class TeamEndpoints
         })
         .RequireAuthorization(Permissions.AdminDisputesResolve)
         .Audited("admin.fair_play_report.reviewed", "TeamFairPlayReport")
+        .Produces<FairPlayReportDto>()
         .WithName("ReviewFairPlayReport")
         .WithSummary("Admin review fair-play report (approve with penalty or dismiss) (Admin only)");
 
@@ -423,6 +425,7 @@ public static class TeamEndpoints
         })
         .RequireAuthorization(Permissions.AdminDisputesResolve)
         .Audited("admin.fair_play_appeal.resolved", "TeamFairPlayReport")
+        .Produces<FairPlayReportDto>()
         .WithName("ResolveFairPlayAppeal")
         .WithSummary("Admin resolve a fair-play report appeal (uphold or overturn) (Admin only)");
 

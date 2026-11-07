@@ -202,6 +202,7 @@ public static class MatchEndpoints
             return ToResult(result);
         })
         .RequireAuthorization(Permissions.AdminDisputesResolve)
+        .Produces<Malabak.Modules.Matches.Application.Common.PagedList<Malabak.Modules.Matches.Application.Common.DisputedMatchDto>>()
         .WithName("GetDisputedMatchesQueue")
         .WithSummary("Get disputed matches queue for moderation (Admin only)");
 
@@ -247,6 +248,7 @@ public static class MatchEndpoints
         })
         .RequireAuthorization(Permissions.AdminDisputesResolve)
         .Audited("admin.match_dispute.resolved", "Match")
+        .Produces<MatchDto>()
         .WithName("ResolveMatchDispute")
         .WithSummary("Resolve a disputed match result with official score or cancellation (Admin only)");
 
