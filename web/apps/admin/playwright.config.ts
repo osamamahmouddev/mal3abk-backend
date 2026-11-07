@@ -31,6 +31,7 @@ export default defineConfig({
       SESSION_SECRET: "e2e-only-session-secret-0123456789abcdef",
       API_URL: "http://127.0.0.1:9",
       NEXT_PUBLIC_API_URL: "",
+      E2E: "1",
     },
   },
 });
