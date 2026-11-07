@@ -34,6 +34,26 @@ public sealed class InMemoryOtpStore : IOtpStore
         }
     }
 
+    public Task<TimeSpan> GetSendRetryAfterAsync(
+        string normalizedPhone,
+        TimeSpan? window = null,
+        CancellationToken cancellationToken = default)
+    {
+        var windowDuration = window ?? TimeSpan.FromMinutes(10);
+        var now = DateTime.UtcNow;
+
+        lock (_syncLock)
+        {
+            if (!_rateLimitBuckets.TryGetValue(normalizedPhone, out var attempts) || attempts.Count == 0)
+            {
+                return Task.FromResult(TimeSpan.Zero);
+            }
+
+            var wait = attempts.Min() + windowDuration - now;
+            return Task.FromResult(wait > TimeSpan.Zero ? wait : TimeSpan.Zero);
+        }
+    }
+
     public Task SaveOtpAsync(
         string normalizedPhone,
         string hmacHash,

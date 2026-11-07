@@ -56,17 +56,23 @@ public sealed class SendOtpHandler : ICommandHandler<SendOtpCommand, Result<Send
         var normalizedPhone = normalizeResult.Value;
 
         // 3. Enforce sliding window rate limit (max 3 requests per 10 minutes)
+        var window = TimeSpan.FromMinutes(10);
         var isAllowed = await _otpStore.CheckAndRecordSendAttemptAsync(
             normalizedPhone,
             maxAttempts: 3,
-            window: TimeSpan.FromMinutes(10),
+            window: window,
             cancellationToken);
 
         if (!isAllowed)
         {
+            // Tell the app exactly when the next code can be requested, so it can count down instead of guessing.
+            var retryAfter = await _otpStore.GetSendRetryAfterAsync(normalizedPhone, window, cancellationToken);
             return Result.Failure<SendOtpResponse>(new Error(
                 "Identity.RateLimitExceeded",
-                "Too many OTP requests. Please wait 10 minutes before requesting a new code."));
+                "Too many OTP requests. Please wait before requesting a new code.")
+            {
+                RetryAfter = retryAfter,
+            });
         }
 
         // 4. Generate 6-digit CSPRNG code and compute HMAC-SHA256

@@ -46,6 +46,26 @@ public sealed class RedisOtpStore : IOtpStore
         return true;
     }
 
+    public async Task<TimeSpan> GetSendRetryAfterAsync(
+        string normalizedPhone,
+        TimeSpan? window = null,
+        CancellationToken cancellationToken = default)
+    {
+        var db = _redis.GetDatabase();
+        var key = $"ratelimit:otp:send:{normalizedPhone}";
+        var windowDuration = window ?? TimeSpan.FromMinutes(10);
+
+        var oldest = await db.SortedSetRangeByRankWithScoresAsync(key, 0, 0);
+        if (oldest.Length == 0)
+        {
+            return TimeSpan.Zero;
+        }
+
+        var nowMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        var waitMs = (long)oldest[0].Score + (long)windowDuration.TotalMilliseconds - nowMs;
+        return waitMs > 0 ? TimeSpan.FromMilliseconds(waitMs) : TimeSpan.Zero;
+    }
+
     public async Task SaveOtpAsync(
         string normalizedPhone,
         string hmacHash,

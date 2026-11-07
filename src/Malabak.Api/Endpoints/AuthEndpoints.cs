@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Security.Claims;
 using Asp.Versioning.Builder;
 using Malabak.Modules.Identity.Application.Authentication.Logout;
@@ -32,6 +33,14 @@ public static class AuthEndpoints
             var result = await handler.HandleAsync(command, cancellationToken);
             if (result.IsFailure)
             {
+                Dictionary<string, object?>? extensions = null;
+                if (result.Error.RetryAfter is { } retryAfter)
+                {
+                    var seconds = Math.Max(1, (int)Math.Ceiling(retryAfter.TotalSeconds));
+                    httpContext.Response.Headers.RetryAfter = seconds.ToString(CultureInfo.InvariantCulture);
+                    extensions = new Dictionary<string, object?> { ["retryAfterSeconds"] = seconds };
+                }
+
                 return Results.Problem(
                     title: result.Error.Code,
                     detail: result.Error.Description,
@@ -40,7 +49,8 @@ public static class AuthEndpoints
                         OtpDeliveryErrors.DeliveryFailedCode => StatusCodes.Status503ServiceUnavailable,
                         var code when code.Contains("RateLimit") => StatusCodes.Status429TooManyRequests,
                         _ => StatusCodes.Status400BadRequest,
-                    });
+                    },
+                    extensions: extensions);
             }
 
             return Results.Ok(result.Value);
