@@ -56,6 +56,23 @@ public sealed class VenueDirectory : IVenueDirectory
             .ToDictionaryAsync(v => v.Id, v => v.Name, cancellationToken);
     }
 
+    public async Task<IReadOnlyDictionary<Guid, string>> GetVenueCoverPhotosAsync(IReadOnlyCollection<Guid> venueIds, CancellationToken cancellationToken = default)
+    {
+        if (venueIds.Count == 0)
+        {
+            return new Dictionary<Guid, string>();
+        }
+
+        var venues = await _dbContext.Venues.IgnoreQueryFilters().AsNoTracking()
+            .Where(v => venueIds.Contains(v.Id) && !v.IsDeleted)
+            .Select(v => new { v.Id, v.Photos })
+            .ToListAsync(cancellationToken);
+
+        return venues
+            .Where(v => v.Photos.Count > 0)
+            .ToDictionary(v => v.Id, v => v.Photos.First());
+    }
+
     public async Task<IReadOnlyDictionary<Guid, string>> GetPitchNamesAsync(IReadOnlyCollection<Guid> pitchIds, CancellationToken cancellationToken = default)
     {
         if (pitchIds.Count == 0)

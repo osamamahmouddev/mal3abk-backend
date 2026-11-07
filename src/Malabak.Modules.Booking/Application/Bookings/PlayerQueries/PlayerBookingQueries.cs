@@ -21,7 +21,8 @@ public sealed record PlayerBookingSummaryDto(
     PlayerAllowedActions AllowedActions,
     DateTime CreatedAtUtc,
     string? VenueName = null,
-    string? PitchName = null);
+    string? PitchName = null,
+    string? VenueCoverPhotoUrl = null);
 
 public sealed record PlayerBookingDetailDto(
     Guid Id,
@@ -42,7 +43,8 @@ public sealed record PlayerBookingDetailDto(
     IReadOnlyList<PlayerProofDto> Proofs,
     IReadOnlyList<PlayerStatusHistoryDto> StatusHistory,
     DateTime CreatedAtUtc,
-    string? PitchName = null);
+    string? PitchName = null,
+    string? VenueCoverPhotoUrl = null);
 
 /// <summary>Where the booking is, for the confirmation screen and directions.</summary>
 public sealed record PlayerVenueDto(string Name, string Address, double? Latitude, double? Longitude);
@@ -125,6 +127,7 @@ public sealed class PlayerBookingQueriesHandler :
 
         var venueNames = await _venues.GetVenueNamesAsync(items.Select(b => b.VenueId).Distinct().ToList(), cancellationToken);
         var pitchNames = await _venues.GetPitchNamesAsync(items.Select(b => b.PitchId).Distinct().ToList(), cancellationToken);
+        var coverPhotos = await _venues.GetVenueCoverPhotosAsync(items.Select(b => b.VenueId).Distinct().ToList(), cancellationToken);
 
         var dtos = items.Select(b =>
         {
@@ -144,7 +147,8 @@ public sealed class PlayerBookingQueriesHandler :
                 allowed,
                 b.CreatedAtUtc,
                 venueNames.GetValueOrDefault(b.VenueId),
-                pitchNames.GetValueOrDefault(b.PitchId));
+                pitchNames.GetValueOrDefault(b.PitchId),
+                coverPhotos.GetValueOrDefault(b.VenueId));
         }).ToList();
 
         return Result.Success(new PagedList<PlayerBookingSummaryDto>(dtos, totalCount, page, pageSize));
@@ -174,6 +178,7 @@ public sealed class PlayerBookingQueriesHandler :
 
         var summary = await _venues.GetVenueSummaryAsync(booking.VenueId, cancellationToken);
         var pitchNames = await _venues.GetPitchNamesAsync([booking.PitchId], cancellationToken);
+        var coverPhotos = await _venues.GetVenueCoverPhotosAsync([booking.VenueId], cancellationToken);
 
         var allowed = ComputeAllowedActions(booking, nowUtc);
 
@@ -217,7 +222,8 @@ public sealed class PlayerBookingQueriesHandler :
             proofs,
             history,
             booking.CreatedAtUtc,
-            pitchNames.GetValueOrDefault(booking.PitchId));
+            pitchNames.GetValueOrDefault(booking.PitchId),
+            coverPhotos.GetValueOrDefault(booking.VenueId));
 
         return Result.Success(dto);
     }

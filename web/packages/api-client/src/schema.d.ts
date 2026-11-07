@@ -6742,6 +6742,7 @@ export interface components {
             /** Format: date-time */
             createdAtUtc: string;
             pitchName?: string | null;
+            venueCoverPhotoUrl?: string | null;
         };
         PlayerBookingSummaryDto: {
             /** Format: uuid */
@@ -6768,6 +6769,7 @@ export interface components {
             createdAtUtc: string;
             venueName?: string | null;
             pitchName?: string | null;
+            venueCoverPhotoUrl?: string | null;
         };
         PlayerBookingSummaryDtoPagedList: {
             items: components["schemas"]["PlayerBookingSummaryDto"][];

@@ -36694,6 +36694,10 @@
           "pitchName": {
             "type": "string",
             "nullable": true
+          },
+          "venueCoverPhotoUrl": {
+            "type": "string",
+            "nullable": true
           }
         },
         "additionalProperties": false
@@ -36769,6 +36773,10 @@
             "nullable": true
           },
           "pitchName": {
+            "type": "string",
+            "nullable": true
+          },
+          "venueCoverPhotoUrl": {
             "type": "string",
             "nullable": true
           }

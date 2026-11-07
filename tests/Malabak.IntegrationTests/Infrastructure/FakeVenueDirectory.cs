@@ -40,6 +40,11 @@ internal sealed class FakeVenueDirectory : IVenueDirectory
     public Task<IReadOnlyDictionary<Guid, string>> GetVenueNamesAsync(IReadOnlyCollection<Guid> venueIds, CancellationToken cancellationToken = default) =>
         Task.FromResult<IReadOnlyDictionary<Guid, string>>(venueIds.Distinct().ToDictionary(id => id, _ => VenueName));
 
+    public const string CoverPhoto = "https://example.test/venue.jpg";
+
+    public Task<IReadOnlyDictionary<Guid, string>> GetVenueCoverPhotosAsync(IReadOnlyCollection<Guid> venueIds, CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyDictionary<Guid, string>>(venueIds.Distinct().ToDictionary(id => id, _ => CoverPhoto));
+
     public Task<IReadOnlyDictionary<Guid, string>> GetPitchNamesAsync(IReadOnlyCollection<Guid> pitchIds, CancellationToken cancellationToken = default) =>
         Task.FromResult<IReadOnlyDictionary<Guid, string>>(pitchIds.Distinct().ToDictionary(id => id, _ => PitchName));
 
