@@ -8,13 +8,14 @@ import { Sidebar } from "./Sidebar";
 import { useVenue } from "./Providers";
 import { Toast } from "./ui";
 import { RealtimeProvider, useVenueRealtime } from "@/lib/realtime";
+import { logout } from "@/app/auth-actions";
 
 export interface AppShellProps {
   children: React.ReactNode;
   user: SessionUser | null;
 }
 
-const PUBLIC_ROUTES = ["/login", "/register", "/verify-email", "/reset-password", "/accept-invitation", "/setup"];
+const PUBLIC_ROUTES = ["/login", "/register", "/verify-email", "/reset-password", "/accept-invitation", "/setup", "/impersonate"];
 
 /** Owners land on the setup wizard until they have a venue. */
 const NoVenueRedirect: React.FC = () => {
@@ -111,6 +112,7 @@ export const AppShell: React.FC<AppShellProps> = ({ children, user }) => {
         )}
 
         <div className="flex-1 flex flex-col min-w-0">
+          {user.impersonatedBy && <ImpersonationBanner endsAt={user.impersonationEndsAt} />}
           <Suspense fallback={<ShellFallback />}>{children}</Suspense>
         </div>
       </div>
@@ -135,3 +137,25 @@ function LiveUpdates() {
   });
   return <Toast message={message} onClose={() => setMessage(null)} />;
 }
+
+/**
+ * Always visible while a Malabak support agent is signed in as this account (TASK-063). Sensitive actions (password,
+ * phone, payment details) are refused by the API in this mode; the session ends on its own after 15 minutes.
+ */
+const ImpersonationBanner: React.FC<{ endsAt?: number }> = ({ endsAt }) => {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 15_000);
+    return () => clearInterval(timer);
+  }, []);
+  const minutes = endsAt ? Math.max(0, Math.ceil((endsAt - now) / 60_000)) : null;
+  return (
+    <div role="alert" className="sticky top-0 z-30 bg-brand-red text-white px-4 py-2.5 text-sm font-semibold flex flex-wrap gap-2 items-center">
+      <span className="flex-1">وضع الدعم: إنت داخل بصفة العميل. كل إجراء بيتسجل، وتغيير كلمة السر والرقم وبيانات الدفع مقفول.</span>
+      {minutes !== null && <span>باقي {minutes} دقيقة</span>}
+      <form action={logout}>
+        <button type="submit" className="underline bg-transparent text-white">إنهاء الجلسة</button>
+      </form>
+    </div>
+  );
+};

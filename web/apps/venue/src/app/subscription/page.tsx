@@ -1,259 +1,221 @@
 "use client";
 
 import React, { useState } from "react";
-import { Badge, Page, Toast, card, muted, redShadow } from "@/components/ui";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import type { Schemas } from "@malabak/api-client";
+import { Badge, Page, Toast, card, formatEGP, muted, primaryBtn, secondaryBtn, toArabicDigits } from "@/components/ui";
+import { api, unwrap } from "@/lib/api";
 
-type PlanId = "starter" | "growth" | "pro";
+type Plan = Schemas["PlanDto"];
 
-const CURRENT: PlanId = "growth";
-const RANK: Record<PlanId, number> = { starter: 0, growth: 1, pro: 2 };
-const PLANS: [string, PlanId][] = [
-  ["Starter", "starter"],
-  ["Growth", "growth"],
-  ["Pro", "pro"],
-];
-const USAGE: [string, number, number, string][] = [
-  ["الملاعب", 3, 5, "٣ من ٥"],
-  ["الفروع", 1, 2, "١ من ٢"],
-  ["حسابات الموظفين", 2, 5, "٢ من ٥"],
-];
-const FEATURES: [string, string, string, string][] = [
-  ["عدد الفروع", "١", "٢", "حسب الاتفاق"],
-  ["عدد الملاعب", "٢", "٥", "حسب الاتفاق"],
-  ["إدارة الحجوزات والعربون", "✓", "✓", "✓"],
-  ["الجداول الأسبوعية", "أساسية", "متقدمة", "متقدمة"],
-  ["التقارير", "أساسية", "قياسية", "متقدمة"],
-  ["حسابات الموظفين", "١", "٥", "١٥"],
-  ["تصدير Excel/CSV", "—", "✓", "✓"],
-  ["دعم أولوية", "—", "اختياري", "✓"],
-];
-const INVOICES: [string, string, string, boolean][] = [
-  ["INV-2607-018", "١٤ يوليو – ١٣ أغسطس", "Growth", true],
-  ["INV-2606-011", "١٤ يونيو – ١٣ يوليو", "Growth", true],
-  ["INV-2605-004", "١٤ مايو – ١٣ يونيو", "Starter (تجربة)", false],
-];
+const STATUS: Record<string, { label: string; tone: "ok" | "warn" | "bad" | "info" }> = {
+  Trial: { label: "فترة تجربة", tone: "info" },
+  Active: { label: "نشطة", tone: "ok" },
+  Grace: { label: "فترة سماح", tone: "warn" },
+  Expired: { label: "منتهية", tone: "bad" },
+  Suspended: { label: "موقوفة", tone: "bad" },
+  Cancelled: { label: "ملغية", tone: "bad" },
+};
+const FEATURE_NAMES: Record<string, string> = {
+  "reports.advanced": "تقارير متقدمة",
+  "reports.csv_export": "تصدير CSV",
+  "venues.multiple": "أكتر من ملعب",
+  "support.priority": "دعم أولوية",
+};
+
+const fmtDate = (iso?: string | null) =>
+  iso ? new Intl.DateTimeFormat("ar-EG", { dateStyle: "medium", timeZone: "Africa/Cairo" }).format(new Date(iso)) : "—";
+const limit = (v?: number | null) => (v === null || v === undefined ? "بلا حدود" : toArabicDigits(v));
 
 export default function SubscriptionPage() {
+  const queryClient = useQueryClient();
   const [cycle, setCycle] = useState<"month" | "year">("month");
-  const [pick, setPick] = useState<PlanId | null>(null);
-  const [request, setRequest] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  const [requested, setRequested] = useState<{ plan: string; ticket: string } | null>(null);
 
-  const per = cycle === "month" ? "[السعر] / شهر" : "[السعر] / سنة";
-  const target = PLANS.find((p) => p[1] === pick);
-  const isDown = !!target && RANK[target[1]] < RANK[CURRENT];
+  const billing = useQuery({ queryKey: ["billing"], queryFn: () => unwrap(api.GET("/api/v1/venue-manager/billing")) });
+  const plans = useQuery({ queryKey: ["public-plans"], queryFn: () => unwrap(api.GET("/api/v1/plans")) });
+
+  // No self-service payment: an upgrade is a request to the Malabak team (Flow G), tracked as a support ticket.
+  const requestPlan = useMutation({
+    mutationFn: (plan: Plan) =>
+      unwrap(
+        api.POST("/api/v1/venue-manager/support/tickets", {
+          body: {
+            category: "Subscription",
+            subject: `طلب تغيير الباقة إلى ${plan.name}`,
+            message: `أرغب في الاشتراك في باقة ${plan.name} (${plan.code}) بدفع ${cycle === "year" ? "سنوي" : "شهري"}. برجاء التواصل لتأكيد الدفع.`,
+            relatedBookingId: null,
+            relatedVenueId: null,
+          },
+        }),
+      ),
+    onSuccess: async (ticket, plan) => {
+      setRequested({ plan: plan.name, ticket: ticket.ticket.number });
+      await queryClient.invalidateQueries({ queryKey: ["billing"] });
+    },
+    onError: (e: Error) => setToast(e.message),
+  });
+
+  const downloadInvoice = async (invoice: Schemas["InvoiceDto"]) => {
+    const response = await fetch(`/venue/bff/api/v1/venue-manager/billing/invoices/${invoice.id}/pdf`, { credentials: "same-origin" });
+    if (!response.ok) {
+      setToast("تعذّر تحميل الفاتورة.");
+      return;
+    }
+    const url = URL.createObjectURL(await response.blob());
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${invoice.number}.pdf`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 30_000);
+  };
+
+  const data = billing.data;
+  const sub = data?.subscription;
+  const plan = sub?.plan ?? data?.effectivePlan;
+  const status = sub ? STATUS[sub.status] : undefined;
 
   return (
     <Page className="gap-5">
       <h1 className="text-[26px] font-bold">الاشتراك والفواتير</h1>
 
-      {request && (
-        <div role="status" className="bg-[#FEF3D6] text-[#6B4400] rounded-xl px-4 py-3.5 flex gap-3 items-center text-sm">
-          <span className="flex-1">
-            <strong>طلب الترقية لباقة {request} قيد المراجعة.</strong> فريق ملعبك هيتواصل معاك خلال يوم عمل لتأكيد الدفع. باقتك الحالية شغالة
-            عادي لحد التفعيل.
-          </span>
-          <button
-            type="button"
-            onClick={() => setRequest(null)}
-            className="min-h-[38px] px-3.5 rounded-[9px] border border-[#D9A21B] bg-transparent text-[#6B4400] text-[13px] font-semibold"
-          >
-            إلغاء الطلب
-          </button>
+      {requested && (
+        <div role="status" className="bg-[#FEF3D6] text-[#6B4400] rounded-xl px-4 py-3.5 text-sm">
+          <strong>طلبك لباقة {requested.plan} وصل (تذكرة {requested.ticket}).</strong> فريق ملعبك هيتواصل معاك خلال يوم عمل لتأكيد الدفع. باقتك الحالية شغالة عادي لحد
+          التفعيل.
+        </div>
+      )}
+      {billing.isLoading && <div className={`${card} rounded-[18px] h-40 animate-pulse`} />}
+      {billing.error && (
+        <div role="alert" className={`${card} rounded-[18px] p-6 text-sm`}>
+          {(billing.error as Error).message}
         </div>
       )}
 
-      <div className="flex flex-wrap gap-4">
-        <section className={`flex-[1_1_320px] ${card} rounded-[18px] p-5 flex flex-col gap-3`}>
-          <div className="flex items-center gap-2.5">
-            <h2 className="text-xl font-bold">باقة Growth</h2>
-            <Badge tone="ok">✓ نشطة</Badge>
-          </div>
-          <span className={`text-sm ${muted}`}>[السعر] ج.م / شهرياً · تتجدد ١٤ أغسطس ٢٠٢٦</span>
-          <span className="text-[13px] text-[#333B4A]">
-            التجديد يدوي: هيوصلك تذكير قبل ٧ أيام بتعليمات الدفع. لو الاشتراك انتهى، الحجوزات الحالية مش بتتلغي.
-          </span>
-        </section>
-        <section className={`flex-[1_1_320px] ${card} rounded-[18px] p-5 flex flex-col gap-3.5`}>
-          <h2 className="text-base font-bold">الاستخدام</h2>
-          {USAGE.map(([label, used, max, val]) => (
-            <div key={label} className="flex flex-col gap-1.5">
-              <div className="flex justify-between text-sm">
-                <span>{label}</span>
-                <span className="font-bold">{val}</span>
-              </div>
-              <div className="h-2 rounded bg-[#E4E7EC] overflow-hidden">
-                <div className={`h-full ${used / max >= 0.8 ? "bg-brand-red" : "bg-navy-900"}`} style={{ width: `${Math.round((used / max) * 100)}%` }} />
-              </div>
+      {data && (
+        <div className="flex flex-wrap gap-4">
+          <section className={`flex-[1_1_320px] ${card} rounded-[18px] p-5 flex flex-col gap-3`}>
+            <div className="flex items-center gap-2.5">
+              <h2 className="text-xl font-bold">{plan ? `باقة ${plan.name}` : "من غير باقة"}</h2>
+              {status && <Badge tone={status.tone}>{status.label}</Badge>}
             </div>
-          ))}
-        </section>
-      </div>
+            {sub && (
+              <span className={`text-sm ${muted}`}>
+                {formatEGP(sub.cycle === "Annual" ? sub.plan.annualPrice : sub.plan.monthlyPrice)} / {sub.cycle === "Annual" ? "سنة" : "شهر"} · الفترة بتنتهي {fmtDate(sub.currentPeriodEndUtc)}
+              </span>
+            )}
+            {sub?.status === "Grace" && <span className="text-[13px] text-[#8A5A00]">فترة السماح بتنتهي {fmtDate(sub.graceEndsAtUtc)}. جدّد عشان تقدر تضيف ملاعب وموظفين.</span>}
+            {sub && !sub.allowsNewResources && (
+              <span className="text-[13px] text-[#A8261C]">مش هتقدر تضيف ملاعب أو موظفين جداد لحد ما الاشتراك يتجدد. الحجوزات الحالية مش بتتلغي.</span>
+            )}
+            {!sub && plan && <span className={`text-sm ${muted}`}>دي الباقة الافتراضية لحد ما تختار باقة.</span>}
+            <span className="text-[13px] text-[#333B4A]">التجديد يدوي: هيوصلك تذكير قبل ٧ أيام ويوم واحد بتعليمات الدفع.</span>
+          </section>
+          <section className={`flex-[1_1_320px] ${card} rounded-[18px] p-5 flex flex-col gap-3.5`}>
+            <h2 className="text-base font-bold">الاستخدام</h2>
+            <Usage label="الملاعب" used={data.usage.venues} max={plan?.maxVenues} />
+            <Usage label="الملاعب الفرعية" used={data.usage.pitches} max={plan?.maxPitches} />
+            <Usage label="أكبر عدد موظفين في ملعب" used={data.usage.maxStaffInOneVenue} max={plan?.maxStaffPerVenue} />
+          </section>
+        </div>
+      )}
 
       <section className={`${card} rounded-[18px] overflow-hidden`}>
         <div className="px-5 py-4 flex flex-wrap gap-3 items-center justify-between border-b border-[#E4E7EC]">
           <h2 className="text-base font-bold">مقارنة الباقات</h2>
           <div role="group" aria-label="مدة الاشتراك" className="flex bg-[#F4F5F7] rounded-[9px] p-[3px] gap-0.5">
-            {(
-              [
-                ["month", "شهري"],
-                ["year", "سنوي"],
-              ] as const
-            ).map(([id, label]) => (
+            {([["month", "شهري"], ["year", "سنوي"]] as const).map(([id, label]) => (
               <button
                 key={id}
                 type="button"
                 aria-pressed={cycle === id}
                 onClick={() => setCycle(id)}
-                className={`min-h-[34px] px-3.5 rounded-[7px] text-[13px] ${
-                  cycle === id ? "bg-white text-navy-900 font-bold shadow-[0_1px_2px_rgba(15,27,61,0.12)]" : `bg-transparent ${muted}`
-                }`}
+                className={`min-h-[34px] px-3.5 rounded-[7px] text-[13px] ${cycle === id ? "bg-white text-navy-900 font-bold shadow-[0_1px_2px_rgba(15,27,61,0.12)]" : `bg-transparent ${muted}`}`}
               >
                 {label}
               </button>
             ))}
           </div>
         </div>
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[720px] border-collapse text-sm">
-            <thead>
-              <tr>
-                <th className={`px-5 py-4 text-right font-semibold ${muted} text-[13px] w-[28%]`}>الميزة</th>
-                {PLANS.map(([name, id]) => (
-                  <th key={id} className={`px-3 py-4 text-center ${id === CURRENT ? "bg-[#F8F9FB] shadow-[inset_0_3px_0_#0F1B3D]" : ""}`}>
-                    <div className="flex flex-col gap-1 items-center">
-                      <span className="text-[17px] font-bold">{name}</span>
-                      <span className={`text-[13px] font-medium ${muted}`}>{per}</span>
-                      {id === CURRENT && (
-                        <span className="text-[11px] font-bold bg-navy-900 text-white rounded-full px-2 py-0.5">باقتك الحالية</span>
-                      )}
-                    </div>
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {FEATURES.map(([label, a, b, c]) => (
-                <tr key={label} className="border-t border-[#EEF0F5]">
-                  <td className="px-5 py-3 font-semibold">{label}</td>
-                  <td className="p-3 text-center text-[#333B4A]">{a}</td>
-                  <td className="p-3 text-center text-[#333B4A] bg-[#F8F9FB]">{b}</td>
-                  <td className="p-3 text-center text-[#333B4A]">{c}</td>
-                </tr>
-              ))}
-              <tr className="border-t border-[#EEF0F5]">
-                <td className="px-5 py-4" />
-                {PLANS.map(([, id]) => {
-                  const cur = id === CURRENT;
-                  const up = RANK[id] > RANK[CURRENT];
-                  return (
-                    <td key={id} className="px-3 py-4 text-center">
-                      <button
-                        type="button"
-                        disabled={cur}
-                        onClick={() => !cur && setPick(id)}
-                        className={`min-h-[42px] px-[18px] rounded-[10px] text-sm font-bold ${
-                          cur
-                            ? `bg-[#EEF0F5] ${muted} cursor-default`
-                            : up
-                              ? `bg-brand-red hover:bg-brand-red-hover text-white ${redShadow}`
-                              : "bg-white text-navy-900 border border-[#C9CFD9]"
-                        }`}
-                      >
-                        {cur ? "باقتك الحالية" : up ? "اطلب الترقية" : "اطلب التخفيض"}
-                      </button>
-                    </td>
-                  );
-                })}
-              </tr>
-            </tbody>
-          </table>
-        </div>
-        <div className={`px-5 py-3 text-xs ${muted} border-t border-[#EEF0F5]`}>
-          الأسعار والحدود دي مبدئية لحد ما تتحدد تجارياً. الدفع حالياً يدوي (تحويل بنكي أو محفظة) ويتأكد من فريق ملعبك.
-        </div>
-      </section>
-
-      <section className={`${card} rounded-[18px] overflow-hidden`}>
-        <h2 className="px-5 py-4 text-base font-bold border-b border-[#E4E7EC]">سجل الفواتير</h2>
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[560px] border-collapse text-sm">
-            <thead>
-              <tr className={`bg-[#F8F9FB] ${muted} text-xs text-right`}>
-                <th className="px-5 py-2.5 font-semibold">الفاتورة</th>
-                <th className="px-3 py-2.5 font-semibold">الفترة</th>
-                <th className="px-3 py-2.5 font-semibold">الباقة</th>
-                <th className="px-3 py-2.5 font-semibold">الحالة</th>
-                <th className="px-5 py-2.5 font-semibold" />
-              </tr>
-            </thead>
-            <tbody>
-              {INVOICES.map(([id, period, plan, paid]) => (
-                <tr key={id} className="border-t border-[#EEF0F5]">
-                  <td dir="ltr" className="px-5 py-3 text-right">
-                    {id}
-                  </td>
-                  <td className="p-3">{period}</td>
-                  <td className="p-3">{plan}</td>
-                  <td className="p-3">{paid ? <Badge tone="ok">✓ مدفوعة</Badge> : <Badge tone="wait">مجانية</Badge>}</td>
-                  <td className="px-5 py-3">
-                    {paid && (
-                      <button
-                        type="button"
-                        onClick={() => setToast("جاري تحميل الفاتورة PDF.")}
-                        className="min-h-[36px] px-2.5 bg-transparent text-navy-900 text-[13px] font-semibold underline"
-                      >
-                        تحميل PDF
-                      </button>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      {target && (
-        <div className="fixed inset-0 bg-[rgba(15,27,61,0.55)] flex items-center justify-center p-4 z-50">
-          <div role="dialog" aria-modal="true" aria-labelledby="up-t" className="w-full max-w-[460px] bg-white rounded-2xl p-6 flex flex-col gap-3.5">
-            <h2 id="up-t" className="text-[19px] font-bold">
-              {isDown ? `طلب التخفيض لباقة ${target[0]}` : `طلب الترقية لباقة ${target[0]}`}
-            </h2>
-            <p className="text-sm leading-[23px] text-[#333B4A]">
-              {isDown
-                ? "باقة Starter بتسمح بملعبين بس. عندك ٣ ملاعب، فلازم توقف ملعب منهم قبل التخفيض. الحجوزات الحالية مش هتتأثر."
-                : "الدفع لسه يدوي في النسخة دي — مفيش خصم تلقائي من كارت."}
-            </p>
-            <ol className="list-decimal ps-5 text-sm leading-6 text-[#333B4A]">
-              <li>ابعت الطلب من هنا</li>
-              <li>فريق ملعبك هيبعتلك تفاصيل التحويل</li>
-              <li>بعد ما نأكد الدفع، الباقة تتفعّل وتوصلك فاتورة</li>
-            </ol>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  setRequest(target[0]);
-                  setPick(null);
-                }}
-                className="min-h-[46px] px-5 rounded-[10px] bg-navy-900 text-white text-[15px] font-bold"
-              >
-                ابعت الطلب
-              </button>
-              <button
-                type="button"
-                onClick={() => setPick(null)}
-                className="min-h-[46px] px-5 rounded-[10px] border border-[#C9CFD9] bg-white text-navy-900 text-[15px] font-semibold"
-              >
-                إلغاء
-              </button>
-            </div>
+        {plans.data && (
+          <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-3 p-4">
+            {plans.data.map((p) => {
+              const current = plan?.id === p.id;
+              const tooSmall =
+                !!data &&
+                ((p.maxVenues !== null && p.maxVenues !== undefined && data.usage.venues > p.maxVenues) ||
+                  (p.maxPitches !== null && p.maxPitches !== undefined && data.usage.pitches > p.maxPitches));
+              return (
+                <article key={p.id} className={`rounded-[16px] border p-4 flex flex-col gap-2 ${current ? "border-brand-red" : "border-[#E4E7EC]"}`}>
+                  <div className="flex items-center gap-2">
+                    <strong className="text-[17px] flex-1">{p.name}</strong>
+                    {current && <Badge tone="ok">باقتك</Badge>}
+                  </div>
+                  {p.description && <span className={`text-[13px] ${muted}`}>{p.description}</span>}
+                  <strong className="text-[20px]">
+                    {formatEGP(cycle === "year" ? p.annualPrice : p.monthlyPrice)} <span className={`text-sm font-normal ${muted}`}>/ {cycle === "year" ? "سنة" : "شهر"}</span>
+                  </strong>
+                  <ul className="text-[13px] flex flex-col gap-1">
+                    <li>الملاعب: {limit(p.maxVenues)}</li>
+                    <li>الملاعب الفرعية: {limit(p.maxPitches)}</li>
+                    <li>موظفين لكل ملعب: {limit(p.maxStaffPerVenue)}</li>
+                    {p.trialDays > 0 && <li>تجربة {toArabicDigits(p.trialDays)} يوم</li>}
+                    {p.features.map((f) => (
+                      <li key={f}>✓ {FEATURE_NAMES[f] ?? f}</li>
+                    ))}
+                  </ul>
+                  {!current && (
+                    <button
+                      type="button"
+                      className={tooSmall ? secondaryBtn : primaryBtn}
+                      disabled={tooSmall || requestPlan.isPending}
+                      onClick={() => requestPlan.mutate(p)}
+                      title={tooSmall ? "استخدامك الحالي أكبر من حدود الباقة دي" : undefined}
+                    >
+                      {tooSmall ? "استخدامك أكبر من حدودها" : "اطلب الباقة دي"}
+                    </button>
+                  )}
+                </article>
+              );
+            })}
           </div>
-        </div>
-      )}
+        )}
+        <p className={`px-5 pb-4 text-[13px] ${muted}`}>مفيش دفع أونلاين: بعد الطلب فريق ملعبك بيتواصل معاك بتعليمات الدفع (تحويل، إنستاباي، محفظة أو كاش) وبيفعّل الباقة.</p>
+      </section>
+
+      <section className={`${card} rounded-[18px] p-5 flex flex-col gap-2`}>
+        <h2 className="text-base font-bold">الفواتير</h2>
+        {data && data.invoices.length === 0 && <span className={`text-sm ${muted}`}>مفيش فواتير لسه.</span>}
+        {data?.invoices.map((inv) => (
+          <div key={inv.id} className="flex flex-wrap gap-2 items-center border-t border-[#EDF0F5] pt-2 text-sm">
+            <span dir="ltr" className="font-inter">{inv.number}</span>
+            <span className={muted}>{fmtDate(inv.periodStartUtc)} – {fmtDate(inv.periodEndUtc)} · {inv.planName}</span>
+            <strong className="ms-auto">{formatEGP(inv.amount)}</strong>
+            {inv.status === "Void" ? <Badge tone="bad">ملغية</Badge> : <button type="button" className={secondaryBtn} onClick={() => downloadInvoice(inv)}>تحميل PDF</button>}
+          </div>
+        ))}
+      </section>
 
       <Toast message={toast} onClose={() => setToast(null)} />
     </Page>
+  );
+}
+
+function Usage({ label, used, max }: { label: string; used: number; max?: number | null }) {
+  const unlimited = max === null || max === undefined;
+  const ratio = unlimited ? 0 : Math.min(1, used / Math.max(1, max));
+  return (
+    <div className="flex flex-col gap-1.5">
+      <div className="flex justify-between text-sm">
+        <span>{label}</span>
+        <span className="font-bold">{unlimited ? `${toArabicDigits(used)} (بلا حدود)` : `${toArabicDigits(used)} من ${toArabicDigits(max)}`}</span>
+      </div>
+      {!unlimited && (
+        <div className="h-2 rounded bg-[#E4E7EC] overflow-hidden" role="progressbar" aria-label={label} aria-valuenow={used} aria-valuemin={0} aria-valuemax={max}>
+          <div className={`h-full ${ratio >= 0.8 ? "bg-brand-red" : "bg-navy-900"}`} style={{ width: `${Math.round(ratio * 100)}%` }} />
+        </div>
+      )}
+    </div>
   );
 }
