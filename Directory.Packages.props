@@ -43,7 +43,7 @@
     <PackageVersion Include="OpenTelemetry.Instrumentation.Runtime" Version="1.20.1" />
 
     <!-- API & Versioning -->
-    <PackageVersion Include="Asp.Versioning.Mvc" Version="8.1.0" />
+    <PackageVersion Include="Asp.Versioning.Mvc" Version="10.2.1" />
     <PackageVersion Include="Asp.Versioning.Mvc.ApiExplorer" Version="8.1.0" />
     <PackageVersion Include="Swashbuckle.AspNetCore" Version="7.0.0" />
 
