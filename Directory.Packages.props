@@ -59,7 +59,7 @@
     <PackageVersion Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.14" />
 
     <!-- Phone -->
-    <PackageVersion Include="libphonenumber-csharp" Version="8.13.50" />
+    <PackageVersion Include="libphonenumber-csharp" Version="9.0.43" />
 
     <!-- Media: decode/re-encode uploads (strips EXIF and any embedded payload). MIT licence, maintained by
          Microsoft/.NET Foundation, cross-platform; ImageSharp rejected (split commercial licence). -->
