@@ -85,6 +85,7 @@ public static class IdentityModule
         services.AddScoped<Malabak.Modules.Identity.Application.Admin.AdminUserService>();
         services.AddScoped<Malabak.Modules.Identity.Application.Admin.AdminAccountService>();
         services.AddScoped<Malabak.SharedKernel.Contracts.IAdminMetricsProvider, Malabak.Modules.Identity.Application.Admin.UserMetricsProvider>();
+        services.AddScoped<Malabak.Modules.Identity.Application.Waitlist.IWaitlistService, Malabak.Modules.Identity.Application.Waitlist.WaitlistService>();
 
         // Player profile & onboarding
         services.AddScoped<Malabak.Modules.Identity.Application.Profile.ProfileHandlers>();

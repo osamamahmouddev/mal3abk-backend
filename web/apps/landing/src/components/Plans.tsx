@@ -3,22 +3,28 @@
 import React, { useState } from "react";
 import { useLandingState } from "./LandingState";
 
-const PLANS: { name: string; audience: string; items: string[]; hot: boolean }[] = [
+const PLANS: { name: string; audience: string; monthlyPrice: number; annualPrice: number; items: string[]; hot: boolean }[] = [
   {
     name: "Starter",
     audience: "ملعب واحد بيبدأ",
+    monthlyPrice: 0,
+    annualPrice: 0,
     items: ["فرع واحد وملعبين", "تقويم وحجوزات وعربون", "حساب موظف واحد", "تقارير أساسية"],
     hot: false,
   },
   {
     name: "Growth",
     audience: "الأنسب لأغلب الملاعب",
+    monthlyPrice: 499,
+    annualPrice: 4800,
     items: ["فرعين و٥ ملاعب", "أسعار ذروة وويك إند", "٥ حسابات موظفين", "تصدير Excel وتقارير كاملة", "حجوزات ثابتة"],
     hot: true,
   },
   {
     name: "Pro",
     audience: "سلاسل وأكاديميات",
+    monthlyPrice: 999,
+    annualPrice: 9600,
     items: ["فروع وملاعب حسب الاتفاق", "١٥ حساب موظف", "تقارير متقدمة", "دعم أولوية"],
     hot: false,
   },
@@ -61,10 +67,16 @@ export function Plans() {
               {p.audience}
             </p>
             <span className="plan-price">
-              <b>[السعر]</b>{" "}
-              <span className="muted" style={{ fontSize: 14 }}>
-                {cycle === "month" ? "ج.م / شهرياً" : "ج.م / سنوياً"}
-              </span>
+              {p.monthlyPrice === 0 ? (
+                <b>مجاناً</b>
+              ) : (
+                <>
+                  <b>{(cycle === "month" ? p.monthlyPrice : p.annualPrice).toLocaleString("ar-EG")}</b>{" "}
+                  <span className="muted" style={{ fontSize: 14 }}>
+                    {cycle === "month" ? "ج.م / شهرياً" : "ج.م / سنوياً"}
+                  </span>
+                </>
+              )}
             </span>
             {p.items.map((item) => (
               <div key={item} className="li">

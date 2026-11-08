@@ -544,6 +544,59 @@ namespace Malabak.Modules.Identity.Infrastructure.Migrations
                     b.ToTable("user_sessions", "identity");
                 });
 
+            modelBuilder.Entity("Malabak.Modules.Identity.Domain.WaitlistEntry", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Audience")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("ChosenPlan")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<DateTime>("ConsentRecordedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("IpAddress")
+                        .HasMaxLength(45)
+                        .HasColumnType("character varying(45)");
+
+                    b.Property<string>("PhoneBlindIndex")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<byte[]>("PhoneEncrypted")
+                        .IsRequired()
+                        .HasColumnType("bytea");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("UserAgent")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Audience");
+
+                    b.HasIndex("CreatedAtUtc");
+
+                    b.HasIndex("PhoneBlindIndex")
+                        .IsUnique();
+
+                    b.ToTable("waitlist_entries", "identity");
+                });
+
             modelBuilder.Entity("Malabak.SharedKernel.Persistence.IdempotencyRecord", b =>
                 {
                     b.Property<Guid>("Id")

@@ -500,9 +500,20 @@ app.MapBookingEndpoints(apiVersionSet);
 app.MapTeamEndpoints(apiVersionSet);
 app.MapChallengeEndpoints(apiVersionSet);
 app.MapMatchEndpoints(apiVersionSet);
+app.MapWaitlistEndpoints(apiVersionSet);
 
 // WebSockets only (SECURITY.md): long polling and server-sent events would validate the single-use ticket on every request.
 app.MapHub<BookingHub>("/hubs/booking", options => options.Transports = Microsoft.AspNetCore.Http.Connections.HttpTransportType.WebSockets);
+
+app.MapGet("/.well-known/security.txt", () => Results.Text(
+    """
+    Contact: mailto:security@malabak.com
+    Expires: 2027-11-08T00:00:00.000Z
+    Preferred-Languages: ar, en
+    Canonical: https://api.malabak.com/.well-known/security.txt
+    Policy: https://malabak.com/security-policy
+    """, "text/plain; charset=utf-8"))
+    .AllowAnonymous();
 
 await app.RunAsync();
 

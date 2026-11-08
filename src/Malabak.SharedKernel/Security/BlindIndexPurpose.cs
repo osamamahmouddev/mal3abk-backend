@@ -11,4 +11,7 @@ public static class BlindIndexPurpose
 
     /// <summary>Walk-in customer keys in a venue's customer directory (TASK-503).</summary>
     public const string VenueCustomerPhone = "venue-customer-phone";
+
+    /// <summary>Landing page waitlist phone blind index (TASK-814).</summary>
+    public const string WaitlistPhone = "waitlist-phone";
 }

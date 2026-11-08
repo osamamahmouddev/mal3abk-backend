@@ -19,6 +19,7 @@ public sealed class IdentityDbContext : BaseDbContext
     public DbSet<SmsDispatch> SmsDispatches => Set<SmsDispatch>();
     public DbSet<EmailSuppression> EmailSuppressions => Set<EmailSuppression>();
     public DbSet<UserConsent> UserConsents => Set<UserConsent>();
+    public DbSet<WaitlistEntry> WaitlistEntries => Set<WaitlistEntry>();
 
     public IdentityDbContext(DbContextOptions<IdentityDbContext> options, IClock? clock = null)
         : base(options, clock)

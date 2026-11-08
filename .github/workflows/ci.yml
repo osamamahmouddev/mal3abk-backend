@@ -57,6 +57,9 @@ jobs:
       - name: Run automated tests
         run: dotnet test Malabak.sln --no-build -c Release --verbosity normal
 
+      - name: Check for vulnerable packages
+        run: dotnet list Malabak.sln package --vulnerable --include-transitive
+
       - name: Verify OpenAPI contract & client staleness
         run: ./scripts/check-openapi-staleness.sh
 
@@ -82,6 +85,10 @@ jobs:
       - name: Install dependencies
         working-directory: ./web
         run: pnpm install --frozen-lockfile
+
+      - name: Audit NPM dependencies for known vulnerabilities
+        working-directory: ./web
+        run: pnpm audit --audit-level=high
 
       - name: API client is generated from the committed OpenAPI snapshot
         working-directory: ./web
@@ -118,3 +125,14 @@ jobs:
           name: admin-e2e-traces
           path: web/apps/admin/test-results
           retention-days: 7
+
+  container-build-scan:
+    name: Docker Multi-Stage Build & Security Scan
+    runs-on: ubuntu-latest
+    needs: [backend-build-test]
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Build Docker image
+        run: docker build -t malabak-api:local .

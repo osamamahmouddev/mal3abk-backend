@@ -202,6 +202,22 @@ pnpm lint
 
 ---
 
+## 🚀 Production Deployment & Operational Runbooks
+The platform is deployed across specialized infrastructure:
+- **Backend API:** Hosted on **MonsterASP.NET** (IIS out-of-process `.NET 10`) backed by PostgreSQL (`db76963.databaseasp.net:5432`) and Upstash TLS Redis.
+- **Web Applications:** Hosted on **Vercel** (`@malabak/landing`, `@malabak/venue-dashboard`, `@malabak/admin-dashboard`).
+- **Edge Security & DNS:** Cloudflare WAF, Turnstile bot challenges, and SSL termination.
+
+Detailed operational runbooks and disaster recovery guides are indexed in [`docs/runbooks/README.md`](./docs/runbooks/README.md):
+- [Production Rollout & Rollback Plan](./docs/runbooks/production-rollout-rollback.md)
+- [PostgreSQL Disaster Recovery & 3-2-1 Backups](./docs/runbooks/database-disaster-recovery.md)
+- [Incident Response Plan & Emergency Controls](./docs/runbooks/incident-response.md)
+- [Pilot Venue Onboarding & Operations Playbook (Arabic)](./docs/runbooks/pilot-venue-onboarding-ar.md)
+- [Staging UAT Verification Matrix (Flows A–G)](./docs/runbooks/uat-pilot-flows.md)
+- [Secret & Credential Rotation](./docs/runbooks/secret-rotation-runbook.md)
+
+---
+
 ## 📜 Engineering Standards & AI Guidelines
 All contributions must adhere strictly to [`rule.md`](./rule.md).
 - **Time Zone:** Always `Africa/Cairo` with proper DST handling. Never hardcode `+02:00`.

@@ -448,6 +448,11 @@ export default function LandingPage() {
               <a href="#faq">أسئلة</a>
               <a href="#join">كلّمنا</a>
             </span>
+            <span>
+              <b>قانوني</b>
+              <a href="/privacy">سياسة الخصوصية</a>
+              <a href="/terms">الشروط والأحكام</a>
+            </span>
           </footer>
         </div>
       </div>
