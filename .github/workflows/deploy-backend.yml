@@ -1,0 +1,142 @@
+name: Deploy Backend to MonsterASP.NET
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main, dev ]
+    paths:
+      - 'src/**'
+      - '.github/workflows/deploy-backend.yml'
+
+jobs:
+  deploy-backend:
+    name: Build & FTP Deploy to MonsterASP.NET
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 10 SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Restore dependencies
+        run: dotnet restore src/Malabak.Api/Malabak.Api.csproj
+
+      - name: Publish Release Binaries
+        run: |
+          dotnet publish src/Malabak.Api/Malabak.Api.csproj \
+            -c Release \
+            -o publish \
+            /p:UseAppHost=false
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Deploy to /wwwroot via Secure FTP
+        env:
+          FTP_HOST: ${{ secrets.MONSTERASP_FTP_SERVER }}
+          FTP_USER: ${{ secrets.MONSTERASP_FTP_USERNAME }}
+          FTP_PASS: ${{ secrets.MONSTERASP_FTP_PASSWORD }}
+        run: |
+          python3 - << 'EOF'
+          import os, sys, time, ftplib, io, urllib.request, urllib.error
+
+          host = os.environ["FTP_HOST"]
+          user = os.environ["FTP_USER"]
+          ftp_auth = os.environ["FTP_PASS"]
+          local_dir = "publish"
+          remote_root = "/wwwroot"
+
+          def get_ftp():
+              ftp = ftplib.FTP(host, timeout=30)
+              ftp.login(user, ftp_auth)
+              return ftp
+
+          def ensure_remote_dir(ftp, remote_dir):
+              parts = [p for p in remote_dir.replace("\\", "/").split("/") if p]
+              current = remote_root
+              for part in parts:
+                  current += "/" + part
+                  try:
+                      ftp.cwd(current)
+                  except ftplib.error_perm:
+                      try:
+                          ftp.mkd(current)
+                      except ftplib.error_perm:
+                          pass
+
+          print(f"==> Connecting to FTP {host} for {remote_root}...")
+          ftp = get_ftp()
+          print("==> Connected.")
+
+          print("==> Stopping IIS process with app_offline.htm...")
+          ftp.cwd(remote_root)
+          ftp.storbinary("STOR app_offline.htm", io.BytesIO(b"<!DOCTYPE html><html><body><h1>Deploying updates...</h1></body></html>"))
+          time.sleep(4)
+
+          files = []
+          for root, _, filenames in os.walk(local_dir):
+              for f in filenames:
+                  lp = os.path.join(root, f)
+                  rp = os.path.relpath(lp, local_dir).replace("\\", "/")
+                  if rp.startswith("runtimes/linux") or rp.startswith("runtimes/osx"):
+                      continue
+                  if rp == "web.config":
+                      continue
+                  files.append((lp, rp))
+
+          total = len(files)
+          print(f"==> Uploading {total} files...")
+          uploaded = 0
+          for lp, rp in files:
+              rdir = os.path.dirname(rp)
+              rfile = os.path.basename(rp)
+              for attempt in range(3):
+                  try:
+                      ftp.cwd(remote_root)
+                      if rdir:
+                          ensure_remote_dir(ftp, rdir)
+                          ftp.cwd(remote_root + "/" + rdir)
+                      with open(lp, "rb") as fh:
+                          ftp.storbinary(f"STOR {rfile}", fh)
+                      uploaded += 1
+                      if uploaded % 20 == 0 or uploaded == total:
+                          print(f"    Uploaded: [{uploaded}/{total}]")
+                      break
+                  except Exception as e:
+                      print(f"    [Retry {attempt+1}] {rp}: {e}")
+                      time.sleep(1)
+                      try: ftp.quit()
+                      except: pass
+                      ftp = get_ftp()
+
+          print("==> Starting app by removing app_offline.htm...")
+          ftp.cwd(remote_root)
+          try:
+              ftp.delete("app_offline.htm")
+          except Exception as e:
+              print(f"Warning deleting app_offline: {e}")
+          ftp.quit()
+
+          print("==> Waiting 6 seconds for boot...")
+          time.sleep(6)
+
+          print("==> Verifying Health...")
+          for i in range(8):
+              try:
+                  req = urllib.request.Request("http://mal3abk.runasp.net/health/ready", headers={"User-Agent": "GitHubActions/1.0"})
+                  with urllib.request.urlopen(req, timeout=15) as res:
+                      if res.status == 200:
+                          print("==> Deployment Successful! Health: 200 OK")
+                          sys.exit(0)
+              except Exception as e:
+                  print(f"    Waiting for startup ({i+1}/8): {e}")
+                  time.sleep(4)
+          print("==> Health verification timed out.")
+          sys.exit(1)
+          EOF
