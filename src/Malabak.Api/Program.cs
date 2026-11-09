@@ -310,6 +310,18 @@ if (app.Configuration.GetValue<bool>("Database:MigrateOnStartup"))
 {
     using var scope = app.Services.CreateScope();
     await DatabaseMigrator.MigrateAllAsync(scope.ServiceProvider);
+
+    if (app.Environment.IsDevelopment() || app.Configuration.GetValue<bool>("Database:SeedOnStartup"))
+    {
+        var refSeeder = scope.ServiceProvider.GetRequiredService<ReferenceDataSeeder>();
+        await refSeeder.SeedAsync();
+
+        var demoSeeder = scope.ServiceProvider.GetRequiredService<DemoDataSeeder>();
+        await demoSeeder.SeedAsync();
+
+        var devSeeder = scope.ServiceProvider.GetRequiredService<DevAccountsSeeder>();
+        await devSeeder.SeedAsync();
+    }
 }
 
 // CLI Data Seeding Commands
