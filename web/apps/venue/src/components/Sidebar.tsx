@@ -74,7 +74,7 @@ export const Sidebar: React.FC<SidebarProps> = memo(({ user, onClose }) => {
     >
       <div className="flex items-center gap-2 px-2">
         <Image
-          src="/images/logo-horizontal-darkbg.png"
+          src="/venue/images/logo-horizontal-darkbg.png"
           alt="ملعبك"
           width={130}
           height={44}

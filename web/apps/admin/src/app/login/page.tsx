@@ -65,13 +65,28 @@ function AdminLogin() {
     });
   };
 
+  const handleCodeChange = (raw: string) => {
+    setCodeErr(null);
+    if (useRecovery) {
+      setCode(raw);
+      return;
+    }
+    const digits = raw.replace(/\D/g, "").slice(0, 6);
+    if (digits.length > 3) {
+      setCode(`${digits.slice(0, 3)} ${digits.slice(3)}`);
+    } else {
+      setCode(digits);
+    }
+  };
+
   const submitCode = (e: React.FormEvent) => {
     e.preventDefault();
-    const value = code.trim();
-    if (!useRecovery && value.replace(/\D/g, "").length !== 6) {
+    const cleanDigits = code.replace(/\D/g, "");
+    if (!useRecovery && cleanDigits.length !== 6) {
       setCodeErr("الكود لازم يكون ٦ أرقام.");
       return;
     }
+    const value = useRecovery ? code.trim() : cleanDigits;
     startTransition(async () => {
       const result = await adminLogin(
         useRecovery ? { email: email.trim(), password: pass, recoveryCode: value } : { email: email.trim(), password: pass, totpCode: value },
@@ -83,8 +98,9 @@ function AdminLogin() {
 
   const submitEnrollment = (e: React.FormEvent) => {
     e.preventDefault();
+    const cleanDigits = code.replace(/\D/g, "");
     startTransition(async () => {
-      const result = await confirmTotpEnrollment(code.trim());
+      const result = await confirmTotpEnrollment(cleanDigits);
       if (!result.ok) return setCodeErr(result.message ?? null);
       setRecoveryCodes(result.recoveryCodes ?? []);
       setCode("");
@@ -103,7 +119,7 @@ function AdminLogin() {
       <main className="w-full max-w-[440px] bg-white rounded-3xl p-8 flex flex-col gap-4 shadow-[0_30px_60px_-30px_rgba(0,0,0,0.6)]">
         <div className="flex items-center gap-2.5">
           <Image
-            src="/images/logo-horizontal.png"
+            src="/admin/images/logo-horizontal.png"
             alt="ملعبك"
             width={130}
             height={46}
@@ -179,14 +195,11 @@ function AdminLogin() {
               dir="ltr"
               inputMode="numeric"
               autoComplete="one-time-code"
-              maxLength={6}
+              maxLength={7}
               value={code}
-              onChange={(e) => {
-                setCode(e.target.value.replace(/\D/g, ""));
-                setCodeErr(null);
-              }}
-              placeholder="••••••"
-              className="min-h-[56px] border border-[#C9CFD9] rounded-xl px-3 text-2xl tracking-[10px] text-center focus:outline-none focus:ring-2 focus:ring-ink"
+              onChange={(e) => handleCodeChange(e.target.value)}
+              placeholder="000 000"
+              className="min-h-[56px] border border-[#C9CFD9] rounded-xl px-3 text-2xl font-mono tracking-[6px] text-center focus:outline-none focus:ring-2 focus:ring-ink"
             />
             {codeErr && (
               <span role="alert" className="text-[13px] text-[#A8261C]">
@@ -234,15 +247,14 @@ function AdminLogin() {
               dir="ltr"
               inputMode="numeric"
               autoComplete="one-time-code"
-              maxLength={useRecovery ? 20 : 6}
+              maxLength={useRecovery ? 20 : 7}
               value={code}
-              onChange={(e) => {
-                setCode(e.target.value);
-                setCodeErr(null);
-              }}
-              placeholder={useRecovery ? "XXXX-XXXX" : "••••••"}
+              onChange={(e) => handleCodeChange(e.target.value)}
+              placeholder={useRecovery ? "XXXX-XXXX" : "000 000"}
               aria-invalid={!!codeErr}
-              className="min-h-[56px] border border-[#C9CFD9] rounded-xl px-3 text-2xl tracking-[10px] text-center focus:outline-none focus:ring-2 focus:ring-ink"
+              className={`min-h-[56px] border border-[#C9CFD9] rounded-xl px-3 text-2xl font-mono text-center focus:outline-none focus:ring-2 focus:ring-ink ${
+                useRecovery ? "tracking-[2px]" : "tracking-[6px]"
+              }`}
             />
             {codeErr && (
               <span role="alert" className="text-[13px] text-[#A8261C]">

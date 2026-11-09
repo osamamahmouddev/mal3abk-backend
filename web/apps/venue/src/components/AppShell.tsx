@@ -91,7 +91,7 @@ export const AppShell: React.FC<AppShellProps> = ({ children, user }) => {
             </svg>
           </button>
           <Image
-            src="/images/logo-horizontal-darkbg.png"
+            src="/venue/images/logo-horizontal-darkbg.png"
             alt="ملعبك"
             width={120}
             height={40}

@@ -32,7 +32,7 @@ function Brand({ height = "h-8" }: { height?: string; size?: string }) {
   return (
     <div className="flex items-center gap-2">
       <Image
-        src="/images/logo-horizontal-darkbg.png"
+        src="/admin/images/logo-horizontal-darkbg.png"
         alt="ملعبك"
         width={140}
         height={44}
