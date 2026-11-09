@@ -9,7 +9,12 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$REPO_ROOT"
 
 # Ensure dotnet is available
-export PATH="$HOME/.dotnet:$PATH"
+if [ -d "$HOME/dotnet10" ]; then
+    export PATH="$HOME/dotnet10:$PATH"
+    export DOTNET_ROOT="$HOME/dotnet10"
+else
+    export PATH="$HOME/.dotnet:$PATH"
+fi
 
 CONTRACT_FILE="docs/openapi/v1.json"
 

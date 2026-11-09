@@ -46,7 +46,18 @@ jobs:
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: |
-          GIT_DIR=/dev/null npx --yes vercel deploy --prebuilt --prod --token=$VERCEL_TOKEN --yes
+          set +e
+          DEPLOY_OUTPUT=$(GIT_DIR=/dev/null npx --yes vercel deploy --prebuilt --prod --token=$VERCEL_TOKEN --yes 2>&1)
+          EXIT_CODE=$?
+          echo "$DEPLOY_OUTPUT"
+          if [ $EXIT_CODE -ne 0 ]; then
+            if echo "$DEPLOY_OUTPUT" | grep -q "api-deployments-free-per-day"; then
+              echo "::warning title=Vercel Free Tier Rate Limit::Vercel free tier daily limit of 100 API deployments reached. Deployment will resume once quota resets (24h) or when upgraded."
+              exit 0
+            else
+              exit $EXIT_CODE
+            fi
+          fi
 
   deploy-venue:
     name: Deploy Venue Dashboard to Vercel
@@ -85,7 +96,18 @@ jobs:
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: |
-          GIT_DIR=/dev/null npx --yes vercel deploy --prebuilt --prod --token=$VERCEL_TOKEN --yes
+          set +e
+          DEPLOY_OUTPUT=$(GIT_DIR=/dev/null npx --yes vercel deploy --prebuilt --prod --token=$VERCEL_TOKEN --yes 2>&1)
+          EXIT_CODE=$?
+          echo "$DEPLOY_OUTPUT"
+          if [ $EXIT_CODE -ne 0 ]; then
+            if echo "$DEPLOY_OUTPUT" | grep -q "api-deployments-free-per-day"; then
+              echo "::warning title=Vercel Free Tier Rate Limit::Vercel free tier daily limit of 100 API deployments reached. Deployment will resume once quota resets (24h) or when upgraded."
+              exit 0
+            else
+              exit $EXIT_CODE
+            fi
+          fi
 
   deploy-admin:
     name: Deploy Admin Dashboard to Vercel
@@ -124,4 +146,15 @@ jobs:
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: |
-          GIT_DIR=/dev/null npx --yes vercel deploy --prebuilt --prod --token=$VERCEL_TOKEN --yes
+          set +e
+          DEPLOY_OUTPUT=$(GIT_DIR=/dev/null npx --yes vercel deploy --prebuilt --prod --token=$VERCEL_TOKEN --yes 2>&1)
+          EXIT_CODE=$?
+          echo "$DEPLOY_OUTPUT"
+          if [ $EXIT_CODE -ne 0 ]; then
+            if echo "$DEPLOY_OUTPUT" | grep -q "api-deployments-free-per-day"; then
+              echo "::warning title=Vercel Free Tier Rate Limit::Vercel free tier daily limit of 100 API deployments reached. Deployment will resume once quota resets (24h) or when upgraded."
+              exit 0
+            else
+              exit $EXIT_CODE
+            fi
+          fi
