@@ -12,7 +12,7 @@ export function AuthCard({ title, subtitle, children }: { title: string; subtitl
     <div dir="rtl" className="min-h-screen bg-surface px-4 py-10 flex flex-col items-center justify-center gap-6">
       <Link href="/login" className="flex items-center gap-2.5 text-navy-900 no-underline">
         <Image
-          src="/images/logo-horizontal.svg"
+          src="/images/logo-horizontal.png"
           alt="ملعبك"
           width={130}
           height={46}

@@ -95,7 +95,7 @@ export default function SetupPage() {
     <div dir="rtl" className="w-full min-h-screen bg-surface text-slate-900 flex flex-col">
       <header className="bg-white border-b border-[#EDF0F5] px-4 sm:px-8 py-4 flex items-center gap-x-4 gap-y-2 flex-wrap">
         <Image
-          src="/images/logo-horizontal.svg"
+          src="/images/logo-horizontal.png"
           alt="ملعبك"
           width={120}
           height={44}

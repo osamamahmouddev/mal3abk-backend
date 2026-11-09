@@ -28,10 +28,18 @@ export default function FeaturedPage() {
   const [sort, setSort] = useState("0");
 
   const flags = useQuery({ queryKey: ["feature-flags"], queryFn: () => unwrap(api.GET("/api/v1/admin/feature-flags")) });
+  const venuesQuery = useQuery({
+    queryKey: ["admin-venues-select"],
+    queryFn: () => unwrap(api.GET("/api/v1/admin/venues", { params: { query: { approvalStatus: "Approved", pageSize: 100 } } })),
+  });
   const placements = useQuery({
     queryKey: ["featured", history],
     queryFn: () => unwrap(api.GET("/api/v1/admin/featured-venues", { params: { query: { includeEnded: history } } })),
   });
+  const venueOptions: [string, string][] = [
+    ["", "— اختر الملعب —"],
+    ...((venuesQuery.data?.items ?? []).map((v) => [v.id, v.name] as [string, string])),
+  ];
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["featured"] });
   const create = useMutation({
     mutationFn: () =>
@@ -61,7 +69,9 @@ export default function FeaturedPage() {
         <span className={muted}>التشغيل من إعدادات المنصة ← المميزات.</span>
       </div>
       <section className={`${card} rounded-[18px] p-4 grid md:grid-cols-3 gap-2 items-end`}>
-        <Field label="ID الملعب"><TextInput dir="ltr" value={venueId} onChange={(e) => setVenueId(e.target.value)} /></Field>
+        <Field label="الملعب">
+          <Select label="الملعب" value={venueId} onChange={setVenueId} options={venueOptions} />
+        </Field>
         <Field label="المكان"><Select label="المكان" value={slot} onChange={setSlot} options={SLOTS} /></Field>
         <Field label="العنوان (اختياري، ٨٠ حرف)"><TextInput maxLength={80} value={title} onChange={(e) => setTitle(e.target.value)} /></Field>
         <Field label="من"><TextInput type="datetime-local" value={starts} onChange={(e) => setStarts(e.target.value)} /></Field>

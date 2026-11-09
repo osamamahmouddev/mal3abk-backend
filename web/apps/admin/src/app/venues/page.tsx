@@ -78,6 +78,15 @@ function VenueDrawer({ venueId, onClose }: { venueId: string | null; onClose: ()
   const [note, setNote] = useState<string | null>(null);
   const [newOwner, setNewOwner] = useState("");
 
+  const usersQuery = useQuery({
+    queryKey: ["admin-users-candidates-select"],
+    queryFn: () => unwrap(api.GET("/api/v1/admin/users", { params: { query: { pageSize: 100 } } })),
+  });
+  const userOptions: [string, string][] = [
+    ["", "— اختر الحساب الجديد —"],
+    ...((usersQuery.data?.items ?? []).map((u) => [u.id, `${u.fullName} (${u.maskedPhone || u.email || ""})`] as [string, string])),
+  ];
+
   const detail = useQuery({
     queryKey: ["admin-venue", venueId],
     enabled: !!venueId,
@@ -180,8 +189,8 @@ function VenueDrawer({ venueId, onClose }: { venueId: string | null; onClose: ()
               </button>
             </Section>
             <Section title="نقل الملكية">
-              <Field label="ID الحساب الجديد">
-                <TextInput dir="ltr" value={newOwner} onChange={(e) => setNewOwner(e.target.value)} placeholder="00000000-0000-0000-0000-000000000000" />
+              <Field label="الحساب الجديد">
+                <Select label="الحساب الجديد" value={newOwner} onChange={setNewOwner} options={userOptions} />
               </Field>
               <button
                 type="button"

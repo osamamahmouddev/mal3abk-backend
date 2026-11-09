@@ -91,9 +91,9 @@ export const AppShell: React.FC<AppShellProps> = ({ children, user }) => {
             </svg>
           </button>
           <Image
-            src="/images/logo-horizontal-darkbg.svg"
+            src="/images/logo-horizontal-darkbg.png"
             alt="ملعبك"
-            width={110}
+            width={120}
             height={40}
             className="h-7 w-auto object-contain"
             priority

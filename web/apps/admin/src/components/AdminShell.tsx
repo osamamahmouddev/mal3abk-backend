@@ -32,9 +32,9 @@ function Brand({ height = "h-8" }: { height?: string; size?: string }) {
   return (
     <div className="flex items-center gap-2">
       <Image
-        src="/images/logo-horizontal-darkbg.svg"
+        src="/images/logo-horizontal-darkbg.png"
         alt="ملعبك"
-        width={120}
+        width={140}
         height={44}
         className={`${height} w-auto object-contain`}
         priority

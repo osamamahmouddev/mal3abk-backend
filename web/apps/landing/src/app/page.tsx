@@ -88,7 +88,7 @@ export default function LandingPage() {
             <nav className="nav" aria-label="الرئيسية">
               <a href="#" className="brand" aria-label="ملعبك — الرئيسية">
                 <Image
-                  src="/images/logo-horizontal-darkbg.svg"
+                  src="/images/logo-horizontal-darkbg.png"
                   alt="ملعبك"
                   width={150}
                   height={54}
@@ -425,7 +425,7 @@ export default function LandingPage() {
           <footer className="foot">
             <span>
               <Image
-                src="/images/logo-horizontal-darkbg.svg"
+                src="/images/logo-horizontal-darkbg.png"
                 alt="ملعبك"
                 width={130}
                 height={46}

@@ -103,7 +103,7 @@ function AdminLogin() {
       <main className="w-full max-w-[440px] bg-white rounded-3xl p-8 flex flex-col gap-4 shadow-[0_30px_60px_-30px_rgba(0,0,0,0.6)]">
         <div className="flex items-center gap-2.5">
           <Image
-            src="/images/logo-horizontal.svg"
+            src="/images/logo-horizontal.png"
             alt="ملعبك"
             width={130}
             height={46}

@@ -74,9 +74,9 @@ export const Sidebar: React.FC<SidebarProps> = memo(({ user, onClose }) => {
     >
       <div className="flex items-center gap-2 px-2">
         <Image
-          src="/images/logo-horizontal-darkbg.svg"
+          src="/images/logo-horizontal-darkbg.png"
           alt="ملعبك"
-          width={120}
+          width={130}
           height={44}
           className="h-8 w-auto object-contain"
           priority

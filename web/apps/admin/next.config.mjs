@@ -24,6 +24,18 @@ const nextConfig = {
         basePath: false,
         permanent: false,
       },
+      {
+        source: "/images/:path*",
+        destination: "/admin/images/:path*",
+        basePath: false,
+        permanent: false,
+      },
+      {
+        source: "/:path(login|featured|venues|approvals|billing|teams|support|settings|accounts|audit)",
+        destination: "/admin/:path",
+        basePath: false,
+        permanent: false,
+      },
     ];
   },
   async headers() {

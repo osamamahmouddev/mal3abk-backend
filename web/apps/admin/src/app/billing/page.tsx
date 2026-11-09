@@ -79,6 +79,10 @@ function AssignDrawer({ onClose }: { onClose: () => void }) {
   const queryClient = useQueryClient();
   const notice = useNotice();
   const plans = usePlans();
+  const usersQuery = useQuery({
+    queryKey: ["admin-users-owners-select"],
+    queryFn: () => unwrap(api.GET("/api/v1/admin/users", { params: { query: { role: "VenueOwner", pageSize: 100 } } })),
+  });
   const [ownerId, setOwnerId] = useState("");
   const [planId, setPlanId] = useState("");
   const [cycle, setCycle] = useState("0");
@@ -90,10 +94,16 @@ function AssignDrawer({ onClose }: { onClose: () => void }) {
     onError: notice.fail,
   });
   const active = (plans.data ?? []).filter((p) => p.status === "Active");
+  const ownerOptions: [string, string][] = [
+    ["", "— اختر المالك —"],
+    ...((usersQuery.data?.items ?? []).map((u) => [u.id, `${u.fullName} (${u.maskedPhone || u.email || ""})`] as [string, string])),
+  ];
   return (
     <Drawer title="إسناد باقة" open onClose={onClose}>
       {notice.node}
-      <Field label="ID المالك"><TextInput dir="ltr" value={ownerId} onChange={(e) => setOwnerId(e.target.value)} /></Field>
+      <Field label="المالك">
+        <Select label="المالك" value={ownerId} onChange={setOwnerId} options={ownerOptions} />
+      </Field>
       <Field label="الباقة">
         <Select label="الباقة" value={planId} onChange={setPlanId} options={[["", "اختار باقة"], ...active.map((p) => [p.id, p.name] as [string, string])]} />
       </Field>

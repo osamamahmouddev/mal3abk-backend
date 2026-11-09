@@ -88,7 +88,7 @@ function LoginView() {
         </svg>
         <div className="flex items-center gap-2.5">
           <Image
-            src="/images/logo-horizontal-darkbg.svg"
+            src="/images/logo-horizontal-darkbg.png"
             alt="ملعبك"
             width={140}
             height={50}

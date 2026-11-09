@@ -23,6 +23,12 @@ const nextConfig = {
         permanent: false,
       },
       {
+        source: "/images/:path*",
+        destination: "/venue/images/:path*",
+        basePath: false,
+        permanent: false,
+      },
+      {
         source: "/:path(accept-invitation|reset-password|verify-email|login|register)",
         destination: "/venue/:path",
         basePath: false,
