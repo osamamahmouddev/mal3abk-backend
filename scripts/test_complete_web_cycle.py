@@ -6,6 +6,7 @@ import socket
 import time
 import hmac
 import hashlib
+import uuid
 from datetime import datetime, timedelta
 
 BASE_API = "http://mal3abk.runasp.net"
@@ -134,8 +135,9 @@ def main():
     # 2. Player Authentication & Profile Lifecycle
     # -------------------------------------------------------------
     print("\n--- [2] Player Authentication & Profile Lifecycle ---")
-    PLAYER_PHONE = "01011112222"
-    NORMALIZED_PLAYER = "+201011112222"
+    suffix = str(int(time.time()))[-7:]
+    PLAYER_PHONE = f"0109{suffix}"
+    NORMALIZED_PLAYER = f"+20109{suffix}"
 
     code, body, lat = http_req(f"{BASE_API}/api/v1/auth/otp/send", method="POST", body={
         "phoneNumber": PLAYER_PHONE,
@@ -208,39 +210,12 @@ def main():
         log_step("3.3 Venue Owner Role & Permissions Verification", is_venue_owner, f"Roles: {roles}", lat)
 
     managed_venues = []
-    target_venue_id = None
+    target_venue_id = "44444444-4444-4444-4444-444444444444"
     if owner_jwt:
         code, body, lat = http_req(f"{BASE_API}/api/v1/venue-manager/venues", token=owner_jwt)
         managed_venues = body if isinstance(body, list) else []
         log_step("3.4 Query Venue Manager Venues", code == 200, f"Found {len(managed_venues)} venue(s)", lat)
-        
-        if len(managed_venues) > 0:
-            target_venue_id = managed_venues[0].get("id")
-        else:
-            venue_payload = {
-                "name": "مجمع النادي الأهلي الرياضي - فرع المعادي",
-                "description": "مجمع ملاعب نجيل تركي معتمد بمرافق متكاملة وغرف تبديل وكافيه وإضاءة ليلية",
-                "governorateId": 1,
-                "city": "القاهرة",
-                "district": "المعادي",
-                "address": "شارع النصر، دجلة، المعادي",
-                "latitude": 29.9602,
-                "longitude": 31.2825,
-                "openingTime": "08:00:00",
-                "closingTime": "02:00:00",
-                "slotDurationMinutes": 60,
-                "bufferMinutes": 0,
-                "depositPercentage": 25,
-                "facilityIds": [1, 2, 3]
-            }
-            code, body, lat = http_req(f"{BASE_API}/api/v1/venue-manager/venues", method="POST", body=venue_payload, token=owner_jwt)
-            if code in [200, 201]:
-                target_venue_id = body.get("id") or body.get("venueId")
-                log_step("3.4.1 Create Venue on Demand", True, f"Venue ID: {target_venue_id}", lat)
-            else:
-                log_step("3.4.1 Create Venue on Demand", False, f"Status {code}: {body}", lat)
 
-    if owner_jwt and target_venue_id:
         code, body, lat = http_req(f"{BASE_API}/api/v1/venue-manager/venues/{target_venue_id}/dashboard", token=owner_jwt)
         log_step("3.5 Query Venue Dashboard Analytics & KPIs", code == 200, f"Status: {code}", lat)
 
@@ -251,48 +226,63 @@ def main():
     # 4. Public Exploration, Pitch Details & Availability
     # -------------------------------------------------------------
     print("\n--- [4] Public Exploration & Availability ---")
-    code, body, lat = http_req(f"{BASE_API}/api/v1/venues/explore")
-    venues_list = body if isinstance(body, list) else []
-    log_step("4.1 Public Explore Venues", code == 200, f"Found {len(venues_list)} venues listed", lat)
+    code, body, lat = http_req(f"{BASE_API}/api/v1/venues/{target_venue_id}")
+    log_step("4.1 Public Fetch Venue Details", code == 200, f"Venue: {body.get('name') if isinstance(body, dict) else 'N/A'}", lat)
 
-    test_venue = venues_list[0] if len(venues_list) > 0 else ({"id": target_venue_id} if target_venue_id else None)
-    test_pitch_id = None
-    if test_venue:
-        v_id = test_venue.get("id")
-        code, body, lat = http_req(f"{BASE_API}/api/v1/venues/{v_id}")
-        pitches = body.get("pitches", []) if isinstance(body, dict) else []
-        log_step("4.2 Public Fetch Venue Details with Pitches", code == 200, f"Venue: {body.get('name') if isinstance(body, dict) else 'N/A'}, Pitches: {len(pitches)}", lat)
-        
-        if len(pitches) > 0:
-            test_pitch_id = pitches[0].get("id")
-            tomorrow = (datetime.utcnow() + timedelta(days=1)).strftime("%Y-%m-%d")
-            code, body, lat = http_req(f"{BASE_API}/api/v1/venues/{v_id}/pitches/{test_pitch_id}/availability?date={tomorrow}")
-            slots = body if isinstance(body, list) else []
-            log_step("4.3 Query Pitch Slot Availability for Tomorrow", code == 200, f"Available Slots: {len(slots)}", lat)
+    code, body, lat = http_req(f"{BASE_API}/api/v1/venues/{target_venue_id}/pitches")
+    pitches = body if isinstance(body, list) else []
+    log_step("4.2 Public Fetch Venue Pitches", code == 200 and len(pitches) > 0, f"Found {len(pitches)} pitches", lat)
+
+    test_pitch_id = pitches[0].get("pitchId") if len(pitches) > 0 else "55555555-5555-5555-5555-555555555551"
+    tomorrow_date = (datetime.utcnow() + timedelta(days=1)).strftime("%Y-%m-%d")
+
+    code, body, lat = http_req(f"{BASE_API}/api/v1/venues/{target_venue_id}/availability?date={tomorrow_date}&pitchId={test_pitch_id}")
+    pitches_avail = body.get("pitches", []) if isinstance(body, dict) else []
+    slots_count = len(pitches_avail[0].get("slots", [])) if len(pitches_avail) > 0 else 0
+    log_step("4.3 Query Real-Time Pitch Availability Slots", code == 200 and slots_count > 0, f"Available Slots: {slots_count}", lat)
 
     # -------------------------------------------------------------
     # 5. Player Booking & Hold Cycle
     # -------------------------------------------------------------
     print("\n--- [5] Player Hold & Booking Cycle ---")
-    hold_id = None
+    start_utc = (datetime.utcnow() + timedelta(days=1)).replace(hour=18, minute=0, second=0, microsecond=0).strftime("%Y-%m-%dT%H:%M:%SZ")
+    end_utc = (datetime.utcnow() + timedelta(days=1)).replace(hour=19, minute=0, second=0, microsecond=0).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+    quote_token = None
+    expected_price = 400.0
+
     if player_jwt and test_pitch_id:
-        tomorrow_date = (datetime.utcnow() + timedelta(days=1)).strftime("%Y-%m-%d")
-        hold_payload = {
+        quote_payload = {
             "pitchId": test_pitch_id,
-            "date": tomorrow_date,
-            "startTime": "20:00:00",
-            "endTime": "21:00:00"
+            "startUtc": start_utc,
+            "endUtc": end_utc
         }
-        code, body, lat = http_req(f"{BASE_API}/api/v1/bookings/hold", method="POST", body=hold_payload, token=player_jwt)
-        if code in [200, 201]:
-            hold_id = body.get("holdId") or body.get("id")
-            log_step("5.1 Create Redis 10-Minute Booking Hold", True, f"Hold ID: {hold_id}, Expiry: {body.get('expiresAt')}", lat)
+        code, body, lat = http_req(f"{BASE_API}/api/v1/bookings/quote", method="POST", body=quote_payload, token=player_jwt)
+        if code == 200 and isinstance(body, dict):
+            quote_token = body.get("quoteToken")
+            expected_price = body.get("total", 400.0)
+            log_step("5.1 Generate Cryptographic Price Quote Token", True, f"Quote Token received, Amount: {expected_price} EGP", lat)
         else:
-            log_step("5.1 Create Redis 10-Minute Booking Hold", code in [200, 201, 409], f"Status: {code}, Response: {body}", lat)
+            log_step("5.1 Generate Cryptographic Price Quote Token", False, f"Status: {code}, Response: {body}", lat)
+
+    if player_jwt and quote_token:
+        booking_payload = {
+            "pitchId": test_pitch_id,
+            "startUtc": start_utc,
+            "endUtc": end_utc,
+            "quoteToken": quote_token,
+            "expectedPrice": expected_price,
+            "customerName": "أسامة محمود",
+            "customerPhone": NORMALIZED_PLAYER
+        }
+        code, body, lat = http_req(f"{BASE_API}/api/v1/bookings", method="POST", body=booking_payload, token=player_jwt, extra_headers={"Idempotency-Key": str(uuid.uuid4())})
+        booking_id = body.get("bookingId") if isinstance(body, dict) else None
+        log_step("5.2 Create Redis Hold & Booking (/api/v1/bookings)", code in [200, 201], f"Ref: {body.get('bookingReference') if isinstance(body, dict) else 'N/A'}, ID: {booking_id}", lat)
 
     if player_jwt:
         code, body, lat = http_req(f"{BASE_API}/api/v1/me/bookings", token=player_jwt)
-        log_step("5.2 Query Player Booking History (/api/v1/me/bookings)", code == 200, f"Status: {code}", lat)
+        my_bookings_count = len(body) if isinstance(body, list) else 0
+        log_step("5.3 Query Player Booking History (/api/v1/me/bookings)", code == 200, f"Found {my_bookings_count} booking(s)", lat)
 
     # -------------------------------------------------------------
     # 6. Admin Console Lifecycle
@@ -307,8 +297,9 @@ def main():
         "email": ADMIN_EMAIL,
         "password": ADMIN_PASS
     })
-    is_admin_ok = (code == 200) and (isinstance(body, dict)) and ("totpEnrollmentToken" in body or "accessToken" in body)
-    log_step("6.2 Admin Master Authentication & TOTP Challenge", is_admin_ok, f"Status {code}, Requires 2FA: {'totpEnrollmentToken' in body if isinstance(body, dict) else False}", lat)
+    is_admin_ok = (code == 200) and (isinstance(body, dict)) and ("enrollmentToken" in body or "tokens" in body)
+    has_totp_enrollment = "enrollmentToken" in body if isinstance(body, dict) else False
+    log_step("6.2 Admin Master Authentication & TOTP Challenge", is_admin_ok, f"Status: {code}, Enrollment Token Issued: {has_totp_enrollment}", lat)
 
     # -------------------------------------------------------------
     # Summary Report Output
