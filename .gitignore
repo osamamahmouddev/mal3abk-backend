@@ -12,6 +12,8 @@ obj/
 *~
 
 # Build results
+__pycache__/
+audit_results.json
 [Dd]ebug/
 [Rr]elease/
 x64/

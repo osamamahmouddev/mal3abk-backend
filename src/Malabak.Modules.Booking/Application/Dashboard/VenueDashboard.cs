@@ -134,9 +134,10 @@ public sealed class GetVenueDashboardHandler : IQueryHandler<GetVenueDashboardQu
 
         var activity = await _dbContext.StatusHistories.AsNoTracking()
             .Join(_dbContext.Bookings.Where(b => b.VenueId == query.VenueId && !b.IsDeleted), h => h.BookingId, b => b.Id,
-                (h, b) => new DashboardActivity(b.Id, b.BookingReference, h.FromStatus, h.ToStatus, h.ChangedAtUtc, h.Reason))
-            .OrderByDescending(a => a.ChangedAtUtc)
+                (h, b) => new { b.Id, b.BookingReference, h.FromStatus, h.ToStatus, h.ChangedAtUtc, h.Reason })
+            .OrderByDescending(x => x.ChangedAtUtc)
             .Take(ListSize)
+            .Select(x => new DashboardActivity(x.Id, x.BookingReference, x.FromStatus, x.ToStatus, x.ChangedAtUtc, x.Reason))
             .ToListAsync(cancellationToken);
 
         var timelineRows = byDate[date].Where(b => OccupyingStatuses.Contains(b.Status)).OrderBy(b => b.StartUtc).ToList();
