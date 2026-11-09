@@ -56,6 +56,20 @@ public sealed class DevAccountsSeeder
         }
 
         var now = _clock.UtcNow;
+
+        var ownerUser = await _dbContext.Users.FirstOrDefaultAsync(u => u.Email == "owner.ahly@malabak.app" || u.PhoneNumber == "+201100000001", cancellationToken);
+        if (ownerUser is not null)
+        {
+            ownerUser.SetEmail("owner.ahly@malabak.app");
+            ownerUser.AddRole("VenueOwner");
+            ownerUser.SetPassword(_hasher.Hash(seedSecret), now);
+            ownerUser.SetTwoFactorEnabled(false, now);
+            if (!ownerUser.IsEmailConfirmed)
+            {
+                ownerUser.ConfirmEmail(now);
+            }
+        }
+
         var users = await _dbContext.Users.Where(u => u.Email != null && Emails.Contains(u.Email)).ToListAsync(cancellationToken);
         foreach (var user in users)
         {

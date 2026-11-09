@@ -267,6 +267,12 @@ public sealed class User : Entity<Guid>
         UpdatedAtUtc = nowUtc;
     }
 
+    public void SetEmail(string email)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(email);
+        Email = email.Trim().ToLowerInvariant();
+    }
+
     public void AddRole(string role)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(role);
