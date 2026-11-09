@@ -26,7 +26,7 @@ module.exports = {
         },
       },
       fontFamily: {
-        arabic: ["var(--font-tajawal)", "Tajawal", "var(--font-arabic)", "IBM Plex Sans Arabic", "sans-serif"],
+        arabic: ["var(--font-arabic)", "IBM Plex Sans Arabic", "sans-serif"],
         sans: ["var(--font-inter)", "Inter", "sans-serif"],
       },
     },
