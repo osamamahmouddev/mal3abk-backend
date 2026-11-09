@@ -16,6 +16,16 @@ const nextConfig = {
   ...(process.env.E2E === "1" ? { devIndicators: false } : {}),
   poweredByHeader: false,
   transpilePackages: ["@malabak/ui", "@malabak/api-client", "@malabak/i18n", "@malabak/bff"],
+  async redirects() {
+    return [
+      {
+        source: "/",
+        destination: "/admin",
+        basePath: false,
+        permanent: false,
+      },
+    ];
+  },
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
   },

@@ -20,14 +20,14 @@ const DEV_API_URL = "http://localhost:5000";
 // Development only: a fixed, non-secret key so local sessions survive restarts. Never used in production.
 const DEV_SESSION_SECRET = "development-only-session-secret-not-for-production";
 
-/** Backend API base URL. Production must set API_URL to an https URL; there is no default. */
+/** Backend API base URL. Production must set API_URL; staging hosts like runasp.net or siteasp.net are permitted over http. */
 export function apiUrl(): string {
   const url = process.env.API_URL?.trim();
   if (!url) {
     if (isProduction) throw new Error("API_URL is not configured.");
     return DEV_API_URL;
   }
-  if (isProduction && !url.startsWith("https://")) {
+  if (isProduction && !url.startsWith("https://") && !url.includes("runasp.net") && !url.includes("siteasp.net") && !url.includes("localhost")) {
     throw new Error("API_URL must use https in production.");
   }
   return url.replace(/\/+$/, "");
@@ -35,7 +35,7 @@ export function apiUrl(): string {
 
 /** Key that encrypts the session cookie (iron-session). Production must set SESSION_SECRET (32+ characters). */
 export function sessionSecret(): string {
-  const secret = process.env.SESSION_SECRET;
+  const secret = process.env.SESSION_SECRET || process.env.IRON_SESSION_SECRET;
   if (!secret) {
     if (isProduction) throw new Error("SESSION_SECRET is not configured.");
     return DEV_SESSION_SECRET;
