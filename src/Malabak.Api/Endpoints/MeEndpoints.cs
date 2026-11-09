@@ -14,7 +14,7 @@ public static class MeEndpoints
         var group = app.MapGroup("/api/v{version:apiVersion}/me")
             .WithApiVersionSet(apiVersionSet)
             .MapToApiVersion(1, 0)
-            .RequireAuthorization()
+            .RequireAuthorization(MalabakAuthorization.AnySessionPolicy)
             .WithTags("Me");
 
         group.MapGet("/permissions", async (

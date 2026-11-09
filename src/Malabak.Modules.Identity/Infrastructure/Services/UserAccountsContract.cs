@@ -32,7 +32,7 @@ public sealed class UserAccountsContract : IUserAccountsContract
         _sms = sms;
         _clock = clock;
         _logger = logger;
-        _dashboardUrl = (configuration["App:VenueDashboardUrl"] ?? "http://localhost:3000").TrimEnd('/');
+        _dashboardUrl = (configuration["App:VenueDashboardUrl"] ?? "https://mal3abk-venue.vercel.app/venue").TrimEnd('/');
     }
 
     public string? NormalizePhone(string phoneNumber)

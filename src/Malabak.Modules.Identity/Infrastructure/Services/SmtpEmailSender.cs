@@ -55,20 +55,37 @@ public sealed class SmtpEmailSender : IEmailSender
             return;
         }
 
-        using var message = new MailMessage { From = _from, Subject = subject, Body = text, BodyEncoding = Encoding.UTF8, SubjectEncoding = Encoding.UTF8 };
-        message.To.Add(toAddress);
-        if (html is not null)
+        using (var scope = _scopeFactory.CreateScope())
         {
-            message.AlternateViews.Add(AlternateView.CreateAlternateViewFromString(html, Encoding.UTF8, MediaTypeNames.Text.Html));
+            var slack = scope.ServiceProvider.GetService<SlackWebhookClient>();
+            if (slack is not null)
+            {
+                var slackMsg = $"ملعبك — بريد إلكتروني (Development)\nإلى: {toAddress}\nالموضوع: {subject}\n{text}";
+                await slack.PostAsync(slackMsg, "email", cancellationToken);
+            }
         }
 
-        using var client = new SmtpClient(_host, _port) { EnableSsl = _enableSsl };
-        if (!string.IsNullOrWhiteSpace(_username))
+        try
         {
-            client.Credentials = new NetworkCredential(_username, _password);
-        }
+            using var message = new MailMessage { From = _from, Subject = subject, Body = text, BodyEncoding = Encoding.UTF8, SubjectEncoding = Encoding.UTF8 };
+            message.To.Add(toAddress);
+            if (html is not null)
+            {
+                message.AlternateViews.Add(AlternateView.CreateAlternateViewFromString(html, Encoding.UTF8, MediaTypeNames.Text.Html));
+            }
 
-        await client.SendMailAsync(message, cancellationToken);
+            using var client = new SmtpClient(_host, _port) { EnableSsl = _enableSsl };
+            if (!string.IsNullOrWhiteSpace(_username))
+            {
+                client.Credentials = new NetworkCredential(_username, _password);
+            }
+
+            await client.SendMailAsync(message, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "SMTP delivery failed for {Subject} to {ToAddress}", subject, toAddress);
+        }
     }
 
     private async Task<bool> IsSuppressedAsync(string toAddress, CancellationToken cancellationToken)

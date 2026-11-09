@@ -16,7 +16,7 @@ public static class ProfileEndpoints
         var group = app.MapGroup("/api/v{version:apiVersion}/me")
             .WithApiVersionSet(apiVersionSet)
             .MapToApiVersion(1, 0)
-            .RequireAuthorization()
+            .RequireAuthorization(MalabakAuthorization.AnySessionPolicy)
             .WithTags("Profile & Onboarding");
 
         group.MapGet("/onboarding", async (ClaimsPrincipal user, ProfileHandlers profiles, CancellationToken ct) =>
