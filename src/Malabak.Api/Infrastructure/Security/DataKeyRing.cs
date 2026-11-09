@@ -140,10 +140,6 @@ public sealed class DataKeyRing : IDataKeyRing, IDisposable
             var db = scope.ServiceProvider.GetRequiredService<SecurityDbContext>();
 
             var rows = await db.DataEncryptionKeys.AsNoTracking().ToListAsync(cancellationToken);
-            if (ensureActiveKey && !rows.Exists(k => k.IsActive))
-            {
-                rows = await CreateInitialKeyAsync(db, cancellationToken);
-            }
 
             // A key that can't be unwrapped (its KEK is gone) only makes its own values unreadable. It must
             // not stop the rest of the ring from encrypting and decrypting.
@@ -162,6 +158,27 @@ public sealed class DataKeyRing : IDataKeyRing, IDisposable
             }
 
             var currentId = rows.Find(k => k.IsActive && keys.ContainsKey(k.Id))?.Id;
+            if (ensureActiveKey && currentId is null)
+            {
+                rows = await CreateInitialKeyAsync(db, cancellationToken);
+                foreach (var row in rows)
+                {
+                    if (!keys.ContainsKey(row.Id))
+                    {
+                        try
+                        {
+                            keys[row.Id] = _kekProvider.UnwrapKey(row.KeyEncryptionKeyId, row.WrappedKey);
+                        }
+                        catch (CryptographicException ex)
+                        {
+                            _logger.LogDebug(ex, "Key {KeyId} could not be unwrapped after initializing active key.", row.Id);
+                        }
+                    }
+                }
+
+                currentId = rows.Find(k => k.IsActive && keys.ContainsKey(k.Id))?.Id;
+            }
+
             var snapshot = new Snapshot(keys, currentId, _clock.UtcNow);
             _snapshot = snapshot;
             return snapshot;
@@ -174,6 +191,14 @@ public sealed class DataKeyRing : IDataKeyRing, IDisposable
 
     private async Task<List<DataEncryptionKey>> CreateInitialKeyAsync(SecurityDbContext db, CancellationToken cancellationToken)
     {
+        var existingActive = await db.DataEncryptionKeys.Where(k => k.IsActive).ToListAsync(cancellationToken);
+        if (existingActive.Count > 0)
+        {
+            var nowUtc = _clock.UtcNow;
+            existingActive.ForEach(k => k.Retire(nowUtc));
+            await db.SaveChangesAsync(cancellationToken);
+        }
+
         db.DataEncryptionKeys.Add(NewDataKey(_clock.UtcNow));
         try
         {
