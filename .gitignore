@@ -66,3 +66,4 @@ docker/redis/tls/
 
 # Local object storage for uploaded media (Development)
 src/Malabak.Api/App_Data/
+.vercel/
