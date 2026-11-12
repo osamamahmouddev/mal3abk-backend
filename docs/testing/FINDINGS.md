@@ -7,6 +7,8 @@
 | DOC-01 | Max pending holds per player | ADR-0008: 3; SECURITY.md §7.5 and §11: 2 | **2** (`BookingHoldRules`). SECURITY.md wins. |
 | DOC-02 | Hold length | ADR-0008: 10 min; SECURITY.md §11: 15–30 min | Venue policy, else the `booking.default_hold_minutes` platform setting. Test the configured value. |
 | DOC-03 | Error Code Catalog completeness | `docs/api/error-codes.md` & `error-codes.json`: lists only 21 codes in SCREAMING_SNAKE_CASE | Backend emits 175+ domain error codes using dotted PascalCase (`Booking.NotFound`, `Team.NotFound`, etc.) not documented in the catalog. |
+| DOC-04 | Cancellation Refund Windows | ADR-0008 §2 specifies tiered cancellation ladder (>12h: 100%, 6-12h: 50%, <6h: 0%) | Backend implements flat policy-based model (`CancellationDeadlineHours`, default 24h, and flat `RefundPercentage`) where cancellations past the deadline are completely rejected with `Booking.CancellationDeadlinePassed`. |
+| DOC-05 | Waitlist Domain Scope | Test plan references slot availability waitlist (`/waitlist` frees up and notifies) | Backend `/api/v1/waitlist` is exclusively the pre-launch landing page lead capture (`WaitlistService` in `IdentityDbContext`), not a pitch slot inventory waitlist. |
 
 ---
 
@@ -78,4 +80,35 @@
 - **Repro**: Issue two concurrent HTTP POST requests to `/api/v1/auth/refresh` using the same valid refresh token via `Task.WhenAll`.
 - **Expected**: Exactly one request succeeds with 200 OK and rotates the token; the other request receives 401 Unauthorized (`Identity.RefreshTokenReused` or invalid token).
 - **Actual**: Both requests attempt to update the token row concurrently, causing PostgreSQL concurrency conflict that throws an unhandled `Microsoft.EntityFrameworkCore.DbUpdateConcurrencyException`, returning a 500 Internal Server Error.
+
+---
+
+## Phase 2 (P2) — Booking Findings
+
+### BUG-007 — 6-hour temporary booking lock after 3 expired holds within 24 hours is not implemented
+- **Severity**: High (permits repeated slot denial-of-inventory attacks across rolling 24-hour windows)
+- **Area**: `Malabak.Modules.Booking` / Anti-Hoarding & Hold Lifecycle
+- **Rule**: ADR-0008 §1 ("Slot Hoarding & Abuse Controls: If a player triggers 3 expired holds within 24 hours without submitting payment proof, a 6-hour temporary booking lock is placed on the player account.")
+- **Test**: `tests/Malabak.IntegrationTests/Infrastructure/BookingHoldAndQuotaEdgeCaseTests.cs :: PenaltyCooldown_ThreeExpiredHoldsIn24Hours_Places6HourBookingLockAsync`
+- **Repro**: As a single player, initiate and let 3 holds expire across different pitches/slots within 24 hours; immediately attempt to hold a 4th slot.
+- **Expected**: The 4th hold request is blocked with a 6-hour temporary booking lock penalty.
+- **Actual**: `CreateBookingHandler` only counts active pending holds (`b.Status == PendingDeposit && b.HoldExpiresAtUtc > nowUtc`), with zero tracking or penalty cooldown for historically expired holds within 24 hours.
+
+### BUG-008 — ImageProcessor rejects standard PDF payment receipts
+- **Severity**: Medium
+- **Area**: `Malabak.Api.Infrastructure.Media` / Payment Proof Validation
+- **Rule**: Test Plan §P2 ("Allowed: JPEG, PNG, WebP, PDF, checked by magic bytes.") & `BookingErrors.InvalidProofFile` ("The uploaded file is invalid, exceeds 5MB, or is not an allowed image/PDF.")
+- **Test**: `tests/Malabak.UnitTests/PaymentProofAndMediaEdgeCaseTests.cs :: ImageProcessor_ValidPdfReceipt_ShouldBeAccepted`
+- **Repro**: Attempt to upload a valid `%PDF-` document receipt as payment proof.
+- **Expected**: Magic byte validation recognizes the PDF header and allows valid receipts to process.
+- **Actual**: `ImageProcessor.HasAllowedSignature` only recognizes JPEG, PNG, and WebP signatures; any valid PDF file is rejected with `"unsupported_format"`.
+
+### BUG-009 — BookingErrors.CannotCancelPastBooking is unreachable dead code in CancelBookingHandler
+- **Severity**: Low
+- **Area**: `Malabak.Modules.Booking` / Cancellation Handler Validation
+- **Rule**: Test Plan §P2 ("Cancel after kick-off → rejected.")
+- **Test**: `tests/Malabak.UnitTests/BookingCancellationAndReaperEdgeCaseTests.cs :: Cancel_ByPlayer_AfterKickoff_RejectsCancellationAsync`
+- **Repro**: Attempt to cancel a confirmed booking after match kickoff.
+- **Expected**: Handler returns `BookingErrors.CannotCancelPastBooking` (`Booking.CannotCancelPastBooking`).
+- **Actual**: `CancelBookingHandler` evaluates policy deadline (`nowUtc > deadlineUtc`) before delegating to `Booking.Cancel`. Because `deadlineUtc = StartUtc - leadHours`, any time after kickoff is already past `deadlineUtc`, so the handler returns `Booking.CancellationDeadlinePassed` and the domain code `CannotCancelPastBooking` is unreachable via the API.
 
