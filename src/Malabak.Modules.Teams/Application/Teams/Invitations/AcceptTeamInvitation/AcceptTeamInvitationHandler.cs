@@ -32,6 +32,13 @@ public sealed class AcceptTeamInvitationHandler : ICommandHandler<AcceptTeamInvi
             return Result.Failure<TeamDetailDto>(TeamErrors.InvalidInviteCode);
         }
 
+        var activeTeamsCount = await _dbContext.TeamMembers
+            .CountAsync(m => m.PlayerId == command.PlayerId && m.IsActive, cancellationToken);
+        if (activeTeamsCount >= Team.MaxTeamsPerPlayer && !team.Members.Any(m => m.PlayerId == command.PlayerId && m.IsActive))
+        {
+            return Result.Failure<TeamDetailDto>(TeamErrors.MaxPlayerTeamsExceeded);
+        }
+
         var joinResult = team.JoinWithInviteCode(normalizedCode, command.PlayerId, _clock.UtcNow);
         if (!joinResult.IsSuccess)
         {

@@ -39,6 +39,19 @@ public sealed class HomeFeedTests
     }
 
     [Fact]
+    public async Task Nearby_KeepsVenuesWithoutCoordinates_AfterTheLocatedOnesAsync()
+    {
+        await using var db = await SeedAsync();
+        var noCoordinates = AddVenue(db, "Dashboard Venue", "Nasr City", null, null);
+        await db.SaveChangesAsync();
+
+        var feed = (await Feed(db).GetAsync(new HomeFeedQuery(29.9602, 31.2569), null)).Value;
+
+        feed.Nearby.Items.Select(v => v.VenueId).Should().Equal(_maadi, _zamalek, noCoordinates);
+        feed.Nearby.Items[^1].DistanceKm.Should().BeNull();
+    }
+
+    [Fact]
     public async Task WithoutLocationOrArea_NearbyAsksForLocation_PopularStillShowsAsync()
     {
         await using var db = await SeedAsync();
@@ -127,7 +140,7 @@ public sealed class HomeFeedTests
         return db;
     }
 
-    private static Guid AddVenue(VenuesDbContext db, string name, string area, double lat, double lng, bool publish = true)
+    private static Guid AddVenue(VenuesDbContext db, string name, string area, double? lat, double? lng, bool publish = true)
     {
         var venue = Venue.Create(Guid.NewGuid(), name, $"v-{Guid.NewGuid():N}", null, Guid.NewGuid(), "Addr", "Cairo", area, lat, lng, "+201000000001", null, null, _now);
         if (publish)

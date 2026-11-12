@@ -40,9 +40,9 @@ public sealed class MatchDisputeModerationTests
         var awayTeamId = Guid.NewGuid();
         var captainA = Guid.NewGuid();
 
-        // Match 1: Submitted 25 hours ago -> eligible for timeout auto-confirm
+        // Match 1: Submitted 25 hours ago (right after it ended) -> eligible for timeout auto-confirm
         var match1 = Match.Schedule(
-            null, homeTeamId, awayTeamId, _clock.UtcNow.AddDays(-2), 60, null, null, null, null, null, _clock.UtcNow.AddDays(-3)).Value;
+            null, homeTeamId, awayTeamId, _clock.UtcNow.AddHours(-26), 60, null, null, null, null, null, _clock.UtcNow.AddDays(-3)).Value;
         match1.SubmitResult(2, 1, homeTeamId, captainA, _clock.UtcNow.AddHours(-25));
 
         // Match 2: Submitted 5 hours ago -> NOT eligible
