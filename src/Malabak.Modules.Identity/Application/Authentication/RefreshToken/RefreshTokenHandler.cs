@@ -71,7 +71,14 @@ public sealed class RefreshTokenHandler : ICommandHandler<RefreshTokenCommand, R
                 .FirstOrDefaultAsync(u => u.Id == token.UserId, cancellationToken);
             compromisedUser?.UpdateSecurityStamp(nowUtc);
 
-            await _dbContext.SaveChangesAsync(cancellationToken);
+            try
+            {
+                await _dbContext.SaveChangesAsync(cancellationToken);
+            }
+            catch (DbUpdateConcurrencyException)
+            {
+                // Another request already revoked the family in parallel; the outcome is the same.
+            }
 
             if (_sessions is not null)
             {
@@ -121,7 +128,25 @@ public sealed class RefreshTokenHandler : ICommandHandler<RefreshTokenCommand, R
             createdAtUtc: nowUtc);
 
         _dbContext.RefreshTokens.Add(newTokenEntity);
-        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        try
+        {
+            await _dbContext.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateConcurrencyException ex)
+        {
+            // A concurrent request with the same token rotated it first (optimistic concurrency on the token row).
+            // Exactly one rotation wins; the loser gets the ordinary invalid-token error, never a 500.
+            _logger.LogWarning(
+                ex,
+                "Concurrent refresh rotation lost the race for TokenId {TokenId}, FamilyId {FamilyId}.",
+                token.Id,
+                token.FamilyId);
+
+            return Result.Failure<RefreshTokenResponse>(new Error(
+                "Identity.InvalidRefreshToken",
+                "The specified refresh token is invalid."));
+        }
 
         return Result.Success(new RefreshTokenResponse(
             AccessToken: tokenResult.AccessToken,

@@ -43,5 +43,11 @@ public interface ITotpService
 
     bool VerifyCode(string base32Secret, string code, DateTime nowUtc);
 
+    /// <summary>
+    /// Like <see cref="VerifyCode"/> but also rejects replays: only a time step strictly newer than
+    /// <paramref name="lastUsedStep"/> is accepted (RFC 6238 §5.2). The matched step is returned for storing.
+    /// </summary>
+    bool TryVerifyCode(string base32Secret, string code, DateTime nowUtc, long? lastUsedStep, out long matchedStep);
+
     string BuildProvisioningUri(string base32Secret, string accountName);
 }

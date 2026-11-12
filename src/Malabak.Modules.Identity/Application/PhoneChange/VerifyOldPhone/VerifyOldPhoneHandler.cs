@@ -45,6 +45,11 @@ public sealed class VerifyOldPhoneHandler : ICommandHandler<VerifyOldPhoneComman
                 "Phone change request not found."));
         }
 
+        if (request.Status == PhoneChangeStatus.Failed)
+        {
+            return Result.Failure(PhoneChangeErrors.MaxAttemptsExceeded);
+        }
+
         if (request.Status != PhoneChangeStatus.Started)
         {
             return Result.Failure(new Error(
@@ -72,6 +77,15 @@ public sealed class VerifyOldPhoneHandler : ICommandHandler<VerifyOldPhoneComman
         var isOldCodeValid = _otpSecurityService.VerifyCode(command.Code, request.OldPhoneOtpHash);
         if (!isOldCodeValid)
         {
+            var locked = request.RegisterFailedOldAttempt(nowUtc);
+            await _dbContext.SaveChangesAsync(cancellationToken);
+
+            if (locked)
+            {
+                _logger.LogWarning("Phone change request {RequestId} locked after too many wrong old-phone codes.", request.Id);
+                return Result.Failure(PhoneChangeErrors.MaxAttemptsExceeded);
+            }
+
             return Result.Failure(new Error(
                 "Identity.InvalidOtpCode",
                 "Invalid verification code."));

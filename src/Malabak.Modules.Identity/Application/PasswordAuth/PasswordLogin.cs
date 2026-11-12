@@ -100,7 +100,7 @@ public sealed class PasswordLoginHandler : ICommandHandler<PasswordLoginCommand,
             }
 
             var secret = await _cipher.DecryptAsync(user.TotpSecretCiphertext!, PasswordAuthSupport.TotpContext(user.Id), cancellationToken);
-            if (!_totp.VerifyCode(secret, command.TotpCode.Trim(), nowUtc))
+            if (!await PasswordAuthSupport.TryClaimTotpAsync(_dbContext, _totp, user, secret, command.TotpCode.Trim(), nowUtc, cancellationToken))
             {
                 return await FailAsync(user, nowUtc, PasswordAuthErrors.InvalidTotpCode, cancellationToken);
             }

@@ -103,9 +103,8 @@ public sealed class StartPhoneChangeHandler : ICommandHandler<StartPhoneChangeCo
 
         if (isTaken)
         {
-            return Result.Failure<StartPhoneChangeResponse>(new Error(
-                "Identity.PhoneNumberAlreadyInUse",
-                "The requested phone number is already registered to another account."));
+            // SECURITY.md §5.5 step 6: never reveal that the number belongs to another account.
+            return Result.Failure<StartPhoneChangeResponse>(PhoneChangeErrors.UnableToUsePhoneNumber);
         }
 
         // 6. Expire any existing open phone change requests for this user

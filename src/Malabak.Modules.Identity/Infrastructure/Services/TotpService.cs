@@ -14,8 +14,12 @@ public sealed class TotpService : ITotpService
 
     public string GenerateSecret() => ToBase32(RandomNumberGenerator.GetBytes(20));
 
-    public bool VerifyCode(string base32Secret, string code, DateTime nowUtc)
+    public bool VerifyCode(string base32Secret, string code, DateTime nowUtc) =>
+        TryVerifyCode(base32Secret, code, nowUtc, lastUsedStep: null, out _);
+
+    public bool TryVerifyCode(string base32Secret, string code, DateTime nowUtc, long? lastUsedStep, out long matchedStep)
     {
+        matchedStep = 0;
         if (string.IsNullOrWhiteSpace(code) || code.Length != _digits || !code.All(char.IsAsciiDigit))
         {
             return false;
@@ -28,8 +32,15 @@ public sealed class TotpService : ITotpService
 
         for (var offset = -1; offset <= 1; offset++)
         {
+            var candidate = step + offset;
+
             // Compare every window without short-circuiting to keep timing uniform.
-            matched |= CryptographicOperations.FixedTimeEquals(Encoding.ASCII.GetBytes(Compute(key, step + offset)), expected);
+            var isMatch = CryptographicOperations.FixedTimeEquals(Encoding.ASCII.GetBytes(Compute(key, candidate)), expected);
+            if (isMatch && (lastUsedStep is null || candidate > lastUsedStep.Value))
+            {
+                matched = true;
+                matchedStep = candidate;
+            }
         }
 
         return matched;

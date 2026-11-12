@@ -68,6 +68,9 @@ public sealed class AuthorizationMatrixHelper
     public AuthorizationMatrixHelper WithSupportAgentExpecting(HttpStatusCode expected) =>
         WithRoleExpecting(UserRole.SupportAgent, expected);
 
+    public AuthorizationMatrixHelper WithFinanceExpecting(HttpStatusCode expected) =>
+        WithRoleExpecting(UserRole.Finance, expected);
+
     public async Task ExecuteAsync(WebApplicationFactory<Program> factory)
     {
         ArgumentNullException.ThrowIfNull(factory);

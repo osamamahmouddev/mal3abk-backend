@@ -35,6 +35,14 @@ public sealed class PhoneChangeRequestConfiguration : IEntityTypeConfiguration<P
         builder.Property(p => p.RecoveryTokenHash)
             .HasMaxLength(128);
 
+        builder.Property(p => p.AttemptsOld)
+            .IsRequired()
+            .HasDefaultValue(0);
+
+        builder.Property(p => p.AttemptsNew)
+            .IsRequired()
+            .HasDefaultValue(0);
+
         builder.Property(p => p.ExpiresAtUtc)
             .IsRequired();
 

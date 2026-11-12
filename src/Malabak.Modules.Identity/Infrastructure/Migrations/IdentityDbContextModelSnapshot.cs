@@ -76,6 +76,16 @@ namespace Malabak.Modules.Identity.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<int>("AttemptsNew")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0);
+
+                    b.Property<int>("AttemptsOld")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0);
+
                     b.Property<DateTime?>("CompletedAtUtc")
                         .HasColumnType("timestamp with time zone");
 
@@ -376,6 +386,9 @@ namespace Malabak.Modules.Identity.Infrastructure.Migrations
                     b.Property<string>("SuspensionReason")
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)");
+
+                    b.Property<long?>("TotpLastUsedStep")
+                        .HasColumnType("bigint");
 
                     b.Property<byte[]>("TotpSecretCiphertext")
                         .HasColumnType("bytea");
