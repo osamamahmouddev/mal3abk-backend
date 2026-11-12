@@ -112,3 +112,16 @@
 - **Expected**: Handler returns `BookingErrors.CannotCancelPastBooking` (`Booking.CannotCancelPastBooking`).
 - **Actual**: `CancelBookingHandler` evaluates policy deadline (`nowUtc > deadlineUtc`) before delegating to `Booking.Cancel`. Because `deadlineUtc = StartUtc - leadHours`, any time after kickoff is already past `deadlineUtc`, so the handler returns `Booking.CancellationDeadlinePassed` and the domain code `CannotCancelPastBooking` is unreachable via the API.
 
+---
+
+## Phase 3 (P3) — Venues, Pitches and Schedules Findings
+
+### BUG-010 — DeletePitchHandler soft-deletes pitches with future confirmed bookings without validation
+- **Severity**: High
+- **Area**: `Malabak.Modules.Venues` / Pitch Management
+- **Rule**: Test Plan §P3 ("Pitches: create, update, deactivate (`SetPitchActive`) and delete. Deleting a pitch that has future confirmed bookings is rejected or handled as documented.")
+- **Test**: `tests/Malabak.UnitTests/PitchAndEntitlementEdgeCaseTests.cs :: DeletePitch_WithFutureConfirmedBookings_ShouldBeRejectedAsync`
+- **Repro**: Send a `DeletePitchCommand` for a pitch that currently has future confirmed player reservations.
+- **Expected**: Deletion is rejected (e.g. `Pitch.HasActiveBookings`) or blocked until existing bookings are cancelled or reassigned.
+- **Actual**: `DeletePitchHandler` has no dependency on `IBookingConflictChecker` or `IUpcomingBookingsReader` and immediately marks the pitch deleted (`pitch.MarkDeleted(_clock.UtcNow); venue.RemovePitch(pitch.Id)`), leaving orphaned bookings on a deleted pitch.
+
