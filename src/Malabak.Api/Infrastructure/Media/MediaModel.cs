@@ -52,6 +52,11 @@ public sealed class MediaAsset
     /// </summary>
     public string? ContentSha256 { get; private set; }
 
+    /// <summary>"image/webp" for re-encoded images; "application/pdf" for a stored payment-receipt PDF.</summary>
+    public string ContentType { get; private set; } = ImageProcessor.WebPContentType;
+
+    public bool IsPdf => ContentType == ImageProcessor.PdfContentType;
+
     public string? RejectionReason { get; private set; }
     public DateTime CreatedAtUtc { get; private set; }
     public DateTime? CompletedAtUtc { get; private set; }
@@ -70,8 +75,9 @@ public sealed class MediaAsset
 
     public bool CanUpload(DateTime nowUtc) => Status == MediaStatus.AwaitingUpload && UploadExpiresAtUtc > nowUtc;
 
-    public void MarkReady(int width, int height, long sizeBytes, string contentSha256, DateTime nowUtc)
+    public void MarkReady(int width, int height, long sizeBytes, string contentSha256, DateTime nowUtc, string contentType = ImageProcessor.WebPContentType)
     {
+        ContentType = contentType;
         Status = MediaStatus.Ready;
         Width = width;
         Height = height;
@@ -112,6 +118,7 @@ public sealed class MediaDbContext : DbContext
             b.Property(a => a.Visibility).HasConversion<string>().HasMaxLength(10);
             b.Property(a => a.Status).HasConversion<string>().HasMaxLength(20);
             b.Property(a => a.UploadTokenHash).HasMaxLength(64);
+            b.Property(a => a.ContentType).HasMaxLength(30).HasDefaultValue(ImageProcessor.WebPContentType);
             b.Property(a => a.ContentSha256).HasMaxLength(64);
             b.Property(a => a.RejectionReason).HasMaxLength(60);
             b.HasIndex(a => new { a.OwnerUserId, a.CreatedAtUtc });

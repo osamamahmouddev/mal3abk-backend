@@ -550,6 +550,7 @@ public static class VenueManagerEndpoints
             var code when code.EndsWith(".Conflict", StringComparison.OrdinalIgnoreCase) => StatusCodes.Status409Conflict,
             var code when code.EndsWith(".Overlap", StringComparison.OrdinalIgnoreCase) => StatusCodes.Status409Conflict,
             var code when code.EndsWith(".ConflictingBookings", StringComparison.OrdinalIgnoreCase) => StatusCodes.Status409Conflict,
+            var code when code.EndsWith(".HasActiveBookings", StringComparison.OrdinalIgnoreCase) => StatusCodes.Status409Conflict,
             _ => StatusCodes.Status400BadRequest
         };
 

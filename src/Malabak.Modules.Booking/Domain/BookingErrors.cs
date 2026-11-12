@@ -19,6 +19,7 @@ public static class BookingErrors
     public static readonly Error CannotCompleteBeforeEnd = Error.Conflict("Booking.CannotCompleteBeforeEnd", "Cannot complete a booking before its scheduled end time.");
     public static readonly Error CannotMarkNoShowBeforeStart = Error.Conflict("Booking.CannotMarkNoShowBeforeStart", "Cannot mark a booking as no-show before its scheduled kickoff time.");
     public static readonly Error MaxPendingBookingsExceeded = Error.Conflict("Booking.MaxPendingBookingsExceeded", "You already have the maximum allowed number (2) of pending booking holds.");
+    public static readonly Error AccountLockedForHoarding = Error.Conflict("Booking.AccountLockedForHoarding", "Too many unpaid holds expired recently, so new bookings are paused for 6 hours. Please try again later.");
     public static readonly Error DuplicateProof = Error.Conflict("Booking.DuplicateProof", "This payment receipt has already been submitted for another booking.");
     public static readonly Error PitchNotFound = Error.NotFound("Booking.PitchNotFound", "The pitch was not found at this venue.");
     public static readonly Error ProofNotFound = Error.NotFound("Booking.ProofNotFound", "The payment proof was not found.");

@@ -16,6 +16,7 @@ using Malabak.Modules.Venues.Infrastructure;
 using Malabak.Modules.Venues.Infrastructure.Repositories;
 using Malabak.Modules.Venues.Infrastructure.Services;
 using Malabak.SharedKernel;
+using Malabak.SharedKernel.Contracts;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -316,13 +317,20 @@ public sealed class VenuePitchTests
         updateResult.Value.Format.Should().Be("7x7");
 
         // 5. Delete Pitch
-        var deletePitchHandler = new DeletePitchHandler(pitchRepo, venueRepo, dbContext, _clock, NullLogger<DeletePitchHandler>.Instance);
+        var deletePitchHandler = new DeletePitchHandler(pitchRepo, venueRepo, dbContext, new NoUpcomingBookings(), _clock, NullLogger<DeletePitchHandler>.Instance);
         var deleteResult = await deletePitchHandler.HandleAsync(new DeletePitchCommand(pitchId, ownerId));
         deleteResult.IsSuccess.Should().BeTrue();
 
         // Pitch should no longer be returned by repo
         var deletedPitch = await pitchRepo.GetByIdAsync(pitchId);
         deletedPitch.Should().BeNull();
+    }
+
+    private sealed class NoUpcomingBookings : IUpcomingBookingsReader
+    {
+        public Task<IReadOnlyList<UpcomingBookingRef>> GetActiveAsync(
+            IReadOnlyCollection<Guid> pitchIds, DateTime fromUtc, DateTime toUtc, CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyList<UpcomingBookingRef>>([]);
     }
 
     private sealed class TestClock : IClock
