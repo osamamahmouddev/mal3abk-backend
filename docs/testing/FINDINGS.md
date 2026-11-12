@@ -9,6 +9,7 @@
 | DOC-03 | Error Code Catalog completeness | `docs/api/error-codes.md` & `error-codes.json`: lists only 21 codes in SCREAMING_SNAKE_CASE | Backend emits 175+ domain error codes using dotted PascalCase (`Booking.NotFound`, `Team.NotFound`, etc.) not documented in the catalog. |
 | DOC-04 | Cancellation Refund Windows | ADR-0008 §2 specifies tiered cancellation ladder (>12h: 100%, 6-12h: 50%, <6h: 0%) | Backend implements flat policy-based model (`CancellationDeadlineHours`, default 24h, and flat `RefundPercentage`) where cancellations past the deadline are completely rejected with `Booking.CancellationDeadlinePassed`. |
 | DOC-05 | Waitlist Domain Scope | Test plan references slot availability waitlist (`/waitlist` frees up and notifies) | Backend `/api/v1/waitlist` is exclusively the pre-launch landing page lead capture (`WaitlistService` in `IdentityDbContext`), not a pitch slot inventory waitlist. |
+| DOC-06 | Invoice Voidability on Paid Invoices | Test plan states "voiding twice is rejected; a paid invoice cannot be voided;" | `InvoiceStatus` enum defines only `Paid = 0` and `Void = 1`. Invoices are only issued upon manual payment recording (`Invoice.Issue`). `Invoice.Void` specifically allows voiding paid invoices to correct mistakes, while voiding an already voided invoice is rejected (`SubscriptionErrors.InvalidTransition`). |
 
 ---
 
