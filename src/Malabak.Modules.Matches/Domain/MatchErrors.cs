@@ -34,6 +34,9 @@ public static class MatchErrors
     public static readonly Error ResultAlreadySubmitted =
         Error.Conflict("Match.ResultAlreadySubmitted", "A match result has already been submitted and is pending verification or confirmed.");
 
+    public static readonly Error SubmissionExpired =
+        Error.Validation("Match.SubmissionExpired", "The 6-hour window to submit the match result has passed.");
+
     public static readonly Error ResultNotPendingVerification =
         Error.Conflict("Match.ResultNotPendingVerification", "The match result is not awaiting verification.");
 
