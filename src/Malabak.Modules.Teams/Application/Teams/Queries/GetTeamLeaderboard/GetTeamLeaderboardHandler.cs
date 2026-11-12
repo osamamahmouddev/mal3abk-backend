@@ -30,7 +30,7 @@ public sealed class GetTeamLeaderboardHandler : IQueryHandler<GetTeamLeaderboard
         }
 
         var queryable = _dbContext.Teams
-            .Where(t => t.IsPublic && !t.IsDeleted);
+            .Where(t => t.IsPublic && !t.IsDeleted && t.SuspendedAtUtc == null);
 
         if (!string.IsNullOrWhiteSpace(query.City))
         {
