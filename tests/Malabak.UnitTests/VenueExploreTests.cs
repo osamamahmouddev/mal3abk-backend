@@ -43,10 +43,41 @@ public sealed class VenueExploreTests
 
         var result = (await Explore(db).SearchAsync(new ExploreQuery(_originLat, _originLng, RadiusKm: 25))).Value;
 
-        result.Items.Select(v => v.VenueId).Should().Equal(_maadi, _zamalek);
+        // Alexandria was created without coordinates (e.g. from the dashboard): it stays, sorted after the located venues.
+        result.Items.Select(v => v.VenueId).Should().Equal(_maadi, _zamalek, _alexandria);
         result.Items[0].DistanceKm.Should().BeLessThan(1);
         result.Items[1].DistanceKm.Should().BeInRange(10, 13);
-        result.TotalCount.Should().Be(2);
+        result.Items[2].DistanceKm.Should().BeNull();
+        result.TotalCount.Should().Be(3);
+    }
+
+    [Fact]
+    public async Task NearbySearch_KeepsVenuesWithoutCoordinates_AfterLocatedOnes_ForEverySortAsync()
+    {
+        await using var db = await SeedAsync();
+        var farAway = AddVenue(db, "Far Away", "Cairo", "Maadi", 31.2001, 29.9187, [], "ArtificialTurf", 5, 200, schedule: false);
+        await db.SaveChangesAsync();
+        var explore = Explore(db);
+
+        foreach (var sort in new[] { ExploreSort.Distance, ExploreSort.Price, ExploreSort.Popularity, ExploreSort.Name })
+        {
+            var items = (await explore.SearchAsync(new ExploreQuery(_originLat, _originLng, RadiusKm: 25, Sort: sort))).Value.Items;
+            items.Select(v => v.VenueId).Should().Contain(_alexandria, $"sort {sort}");
+            items.Select(v => v.VenueId).Should().NotContain(farAway, "it has coordinates beyond the radius");
+        }
+
+        var nearest = (await explore.SearchAsync(new ExploreQuery(_originLat, _originLng, RadiusKm: 25, Sort: ExploreSort.Distance))).Value.Items;
+        nearest[^1].VenueId.Should().Be(_alexandria);
+    }
+
+    [Fact]
+    public async Task Map_StillRequiresCoordinates_EvenForVenuesWithoutThemAsync()
+    {
+        await using var db = await SeedAsync();
+
+        var pins = (await Explore(db).MapAsync(new ExploreQuery(Bounds: new MapBounds(29.0, 30.5, 31.0, 31.5)))).Value.Pins;
+
+        pins.Select(p => p.VenueId).Should().NotContain(_alexandria);
     }
 
     [Fact]
@@ -171,8 +202,8 @@ public sealed class VenueExploreTests
 
         result.Items.Should().BeEmpty();
         result.Suggestions.Should().BeEquivalentTo([
-            new ExploreSuggestion("widen_radius", "Search a wider area (up to 100 km).", 1),
-            new ExploreSuggestion("any_pitch", "Try any pitch size and surface.", 1)]);
+            new ExploreSuggestion("any_pitch", "Try any pitch size and surface.", 2),
+            new ExploreSuggestion("widen_radius", "Search a wider area (up to 100 km).", 1)]);
 
         (await Explore(db).SearchAsync(new ExploreQuery(_originLat, _originLng))).Value.Suggestions.Should().BeEmpty("there were results");
     }
@@ -196,8 +227,8 @@ public sealed class VenueExploreTests
 
         var items = (await Explore(db).SearchAsync(new ExploreQuery(_originLat, _originLng))).Value.Items;
 
-        items.Select(v => v.DistanceKm!.Value * 2).Should().OnlyContain(d => Math.Abs(d - Math.Round(d)) < 1e-9, "half-kilometre steps at most");
-        items.Should().OnlyContain(v => Math.Abs(v.Latitude!.Value - _originLat) > 1e-6, "cards carry venue coordinates only");
+        items.Where(v => v.DistanceKm is not null).Select(v => v.DistanceKm!.Value * 2).Should().OnlyContain(d => Math.Abs(d - Math.Round(d)) < 1e-9, "half-kilometre steps at most");
+        items.Where(v => v.Latitude is not null).Should().OnlyContain(v => Math.Abs(v.Latitude!.Value - _originLat) > 1e-6, "cards carry venue coordinates only");
     }
 
     [Fact]

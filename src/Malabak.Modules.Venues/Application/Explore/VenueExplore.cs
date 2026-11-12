@@ -10,7 +10,7 @@ namespace Malabak.Modules.Venues.Application.Explore;
 
 public enum ExploreSort
 {
-    /// <summary>Nearest first; requires coordinates (falls back to Popularity without them).</summary>
+    /// <summary>Nearest first, venues without coordinates last; requires player coordinates (falls back to Popularity without them).</summary>
     Distance = 0,
 
     /// <summary>Lowest starting hourly price first.</summary>
@@ -232,7 +232,7 @@ public sealed partial class VenueExplore
             var fromPrice = FromPrice(c, pitches);
 
             if (pitches.Count == 0
-                || (query.Bounds is null && query.Latitude is not null && (distance is null || distance > radius))
+                || (query.Bounds is null && distance > radius)
                 || !wantedFacilities.IsSubsetOf(c.Facilities.Select(f => f.ToLowerInvariant()))
                 || (query.MaxPrice is { } max && (fromPrice is null || fromPrice > max)))
             {
@@ -264,9 +264,11 @@ public sealed partial class VenueExplore
         else if (query.Latitude is { } lat && query.Longitude is { } lng)
         {
             var box = GeoMath.BoundingBox(lat, lng, query.RadiusKm ?? DefaultRadiusKm);
-            venues = venues.Where(v => v.Latitude != null && v.Longitude != null
-                && v.Latitude >= box.MinLatitude && v.Latitude <= box.MaxLatitude
-                && v.Longitude >= box.MinLongitude && v.Longitude <= box.MaxLongitude);
+            // Venues without coordinates (e.g. created from the dashboard) stay candidates: they are returned without a
+            // distance, after the located ones. Only venues with coordinates outside the box are dropped.
+            venues = venues.Where(v => v.Latitude == null || v.Longitude == null
+                || (v.Latitude >= box.MinLatitude && v.Latitude <= box.MaxLatitude
+                    && v.Longitude >= box.MinLongitude && v.Longitude <= box.MaxLongitude));
         }
 
         if (query.VenueIds is { } venueIds)

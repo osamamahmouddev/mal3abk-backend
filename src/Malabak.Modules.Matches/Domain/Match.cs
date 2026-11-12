@@ -7,6 +7,9 @@ public sealed class Match : Entity<Guid>
 {
     public const int DefaultDurationMinutes = 60;
     public const int MinDurationMinutes = 30;
+
+    /// <summary>ADR-0008 §3: captains must submit the final score within 6 hours of the match end.</summary>
+    public const int ResultSubmissionWindowHours = 6;
     public const int MaxDurationMinutes = 240;
 
     public Guid? ChallengeId { get; private set; }
@@ -175,6 +178,11 @@ public sealed class Match : Entity<Guid>
         if (ResultStatus != ResultVerificationStatus.None)
         {
             return Result.Failure(MatchErrors.ResultAlreadySubmitted);
+        }
+
+        if (nowUtc > ScheduledEndUtc.AddHours(ResultSubmissionWindowHours))
+        {
+            return Result.Failure(MatchErrors.SubmissionExpired);
         }
 
         var prevHomeScore = HomeScore;

@@ -30,6 +30,13 @@ public sealed class CreateTeamHandler : ICommandHandler<CreateTeamCommand, Resul
 
     public async Task<Result<TeamDetailDto>> HandleAsync(CreateTeamCommand command, CancellationToken cancellationToken = default)
     {
+        var activeTeamsCount = await _dbContext.TeamMembers
+            .CountAsync(m => m.PlayerId == command.CaptainId && m.IsActive, cancellationToken);
+        if (activeTeamsCount >= Team.MaxTeamsPerPlayer)
+        {
+            return Result.Failure<TeamDetailDto>(TeamErrors.MaxPlayerTeamsExceeded);
+        }
+
         // 1. Generate unique slug
         var baseSlug = _slugGenerator.GenerateSlug(command.Name);
         var slug = baseSlug;
