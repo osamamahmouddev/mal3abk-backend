@@ -11,6 +11,8 @@ const securityHeaders = [
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   basePath: "/admin",
+  // next/image does not prefix static (svg) sources with basePath; components read this to do it.
+  env: { NEXT_PUBLIC_BASE_PATH: "/admin" },
   reactStrictMode: true,
   poweredByHeader: false,
   transpilePackages: ["@malabak/ui", "@malabak/api-client", "@malabak/i18n", "@malabak/bff"],

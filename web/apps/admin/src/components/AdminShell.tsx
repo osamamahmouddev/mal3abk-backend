@@ -30,7 +30,7 @@ function Brand({ height = "h-8" }: { height?: string; size?: string }) {
   return (
     <div className="flex items-center gap-2">
       <Image
-        src="/images/logo-horizontal-darkbg.svg"
+        src={`${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/images/logo-horizontal-darkbg.svg`}
         alt="ملعبك"
         width={120}
         height={44}
