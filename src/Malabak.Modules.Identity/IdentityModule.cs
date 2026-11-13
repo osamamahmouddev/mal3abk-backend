@@ -53,7 +53,6 @@ public static class IdentityModule
         services.AddSingleton<IPasswordHasher, Pbkdf2PasswordHasher>();
         services.AddSingleton<IBreachedPasswordChecker, HibpBreachedPasswordChecker>();
         services.AddSingleton<IPasswordPolicy, PasswordPolicy>();
-        services.AddSingleton<IEmailSender, SmtpEmailSender>();
         services.AddSingleton<ITotpService, TotpService>();
         services.AddScoped<ICommandHandler<PasswordLoginCommand, Result<PasswordLoginResponse>>, PasswordLoginHandler>();
         services.AddScoped<PasswordAccountHandlers>();
@@ -108,6 +107,7 @@ public static class IdentityModule
         services.AddScoped<IUserPermissionService, UserPermissionService>();
 
         AddOtpDelivery(services, configuration);
+        AddEmailDelivery(services, configuration);
 
         // OTP codes live in Redis, through the host's single IConnectionMultiplexer (TLS, timeouts and
         // logging come from RedisConnectionFactory). No in-memory fallback: if Redis is down, OTP
@@ -244,9 +244,7 @@ public static class IdentityModule
         var provider = configuration.GetSection(OtpDeliveryOptions.SectionName).GetValue<OtpDeliveryProvider>(nameof(OtpDeliveryOptions.Provider));
         if (provider == OtpDeliveryProvider.Slack)
         {
-            services.AddHttpClient<SlackWebhookClient>(client => client.Timeout = TimeSpan.FromSeconds(10))
-                // The default HttpClient logging writes the request URL, and the webhook URL is a credential.
-                .RemoveAllLoggers();
+            AddSlackWebhookClient(services);
             services.AddTransient<IOtpSender, SlackOtpSender>();
             services.AddTransient<ISmsAlertService, SlackSmsAlertService>();
         }
@@ -275,6 +273,44 @@ public static class IdentityModule
             services.AddSingleton<IOtpSender, UnavailableOtpSender>();
             services.AddSingleton<ISmsAlertService, UnavailableSmsAlertService>();
         }
+    }
+
+    // Account emails go over SMTP, or to a Slack channel while no mail provider is set up (never in Production).
+    private static void AddEmailDelivery(IServiceCollection services, IConfiguration configuration)
+    {
+        services.AddOptions<EmailDeliveryOptions>()
+            .Bind(configuration.GetSection(EmailDeliveryOptions.SectionName))
+            .Validate<IHostEnvironment>(
+                (options, environment) => options.Provider != EmailDeliveryProvider.Slack || !environment.IsProduction(),
+                "Email delivery to Slack is for testing only and is not allowed in Production: everyone in the channel could open every verification and reset link.")
+            .Validate<IOptions<OtpDeliveryOptions>>(
+                (options, otp) => options.Provider != EmailDeliveryProvider.Slack
+                    || IsSlackWebhookUrl(string.IsNullOrWhiteSpace(options.Slack.WebhookUrl) ? otp.Value.Slack.WebhookUrl : options.Slack.WebhookUrl),
+                $"{EmailDeliveryOptions.SectionName}:Slack:WebhookUrl (or {OtpDeliveryOptions.SectionName}:Slack:WebhookUrl) must be an https://hooks.slack.com/ Incoming Webhook URL.")
+            .ValidateOnStart();
+
+        var provider = configuration.GetSection(EmailDeliveryOptions.SectionName).GetValue<EmailDeliveryProvider>(nameof(EmailDeliveryOptions.Provider));
+        if (provider == EmailDeliveryProvider.Slack)
+        {
+            AddSlackWebhookClient(services);
+            services.AddTransient<IEmailSender, SlackEmailSender>();
+        }
+        else
+        {
+            services.AddSingleton<IEmailSender, SmtpEmailSender>();
+        }
+    }
+
+    private static void AddSlackWebhookClient(IServiceCollection services)
+    {
+        if (services.Any(d => d.ServiceType == typeof(SlackWebhookClient)))
+        {
+            return;
+        }
+
+        services.AddHttpClient<SlackWebhookClient>(client => client.Timeout = TimeSpan.FromSeconds(10))
+            // The default HttpClient logging writes the request URL, and the webhook URL is a credential.
+            .RemoveAllLoggers();
     }
 
     private static bool IsSlackWebhookUrl(string? url) =>

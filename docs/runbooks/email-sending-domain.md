@@ -15,7 +15,7 @@ in spam or is rejected — and password-reset email is a security feature, so th
 | `Email:Smtp:Username` / `Password` | provider SMTP credentials | rotate on staff changes |
 | `Email:From` / `Email:FromName` | `no-reply@mail.malabak.app` / `Malabak \| ملعبك` | use a dedicated sending subdomain |
 | `Email:WebhookSecret` | 32+ random bytes | HMAC key for the bounce webhook; webhook is disabled when empty |
-| `App:VenueDashboardUrl` | `https://venue.malabak.app` | base for links in emails |
+| `App:VenueDashboardUrl` | `https://venue.malabak.app` (local default: `http://localhost:3000/venue`, the app is served under the `/venue` base path) | base for links in emails |
 
 ## 2. DNS records for the sending subdomain (`mail.malabak.app`)
 

@@ -11,6 +11,8 @@ const securityHeaders = [
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   basePath: "/admin",
+  // next/image does not prefix static (svg) sources with basePath; components read this to do it.
+  env: { NEXT_PUBLIC_BASE_PATH: "/admin" },
   reactStrictMode: true,
   // The dev-mode indicator floats over bottom-left buttons; E2E runs (E2E=1) hide it so clicks reach the page.
   ...(process.env.E2E === "1" ? { devIndicators: false } : {}),
