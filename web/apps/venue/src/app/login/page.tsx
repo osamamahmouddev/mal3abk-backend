@@ -88,7 +88,7 @@ function LoginView() {
         </svg>
         <div className="flex items-center gap-2.5">
           <Image
-            src="/images/logo-horizontal-darkbg.svg"
+            src={`${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/images/logo-horizontal-darkbg.svg`}
             alt="ملعبك"
             width={140}
             height={50}
