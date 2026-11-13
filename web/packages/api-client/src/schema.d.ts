@@ -2911,7 +2911,7 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        /** Upload JPEG/PNG/WebP bytes (max 8 MB); stored only as re-encoded WebP variants */
+        /** Upload JPEG/PNG/WebP bytes (max 8 MB), or a PDF for payment proofs; images are stored only as re-encoded WebP variants, PDFs as validated bytes */
         put: operations["UploadMedia"];
         post?: never;
         delete?: never;
