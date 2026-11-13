@@ -122,7 +122,7 @@ public sealed class IdentityHttpPipelineIntegrationTests : IClassFixture<Booking
         body.Should().Contain("Identity.SessionNotFound");
     }
 
-    [Fact(Skip = "BUG-015: Concurrent refresh token requests trigger unhandled DbUpdateConcurrencyException (500)")]
+    [Fact]
     public async Task RefreshToken_ConcurrentRefreshesWithSameToken_ExactlyOneSucceedsAsync()
     {
         var client = _factory.CreateClient();
@@ -263,5 +263,40 @@ public sealed class IdentityHttpPipelineIntegrationTests : IClassFixture<Booking
 
         // Must be rejected with 401 Unauthorized or 403 Forbidden due to AdminScheme & Permissions.AdminImpersonate
         response.StatusCode.Should().BeOneOf(HttpStatusCode.Unauthorized, HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
+    public async Task PhoneChangeStart_IsLimitedToThreePerUserPerDay_Returns429WithRetryAfterAsync()
+    {
+        var (_, client) = await _factory.CreatePlayerAsync();
+        var (_, otherClient) = await _factory.CreatePlayerAsync();
+        var body = new { newPhoneNumber = "+201099998888", stepUpToken = "not-a-valid-step-up-token" };
+
+        // SECURITY.md §7.5: 3/day per user. The limit counts attempts, whatever the handler answers (here 401).
+        for (var i = 0; i < 3; i++)
+        {
+            var allowed = await client.PostAsJsonAsync("/api/v1/me/phone-change/start", body);
+            allowed.StatusCode.Should().Be(HttpStatusCode.Unauthorized, $"request {i + 1} is within the limit");
+        }
+
+        var limited = await client.PostAsJsonAsync("/api/v1/me/phone-change/start", body);
+        limited.StatusCode.Should().Be(HttpStatusCode.TooManyRequests);
+        limited.Headers.Contains("Retry-After").Should().BeTrue();
+
+        // The limit is per user, not global.
+        var otherUser = await otherClient.PostAsJsonAsync("/api/v1/me/phone-change/start", body);
+        otherUser.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task PhoneChangeCancel_UnknownRequest_Returns404AndNeedsAuthenticationAsync()
+    {
+        var (_, client) = await _factory.CreatePlayerAsync();
+
+        var unknown = await client.PostAsJsonAsync("/api/v1/me/phone-change/cancel", new { requestId = Guid.NewGuid() });
+        unknown.StatusCode.Should().Be(HttpStatusCode.NotFound);
+
+        var anonymous = await _factory.CreateClient().PostAsJsonAsync("/api/v1/me/phone-change/cancel", new { requestId = Guid.NewGuid() });
+        anonymous.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
 }

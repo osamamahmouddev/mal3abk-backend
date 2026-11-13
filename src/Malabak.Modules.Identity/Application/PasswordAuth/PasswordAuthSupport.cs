@@ -6,6 +6,7 @@ using Malabak.Modules.Identity.Domain;
 using Malabak.Modules.Identity.Infrastructure;
 using Malabak.SharedKernel;
 using Malabak.SharedKernel.Security;
+using Microsoft.EntityFrameworkCore;
 
 namespace Malabak.Modules.Identity.Application.PasswordAuth;
 
@@ -45,6 +46,37 @@ internal static class PasswordAuthSupport
         UserRole.VenueOwner,
         UserRole.VenueStaff
     };
+
+    /// <summary>
+    /// Verifies a TOTP code and atomically claims its time step so it can't be replayed. The claim is saved
+    /// immediately; if a concurrent request with the same code claimed it first (optimistic concurrency on the
+    /// user row) this one is rejected too.
+    /// </summary>
+    public static async Task<bool> TryClaimTotpAsync(
+        IdentityDbContext dbContext,
+        ITotpService totp,
+        User user,
+        string secret,
+        string code,
+        DateTime nowUtc,
+        CancellationToken cancellationToken)
+    {
+        if (!totp.TryVerifyCode(secret, code, nowUtc, user.TotpLastUsedStep, out var step))
+        {
+            return false;
+        }
+
+        user.RecordTotpStep(step, nowUtc);
+        try
+        {
+            await dbContext.SaveChangesAsync(cancellationToken);
+            return true;
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            return false;
+        }
+    }
 
     public static bool TryNormalizeEmail(string? email, out string normalized)
     {

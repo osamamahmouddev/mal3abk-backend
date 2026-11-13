@@ -10,6 +10,7 @@ using Malabak.Modules.Identity.Application.Common;
 using Malabak.Modules.Identity.Application.PasswordAuth;
 using Malabak.Modules.Identity.Application.Sessions;
 using Malabak.Modules.Identity.Application.StepUp;
+using Malabak.Modules.Identity.Application.PhoneChange.CancelPhoneChange;
 using Malabak.Modules.Identity.Application.PhoneChange.RecoverPhone;
 using Malabak.Modules.Identity.Application.PhoneChange.StartPhoneChange;
 using Malabak.Modules.Identity.Application.PhoneChange.VerifyNewPhone;
@@ -126,6 +127,7 @@ public static class IdentityModule
         services.AddScoped<ICommandHandler<StartPhoneChangeCommand, Result<StartPhoneChangeResponse>>, StartPhoneChangeHandler>();
         services.AddScoped<ICommandHandler<VerifyOldPhoneCommand, Result>, VerifyOldPhoneHandler>();
         services.AddScoped<ICommandHandler<VerifyNewPhoneCommand, Result<VerifyNewPhoneResponse>>, VerifyNewPhoneHandler>();
+        services.AddScoped<ICommandHandler<CancelPhoneChangeCommand, Result>, CancelPhoneChangeHandler>();
         services.AddScoped<ICommandHandler<RecoverPhoneCommand, Result>, RecoverPhoneHandler>();
 
         return services;

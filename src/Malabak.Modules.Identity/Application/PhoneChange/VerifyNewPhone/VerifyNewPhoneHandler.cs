@@ -49,6 +49,11 @@ public sealed class VerifyNewPhoneHandler : ICommandHandler<VerifyNewPhoneComman
                 "Phone change request not found."));
         }
 
+        if (request.Status == PhoneChangeStatus.Failed)
+        {
+            return Result.Failure<VerifyNewPhoneResponse>(PhoneChangeErrors.MaxAttemptsExceeded);
+        }
+
         if (request.Status != PhoneChangeStatus.OldVerified)
         {
             return Result.Failure<VerifyNewPhoneResponse>(new Error(
@@ -76,6 +81,15 @@ public sealed class VerifyNewPhoneHandler : ICommandHandler<VerifyNewPhoneComman
         var isNewCodeValid = _otpSecurityService.VerifyCode(command.Code, request.NewPhoneOtpHash);
         if (!isNewCodeValid)
         {
+            var locked = request.RegisterFailedNewAttempt(nowUtc);
+            await _dbContext.SaveChangesAsync(cancellationToken);
+
+            if (locked)
+            {
+                _logger.LogWarning("Phone change request {RequestId} locked after too many wrong new-phone codes.", request.Id);
+                return Result.Failure<VerifyNewPhoneResponse>(PhoneChangeErrors.MaxAttemptsExceeded);
+            }
+
             return Result.Failure<VerifyNewPhoneResponse>(new Error(
                 "Identity.InvalidOtpCode",
                 "Invalid verification code."));
@@ -106,9 +120,7 @@ public sealed class VerifyNewPhoneHandler : ICommandHandler<VerifyNewPhoneComman
 
             if (isTaken)
             {
-                return Result.Failure<VerifyNewPhoneResponse>(new Error(
-                    "Identity.PhoneNumberAlreadyInUse",
-                    "The new phone number was registered by another user. Phone change cancelled."));
+                return Result.Failure<VerifyNewPhoneResponse>(PhoneChangeErrors.UnableToUsePhoneNumber);
             }
 
             // 1. Update user phone number, confirmed status, last change time, and security stamp
@@ -127,8 +139,18 @@ public sealed class VerifyNewPhoneHandler : ICommandHandler<VerifyNewPhoneComman
             // 3. Complete phone change request
             request.Complete(recoveryTokenHash, nowUtc);
 
-            await _dbContext.SaveChangesAsync(cancellationToken);
-            await transaction.CommitAsync(cancellationToken);
+            try
+            {
+                await _dbContext.SaveChangesAsync(cancellationToken);
+                await transaction.CommitAsync(cancellationToken);
+            }
+            catch (DbUpdateException ex)
+            {
+                // The unique index on users.phone_number is the last guard against two accounts taking the same
+                // number at once: the loser gets the same generic answer, not a 500 (SECURITY.md §5.5 step 3).
+                _logger.LogWarning(ex, "Phone change request {RequestId} lost a race for its target number.", request.Id);
+                return Result.Failure<VerifyNewPhoneResponse>(PhoneChangeErrors.UnableToUsePhoneNumber);
+            }
         }
 
         // 4. Alert the OLD phone with a 24-hour recovery link. The link carries a live token and the

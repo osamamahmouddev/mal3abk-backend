@@ -168,7 +168,7 @@ public sealed class CrossTenantIdorSecurityTests : IClassFixture<BookingApiFacto
             "Player cannot access admin invoices endpoint");
     }
 
-    [Fact(Skip = "BUG-001: Missing required query parameter in Minimal API returns 500 Internal Server Error instead of 400 Bad Request")]
+    [Fact]
     public async Task GetVenueReports_MissingRequiredParameters_ShouldReturn400BadRequestAsync()
     {
         var (_, venueIdA, _, clientA) = await _factory.CreateVenueOwnerAsync();

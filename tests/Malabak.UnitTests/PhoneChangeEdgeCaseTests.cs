@@ -99,7 +99,7 @@ public sealed class PhoneChangeEdgeCaseTests
         result.Error.Code.Should().Be("Identity.SamePhoneNumber");
     }
 
-    [Fact(Skip = "BUG-004: StartPhoneChange returns PhoneNumberAlreadyInUse revealing account existence instead of generic error")]
+    [Fact]
     public async Task StartPhoneChange_WithNumberUsedByAnotherAccount_MustReturnGenericErrorAsync()
     {
         await using var db = CreateDbContext();
@@ -118,7 +118,7 @@ public sealed class PhoneChangeEdgeCaseTests
         result.Error.Code.Should().Be("Identity.UnableToUsePhoneNumber");
     }
 
-    [Fact(Skip = "BUG-005: Concurrent phone changes to the same number trigger unhandled DbUpdateException (500)")]
+    [Fact]
     public async Task CompletePhoneChange_ConcurrentRequestsForSameNumber_MustNotThrow500Async()
     {
         await using var db = CreateDbContext();
@@ -206,7 +206,7 @@ public sealed class PhoneChangeEdgeCaseTests
         inDb.Status.Should().Be(PhoneChangeStatus.Expired);
     }
 
-    [Fact(Skip = "BUG-006: PhoneChangeRequest does not track or limit failed attempts, permitting brute-force within 15 minutes")]
+    [Fact]
     public async Task VerifyOldPhone_After5FailedAttempts_LocksRequestAsFailedAsync()
     {
         await using var db = CreateDbContext();

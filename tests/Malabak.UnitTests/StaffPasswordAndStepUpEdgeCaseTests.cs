@@ -217,7 +217,7 @@ public sealed class StaffPasswordAndStepUpEdgeCaseTests
         _totp.VerifyCode(secret, "000000", now).Should().BeFalse();
     }
 
-    [Fact(Skip = "BUG-003: TOTP codes lack replay protection within the same 30-second time step")]
+    [Fact]
     public async Task Totp_ReplayInsideSameTimeStep_MustBeRejectedAsync()
     {
         await using var db = CreateDbContext();

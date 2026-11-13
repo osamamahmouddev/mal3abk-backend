@@ -1,3 +1,6 @@
+using System.Security.Claims;
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
 using Malabak.Api.Infrastructure.Configuration;
 using Malabak.SharedKernel;
@@ -61,8 +64,8 @@ public sealed class IdempotentEndpointFilter : IEndpointFilter
             return await next(context);
         }
 
-        var key = keyValues.ToString().Trim();
-        if (key.Length > 256)
+        var clientKey = keyValues.ToString().Trim();
+        if (clientKey.Length > 256)
         {
             return Results.Problem(
                 statusCode: StatusCodes.Status400BadRequest,
@@ -70,6 +73,10 @@ public sealed class IdempotentEndpointFilter : IEndpointFilter
                 detail: "Idempotency-Key header value exceeds the 256 character limit.",
                 extensions: new Dictionary<string, object?> { ["code"] = "invalid_idempotency_key" });
         }
+
+        // The stored key (and the lock) is scoped to the caller: another user sending the same Idempotency-Key must
+        // never see this user's stored response or trip a body-mismatch error (IDOR / cross-user replay).
+        var key = ScopeKey(httpContext, clientKey);
 
         var requestHash = await _hasher.ComputeHashAsync(httpContext.Request, httpContext.RequestAborted);
 
@@ -195,5 +202,22 @@ public sealed class IdempotentEndpointFilter : IEndpointFilter
 
             return result;
         }
+    }
+
+    /// <summary>
+    /// Authenticated callers are scoped by user id; anonymous callers by client IP and endpoint. The scoped value is
+    /// hashed, so it has a fixed length and the raw client key never reaches the store or the logs.
+    /// </summary>
+    private static string ScopeKey(HttpContext httpContext, string clientKey)
+    {
+        var userId = httpContext.User.FindFirst(ClaimTypes.NameIdentifier)?.Value
+            ?? httpContext.User.FindFirst("sub")?.Value;
+
+        var scope = !string.IsNullOrEmpty(userId)
+            ? $"user:{userId}"
+            : $"ip:{httpContext.Connection.RemoteIpAddress}|{httpContext.Request.Method.ToUpperInvariant()}|{httpContext.Request.Path.Value?.ToLowerInvariant()}";
+
+        var hash = SHA256.HashData(Encoding.UTF8.GetBytes($"{scope}\n{clientKey}"));
+        return Convert.ToHexString(hash).ToLowerInvariant();
     }
 }

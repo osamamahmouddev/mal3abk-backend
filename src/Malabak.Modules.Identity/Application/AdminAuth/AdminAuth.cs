@@ -300,7 +300,7 @@ public sealed class AdminAuthHandlers :
         if (!string.IsNullOrWhiteSpace(totpCode) && user.TotpSecretCiphertext is not null)
         {
             var secret = await _cipher.DecryptAsync(user.TotpSecretCiphertext, PasswordAuthSupport.TotpContext(user.Id), cancellationToken);
-            return _totp.VerifyCode(secret, totpCode.Trim(), nowUtc);
+            return await PasswordAuthSupport.TryClaimTotpAsync(_dbContext, _totp, user, secret, totpCode.Trim(), nowUtc, cancellationToken);
         }
 
         if (!string.IsNullOrWhiteSpace(recoveryCode))

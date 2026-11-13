@@ -26,6 +26,11 @@ public sealed class GlobalExceptionHandler : IExceptionHandler
 
         var traceId = Activity.Current?.Id ?? httpContext.TraceIdentifier;
 
+        if (exception is BadHttpRequestException badRequest)
+        {
+            return await WriteClientErrorAsync(httpContext, badRequest, traceId, cancellationToken);
+        }
+
         _logger.LogError(
             exception,
             "Unhandled exception occurred while processing request {Method} {Path}. TraceId: {TraceId}",
@@ -55,6 +60,47 @@ public sealed class GlobalExceptionHandler : IExceptionHandler
         }
 
         httpContext.Response.StatusCode = StatusCodes.Status500InternalServerError;
+
+        await httpContext.Response.WriteAsJsonAsync(
+            problemDetails,
+            options: (JsonSerializerOptions?)null,
+            contentType: "application/problem+json",
+            cancellationToken: cancellationToken);
+
+        return true;
+    }
+
+    // Minimal API binding failures (missing/invalid parameters, unreadable body) are the client's fault: 4xx, not 500.
+    private async ValueTask<bool> WriteClientErrorAsync(
+        HttpContext httpContext,
+        BadHttpRequestException exception,
+        string traceId,
+        CancellationToken cancellationToken)
+    {
+        _logger.LogWarning(
+            "Bad request {Method} {Path}: {Reason}. TraceId: {TraceId}",
+            httpContext.Request.Method,
+            httpContext.Request.Path,
+            exception.Message,
+            traceId);
+
+        var statusCode = exception.StatusCode is >= 400 and < 500
+            ? exception.StatusCode
+            : StatusCodes.Status400BadRequest;
+
+        var problemDetails = new ProblemDetails
+        {
+            Status = statusCode,
+            Type = "https://tools.ietf.org/html/rfc9110#section-15.5.1",
+            Title = "Bad Request",
+            Detail = exception.Message,
+            Instance = httpContext.Request.Path
+        };
+
+        problemDetails.Extensions["traceId"] = traceId;
+        problemDetails.Extensions["invalidParams"] = new[] { new { reason = exception.Message } };
+
+        httpContext.Response.StatusCode = statusCode;
 
         await httpContext.Response.WriteAsJsonAsync(
             problemDetails,

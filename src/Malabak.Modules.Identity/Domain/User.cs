@@ -42,6 +42,9 @@ public sealed class User : Entity<Guid>
     /// <summary>TOTP shared secret, encrypted with the field cipher (AAD bound to this user).</summary>
     public byte[]? TotpSecretCiphertext { get; private set; }
 
+    /// <summary>Highest TOTP time step already accepted for a sign-in/step-up; a code from that step or older is a replay.</summary>
+    public long? TotpLastUsedStep { get; private set; }
+
     /// <summary>Failed password attempts before the login also requires a CAPTCHA (Turnstile).</summary>
     public const int CaptchaAfterFailures = 3;
 
@@ -263,7 +266,14 @@ public sealed class User : Entity<Guid>
     {
         ArgumentNullException.ThrowIfNull(ciphertext);
         TotpSecretCiphertext = ciphertext;
+        TotpLastUsedStep = null;
         TwoFactorEnabled = false;
+        UpdatedAtUtc = nowUtc;
+    }
+
+    public void RecordTotpStep(long step, DateTime nowUtc)
+    {
+        TotpLastUsedStep = step;
         UpdatedAtUtc = nowUtc;
     }
 

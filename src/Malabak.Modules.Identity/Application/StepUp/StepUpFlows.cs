@@ -138,10 +138,14 @@ public sealed class StepUpHandlers :
             StepUpMethod.Password when user.PasswordHash is not null =>
                 (bool?)(_hasher.Verify(user.PasswordHash, command.Secret ?? string.Empty) != PasswordVerification.Failed),
             StepUpMethod.Totp when user.TwoFactorEnabled && user.TotpSecretCiphertext is not null =>
-                _totp.VerifyCode(
+                await PasswordAuthSupport.TryClaimTotpAsync(
+                    _dbContext,
+                    _totp,
+                    user,
                     await _cipher.DecryptAsync(user.TotpSecretCiphertext, PasswordAuthSupport.TotpContext(user.Id), cancellationToken),
                     command.Secret?.Trim() ?? string.Empty,
-                    nowUtc),
+                    nowUtc,
+                    cancellationToken),
             StepUpMethod.Otp =>
                 (await _otpStore.VerifyAndConsumeOtpAsync(OtpKey(user.Id), command.Secret ?? string.Empty, _otpSecurity, cancellationToken)).IsSuccess,
             _ => null
