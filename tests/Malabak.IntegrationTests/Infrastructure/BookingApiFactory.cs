@@ -96,6 +96,72 @@ public sealed class BookingApiFactory : MalabakWebApplicationFactory
         return client;
     }
 
+    /// <summary>A real platform administrator signed in with an admin-audience token and active session.</summary>
+    public async Task<(Guid AdminId, HttpClient Client)> CreateAdminAsync(Guid? adminId = null)
+    {
+        var id = adminId ?? Guid.NewGuid();
+        var unique = Guid.NewGuid().ToString("N");
+        var admin = User.CreateStaff(id, $"admin-{unique}@example.test", $"+2010{Random.Shared.Next(10_000_000, 99_999_999)}", "x", "Platform Admin", UserRole.Admin, DateTime.UtcNow);
+
+        Guid sessionId;
+        using (var scope = Services.CreateScope())
+        {
+            var identity = scope.ServiceProvider.GetRequiredService<IdentityDbContext>();
+            identity.Users.Add(admin);
+            await identity.SaveChangesAsync();
+            sessionId = await scope.ServiceProvider.GetRequiredService<SessionService>().StartAsync(admin, isAdminSession: true);
+        }
+
+        var token = Services.GetRequiredService<ITokenService>().GenerateAdminTokens(admin, DateTime.UtcNow.AddHours(2), sessionId).AccessToken;
+        var client = CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        return (id, client);
+    }
+
+    /// <summary>A real support agent signed in with an admin-audience token and active session.</summary>
+    public async Task<(Guid AgentId, HttpClient Client)> CreateSupportAgentAsync(Guid? agentId = null)
+    {
+        var id = agentId ?? Guid.NewGuid();
+        var unique = Guid.NewGuid().ToString("N");
+        var agent = User.CreateStaff(id, $"support-{unique}@example.test", $"+2010{Random.Shared.Next(10_000_000, 99_999_999)}", "x", "Support Agent", UserRole.SupportAgent, DateTime.UtcNow);
+
+        Guid sessionId;
+        using (var scope = Services.CreateScope())
+        {
+            var identity = scope.ServiceProvider.GetRequiredService<IdentityDbContext>();
+            identity.Users.Add(agent);
+            await identity.SaveChangesAsync();
+            sessionId = await scope.ServiceProvider.GetRequiredService<SessionService>().StartAsync(agent, isAdminSession: true);
+        }
+
+        var token = Services.GetRequiredService<ITokenService>().GenerateAdminTokens(agent, DateTime.UtcNow.AddHours(2), sessionId).AccessToken;
+        var client = CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        return (id, client);
+    }
+
+    /// <summary>A real finance staff member signed in with an admin-audience token and active session.</summary>
+    public async Task<(Guid FinanceId, HttpClient Client)> CreateFinanceAsync(Guid? financeId = null)
+    {
+        var id = financeId ?? Guid.NewGuid();
+        var unique = Guid.NewGuid().ToString("N");
+        var finance = User.CreateStaff(id, $"finance-{unique}@example.test", $"+2010{Random.Shared.Next(10_000_000, 99_999_999)}", "x", "Finance Staff", UserRole.Finance, DateTime.UtcNow);
+
+        Guid sessionId;
+        using (var scope = Services.CreateScope())
+        {
+            var identity = scope.ServiceProvider.GetRequiredService<IdentityDbContext>();
+            identity.Users.Add(finance);
+            await identity.SaveChangesAsync();
+            sessionId = await scope.ServiceProvider.GetRequiredService<SessionService>().StartAsync(finance, isAdminSession: true);
+        }
+
+        var token = Services.GetRequiredService<ITokenService>().GenerateAdminTokens(finance, DateTime.UtcNow.AddHours(2), sessionId).AccessToken;
+        var client = CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        return (id, client);
+    }
+
     /// <summary>Saves a booking straight into the Booking database, in the state the test needs.</summary>
     public async Task SaveBookingAsync(Booking booking)
     {

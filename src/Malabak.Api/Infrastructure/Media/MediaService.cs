@@ -10,7 +10,11 @@ public sealed record UploadTicket(Guid MediaId, string UploadUrl, DateTime Expir
 
 public sealed record MediaUploadResult(bool Success, string? Error, Guid MediaId, IReadOnlyDictionary<string, string> Urls);
 
-public sealed record MediaContent(byte[] Bytes, bool IsPublic);
+public sealed record MediaContent(byte[] Bytes, bool IsPublic, string ContentType = ImageProcessor.WebPContentType)
+{
+    /// <summary>Documents are never shown inline: they are offered as a download.</summary>
+    public bool IsDocument => ContentType == ImageProcessor.PdfContentType;
+}
 
 /// <summary>
 /// Upload flow: (1) POST creates a 5-minute, single-use upload URL bound to the user and purpose; (2) the client PUTs
@@ -79,7 +83,7 @@ public sealed class MediaService
             return Fail(mediaId, "invalid_or_expired_upload");
         }
 
-        var processed = ImageProcessor.Process(content);
+        var processed = ImageProcessor.Process(content, allowPdf: asset.Purpose == MediaPurpose.PaymentProof);
         if (!processed.Success || !await _scanner.IsCleanAsync(content, cancellationToken))
         {
             asset.Reject(processed.Error ?? "malware_detected", nowUtc);
@@ -90,11 +94,11 @@ public sealed class MediaService
 
         foreach (var variant in processed.Variants)
         {
-            await _storage.PutAsync(StorageKey(asset, variant.Name), variant.Bytes, "image/webp", cancellationToken);
+            await _storage.PutAsync(KeyFor(asset, variant.Name, variant.ContentType), variant.Bytes, variant.ContentType, cancellationToken);
         }
 
         var large = processed.Variants[0];
-        asset.MarkReady(large.Width, large.Height, processed.Variants.Sum(v => (long)v.Bytes.Length), Convert.ToHexString(SHA256.HashData(large.Bytes)), nowUtc);
+        asset.MarkReady(large.Width, large.Height, processed.Variants.Sum(v => (long)v.Bytes.Length), Convert.ToHexString(SHA256.HashData(large.Bytes)), nowUtc, large.ContentType);
         await _dbContext.SaveChangesAsync(cancellationToken);
 
         return new MediaUploadResult(true, null, asset.Id, UrlsFor(asset));
@@ -108,25 +112,24 @@ public sealed class MediaService
     /// <summary>Public assets for anyone; private ones only with a valid, unexpired signature.</summary>
     public async Task<MediaContent?> GetVariantAsync(Guid mediaId, string variant, string? expires, string? signature, CancellationToken cancellationToken = default)
     {
-        if (!ImageProcessor.Variants.Any(v => v.Name == variant))
-        {
-            return null;
-        }
-
         var asset = await _dbContext.Assets.AsNoTracking().FirstOrDefaultAsync(a => a.Id == mediaId && a.Status == MediaStatus.Ready, cancellationToken);
-        if (asset is null || (asset.Visibility == MediaVisibility.Private && !IsValidSignature(mediaId, variant, expires, signature)))
+        if (asset is null || !VariantNames(asset).Contains(variant) || (asset.Visibility == MediaVisibility.Private && !IsValidSignature(mediaId, variant, expires, signature)))
         {
             return null;
         }
 
         var bytes = await _storage.GetAsync(StorageKey(asset, variant), cancellationToken);
-        return bytes is null ? null : new MediaContent(bytes, asset.Visibility == MediaVisibility.Public);
+        return bytes is null ? null : new MediaContent(bytes, asset.Visibility == MediaVisibility.Public, asset.ContentType);
     }
 
     public IReadOnlyDictionary<string, string> UrlsFor(MediaAsset asset) =>
-        ImageProcessor.Variants.ToDictionary(v => v.Name, v => asset.Visibility == MediaVisibility.Public
-            ? $"{BasePath}/{asset.Id:D}/{v.Name}"
-            : SignedUrl(asset.Id, v.Name));
+        VariantNames(asset).ToDictionary(name => name, name => asset.Visibility == MediaVisibility.Public
+            ? $"{BasePath}/{asset.Id:D}/{name}"
+            : SignedUrl(asset.Id, name));
+
+    /// <summary>An image has its three resized variants; a PDF only has the stored original under "large".</summary>
+    private static IReadOnlyList<string> VariantNames(MediaAsset asset) =>
+        asset.IsPdf ? ["large"] : ImageProcessor.Variants.Select(v => v.Name).ToList();
 
     public static string PublicUrl(Guid mediaId, string variant = "large") => $"{BasePath}/{mediaId:D}/{variant}";
 
@@ -153,7 +156,7 @@ public sealed class MediaService
     /// <summary>Deletes every stored variant and the asset record (account erasure, ADR-0007).</summary>
     public async Task DeleteAsync(MediaAsset asset, CancellationToken cancellationToken = default)
     {
-        foreach (var (name, _) in ImageProcessor.Variants)
+        foreach (var name in VariantNames(asset))
         {
             await _storage.DeleteAsync(StorageKey(asset, name), cancellationToken);
         }
@@ -162,8 +165,11 @@ public sealed class MediaService
         await _dbContext.SaveChangesAsync(cancellationToken);
     }
 
-    internal static string StorageKey(MediaAsset asset, string variant) =>
-        $"{asset.Visibility.ToString().ToLowerInvariant()}/{asset.Id:N}/{variant}.webp";
+    /// <summary>The name is built from server-side values only (visibility, asset id, variant, format); the client's file name is never used.</summary>
+    internal static string StorageKey(MediaAsset asset, string variant) => KeyFor(asset, variant, asset.ContentType);
+
+    private static string KeyFor(MediaAsset asset, string variant, string contentType) =>
+        $"{asset.Visibility.ToString().ToLowerInvariant()}/{asset.Id:N}/{variant}.{(contentType == ImageProcessor.PdfContentType ? "pdf" : "webp")}";
 
     private static string Hash(string raw) => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(raw)));
 

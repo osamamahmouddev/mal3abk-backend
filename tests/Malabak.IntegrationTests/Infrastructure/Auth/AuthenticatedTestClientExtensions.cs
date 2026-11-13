@@ -68,6 +68,14 @@ public static class AuthenticatedTestClientExtensions
         return client.WithRole(services, UserRole.SupportAgent, userId);
     }
 
+    public static HttpClient AsFinance(
+        this HttpClient client,
+        IServiceProvider services,
+        Guid? userId = null)
+    {
+        return client.WithRole(services, UserRole.Finance, userId);
+    }
+
     public static HttpClient WithRole(
         this HttpClient client,
         IServiceProvider services,

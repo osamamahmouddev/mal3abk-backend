@@ -59,6 +59,12 @@ public sealed class CancelBookingHandler : ICommandHandler<CancelBookingCommand,
         // Policy deadline check if booking is confirmed
         if (booking.Status == BookingStatus.Confirmed)
         {
+            // Once the match has started nothing can be cancelled, whatever the policy window says.
+            if (nowUtc >= booking.StartUtc)
+            {
+                return Result.Failure(BookingErrors.CannotCancelPastBooking);
+            }
+
             var leadHours = booking.PolicySnapshot?.CancellationDeadlineHours ?? 24;
             var deadlineUtc = booking.StartUtc.AddHours(-leadHours);
 

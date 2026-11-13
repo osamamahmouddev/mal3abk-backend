@@ -52,7 +52,7 @@ public static class MediaEndpoints
         .RequireRateLimiting(UploadRateLimitPolicy)
         .DisableAntiforgery()
         .WithMetadata(new RequestSizeLimitAttribute(ImageProcessor.MaxBytes + 1024))
-        .WithName("UploadMedia").WithSummary("Upload JPEG/PNG/WebP bytes (max 8 MB); stored only as re-encoded WebP variants");
+        .WithName("UploadMedia").WithSummary("Upload JPEG/PNG/WebP bytes (max 8 MB), or a PDF for payment proofs; images are stored only as re-encoded WebP variants, PDFs as validated bytes");
 
         media.MapGet("/{id:guid}/{variant}", async (Guid id, string variant, [FromQuery] string? exp, [FromQuery] string? sig,
             HttpContext http, MediaService service, CancellationToken ct) =>
@@ -66,7 +66,14 @@ public static class MediaEndpoints
             // Variants are immutable (new upload = new id), so public ones can be cached by the CDN forever.
             http.Response.Headers.CacheControl = content.IsPublic ? "public, max-age=31536000, immutable" : "private, no-store";
             http.Response.Headers.XContentTypeOptions = "nosniff";
-            return Results.File(content.Bytes, "image/webp");
+            if (content.IsDocument)
+            {
+                // Never rendered in the browser: a download only, with a CSP that blocks anything the file could run.
+                http.Response.Headers.ContentSecurityPolicy = "default-src 'none'; sandbox";
+                return Results.File(content.Bytes, content.ContentType, fileDownloadName: $"payment-proof-{id:N}.pdf");
+            }
+
+            return Results.File(content.Bytes, content.ContentType);
         })
         .AllowAnonymous()
         .WithName("GetMedia").WithSummary("Public variants are CDN-cacheable; private ones need a signed URL");
