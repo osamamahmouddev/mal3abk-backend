@@ -9,6 +9,7 @@
 | DOC-03 | Error Code Catalog completeness | `docs/api/error-codes.md` & `error-codes.json`: lists only 21 codes in SCREAMING_SNAKE_CASE | Backend emits 175+ domain error codes using dotted PascalCase (`Booking.NotFound`, `Team.NotFound`, etc.) not documented in the catalog. |
 | DOC-04 | Cancellation Refund Windows | ADR-0008 §2 specifies tiered cancellation ladder (>12h: 100%, 6-12h: 50%, <6h: 0%) | Backend implements flat policy-based model (`CancellationDeadlineHours`, default 24h, and flat `RefundPercentage`) where cancellations past the deadline are completely rejected with `Booking.CancellationDeadlinePassed`. |
 | DOC-05 | Waitlist Domain Scope | Test plan references slot availability waitlist (`/waitlist` frees up and notifies) | Backend `/api/v1/waitlist` is exclusively the pre-launch landing page lead capture (`WaitlistService` in `IdentityDbContext`), not a pitch slot inventory waitlist. |
+| DOC-06 | Invoice Voidability on Paid Invoices | Test plan states "voiding twice is rejected; a paid invoice cannot be voided;" | `InvoiceStatus` enum defines only `Paid = 0` and `Void = 1`. Invoices are only issued upon manual payment recording (`Invoice.Issue`). `Invoice.Void` specifically allows voiding paid invoices to correct mistakes, while voiding an already voided invoice is rejected (`SubscriptionErrors.InvalidTransition`). |
 
 ---
 
@@ -124,4 +125,44 @@
 - **Repro**: Send a `DeletePitchCommand` for a pitch that currently has future confirmed player reservations.
 - **Expected**: Deletion is rejected (e.g. `Pitch.HasActiveBookings`) or blocked until existing bookings are cancelled or reassigned.
 - **Actual**: `DeletePitchHandler` has no dependency on `IBookingConflictChecker` or `IUpcomingBookingsReader` and immediately marks the pitch deleted (`pitch.MarkDeleted(_clock.UtcNow); venue.RemovePitch(pitch.Id)`), leaving orphaned bookings on a deleted pitch.
+
+---
+
+## Phase 4 (P4) — Teams, Matches and Rankings Findings
+
+### BUG-011 — Match.SubmitResult allows submitting match results after the 6-hour post-match deadline
+- **Severity**: Medium
+- **Area**: `Malabak.Modules.Matches` / Result Submission & ADR-0008 §3
+- **Rule**: ADR-0008 §3 ("Following a completed match challenge, both team captains must submit the final match score within 6 hours... submitting after 6 hours is rejected or moves the match to Expired.")
+- **Test**: `tests/Malabak.UnitTests/MatchResultAndDisputeEdgeCaseTests.cs :: SubmitResult_MoreThan6HoursAfterMatchEnd_ShouldBeRejected`
+- **Repro**: Invoke `Match.SubmitResult` with a `nowUtc` timestamp greater than `ScheduledEndUtc + 6 hours`.
+- **Expected**: Submission is rejected (e.g. `Match.SubmissionDeadlinePassed`) or transitions the match status to `Expired`.
+- **Actual**: `Match.SubmitResult` only checks that the match is not Cancelled/Completed and has no deadline or expiry check relative to `ScheduledEndUtc`, permitting captains to submit scores days or weeks after match conclusion.
+
+### BUG-012 — GetTeamLeaderboardHandler includes suspended teams on the public leaderboard
+- **Severity**: High
+- **Area**: `Malabak.Modules.Teams` / Leaderboard Moderation
+- **Rule**: Test Plan §P4 ("Leaderboard & moderation: suspended teams do not appear on the leaderboard.")
+- **Test**: `tests/Malabak.UnitTests/Glicko2AndRankingEngineEdgeCaseTests.cs :: GetTeamLeaderboard_WhenTeamIsSuspended_ShouldExcludeFromLeaderboardAsync`
+- **Repro**: Call `GET /teams/leaderboard` when a public team has been suspended (`team.Suspend(...)`).
+- **Expected**: Suspended teams are filtered out of public ranking calculations and leaderboard displays.
+- **Actual**: `GetTeamLeaderboardHandler` executes `_dbContext.Teams.Where(t => t.IsPublic && !t.IsDeleted)` without checking `!t.IsSuspended` or `t.SuspendedAtUtc == null`, displaying suspended teams among top rankings.
+
+### BUG-013 — CreateTeamHandler does not enforce MaxTeamsPerPlayer (5 teams) limit on captain
+- **Severity**: Medium
+- **Area**: `Malabak.Modules.Teams` / Team Creation
+- **Rule**: Test Plan §P4 & Domain Invariant `Team.MaxTeamsPerPlayer = 5`.
+- **Test**: `tests/Malabak.UnitTests/TeamLifecycleAndMembershipEdgeCaseTests.cs :: CreateTeamHandler_WhenCaptainAlreadyHas5ActiveTeams_ShouldBeRejectedAsync`
+- **Repro**: A player who already is captain or active member of 5 teams submits `CreateTeamCommand`.
+- **Expected**: Handler checks the player's active team memberships count and returns `TeamErrors.MaxPlayerTeamsExceeded`.
+- **Actual**: `CreateTeamHandler` only checks slug and invite code collisions, allowing a single player to create an unlimited number of teams.
+
+### BUG-014 — AcceptTeamInvitationHandler does not enforce MaxTeamsPerPlayer (5 teams) limit
+- **Severity**: Medium
+- **Area**: `Malabak.Modules.Teams` / Invitation Acceptance
+- **Rule**: Test Plan §P4 & Domain Invariant `Team.MaxTeamsPerPlayer = 5`.
+- **Test**: `tests/Malabak.UnitTests/TeamLifecycleAndMembershipEdgeCaseTests.cs :: AcceptTeamInvitationHandler_WhenPlayerAlreadyIn5Teams_ShouldBeRejectedAsync`
+- **Repro**: A player already participating in 5 active teams accepts an invitation via invite code.
+- **Expected**: `AcceptTeamInvitationHandler` checks player active team count and returns `TeamErrors.MaxPlayerTeamsExceeded`.
+- **Actual**: `JoinWithInviteCode` and `AcceptTeamInvitationHandler` only verify invite code validity and squad capacity (25), failing to verify player team limit.
 
