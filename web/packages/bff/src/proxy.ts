@@ -1,7 +1,7 @@
 import "server-only";
 import { timingSafeEqual } from "node:crypto";
 import { NextResponse, type NextRequest } from "next/server";
-import { CSRF_HEADER, apiUrl, type BffConfig } from "./config";
+import { CSRF_HEADER, apiUrl, csrfCookieName, isProduction, type BffConfig } from "./config";
 import { endSession, getSession } from "./session";
 import { callApi } from "./upstream";
 import { clientIpHeaders } from "./client-ip";
@@ -86,6 +86,15 @@ export function createProxy(config: BffConfig) {
       const value = upstream.headers.get(name);
       if (value) responseHeaders.set(name, value);
     }
+
+    const appCsrf = csrfCookieName(config);
+    if (session.csrf && request.cookies.get(appCsrf)?.value !== session.csrf) {
+      responseHeaders.append(
+        "set-cookie",
+        `${appCsrf}=${encodeURIComponent(session.csrf)}; Path=/; Max-Age=${config.sessionTtlSeconds}; SameSite=${config.sameSite === "strict" ? "Strict" : "Lax"}${isProduction ? "; Secure" : ""}`,
+      );
+    }
+
     return new NextResponse(upstream.status === 204 ? null : upstream.body, { status: upstream.status, headers: responseHeaders });
   }
 

@@ -47,3 +47,7 @@ export function sessionSecret(): string {
 export function sessionCookieName(config: BffConfig): string {
   return isProduction ? `__Host-${config.cookieName}` : config.cookieName;
 }
+
+export function csrfCookieName(config: BffConfig): string {
+  return `${config.cookieName}-csrf`;
+}

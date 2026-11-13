@@ -2,7 +2,7 @@ import "server-only";
 import { randomBytes } from "node:crypto";
 import { getIronSession, type IronSession } from "iron-session";
 import { cookies } from "next/headers";
-import { CSRF_COOKIE, isProduction, sessionCookieName, sessionSecret, type BffConfig } from "./config";
+import { CSRF_COOKIE, csrfCookieName, isProduction, sessionCookieName, sessionSecret, type BffConfig } from "./config";
 
 export interface SessionUser {
   id: string;
@@ -54,17 +54,23 @@ export async function startSession(config: BffConfig, tokens: Tokens, user: Sess
   await session.save();
 
   // Double-submit token: readable by our scripts, sent back in X-CSRF-Token on every write.
-  (await cookies()).set(CSRF_COOKIE, session.csrf, {
+  const cookieStore = await cookies();
+  const appCsrf = csrfCookieName(config);
+  const cookieOpts = {
     httpOnly: false,
     secure: isProduction,
-    sameSite: "strict",
+    sameSite: config.sameSite,
     path: "/",
     maxAge: config.sessionTtlSeconds,
-  });
+  };
+  cookieStore.set(appCsrf, session.csrf, cookieOpts);
+  cookieStore.set(CSRF_COOKIE, session.csrf, cookieOpts);
 }
 
 export async function endSession(config: BffConfig) {
   const session = await getSession(config);
   session.destroy();
-  (await cookies()).delete(CSRF_COOKIE);
+  const cookieStore = await cookies();
+  cookieStore.delete(csrfCookieName(config));
+  cookieStore.delete(CSRF_COOKIE);
 }

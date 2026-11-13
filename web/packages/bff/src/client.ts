@@ -2,10 +2,9 @@ import { createApiClient, type ApiClient } from "@malabak/api-client";
 import { CSRF_COOKIE, CSRF_HEADER } from "./config";
 
 function readCookie(name: string): string | undefined {
-  return document.cookie
-    .split("; ")
-    .find((part) => part.startsWith(`${name}=`))
-    ?.slice(name.length + 1);
+  if (typeof document === "undefined") return undefined;
+  const match = document.cookie.match(new RegExp(`(?:^|;\\s*)${name}=([^;]*)`));
+  return match ? match[1] : undefined;
 }
 
 /**
@@ -15,10 +14,11 @@ function readCookie(name: string): string | undefined {
 export function createBrowserApi(loginPath: string, basePath = ""): ApiClient {
   const normalizedBase = basePath ? `/${basePath.replace(/^\/+|\/+$/g, "")}` : "";
   const client = createApiClient({ baseUrl: `${normalizedBase}/bff` });
+  const appCsrfName = normalizedBase ? `malabak-${normalizedBase.slice(1)}-csrf` : CSRF_COOKIE;
   client.use({
     onRequest({ request }) {
       if (request.method !== "GET" && request.method !== "HEAD") {
-        const token = readCookie(CSRF_COOKIE);
+        const token = readCookie(appCsrfName) ?? readCookie(CSRF_COOKIE);
         if (token) request.headers.set(CSRF_HEADER, decodeURIComponent(token));
       }
       return request;
