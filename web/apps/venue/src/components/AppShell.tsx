@@ -5,6 +5,7 @@ import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import type { SessionUser } from "@malabak/bff/server";
 import { Sidebar } from "./Sidebar";
+import { SessionGate } from "./SessionGate";
 import { useVenue } from "./Providers";
 import { Toast } from "./ui";
 import { RealtimeProvider, useVenueRealtime } from "@/lib/realtime";
@@ -20,10 +21,11 @@ const PUBLIC_ROUTES = ["/login", "/register", "/verify-email", "/reset-password"
 /** Owners land on the setup wizard until they have a venue. */
 const NoVenueRedirect: React.FC = () => {
   const router = useRouter();
-  const { venues, isLoading } = useVenue();
+  const { venues, isLoading, loadFailed } = useVenue();
   useEffect(() => {
-    if (!isLoading && venues.length === 0) router.replace("/setup");
-  }, [isLoading, venues.length, router]);
+    // A failed request is not "no venues": sending the owner to the setup wizard would be wrong.
+    if (!isLoading && !loadFailed && venues.length === 0) router.replace("/setup");
+  }, [isLoading, loadFailed, venues.length, router]);
   return null;
 };
 
@@ -67,6 +69,7 @@ export const AppShell: React.FC<AppShellProps> = ({ children, user }) => {
   }
 
   return (
+    <SessionGate>
     <RealtimeProvider venueId={venueId}>
       <div className="lg:flex min-h-screen w-full bg-[#F3F5F9] text-[#0F172A] font-arabic antialiased" dir="rtl">
         <NoVenueRedirect />
@@ -117,6 +120,7 @@ export const AppShell: React.FC<AppShellProps> = ({ children, user }) => {
         </div>
       </div>
     </RealtimeProvider>
+    </SessionGate>
   );
 };
 

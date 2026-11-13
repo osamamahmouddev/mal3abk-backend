@@ -8,6 +8,7 @@ import { useQuery } from "@tanstack/react-query";
 import type { SessionUser } from "@malabak/bff/server";
 import { adminLogout } from "@/app/auth-actions";
 import { api, unwrap } from "@/lib/api";
+import { SessionGate } from "./SessionGate";
 
 /** Admin app sections, keyed by the navigation keys the API returns for the signed-in staff member's permissions. */
 const SECTIONS: Record<string, { title: string; href: string }[]> = {
@@ -161,6 +162,7 @@ export function AdminShell({ children, user }: { children: React.ReactNode; user
   if (pathname.startsWith("/login") || !user) return <>{children}</>;
 
   return (
+    <SessionGate>
     <div className="lg:flex min-h-screen w-full" dir="rtl">
       {/* Desktop sidebar */}
       <div className="hidden lg:flex">
@@ -196,5 +198,6 @@ export function AdminShell({ children, user }: { children: React.ReactNode; user
 
       <main className="flex-1 min-w-0">{children}</main>
     </div>
+    </SessionGate>
   );
 }
