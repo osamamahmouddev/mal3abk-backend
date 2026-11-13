@@ -1,5 +1,6 @@
 "use client";
 
+import { useConfirm } from "@/components/ConfirmDialog";
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -9,7 +10,7 @@ import { useVenue } from "@/components/Providers";
 import { api, unwrap } from "@/lib/api";
 import { useReference } from "@/lib/reference";
 import { APPROVAL_LABELS, CAPACITIES } from "@/lib/venue-format";
-import { mediaSrc, uploadImage } from "@/lib/upload";
+import { mediaIdOf, mediaSrc, uploadImage } from "@/lib/upload";
 
 type Pitch = Schemas["PitchDto"];
 
@@ -88,8 +89,28 @@ export default function PitchesPage() {
   });
 
   const removePhoto = useMutation({
-    mutationFn: ({ pitchId, mediaId }: { pitchId: string; mediaId: string }) =>
-      unwrap(api.DELETE("/api/v1/venue-manager/venues/{venueId}/pitches/{pitchId}/gallery/{mediaId}", { params: { path: { venueId: venueId!, pitchId, mediaId } } })),
+    mutationFn: async ({ pitchId, photo }: { pitchId: string; photo: string }) => {
+      const mediaId = mediaIdOf(photo);
+      if (mediaId) {
+        await unwrap(api.DELETE("/api/v1/venue-manager/venues/{venueId}/pitches/{pitchId}/gallery/{mediaId}", { params: { path: { venueId: venueId!, pitchId, mediaId } } }));
+        return;
+      }
+      // A link to an image hosted elsewhere has no media id: take it out of the saved photo list instead.
+      const p = list.find((x) => x.id === pitchId)!;
+      await unwrap(
+        api.PUT("/api/v1/venue-manager/pitches/{id}", {
+          params: { path: { id: pitchId } },
+          body: {
+            name: p.name,
+            turfType: p.turfType,
+            capacity: p.capacity,
+            lengthMeters: p.lengthMeters ?? null,
+            widthMeters: p.widthMeters ?? null,
+            photos: p.photos.filter((x) => x !== photo),
+          },
+        }),
+      );
+    },
     onSuccess: refresh,
     onError: (e: Error) => setToast(e.message),
   });
@@ -116,6 +137,7 @@ export default function PitchesPage() {
     onError: (e: Error) => setToast(e.message),
   });
 
+  const [confirm, confirmDialog] = useConfirm();
   const remove = useMutation({
     mutationFn: (id: string) => unwrap(api.DELETE("/api/v1/venue-manager/pitches/{id}", { params: { path: { id } } })),
     onSuccess: async () => {
@@ -331,7 +353,6 @@ export default function PitchesPage() {
                 <span className="text-[13px] font-semibold">صور الملعب</span>
                 <div className="grid grid-cols-3 gap-2">
                   {(selected?.photos ?? []).map((photo) => {
-                    const mediaId = photo.split("/")[4];
                     return (
                       <div key={photo} className="relative">
                         {/* eslint-disable-next-line @next/next/no-img-element -- media from our API, re-encoded on upload */}
@@ -339,7 +360,7 @@ export default function PitchesPage() {
                         <button
                           type="button"
                           aria-label="مسح الصورة"
-                          onClick={() => selected && removePhoto.mutate({ pitchId: selected.id, mediaId })}
+                          onClick={() => selected && removePhoto.mutate({ pitchId: selected.id, photo })}
                           className="absolute top-1 left-1 w-7 h-7 rounded-full bg-white/90 text-[#A8261C] text-xs font-bold"
                         >
                           ✕
@@ -382,7 +403,7 @@ export default function PitchesPage() {
               <button
                 type="button"
                 disabled={remove.isPending}
-                onClick={() => window.confirm(`تمسح ${draft.name}؟`) && remove.mutate(draft.id)}
+                onClick={() => confirm({ title: `تمسح ${draft.name}؟`, message: "الملعب هيتشال من التطبيق وحجوزاته القادمة لازم تتعالج الأول.", confirmLabel: "مسح الملعب", destructive: true }, () => remove.mutate(draft.id))}
                 className="min-h-[44px] rounded-[12px] border border-[#F3C4BF] bg-white text-[#A8261C] text-sm font-semibold"
               >
                 مسح الملعب
@@ -393,6 +414,7 @@ export default function PitchesPage() {
       )}
 
       <Toast message={toast} onClose={() => setToast(null)} />
+      {confirmDialog}
     </Page>
   );
 }

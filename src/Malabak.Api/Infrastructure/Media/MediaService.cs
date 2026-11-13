@@ -31,6 +31,8 @@ public sealed class MediaService
     private readonly IMalwareScanner _scanner;
     private readonly IClock _clock;
     private readonly ILogger<MediaService> _logger;
+    private static readonly byte[] _developmentSigningKey = RandomNumberGenerator.GetBytes(32);
+
     private readonly byte[] _signingKey;
 
     public MediaService(
@@ -55,7 +57,9 @@ public sealed class MediaService
         }
         else if (environment.IsDevelopment())
         {
-            _signingKey = RandomNumberGenerator.GetBytes(32); // per-process; private URLs just expire on restart
+            // One key per process, shared by every request: the service is scoped, so a key made in the constructor would differ
+            // between the request that signs a link and the request that opens it, and every private image would 404.
+            _signingKey = _developmentSigningKey;
         }
         else
         {

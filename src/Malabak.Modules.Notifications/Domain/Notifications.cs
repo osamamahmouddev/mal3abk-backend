@@ -13,6 +13,22 @@ public enum NotificationCategory
     Marketing = 5
 }
 
+/// <summary>
+/// The app a notification is shown in. One account can hold several hats (a player who also works at a venue), so each app
+/// asks for its own surface instead of listing everything the account ever received.
+/// </summary>
+public enum NotificationSurface
+{
+    /// <summary>The player app: bookings, teams, matches.</summary>
+    Player = 0,
+
+    /// <summary>The venue dashboard: payment proofs, venue status, staff, subscription.</summary>
+    Venue = 1,
+
+    /// <summary>The admin console. Admins have no user notifications yet, so this only returns the ones meant for every app.</summary>
+    Admin = 2
+}
+
 /// <summary>An in-app notification. Text is rendered at read time from the template in the reader's language.</summary>
 public sealed class Notification : Entity<Guid>
 {

@@ -1,4 +1,5 @@
 using Asp.Versioning.Builder;
+using Malabak.Modules.Venues.Application.Areas;
 using Malabak.SharedKernel.Reference;
 using Microsoft.AspNetCore.Mvc;
 
@@ -18,7 +19,8 @@ public static class ReferenceDataEndpoints
             .AllowAnonymous()
             .WithTags("Reference Data");
 
-        group.MapGet("/governorates", (HttpContext http) => Cached(http, EgyptReferenceData.Governorates))
+        group.MapGet("/governorates", async (HttpContext http, AreaCatalogService areas, CancellationToken ct) =>
+                Cached(http, await areas.GovernoratesAsync(ct), await areas.VersionAsync(ct), maxAgeSeconds: 300))
             .Produces<IReadOnlyList<Governorate>>().WithName("GetGovernorates").WithSummary("Egyptian governorates with curated areas for launch cities");
 
         group.MapGet("/facilities", (HttpContext http) => Cached(http, EgyptReferenceData.Facilities)).Produces<IReadOnlyList<LocalizedItem>>().WithName("GetFacilities");
@@ -37,10 +39,10 @@ public static class ReferenceDataEndpoints
         .Produces<IReadOnlyList<Holiday>>().WithName("GetHolidays").WithSummary("Egyptian public holidays; Islamic dates are flagged as estimates");
     }
 
-    private static IResult Cached<T>(HttpContext http, T payload, string etagSuffix = "")
+    private static IResult Cached<T>(HttpContext http, T payload, string etagSuffix = "", int maxAgeSeconds = 86400)
     {
         var etag = $"\"ref-v{EgyptReferenceData.Version}{etagSuffix}\"";
-        http.Response.Headers.CacheControl = "public, max-age=86400";
+        http.Response.Headers.CacheControl = $"public, max-age={maxAgeSeconds}";
         http.Response.Headers.ETag = etag;
 
         return http.Request.Headers.IfNoneMatch.ToString() == etag ? Results.StatusCode(StatusCodes.Status304NotModified) : Results.Ok(payload);

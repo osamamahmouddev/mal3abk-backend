@@ -36,6 +36,7 @@ public sealed class VenuesDbContext : BaseDbContext
     public DbSet<FavoriteVenue> FavoriteVenues => Set<FavoriteVenue>();
     public DbSet<RecentlyViewedVenue> RecentlyViewedVenues => Set<RecentlyViewedVenue>();
     public DbSet<FeaturedPlacement> FeaturedPlacements => Set<FeaturedPlacement>();
+    public DbSet<CustomArea> CustomAreas => Set<CustomArea>();
 
     public VenuesDbContext(
         DbContextOptions<VenuesDbContext> options,

@@ -86,9 +86,77 @@ public sealed class ManualBookingTests : IClassFixture<BookingDatabaseFixture>
         second.Error.Should().Be(BookingErrors.SlotOverlap);
     }
 
-    private CreateManualBookingCommand Command(DateTime start, string? actor = null, Guid? pitchId = null, string? notes = null) => new(
+    [Fact]
+    public async Task FullyPaid_IsConfirmedWithTheWholePriceAsTheDepositAsync()
+    {
+        var result = await CreateAsync(Command(_start.AddDays(10)));
+
+        result.IsSuccess.Should().BeTrue();
+        result.Value.Status.Should().Be("Confirmed");
+        result.Value.DepositAmount.Should().Be(300m);
+        result.Value.HoldExpiresAtUtc.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task DepositPaid_IsConfirmedWithTheAmountReceived_AndTheRestDueAtTheVenueAsync()
+    {
+        var result = await CreateAsync(Command(_start.AddDays(11), status: ManualPaymentStatus.DepositPaid, deposit: 100m));
+
+        result.IsSuccess.Should().BeTrue();
+        result.Value.Status.Should().Be("Confirmed");
+        result.Value.DepositAmount.Should().Be(100m);
+        await using var verify = _database.CreateContext();
+        var booking = await verify.Bookings.SingleAsync(b => b.Id == result.Value.BookingId);
+        booking.Status.Should().Be(BookingStatus.Confirmed);
+        booking.HoldExpiresAtUtc.Should().BeNull();
+        booking.DepositAmount.Amount.Should().Be(100m);
+        booking.TotalPrice.Amount.Should().Be(300m);
+    }
+
+    [Fact]
+    public async Task AwaitingDeposit_HoldsTheSlotWithAnExpiryUntilTheDepositArrivesAsync()
+    {
+        var before = DateTime.UtcNow;
+
+        var result = await CreateAsync(Command(_start.AddDays(12), status: ManualPaymentStatus.AwaitingDeposit, deposit: 150m));
+
+        result.IsSuccess.Should().BeTrue();
+        result.Value.Status.Should().Be("PendingDeposit");
+        result.Value.DepositAmount.Should().Be(150m);
+        result.Value.HoldExpiresAtUtc.Should().BeAfter(before.AddMinutes(9));
+        await using var verify = _database.CreateContext();
+        var booking = await verify.Bookings.SingleAsync(b => b.Id == result.Value.BookingId);
+        booking.Status.Should().Be(BookingStatus.PendingDeposit);
+        booking.ConfirmedAtUtc.Should().BeNull();
+
+        // The held slot is protected like any other booking's.
+        var clash = await CreateAsync(Command(_start.AddDays(12)));
+        clash.Error.Should().Be(BookingErrors.SlotOverlap);
+    }
+
+    [Theory]
+    [InlineData(ManualPaymentStatus.DepositPaid, null)]
+    [InlineData(ManualPaymentStatus.AwaitingDeposit, 0)]
+    [InlineData(ManualPaymentStatus.DepositPaid, 300)]
+    [InlineData(ManualPaymentStatus.DepositPaid, 400)]
+    [InlineData(ManualPaymentStatus.AwaitingDeposit, 301)]
+    [InlineData((ManualPaymentStatus)9, 100)]
+    public async Task APartialPaymentNeedsASensibleAmount_AndNothingIsSavedOtherwiseAsync(ManualPaymentStatus status, int? deposit)
+    {
+        var start = _start.AddDays(20);
+
+        var result = await CreateAsync(Command(start, status: status, deposit: deposit));
+
+        result.IsFailure.Should().BeTrue();
+        result.Error.Code.Should().StartWith("Booking.");
+        await using var verify = _database.CreateContext();
+        (await verify.Bookings.AnyAsync(b => b.PitchId == _pitchId && b.StartUtc == start)).Should().BeFalse();
+    }
+
+    private CreateManualBookingCommand Command(
+        DateTime start, string? actor = null, Guid? pitchId = null, string? notes = null, ManualPaymentStatus status = ManualPaymentStatus.FullyPaid, decimal? deposit = null) => new(
         _venueId, pitchId ?? _pitchId, start, start.AddHours(1), 300m, "EGP", "Walk-in", "01000000000",
-        actor ?? Guid.NewGuid().ToString("D"), notes);
+        actor ?? Guid.NewGuid().ToString("D"), notes, status, deposit);
 
     private async Task<Result<ManualBookingResponse>> CreateAsync(CreateManualBookingCommand command, IVenueDirectory? venues = null)
     {

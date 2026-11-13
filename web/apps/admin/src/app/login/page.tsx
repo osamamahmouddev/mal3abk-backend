@@ -206,7 +206,7 @@ function AdminLogin() {
                 {codeErr}
               </span>
             )}
-            <button type="submit" disabled={pending || code.length !== 6} className={submitBtn}>
+            <button type="submit" disabled={pending || code.replace(/\D/g, "").length !== 6} className={submitBtn}>
               تفعيل
             </button>
           </form>

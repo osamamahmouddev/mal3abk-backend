@@ -17,6 +17,20 @@ export interface ManualBookingDefaults {
 
 const DURATIONS = [60, 90, 120] as const;
 
+/** What the customer has paid so far; the numbers are the API's `paymentStatus` values. */
+const PAYMENT = {
+  full: 0,
+  deposit: 1,
+  awaiting: 2,
+} as const;
+type Payment = (typeof PAYMENT)[keyof typeof PAYMENT];
+
+const PAYMENT_OPTIONS: { value: Payment; label: string; hint: string }[] = [
+  { value: PAYMENT.full, label: "مدفوع بالكامل", hint: "الحجز بيتأكد على طول." },
+  { value: PAYMENT.deposit, label: "دفع عربون", hint: "الحجز بيتأكد والباقي بيتدفع في الملعب." },
+  { value: PAYMENT.awaiting, label: "في انتظار العربون", hint: "الميعاد بيتحجز للعميل لحد ما العربون يوصل، ولو المهلة خلصت بيتفتح تاني." },
+];
+
 const schema = z.object({
   pitchId: z.string().uuid("اختار الملعب"),
   customerName: z.string().trim().min(2, "اكتب اسم العميل").max(100),
@@ -27,6 +41,18 @@ const schema = z.object({
   price: z.number({ message: "اكتب السعر" }).positive("السعر لازم يكون أكبر من صفر").max(100_000),
   notes: z.string().max(500).optional(),
 });
+
+/** The partial-payment amount: more than zero, and below the price when it was already paid (use "paid in full" otherwise). */
+function depositError(payment: Payment, price: number | undefined, deposit: string): string | undefined {
+  if (payment === PAYMENT.full) return undefined;
+  const amount = Number(deposit);
+  if (deposit.trim() === "" || !Number.isFinite(amount) || amount <= 0) {
+    return payment === PAYMENT.deposit ? "اكتب العربون اللي اتدفع" : "اكتب العربون المطلوب";
+  }
+  if (price !== undefined && payment === PAYMENT.deposit && amount >= price) return "العربون لازم يكون أقل من السعر — لو دفع كله اختار «مدفوع بالكامل»";
+  if (price !== undefined && amount > price) return "العربون ما ينفعش يزيد عن السعر";
+  return undefined;
+}
 
 const pad = (n: number) => String(n).padStart(2, "0");
 const toHhmm = (minutes: number) => `${pad(Math.floor(minutes / 60) % 24)}:${pad(minutes % 60)}`;
@@ -55,6 +81,8 @@ export function ManualBookingForm({
   const [customerPhone, setCustomerPhone] = useState("");
   const [price, setPrice] = useState<string>("");
   const [notes, setNotes] = useState("");
+  const [payment, setPayment] = useState<Payment>(PAYMENT.full);
+  const [deposit, setDeposit] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [serverError, setServerError] = useState<string | null>(null);
 
@@ -79,11 +107,18 @@ export function ManualBookingForm({
   }, [venueId, pitchId, startUtc, endUtc]);
 
   const create = useMutation({
-    mutationFn: (body: { pitchId: string; startUtc: string; endUtc: string; price: number; customerName: string; customerPhone: string; notes?: string }) =>
+    mutationFn: (body: { pitchId: string; startUtc: string; endUtc: string; price: number; customerName: string; customerPhone: string; notes?: string; paymentStatus: Payment; depositAmount: number | null }) =>
       unwrap(api.POST("/api/v1/venue-manager/venues/{venueId}/bookings/manual", { params: { path: { venueId: venueId! } }, body: { ...body, currency: "EGP", notes: body.notes || null } })),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ predicate: (q) => ["calendar", "dashboard"].includes(String(q.queryKey[0])) || String(q.queryKey[0]).startsWith("booking") });
-      onDone(`اتسجل حجز ${customerName.trim()} ومؤكد على طول.`);
+      const name = customerName.trim();
+      onDone(
+        payment === PAYMENT.awaiting
+          ? `اتسجل حجز ${name} وبيستنى العربون (${money(Number(deposit))}).`
+          : payment === PAYMENT.deposit
+            ? `اتسجل حجز ${name} ومؤكد بعربون ${money(Number(deposit))}.`
+            : `اتسجل حجز ${name} ومؤكد على طول.`,
+      );
     },
     onError: (e: Error) => setServerError(e.message),
   });
@@ -92,12 +127,15 @@ export function ManualBookingForm({
     e.preventDefault();
     setServerError(null);
     const parsed = schema.safeParse({ pitchId, customerName, customerPhone, price: price === "" ? undefined : Number(price), notes: notes || undefined });
-    if (!parsed.success) {
-      setErrors(Object.fromEntries(parsed.error.issues.map((i) => [String(i.path[0]), i.message])));
+    const found: Record<string, string> = parsed.success ? {} : Object.fromEntries(parsed.error.issues.map((i) => [String(i.path[0]), i.message]));
+    const problem = depositError(payment, price === "" ? undefined : Number(price), deposit);
+    if (problem) found.deposit = problem;
+    if (!parsed.success || problem) {
+      setErrors(found);
       return;
     }
     setErrors({});
-    create.mutate({ ...parsed.data, startUtc, endUtc });
+    create.mutate({ ...parsed.data, startUtc, endUtc, paymentStatus: payment, depositAmount: payment === PAYMENT.full ? null : Number(deposit) });
   };
 
   const field = (id: string, label: string, control: React.ReactNode) => (
@@ -168,10 +206,37 @@ export function ManualBookingForm({
           "السعر (ج.م)",
           <input id="price" type="number" min={1} inputMode="numeric" value={price} onChange={(e) => setPrice(e.target.value)} className={inputClass} aria-invalid={!!errors.price} />,
         )}
+        <fieldset className="flex flex-col gap-1 text-sm font-semibold sm:col-span-2">
+          <legend className="mb-1">حالة الدفع</legend>
+          <div className="flex flex-wrap gap-2">
+            {PAYMENT_OPTIONS.map((option) => (
+              <button
+                key={option.value}
+                type="button"
+                aria-pressed={payment === option.value}
+                onClick={() => setPayment(option.value)}
+                className={`flex-1 min-w-[120px] min-h-[44px] rounded-xl border text-sm ${payment === option.value ? "bg-navy-900 text-white border-navy-900 font-bold" : "bg-white border-[#C9CFD9]"}`}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+          <span className={`text-xs font-normal ${muted}`}>{PAYMENT_OPTIONS.find((o) => o.value === payment)?.hint}</span>
+        </fieldset>
+        {payment !== PAYMENT.full &&
+          field(
+            "deposit",
+            payment === PAYMENT.deposit ? "العربون المدفوع (ج.م)" : "العربون المطلوب (ج.م)",
+            <input id="deposit" type="number" min={1} inputMode="numeric" value={deposit} onChange={(e) => setDeposit(e.target.value)} className={inputClass} aria-invalid={!!errors.deposit} />,
+          )}
         {field("notes", "ملاحظة (اختياري)", <input id="notes" value={notes} maxLength={500} onChange={(e) => setNotes(e.target.value)} className={inputClass} />)}
       </div>
       <p className={`text-[13px] ${muted}`}>
-        الحجز اليدوي بيتأكد على طول والدفع في الملعب{price ? ` (${money(Number(price))})` : ""}. لو الميعاد اتحجز من التطبيق في نفس اللحظة هيظهرلك تنبيه.
+        {payment === PAYMENT.full && <>الحجز اليدوي بيتأكد على طول{price ? ` (${money(Number(price))})` : ""}. </>}
+        {payment === PAYMENT.deposit && price && Number(deposit) > 0 && Number(deposit) < Number(price) && (
+          <>الباقي في الملعب: {money(Number(price) - Number(deposit))}. </>
+        )}
+        لو الميعاد اتحجز من التطبيق في نفس اللحظة هيظهرلك تنبيه.
       </p>
       {serverError && (
         <p role="alert" className="text-sm bg-[#FDECEA] text-[#A8261C] rounded-xl px-3 py-2">
@@ -180,7 +245,7 @@ export function ManualBookingForm({
       )}
       <div className="flex gap-2">
         <button type="submit" disabled={create.isPending} className={`${primaryBtn} disabled:opacity-60`}>
-          {create.isPending ? "بيتسجل…" : "تأكيد الحجز"}
+          {create.isPending ? "بيتسجل…" : payment === PAYMENT.awaiting ? "احجز الميعاد" : "تأكيد الحجز"}
         </button>
         {onCancel && (
           <button type="button" onClick={onCancel} className={secondaryBtn}>

@@ -133,12 +133,12 @@ public sealed class UserNotificationService
         _clock = clock;
     }
 
-    public async Task<NotificationPageDto> ListAsync(Guid userId, int page, int pageSize, bool arabic, CancellationToken cancellationToken = default)
+    public async Task<NotificationPageDto> ListAsync(Guid userId, int page, int pageSize, bool arabic, NotificationSurface? surface = null, CancellationToken cancellationToken = default)
     {
         page = Math.Max(page, 1);
         pageSize = Math.Clamp(pageSize, 1, MaxPageSize);
 
-        var query = _dbContext.Notifications.AsNoTracking().Where(n => n.UserId == userId);
+        var query = ForSurface(_dbContext.Notifications.AsNoTracking().Where(n => n.UserId == userId), surface);
         var total = await query.CountAsync(cancellationToken);
         var unread = await query.CountAsync(n => n.ReadAtUtc == null, cancellationToken);
         var items = await query.OrderByDescending(n => n.CreatedAtUtc).Skip((page - 1) * pageSize).Take(pageSize).ToListAsync(cancellationToken);
@@ -146,8 +146,24 @@ public sealed class UserNotificationService
         return new NotificationPageDto(items.Select(n => ToDto(n, arabic)).ToList(), page, pageSize, total, unread);
     }
 
-    public Task<int> UnreadCountAsync(Guid userId, CancellationToken cancellationToken = default) =>
-        _dbContext.Notifications.CountAsync(n => n.UserId == userId && n.ReadAtUtc == null, cancellationToken);
+    public Task<int> UnreadCountAsync(Guid userId, NotificationSurface? surface = null, CancellationToken cancellationToken = default) =>
+        ForSurface(_dbContext.Notifications.Where(n => n.UserId == userId && n.ReadAtUtc == null), surface).CountAsync(cancellationToken);
+
+    /// <summary>All of the user's notifications when no surface is given (older clients); otherwise only the types shown in that app.</summary>
+    private static IQueryable<Notification> ForSurface(IQueryable<Notification> query, NotificationSurface? surface)
+    {
+        if (surface is not { } wanted)
+        {
+            return query;
+        }
+
+        var types = NotificationCatalog.TypesFor(wanted).ToArray();
+        var known = NotificationCatalog.Types.ToArray();
+        return wanted == NotificationSurface.Player
+            // Player is the default home of any type the catalog does not know (old rows, retired types).
+            ? query.Where(n => types.Contains(n.Type) || !known.Contains(n.Type))
+            : query.Where(n => types.Contains(n.Type));
+    }
 
     /// <summary>False when the notification doesn't exist or belongs to someone else (indistinguishable to the caller).</summary>
     public async Task<bool> MarkReadAsync(Guid userId, Guid notificationId, CancellationToken cancellationToken = default)
@@ -163,9 +179,9 @@ public sealed class UserNotificationService
         return true;
     }
 
-    public async Task<int> MarkAllReadAsync(Guid userId, CancellationToken cancellationToken = default)
+    public async Task<int> MarkAllReadAsync(Guid userId, NotificationSurface? surface = null, CancellationToken cancellationToken = default)
     {
-        var unread = await _dbContext.Notifications.Where(n => n.UserId == userId && n.ReadAtUtc == null).ToListAsync(cancellationToken);
+        var unread = await ForSurface(_dbContext.Notifications.Where(n => n.UserId == userId && n.ReadAtUtc == null), surface).ToListAsync(cancellationToken);
         unread.ForEach(n => n.MarkRead(_clock.UtcNow));
         await _dbContext.SaveChangesAsync(cancellationToken);
         return unread.Count;

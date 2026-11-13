@@ -1,5 +1,6 @@
 "use client";
 
+import { useConfirm } from "@/components/ConfirmDialog";
 import React, { useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import type { Schemas } from "@malabak/api-client";
@@ -26,6 +27,7 @@ export function PaymentMethods({ venueId, onMessage }: { venueId: string; onMess
     onError: (e: Error) => onMessage(e.message),
   });
 
+  const [confirm, confirmDialog] = useConfirm();
   const remove = useMutation({
     mutationFn: (id: string) =>
       unwrap(api.DELETE("/api/v1/venue-manager/venues/{venueId}/payment-methods/{id}", { params: { path: { venueId, id } } })),
@@ -64,7 +66,7 @@ export function PaymentMethods({ venueId, onMessage }: { venueId: string; onMess
             type="button"
             aria-label="مسح طريقة الدفع"
             disabled={remove.isPending}
-            onClick={() => window.confirm("تمسح طريقة الدفع دي؟") && remove.mutate(m.id)}
+            onClick={() => confirm({ title: "تمسح طريقة الدفع دي؟", message: "العملاء مش هيشوفوها تاني في تعليمات الدفع.", confirmLabel: "مسح", destructive: true }, () => remove.mutate(m.id))}
             className="min-w-[38px] min-h-[38px] rounded-[10px] border border-[#F3C4BF] bg-white text-[#A8261C]"
           >
             ✕
@@ -72,6 +74,7 @@ export function PaymentMethods({ venueId, onMessage }: { venueId: string; onMess
         </div>
       ))}
       <PaymentMethodForm venueId={venueId} onAdded={() => methods.refetch()} />
+      {confirmDialog}
     </section>
   );
 }

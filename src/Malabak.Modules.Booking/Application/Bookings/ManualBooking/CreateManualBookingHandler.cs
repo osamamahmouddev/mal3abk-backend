@@ -23,6 +23,7 @@ public sealed class CreateManualBookingHandler : ICommandHandler<CreateManualBoo
     private readonly IBookingRealtimeBroadcaster _broadcaster;
     private readonly IVenueDirectory _venues;
     private readonly ILogger<CreateManualBookingHandler> _logger;
+    private readonly IBookingPolicyProvider? _policyProvider;
 
     public CreateManualBookingHandler(
         IBookingDbContext dbContext,
@@ -31,8 +32,10 @@ public sealed class CreateManualBookingHandler : ICommandHandler<CreateManualBoo
         IAvailabilityInvalidator availabilityInvalidator,
         IBookingRealtimeBroadcaster broadcaster,
         IVenueDirectory venues,
-        ILogger<CreateManualBookingHandler> logger)
+        ILogger<CreateManualBookingHandler> logger,
+        IBookingPolicyProvider? policyProvider = null)
     {
+        _policyProvider = policyProvider;
         _dbContext = dbContext;
         _clock = clock;
         _refGenerator = refGenerator;
@@ -64,11 +67,26 @@ public sealed class CreateManualBookingHandler : ICommandHandler<CreateManualBoo
             return Result.Failure<ManualBookingResponse>(BookingErrors.PitchNotFound);
         }
 
+        var payment = ResolvePayment(command);
+        if (payment.IsFailure)
+        {
+            return Result.Failure<ManualBookingResponse>(payment.Error);
+        }
+
         var price = new Money(command.Price, command.Currency);
+
+        // An unpaid booking holds the slot for as long as the venue gives a player to send the deposit.
+        DateTime? holdExpiresAtUtc = null;
+        if (!payment.Value.Confirmed)
+        {
+            var policy = _policyProvider is null ? null : await _policyProvider.GetCurrentSnapshotAsync(command.VenueId, cancellationToken);
+            var holdMinutes = policy?.ProofSubmissionWindowMinutes is >= 10 and <= 1440 ? policy.ProofSubmissionWindowMinutes : 60;
+            holdExpiresAtUtc = nowUtc.AddMinutes(holdMinutes);
+        }
 
         for (var attempt = 1; attempt <= _maxReferenceAttempts; attempt++)
         {
-            var (outcome, collided) = await TryCreateAsync(command, staffUserId, price, nowUtc, cancellationToken);
+            var (outcome, collided) = await TryCreateAsync(command, staffUserId, price, payment.Value, holdExpiresAtUtc, nowUtc, cancellationToken);
             if (collided)
             {
                 _logger.LogWarning("Booking reference collided on attempt {Attempt}; retrying with a new one.", attempt);
@@ -91,7 +109,10 @@ public sealed class CreateManualBookingHandler : ICommandHandler<CreateManualBoo
                 booking.EndUtc,
                 booking.TotalPrice.Amount,
                 booking.TotalPrice.Currency,
-                command.CustomerName));
+                command.CustomerName,
+                booking.Status.ToString(),
+                booking.DepositAmount.Amount,
+                booking.HoldExpiresAtUtc));
         }
 
         _logger.LogError("Could not find an unused booking reference in {Attempts} attempts.", _maxReferenceAttempts);
@@ -99,7 +120,7 @@ public sealed class CreateManualBookingHandler : ICommandHandler<CreateManualBoo
     }
 
     private async Task<(Result<Domain.Booking>? Outcome, bool Collided)> TryCreateAsync(
-        CreateManualBookingCommand command, Guid staffUserId, Money price, DateTime nowUtc, CancellationToken cancellationToken)
+        CreateManualBookingCommand command, Guid staffUserId, Money price, ManualPayment payment, DateTime? holdExpiresAtUtc, DateTime nowUtc, CancellationToken cancellationToken)
     {
         _dbContext.ChangeTracker.Clear();
         await using var transaction = await _dbContext.Database.BeginTransactionAsync(cancellationToken);
@@ -118,9 +139,9 @@ public sealed class CreateManualBookingHandler : ICommandHandler<CreateManualBoo
             command.StartUtc,
             command.EndUtc,
             price,
-            new Money(command.Price, command.Currency), // a walk-in pays in full; EF cannot share one owned instance between two properties
-            confirmedImmediately: true,
-            holdExpiresAtUtc: null,
+            new Money(payment.DepositAmount, command.Currency), // EF cannot share one owned instance between two properties
+            confirmedImmediately: payment.Confirmed,
+            holdExpiresAtUtc: holdExpiresAtUtc,
             nowUtc: nowUtc,
             notes: command.Notes);
         if (bookingResult.IsFailure)
@@ -143,6 +164,39 @@ public sealed class CreateManualBookingHandler : ICommandHandler<CreateManualBoo
         {
             return (null, true);
         }
+    }
+
+    private readonly record struct ManualPayment(bool Confirmed, decimal DepositAmount);
+
+    /// <summary>
+    /// Fully paid: confirmed, deposit equals the price. Deposit paid: confirmed with the amount received (more than zero, less
+    /// than the price; the rest is due at the venue). Awaiting deposit: not confirmed, with the deposit the customer must send.
+    /// </summary>
+    private static Result<ManualPayment> ResolvePayment(CreateManualBookingCommand command)
+    {
+        if (!Enum.IsDefined(command.PaymentStatus))
+        {
+            return Result.Failure<ManualPayment>(Error.Validation("Booking.InvalidPaymentStatus", "Payment status must be FullyPaid, DepositPaid or AwaitingDeposit."));
+        }
+
+        if (command.PaymentStatus == ManualPaymentStatus.FullyPaid)
+        {
+            return Result.Success(new ManualPayment(true, command.Price));
+        }
+
+        var deposit = command.DepositAmount;
+        if (deposit is not > 0)
+        {
+            return Result.Failure<ManualPayment>(Error.Validation("Booking.DepositAmountRequired", "Enter how much was paid, or how much deposit is expected."));
+        }
+
+        if (deposit > command.Price || (command.PaymentStatus == ManualPaymentStatus.DepositPaid && deposit >= command.Price))
+        {
+            return Result.Failure<ManualPayment>(Error.Validation(
+                "Booking.DepositAmountInvalid", "The deposit must be more than zero and less than the price (use fully paid when the whole price was paid)."));
+        }
+
+        return Result.Success(new ManualPayment(command.PaymentStatus == ManualPaymentStatus.DepositPaid, deposit.Value));
     }
 
     /// <summary>The booking exists already: an outage in a side effect is logged, never returned as an error.</summary>

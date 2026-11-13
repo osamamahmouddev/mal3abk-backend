@@ -11,6 +11,7 @@ import { logout } from "@/app/auth-actions";
 import { api, unwrap } from "@/lib/api";
 import { useReference } from "@/lib/reference";
 import { CAPACITIES, DAY_ORDER, DAY_NAMES, DEFAULT_WEEK, METHOD_LABELS, toApiTime, type DayHours } from "@/lib/venue-format";
+import { AddAreaInline } from "@/components/AddAreaInline";
 import { PaymentMethodForm } from "@/components/PaymentMethodForm";
 
 const pitchPattern =
@@ -184,6 +185,13 @@ export default function SetupPage() {
                     <input value={form.area} onChange={(e) => setForm({ ...form, area: e.target.value })} className={field} />
                   )}
                 </label>
+                <div className="sm:col-span-2 flex flex-col">
+                  <AddAreaInline
+                    governorateCode={governorate?.code}
+                    inputClassName={field}
+                    onAdded={(nameAr) => setForm((f) => ({ ...f, area: nameAr }))}
+                  />
+                </div>
                 <label className="flex flex-col gap-1.5 text-sm font-semibold">
                   رقم التواصل للاعبين
                   <input

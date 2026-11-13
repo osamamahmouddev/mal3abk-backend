@@ -6,10 +6,11 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { QRCodeSVG } from "qrcode.react";
 import { Page, Toast, card, chip, inputClass, muted, redShadow } from "@/components/ui";
 import { useVenue } from "@/components/Providers";
+import { AddAreaInline } from "@/components/AddAreaInline";
 import { PaymentMethods } from "@/components/PaymentMethods";
 import { api, unwrap } from "@/lib/api";
 import { useReference } from "@/lib/reference";
-import { mediaSrc, uploadImage } from "@/lib/upload";
+import { mediaIdOf, mediaSrc, uploadImage } from "@/lib/upload";
 
 type Tab = "info" | "pay" | "account";
 
@@ -110,8 +111,29 @@ function VenueInfo({ onMessage }: { onMessage: (message: string) => void }) {
   });
 
   const removePhoto = useMutation({
-    mutationFn: (mediaId: string) =>
-      unwrap(api.DELETE("/api/v1/venue-manager/venues/{venueId}/gallery/{mediaId}", { params: { path: { venueId: venue!.id, mediaId } } })),
+    mutationFn: async (photo: string) => {
+      const mediaId = mediaIdOf(photo);
+      if (mediaId) {
+        await unwrap(api.DELETE("/api/v1/venue-manager/venues/{venueId}/gallery/{mediaId}", { params: { path: { venueId: venue!.id, mediaId } } }));
+        return;
+      }
+      // A link to an image hosted elsewhere has no media id: take it out of the saved photo list instead.
+      await unwrap(
+        api.PUT("/api/v1/venue-manager/venues/{id}", {
+          params: { path: { id: venue!.id } },
+          body: {
+            name: venue!.name,
+            phoneNumber: venue!.phoneNumber,
+            address: venue!.address,
+            description: venue!.description ?? null,
+            city: venue!.city,
+            area: venue!.area,
+            facilities: venue!.facilities,
+            photos: venue!.photos.filter((p) => p !== photo),
+          },
+        }),
+      );
+    },
     onSuccess: refresh,
     onError: (e: Error) => onMessage(e.message),
   });
@@ -153,6 +175,11 @@ function VenueInfo({ onMessage }: { onMessage: (message: string) => void }) {
             )}
           </label>
         </div>
+        <AddAreaInline
+          governorateCode={governorates.find((g) => g.nameAr === form.city)?.code}
+          inputClassName={inputClass}
+          onAdded={(nameAr) => setForm((f) => ({ ...f, area: nameAr }))}
+        />
         <label className="flex flex-col gap-1.5 text-[13px] font-semibold">
           العنوان
           <input value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} className={inputClass} />
@@ -198,7 +225,6 @@ function VenueInfo({ onMessage }: { onMessage: (message: string) => void }) {
         <h2 className="text-base font-bold">صور الملعب</h2>
         <div className="grid grid-cols-2 gap-2">
           {venue.photos.map((photo) => {
-            const mediaId = photo.split("/")[4];
             return (
               <div key={photo} className="relative">
                 {/* eslint-disable-next-line @next/next/no-img-element -- signed media from our API, already re-encoded as WebP */}
@@ -206,7 +232,7 @@ function VenueInfo({ onMessage }: { onMessage: (message: string) => void }) {
                 <button
                   type="button"
                   aria-label="مسح الصورة"
-                  onClick={() => removePhoto.mutate(mediaId)}
+                  onClick={() => removePhoto.mutate(photo)}
                   className="absolute top-1.5 left-1.5 w-7 h-7 rounded-full bg-white/90 text-[#A8261C] text-xs font-bold"
                 >
                   ✕

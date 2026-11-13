@@ -178,6 +178,12 @@ public sealed class PasswordAccountHandlers :
             return Result.Failure(PasswordAuthErrors.WeakPassword(violations));
         }
 
+        // The link only ever went to this mailbox, so using it proves the owner reads it: no second "verify your email" step.
+        if (!user.IsEmailConfirmed)
+        {
+            user.ConfirmEmail(_clock.UtcNow);
+        }
+
         await ApplyNewPasswordAsync(user, command.NewPassword, "password_reset", cancellationToken);
         return Result.Success();
     }

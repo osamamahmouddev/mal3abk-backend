@@ -40,6 +40,55 @@ test("staff book a free slot from the day view with the suggested price", async 
   await expect(page.getByRole("status").filter({ hasText: "اتسجل حجز م. فتحي" })).toBeVisible();
 });
 
+test("a customer who paid a deposit is booked and confirmed with the amount received", async ({ page, api }) => {
+  await page.goto("/venue/calendar?view=day&date=2030-01-10");
+  await page.getByRole("button", { name: "ملعب ١ ٨ م: ميعاد فاضي" }).click();
+  const dialog = page.getByRole("dialog");
+  await dialog.getByLabel("اسم العميل").fill("م. فتحي");
+  await dialog.getByLabel("موبايل العميل").fill("01012345678");
+  await dialog.getByRole("button", { name: "دفع عربون" }).click();
+  await dialog.getByLabel("العربون المدفوع (ج.م)").fill("100");
+  await expect(dialog.getByText("الباقي في الملعب")).toBeVisible();
+  await dialog.getByRole("button", { name: "تأكيد الحجز" }).click();
+
+  const call = await waitForCall(page, api.calls, (c) => c.method === "POST" && c.path.endsWith("/bookings/manual"));
+  expect(call.body).toMatchObject({ price: 400, paymentStatus: 1, depositAmount: 100 });
+  await expect(page.getByRole("status").filter({ hasText: "ومؤكد بعربون" })).toBeVisible();
+});
+
+test("a customer who has not paid yet gets the slot held while the deposit is awaited", async ({ page, api }) => {
+  await page.goto("/venue/calendar?view=day&date=2030-01-10");
+  await page.getByRole("button", { name: "ملعب ١ ٨ م: ميعاد فاضي" }).click();
+  const dialog = page.getByRole("dialog");
+  await dialog.getByLabel("اسم العميل").fill("م. فتحي");
+  await dialog.getByLabel("موبايل العميل").fill("01012345678");
+  await dialog.getByRole("button", { name: "في انتظار العربون" }).click();
+  await dialog.getByLabel("العربون المطلوب (ج.م)").fill("150");
+  await dialog.getByRole("button", { name: "احجز الميعاد" }).click();
+
+  const call = await waitForCall(page, api.calls, (c) => c.method === "POST" && c.path.endsWith("/bookings/manual"));
+  expect(call.body).toMatchObject({ paymentStatus: 2, depositAmount: 150 });
+  await expect(page.getByRole("status").filter({ hasText: "بيستنى العربون" })).toBeVisible();
+});
+
+test("a partial payment needs an amount below the price, and fully paid needs none", async ({ page, api }) => {
+  await page.goto("/venue/calendar?view=day&date=2030-01-10");
+  await page.getByRole("button", { name: "ملعب ١ ٨ م: ميعاد فاضي" }).click();
+  const dialog = page.getByRole("dialog");
+  await dialog.getByLabel("اسم العميل").fill("م. فتحي");
+  await dialog.getByLabel("موبايل العميل").fill("01012345678");
+  await expect(dialog.getByLabel("العربون المدفوع (ج.م)")).toHaveCount(0);
+
+  await dialog.getByRole("button", { name: "دفع عربون" }).click();
+  await dialog.getByRole("button", { name: "تأكيد الحجز" }).click();
+  await expect(dialog.getByRole("alert").filter({ hasText: "اكتب العربون اللي اتدفع" })).toBeVisible();
+
+  await dialog.getByLabel("العربون المدفوع (ج.م)").fill("400");
+  await dialog.getByRole("button", { name: "تأكيد الحجز" }).click();
+  await expect(dialog.getByRole("alert").filter({ hasText: "أقل من السعر" })).toBeVisible();
+  expect(api.calls.some((c) => c.path.endsWith("/bookings/manual"))).toBe(false);
+});
+
 test("the form refuses an invalid phone number before calling the API", async ({ page, api }) => {
   await page.goto("/venue/calendar?view=day&date=2030-01-10");
 

@@ -7,7 +7,7 @@ import type { Schemas } from "@malabak/api-client";
 import { Badge, Page, Toast, card, chip, muted, primaryBtn, secondaryBtn, toArabicDigits, useRevealOnSelect } from "@/components/ui";
 import { useVenue } from "@/components/Providers";
 import { api, unwrap } from "@/lib/api";
-import { BOOKING_STATUS, type BookingStatus, cairoDateTime, money, timeLeft } from "@/lib/booking-format";
+import { BOOKING_STATUS, type BookingStatus, addDays, cairoDateTime, cairoDayStartUtc, cairoToday, money, timeLeft } from "@/lib/booking-format";
 import { downloadCsv } from "@/lib/csv";
 import { P } from "@/lib/permissions";
 import { ReasonDialog } from "@/components/ReasonDialog";
@@ -26,11 +26,45 @@ const TAB_STATUSES: Record<Tab, BookingStatus[]> = {
 };
 
 const TABS: [Tab, string][] = [
+  ["all", "كل الحجوزات"],
   ["pending", "طلبات معلقة"],
   ["ok", "مؤكدة"],
   ["closed", "ملغية ومنتهية"],
-  ["all", "الكل"],
 ];
+
+type Range = "all" | "today" | "tomorrow" | "week" | "month" | "custom";
+type Source = "" | "app" | "manual";
+
+const RANGES: [Range, string][] = [
+  ["all", "كل الأيام"],
+  ["today", "النهارده"],
+  ["tomorrow", "بكرة"],
+  ["week", "الأسبوع ده"],
+  ["month", "الشهر ده"],
+  ["custom", "من تاريخ لتاريخ"],
+];
+
+/** The Cairo calendar days a range covers, as [first day, last day] (inclusive), or null for "every day". */
+function rangeDays(range: Range, from: string, to: string): [string, string] | null {
+  const today = cairoToday();
+  switch (range) {
+    case "today":
+      return [today, today];
+    case "tomorrow":
+      return [addDays(today, 1), addDays(today, 1)];
+    case "week":
+      return [today, addDays(today, 6)];
+    case "month": {
+      const first = `${today.slice(0, 8)}01`;
+      const next = addDays(first, 31).slice(0, 8) + "01";
+      return [first, addDays(next, -1)];
+    }
+    case "custom":
+      return from || to ? [from || to, to || from] : null;
+    default:
+      return null;
+  }
+}
 
 const SORTS: [Sort, string][] = [
   ["start_desc", "الأحدث ميعاداً"],
@@ -52,11 +86,15 @@ const depositText = (b: Item) => {
 export default function ReservationsPage() {
   const queryClient = useQueryClient();
   const { venue, venueId, can } = useVenue();
-  const [tab, setTab] = useState<Tab>("pending");
+  const [tab, setTab] = useState<Tab>("all");
   const [q, setQ] = useState("");
   const [search, setSearch] = useState("");
   const [pitchId, setPitchId] = useState("");
   const [sort, setSort] = useState<Sort>("start_asc");
+  const [range, setRange] = useState<Range>("all");
+  const [from, setFrom] = useState("");
+  const [to, setTo] = useState("");
+  const [source, setSource] = useState<Source>("");
   const [page, setPage] = useState(1);
   const [selId, setSelId] = useState<string | null>(null);
   const detailsRef = useRevealOnSelect<HTMLElement>(selId);
@@ -70,12 +108,21 @@ export default function ReservationsPage() {
     return () => clearTimeout(t);
   }, [q]);
 
+  const days = rangeDays(range, from, to);
+  // A range covers whole Cairo days; the API keeps bookings that start between the two instants (end is inclusive).
+  const startDateUtc = days ? cairoDayStartUtc(days[0]) : undefined;
+  const endDateUtc = days ? new Date(new Date(cairoDayStartUtc(addDays(days[1], 1))).getTime() - 1000).toISOString() : undefined;
+  const rangeKey = `${startDateUtc ?? ""}|${endDateUtc ?? ""}|${source}`;
+
   const filters = (statuses: BookingStatus[], p: number, size: number) => ({
     path: { venueId: venueId! },
     query: {
       statuses: statuses.length ? statuses : undefined,
       search: search || undefined,
       pitchId: pitchId || undefined,
+      startDateUtc,
+      endDateUtc,
+      manual: source === "" ? undefined : source === "manual",
       sort,
       page: p,
       pageSize: size,
@@ -83,7 +130,7 @@ export default function ReservationsPage() {
   });
 
   const bookings = useQuery({
-    queryKey: ["bookings", venueId, tab, search, pitchId, sort, page],
+    queryKey: ["bookings", venueId, tab, search, pitchId, rangeKey, sort, page],
     enabled: !!venueId,
     placeholderData: keepPreviousData,
     refetchInterval: 30_000,
@@ -93,7 +140,7 @@ export default function ReservationsPage() {
   // Tab badges: one tiny request per tab for its total.
   const counts = useQueries({
     queries: TABS.map(([id]) => ({
-      queryKey: ["bookings-count", venueId, id, search, pitchId],
+      queryKey: ["bookings-count", venueId, id, search, pitchId, rangeKey],
       enabled: !!venueId,
       queryFn: () => unwrap(api.GET("/api/v1/venue-manager/venues/{venueId}/bookings", { params: filters(TAB_STATUSES[id], 1, 1) })),
     })),
@@ -189,6 +236,19 @@ export default function ReservationsPage() {
             </option>
           ))}
         </select>
+        <select
+          aria-label="المصدر"
+          value={source}
+          onChange={(e) => {
+            setSource(e.target.value as Source);
+            setPage(1);
+          }}
+          className="min-h-[44px] px-3 rounded-xl border border-[#DCE0E8] bg-white text-sm"
+        >
+          <option value="">كل المصادر</option>
+          <option value="app">من التطبيق</option>
+          <option value="manual">حجز يدوي</option>
+        </select>
         <select aria-label="الترتيب" value={sort} onChange={(e) => setSort(e.target.value as Sort)} className="min-h-[44px] px-3 rounded-xl border border-[#DCE0E8] bg-white text-sm">
           {SORTS.map(([id, label]) => (
             <option key={id} value={id}>
@@ -196,6 +256,35 @@ export default function ReservationsPage() {
             </option>
           ))}
         </select>
+      </div>
+
+      <div role="group" aria-label="الفترة" className="flex flex-wrap items-center gap-2">
+        {RANGES.map(([id, label]) => (
+          <button
+            key={id}
+            type="button"
+            aria-pressed={range === id}
+            onClick={() => {
+              setRange(id);
+              setPage(1);
+            }}
+            className={chip(range === id, "min-h-[38px] px-3.5 rounded-[10px] text-[13px]")}
+          >
+            {label}
+          </button>
+        ))}
+        {range === "custom" && (
+          <span className="flex flex-wrap items-center gap-2 text-sm">
+            <label className="flex items-center gap-1.5">
+              من
+              <input type="date" aria-label="من تاريخ" value={from} max={to || undefined} onChange={(e) => { setFrom(e.target.value); setPage(1); }} className="min-h-[38px] px-2.5 rounded-[10px] border border-[#DCE0E8] bg-white" />
+            </label>
+            <label className="flex items-center gap-1.5">
+              إلى
+              <input type="date" aria-label="إلى تاريخ" value={to} min={from || undefined} onChange={(e) => { setTo(e.target.value); setPage(1); }} className="min-h-[38px] px-2.5 rounded-[10px] border border-[#DCE0E8] bg-white" />
+            </label>
+          </span>
+        )}
       </div>
 
       {bookings.isError && (

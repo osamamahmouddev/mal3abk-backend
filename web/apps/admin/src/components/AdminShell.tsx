@@ -23,7 +23,7 @@ const SECTIONS: Record<string, { title: string; href: string }[]> = {
   subscriptions: [{ title: "الاشتراكات والفواتير", href: "/billing" }],
   invoices: [{ title: "الإيرادات والتقارير", href: "/reports" }],
   featured: [{ title: "ملاعب مميزة", href: "/featured" }],
-  settings: [{ title: "إعدادات المنصة", href: "/settings" }],
+  settings: [{ title: "إعدادات المنصة", href: "/settings" }, { title: "المناطق", href: "/areas" }],
   accounts: [{ title: "حسابات الفريق", href: "/accounts" }],
   audit: [{ title: "سجل التدقيق", href: "/audit" }],
 };

@@ -57,6 +57,21 @@ public sealed class VenueBookingQueriesTests : IClassFixture<BookingDatabaseFixt
     }
 
     [Fact]
+    public async Task TheSourceFilter_SplitsBookingsEnteredByHandFromThoseMadeInTheAppAsync()
+    {
+        var day = _day.AddDays(5);
+        var manual = await SaveManualAsync(day.AddHours(9), "By Phone", "01111111111");
+        var inApp = await SaveAsync(day.AddHours(12));
+        await using var context = _database.CreateContext();
+        var handler = new VenueBookingQueriesHandler(context, new FakeVenueDirectory(), new FakeUserAccounts());
+        GetVenueBookingsQuery Query(bool? isManual) => new(_venueId, null, day, day.AddDays(1), null, null, IsManual: isManual);
+
+        (await handler.HandleAsync(Query(true))).Value.Items.Select(b => b.Id).Should().Equal(manual);
+        (await handler.HandleAsync(Query(false))).Value.Items.Select(b => b.Id).Should().Equal(inApp);
+        (await handler.HandleAsync(Query(null))).Value.Items.Select(b => b.Id).Should().BeEquivalentTo([manual, inApp]);
+    }
+
+    [Fact]
     public async Task TheCalendar_ShowsBookingsAndBlockedPeriodsTogether_InTimeOrderAsync()
     {
         var day = _day.AddDays(2);
