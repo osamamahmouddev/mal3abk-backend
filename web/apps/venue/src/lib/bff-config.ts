@@ -17,5 +17,6 @@ export const bffConfig: BffConfig = {
     /^\/api\/v1\/venue-invitations\/accept$/,
     /^\/api\/v1\/realtime\/ticket$/,
     /^\/api\/v1\/plans$/,
+    /^\/api\/v1\/venues\/areas$/,
   ],
 };
