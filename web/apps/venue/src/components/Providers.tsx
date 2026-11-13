@@ -22,6 +22,8 @@ interface VenueContextValue {
     venue: Venue | null;
     venueId: string | null;
     isLoading: boolean;
+    /** The venue list could not be loaded (network or server error), as opposed to being empty. */
+    loadFailed: boolean;
     selectVenue: (id: string) => void;
     /** True when the signed-in user's role at the selected venue includes the permission (e.g. "venue.bookings.approve"). */
     can: (permission: string) => boolean;
@@ -34,6 +36,7 @@ const defaultVenueContext: VenueContextValue = {
     venue: null,
     venueId: null,
     isLoading: false,
+    loadFailed: false,
     selectVenue: () => {},
     can: () => false,
     signedIn: false,
@@ -81,6 +84,7 @@ function VenueProvider({
             venue,
             venueId: venue?.id ?? null,
             isLoading: signedIn ? venues.isLoading : false,
+            loadFailed: signedIn && venues.isError,
             can: (permission) => granted.has(permission),
             signedIn,
             selectVenue: (id) => {
@@ -92,7 +96,7 @@ function VenueProvider({
                 }
             },
         };
-    }, [venues.data, venues.isLoading, selected, signedIn, permissions.data]);
+    }, [venues.data, venues.isLoading, venues.isError, selected, signedIn, permissions.data]);
 
     return (
         <VenueContext.Provider value={value}>{children}</VenueContext.Provider>
