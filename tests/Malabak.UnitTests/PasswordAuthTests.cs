@@ -219,6 +219,22 @@ public sealed class PasswordAuthTests
     }
 
     [Fact]
+    public async Task Reset_ForAnUnverifiedEmail_ConfirmsIt_SoTheNewPasswordSignsInAtOnceAsync()
+    {
+        await using var db = NewDb();
+        var accounts = Accounts(db);
+        await accounts.HandleAsync(new RegisterVenueOwnerCommand(_email, "01001112222", "Owner", _password));
+        (await Login(db).HandleAsync(LoginCmd())).Error.Should().Be(PasswordAuthErrors.EmailNotVerified);
+
+        await accounts.HandleAsync(new ForgotPasswordCommand(_email));
+        const string fresh = "a brand new long phrase";
+        (await accounts.HandleAsync(new ResetPasswordCommand(_mailbox.LastToken(), fresh))).IsSuccess.Should().BeTrue();
+
+        (await db.Users.SingleAsync()).IsEmailConfirmed.Should().BeTrue();
+        (await Login(db).HandleAsync(LoginCmd() with { Password = fresh })).IsSuccess.Should().BeTrue();
+    }
+
+    [Fact]
     public async Task Reset_ExpiredToken_FailsAsync()
     {
         await using var db = NewDb();

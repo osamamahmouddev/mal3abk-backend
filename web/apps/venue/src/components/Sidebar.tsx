@@ -1,5 +1,6 @@
 "use client";
 
+import { VENUE_SURFACE } from "@/lib/notification-surface";
 import React, { memo } from "react";
 import Image from "next/image";
 import Link from "next/link";
@@ -47,7 +48,7 @@ export const Sidebar: React.FC<SidebarProps> = memo(({ user, onClose }) => {
   const { venue, venues, selectVenue, can } = useVenue();
   const unread = useQuery({
     queryKey: ["notifications", "unread"],
-    queryFn: () => unwrap(api.GET("/api/v1/me/notifications/unread-count")),
+    queryFn: () => unwrap(api.GET("/api/v1/me/notifications/unread-count", { params: { query: { surface: VENUE_SURFACE } } })),
     refetchInterval: 60_000,
   });
   const unreadCount = unread.data?.unreadCount ?? 0;

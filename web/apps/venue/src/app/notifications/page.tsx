@@ -1,5 +1,7 @@
 "use client";
 
+import { VENUE_SURFACE } from "@/lib/notification-surface";
+import { notificationTarget } from "@/lib/notification-links";
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -36,7 +38,7 @@ export default function NotificationsPage() {
 
   const page = useQuery({
     queryKey: ["notifications", "list"],
-    queryFn: () => unwrap(api.GET("/api/v1/me/notifications", { params: { query: { page: 1, pageSize: 50 } } })),
+    queryFn: () => unwrap(api.GET("/api/v1/me/notifications", { params: { query: { page: 1, pageSize: 50, surface: VENUE_SURFACE } } })),
   });
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["notifications"] });
 
@@ -45,7 +47,7 @@ export default function NotificationsPage() {
     onSuccess: refresh,
   });
   const readAll = useMutation({
-    mutationFn: () => unwrap(api.POST("/api/v1/me/notifications/read-all")),
+    mutationFn: () => unwrap(api.POST("/api/v1/me/notifications/read-all", { params: { query: { surface: VENUE_SURFACE } } })),
     onSuccess: async () => {
       await refresh();
       setToast("كل الإشعارات اتعلّم عليها مقروءة.");
@@ -57,7 +59,8 @@ export default function NotificationsPage() {
 
   const open = (n: Schemas["NotificationDto"]) => {
     if (!n.isRead) markRead.mutate(n.id);
-    if (n.deepLink?.startsWith("/")) router.push(n.deepLink);
+    const target = notificationTarget(n);
+    if (target) router.push(target);
   };
 
   return (

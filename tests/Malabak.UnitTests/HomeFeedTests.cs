@@ -52,13 +52,14 @@ public sealed class HomeFeedTests
     }
 
     [Fact]
-    public async Task WithoutLocationOrArea_NearbyAsksForLocation_PopularStillShowsAsync()
+    public async Task WithoutLocationOrArea_NearbyListsVenuesAcrossAllEgyptAsync()
     {
         await using var db = await SeedAsync();
 
         var feed = (await Feed(db).GetAsync(new HomeFeedQuery(), null)).Value;
 
-        feed.Nearby.Status.Should().Be(HomeSectionStatus.LocationRequired);
+        feed.Nearby.Status.Should().Be(HomeSectionStatus.Ok);
+        feed.Nearby.Items.Should().NotBeEmpty();
         feed.PopularNearYou.Items.Should().NotBeEmpty();
         (await Feed(db).GetAsync(new HomeFeedQuery(City: "Cairo", Area: "Maadi"), null)).Value.Nearby.Items.Select(v => v.VenueId).Should().Equal(_maadi);
     }

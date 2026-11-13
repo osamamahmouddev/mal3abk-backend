@@ -1,5 +1,6 @@
 "use client";
 
+import { useConfirm } from "@/components/ConfirmDialog";
 import React, { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { Schemas } from "@malabak/api-client";
@@ -158,6 +159,7 @@ export default function PricingPage() {
     onError: (e: Error) => setToast(e.message),
   });
 
+  const [confirm, confirmDialog] = useConfirm();
   const remove = useMutation({
     mutationFn: (id: string) => unwrap(api.DELETE("/api/v1/venue-manager/venues/{venueId}/price-rules/{ruleId}", { params: { path: { venueId: venueId!, ruleId: id } } })),
     onSuccess: async () => {
@@ -228,7 +230,7 @@ export default function PricingPage() {
                         </button>
                         <button
                           type="button"
-                          onClick={() => window.confirm(`تمسح «${r.name}»؟`) && remove.mutate(r.id)}
+                          onClick={() => confirm({ title: `تمسح «${r.name}»؟`, message: "القاعدة هتتشال من حساب الأسعار.", confirmLabel: "مسح", destructive: true }, () => remove.mutate(r.id))}
                           className="min-h-[36px] px-3 rounded-[9px] border border-[#F3C4BF] text-[#A8261C] text-xs font-semibold"
                         >
                           مسح
@@ -256,6 +258,7 @@ export default function PricingPage() {
         />
       )}
       <Toast message={toast} onClose={() => setToast(null)} />
+      {confirmDialog}
     </Page>
   );
 }

@@ -77,7 +77,8 @@ public sealed record GetVenueBookingsQuery(
     int Page = 1,
     int PageSize = 20,
     IReadOnlyList<BookingStatus>? Statuses = null,
-    string? Sort = null
+    string? Sort = null,
+    bool? IsManual = null
 ) : IQuery<Result<PagedList<VenueBookingItemDto>>>;
 
 public sealed record GetVenuePendingBookingsQuery(
@@ -149,6 +150,12 @@ public sealed class VenueBookingQueriesHandler :
         if (query.PitchId.HasValue && query.PitchId.Value != Guid.Empty)
         {
             baseQuery = baseQuery.Where(b => b.PitchId == query.PitchId.Value);
+        }
+
+        // true: only bookings the venue entered by hand (phone / walk-in); false: only those made in the app.
+        if (query.IsManual.HasValue)
+        {
+            baseQuery = baseQuery.Where(b => b.IsManualBooking == query.IsManual.Value);
         }
 
         if (!string.IsNullOrWhiteSpace(query.Search))

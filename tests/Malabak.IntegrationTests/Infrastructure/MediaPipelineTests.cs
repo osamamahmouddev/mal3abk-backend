@@ -164,6 +164,30 @@ public sealed class MediaPipelineTests : IDisposable
         hashes[other].Should().NotBe(hashes[first]);
     }
 
+    [Fact]
+    public async Task InDevelopmentWithoutAKey_ALinkSignedByOneRequestIsAcceptedByTheNextAsync()
+    {
+        await using var db = NewDb();
+        var uploader = DevelopmentService(db);
+        var mediaId = await UploadAsync(uploader, Image(600, 400));
+
+        // Each request gets its own scoped service; the link must still open.
+        var asset = await db.Assets.AsNoTracking().SingleAsync(a => a.Id == mediaId);
+        var url = DevelopmentService(db).UrlsFor(asset)["large"];
+        var query = System.Web.HttpUtility.ParseQueryString(url[(url.IndexOf('?', StringComparison.Ordinal) + 1)..]);
+        var content = await DevelopmentService(db).GetVariantAsync(mediaId, "large", query["exp"], query["sig"]);
+
+        content.Should().NotBeNull("a payment proof must be viewable from the link the API just issued");
+        (await DevelopmentService(db).GetVariantAsync(mediaId, "large", query["exp"], "0000")).Should().BeNull("a wrong signature is still refused");
+    }
+
+    private MediaService DevelopmentService(MediaDbContext db)
+    {
+        var config = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?> { ["Media:LocalRoot"] = _root }).Build();
+        var env = new TestEnv { EnvironmentName = Environments.Development };
+        return new MediaService(db, new LocalObjectStorage(config, env), new NoOpMalwareScanner(), _clock, config, env, NullLogger<MediaService>.Instance);
+    }
+
     private async Task<Guid> UploadAsync(MediaService service, byte[] image)
     {
         var ticket = await service.CreateUploadAsync(_userId, MediaPurpose.PaymentProof);

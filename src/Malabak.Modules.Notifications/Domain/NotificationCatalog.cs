@@ -191,6 +191,27 @@ public static class NotificationCatalog
 
     public static IEnumerable<string> Types => _templates.Keys;
 
+    /// <summary>
+    /// Which app a notification type belongs to. Security notices, support replies and payment-dispute outcomes concern the
+    /// whole account (the ticket or dispute may have been opened from either app), so they show in every app.
+    /// Unknown types default to the player app, where they have always appeared.
+    /// </summary>
+    public static IReadOnlyCollection<NotificationSurface> SurfacesOf(string type) => type switch
+    {
+        _ when type.StartsWith("security.", StringComparison.Ordinal)
+            || type.StartsWith("support.", StringComparison.Ordinal)
+            || type == NotificationTypes.PaymentDisputeResolved => [NotificationSurface.Player, NotificationSurface.Venue, NotificationSurface.Admin],
+        NotificationTypes.PaymentProofSubmitted or NotificationTypes.PaymentDisputeOpened => [NotificationSurface.Venue],
+        _ when type.StartsWith("venue.", StringComparison.Ordinal)
+            || type.StartsWith("staff.", StringComparison.Ordinal)
+            || type.StartsWith("subscription.", StringComparison.Ordinal) => [NotificationSurface.Venue],
+        _ => [NotificationSurface.Player]
+    };
+
+    /// <summary>Every known type that appears in <paramref name="surface"/>.</summary>
+    public static IReadOnlyList<string> TypesFor(NotificationSurface surface) =>
+        _templates.Keys.Where(type => SurfacesOf(type).Contains(surface)).ToList();
+
     /// <summary>Fills {placeholders}; missing values render empty rather than leaking the raw key.</summary>
     public static string Render(string text, IReadOnlyDictionary<string, string> data)
     {

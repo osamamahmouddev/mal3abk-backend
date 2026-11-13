@@ -108,14 +108,13 @@ public sealed class HomeFeed
     private async Task<(HomeSection<ExploreVenueCard> Nearby, HomeSection<ExploreVenueCard> Popular)> NearbyAndPopularAsync(
         HomeFeedQuery query, bool hasLocation, Guid? userId, CancellationToken cancellationToken)
     {
-        var hasArea = !string.IsNullOrWhiteSpace(query.City) || !string.IsNullOrWhiteSpace(query.Area);
         var filter = hasLocation
             ? new ExploreQuery(query.Latitude, query.Longitude, NearbyRadiusKm)
             : new ExploreQuery(City: query.City, Area: query.Area);
         var ranked = await _explore.RankAsync(filter, [ExploreSort.Distance, ExploreSort.Popularity], ItemsPerSection, userId, cancellationToken);
 
-        // Without location or a chosen area there is no "near you": popular falls back to the most favorited overall.
-        var nearby = hasLocation || hasArea ? HomeSection<ExploreVenueCard>.Of(ranked[0]) : HomeSection<ExploreVenueCard>.With(HomeSectionStatus.LocationRequired);
+        // Without location or a chosen area the feed is all of Egypt: venues list as they rank, nothing asks for a place.
+        var nearby = HomeSection<ExploreVenueCard>.Of(ranked[0]);
         var popular = HomeSection<ExploreVenueCard>.Of(ranked[1].Where(v => v.FavoritesCount > 0).ToList());
         return (nearby, popular);
     }

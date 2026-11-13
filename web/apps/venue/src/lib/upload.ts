@@ -21,5 +21,11 @@ export async function uploadImage(file: File, purpose: Schemas["MediaPurpose"]):
   return ticket.mediaId;
 }
 
-/** Media paths from the API ("/api/v1/media/...") load through the dashboard's proxy. */
-export const mediaSrc = (path: string) => `/venue/bff${path}`;
+/** Photos uploaded through the API are stored as "/api/v1/media/{id}/{variant}"; a photo can also be a full https:// link (demo data). */
+export const isManagedMedia = (photo: string) => photo.startsWith("/api/v1/media/");
+
+/** The id of an uploaded photo, for the gallery endpoints; null for a link to an image hosted elsewhere. */
+export const mediaIdOf = (photo: string): string | null => (isManagedMedia(photo) ? (photo.split("/")[4] ?? null) : null);
+
+/** Uploaded photos load through the dashboard's proxy; a full link is used as it is (it is not ours to proxy). */
+export const mediaSrc = (path: string) => (/^https?:\/\//i.test(path) ? path : `/venue/bff${path}`);

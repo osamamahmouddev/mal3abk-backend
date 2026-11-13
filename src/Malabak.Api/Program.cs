@@ -502,6 +502,7 @@ app.MapDisputeEndpoints(apiVersionSet);
 app.MapAdminModerationEndpoints(apiVersionSet);
 app.MapAdminDashboardEndpoints(apiVersionSet);
 app.MapFeaturedVenueEndpoints(apiVersionSet);
+app.MapAreaEndpoints(apiVersionSet);
 app.MapImpersonationEndpoints(apiVersionSet);
 app.MapPlatformEndpoints(apiVersionSet);
 app.MapSubscriptionEndpoints(apiVersionSet);

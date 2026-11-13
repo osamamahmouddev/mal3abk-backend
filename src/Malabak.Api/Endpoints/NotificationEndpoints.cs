@@ -19,12 +19,13 @@ public static class NotificationEndpoints
             .WithTags("Notifications");
 
         group.MapGet("/notifications", async (ClaimsPrincipal user, [FromQuery] int? page, [FromQuery] int? pageSize,
-            UserNotificationService notifications, CancellationToken ct) =>
-            Results.Ok(await notifications.ListAsync(user.GetUserId()!.Value, page ?? 1, pageSize ?? 20, IsArabic(), ct)))
-        .Produces<NotificationPageDto>().WithName("GetMyNotifications").WithSummary("Paged notifications in the request language (Accept-Language ar|en)");
+            [FromQuery] NotificationSurface? surface, UserNotificationService notifications, CancellationToken ct) =>
+            Results.Ok(await notifications.ListAsync(user.GetUserId()!.Value, page ?? 1, pageSize ?? 20, IsArabic(), surface, ct)))
+        .Produces<NotificationPageDto>().WithName("GetMyNotifications")
+        .WithSummary("Paged notifications in the request language (Accept-Language ar|en). Pass surface=Player|Venue|Admin to get only the ones shown in that app; omit it for all.");
 
-        group.MapGet("/notifications/unread-count", async (ClaimsPrincipal user, UserNotificationService notifications, CancellationToken ct) =>
-            Results.Ok(new UnreadCountResponse(await notifications.UnreadCountAsync(user.GetUserId()!.Value, ct))))
+        group.MapGet("/notifications/unread-count", async (ClaimsPrincipal user, [FromQuery] NotificationSurface? surface, UserNotificationService notifications, CancellationToken ct) =>
+            Results.Ok(new UnreadCountResponse(await notifications.UnreadCountAsync(user.GetUserId()!.Value, surface, ct))))
         .Produces<UnreadCountResponse>().WithName("GetUnreadNotificationCount");
 
         group.MapPost("/notifications/{id:guid}/read", async (Guid id, ClaimsPrincipal user, UserNotificationService notifications, CancellationToken ct) =>
@@ -33,8 +34,8 @@ public static class NotificationEndpoints
                 : Results.Problem(title: "Notification.NotFound", statusCode: StatusCodes.Status404NotFound))
         .WithName("MarkNotificationRead");
 
-        group.MapPost("/notifications/read-all", async (ClaimsPrincipal user, UserNotificationService notifications, CancellationToken ct) =>
-            Results.Ok(new { Marked = await notifications.MarkAllReadAsync(user.GetUserId()!.Value, ct) }))
+        group.MapPost("/notifications/read-all", async (ClaimsPrincipal user, [FromQuery] NotificationSurface? surface, UserNotificationService notifications, CancellationToken ct) =>
+            Results.Ok(new { Marked = await notifications.MarkAllReadAsync(user.GetUserId()!.Value, surface, ct) }))
         .WithName("MarkAllNotificationsRead");
 
         group.MapGet("/notification-preferences", async (ClaimsPrincipal user, UserNotificationService notifications, CancellationToken ct) =>

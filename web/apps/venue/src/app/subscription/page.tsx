@@ -139,49 +139,82 @@ export default function SubscriptionPage() {
           </div>
         </div>
         {plans.data && (
-          <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-3 p-4">
-            {plans.data.map((p) => {
-              const current = plan?.id === p.id;
-              const tooSmall =
-                !!data &&
-                ((p.maxVenues !== null && p.maxVenues !== undefined && data.usage.venues > p.maxVenues) ||
-                  (p.maxPitches !== null && p.maxPitches !== undefined && data.usage.pitches > p.maxPitches));
-              return (
-                <article key={p.id} className={`rounded-[16px] border p-4 flex flex-col gap-2 ${current ? "border-brand-red" : "border-[#E4E7EC]"}`}>
-                  <div className="flex items-center gap-2">
-                    <strong className="text-[17px] flex-1">{p.name}</strong>
-                    {current && <Badge tone="ok">باقتك</Badge>}
-                  </div>
-                  {p.description && <span className={`text-[13px] ${muted}`}>{p.description}</span>}
-                  <strong className="text-[20px]">
-                    {formatEGP(cycle === "year" ? p.annualPrice : p.monthlyPrice)} <span className={`text-sm font-normal ${muted}`}>/ {cycle === "year" ? "سنة" : "شهر"}</span>
-                  </strong>
-                  <ul className="text-[13px] flex flex-col gap-1">
-                    <li>الملاعب: {limit(p.maxVenues)}</li>
-                    <li>الملاعب الفرعية: {limit(p.maxPitches)}</li>
-                    <li>موظفين لكل ملعب: {limit(p.maxStaffPerVenue)}</li>
-                    {p.trialDays > 0 && <li>تجربة {toArabicDigits(p.trialDays)} يوم</li>}
-                    {p.features.map((f) => (
-                      <li key={f}>✓ {FEATURE_NAMES[f] ?? f}</li>
-                    ))}
-                  </ul>
-                  {!current && (
-                    <button
-                      type="button"
-                      className={tooSmall ? secondaryBtn : primaryBtn}
-                      disabled={tooSmall || requestPlan.isPending}
-                      onClick={() => requestPlan.mutate(p)}
-                      title={tooSmall ? "استخدامك الحالي أكبر من حدود الباقة دي" : undefined}
-                    >
-                      {tooSmall ? "استخدامك أكبر من حدودها" : "اطلب الباقة دي"}
-                    </button>
-                  )}
-                </article>
-              );
-            })}
+          <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4 p-5 bg-[#F7F8FB] items-stretch">
+            {[...plans.data]
+              .sort((x, y) => x.monthlyPrice - y.monthlyPrice)
+              .map((p) => {
+                const current = plan?.id === p.id;
+                const tooSmall =
+                  !!data &&
+                  ((p.maxVenues !== null && p.maxVenues !== undefined && data.usage.venues > p.maxVenues) ||
+                    (p.maxPitches !== null && p.maxPitches !== undefined && data.usage.pitches > p.maxPitches));
+                const price = cycle === "year" ? p.annualPrice : p.monthlyPrice;
+                return (
+                  <article
+                    key={p.id}
+                    className={`relative rounded-[18px] bg-white p-5 flex flex-col gap-4 border ${current ? "border-brand-red ring-2 ring-brand-red/20" : "border-[#E4E7EC]"}`}
+                  >
+                    <header className="flex items-center gap-2 min-h-[28px]">
+                      <h3 className="text-[18px] font-bold flex-1">{p.name}</h3>
+                      {current && <Badge tone="ok">باقتك الحالية</Badge>}
+                    </header>
+
+                    <div className="flex flex-col gap-1">
+                      <div className="flex items-baseline gap-1.5">
+                        <strong className="text-[30px] leading-none font-bold">{price > 0 ? formatEGP(price) : "مجانية"}</strong>
+                        {price > 0 && <span className={`text-sm ${muted}`}>/ {cycle === "year" ? "سنة" : "شهر"}</span>}
+                      </div>
+                      <p className={`text-[13px] leading-5 min-h-[40px] ${muted}`}>{p.description ?? ""}</p>
+                    </div>
+
+                    <ul className="flex-1 flex flex-col gap-2.5 border-t border-[#EDF0F5] pt-4 text-[14px]">
+                      <li className="flex justify-between gap-3">
+                        <span className={muted}>الملاعب</span>
+                        <strong>{limit(p.maxVenues)}</strong>
+                      </li>
+                      <li className="flex justify-between gap-3">
+                        <span className={muted}>الملاعب الفرعية</span>
+                        <strong>{limit(p.maxPitches)}</strong>
+                      </li>
+                      <li className="flex justify-between gap-3">
+                        <span className={muted}>موظفين لكل ملعب</span>
+                        <strong>{limit(p.maxStaffPerVenue)}</strong>
+                      </li>
+                      {p.trialDays > 0 && (
+                        <li className="flex justify-between gap-3">
+                          <span className={muted}>فترة تجربة</span>
+                          <strong>{toArabicDigits(p.trialDays)} يوم</strong>
+                        </li>
+                      )}
+                      {p.features.map((f) => (
+                        <li key={f} className="flex items-center gap-2">
+                          <span aria-hidden="true" className="w-5 h-5 shrink-0 rounded-full bg-[#E7F6EC] text-[#1F7A3E] text-xs font-bold flex items-center justify-center">
+                            ✓
+                          </span>
+                          {FEATURE_NAMES[f] ?? f}
+                        </li>
+                      ))}
+                    </ul>
+
+                    {current ? (
+                      <div className="min-h-[44px] rounded-xl bg-[#F3F5F9] text-[#5B6475] text-sm font-semibold flex items-center justify-center">دي باقتك دلوقتي</div>
+                    ) : (
+                      <button
+                        type="button"
+                        className={`${tooSmall ? secondaryBtn : primaryBtn} w-full`}
+                        disabled={tooSmall || requestPlan.isPending}
+                        onClick={() => requestPlan.mutate(p)}
+                        title={tooSmall ? "استخدامك الحالي أكبر من حدود الباقة دي" : undefined}
+                      >
+                        {tooSmall ? "استخدامك أكبر من حدودها" : "اطلب الباقة دي"}
+                      </button>
+                    )}
+                  </article>
+                );
+              })}
           </div>
         )}
-        <p className={`px-5 pb-4 text-[13px] ${muted}`}>مفيش دفع أونلاين: بعد الطلب فريق ملعبك بيتواصل معاك بتعليمات الدفع (تحويل، إنستاباي، محفظة أو كاش) وبيفعّل الباقة.</p>
+        <p className={`px-5 py-4 text-[13px] ${muted}`}>مفيش دفع أونلاين: بعد الطلب فريق ملعبك بيتواصل معاك بتعليمات الدفع (تحويل، إنستاباي، محفظة أو كاش) وبيفعّل الباقة.</p>
       </section>
 
       <section className={`${card} rounded-[18px] p-5 flex flex-col gap-2`}>

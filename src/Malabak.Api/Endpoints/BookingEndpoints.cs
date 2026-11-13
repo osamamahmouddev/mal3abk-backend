@@ -311,18 +311,19 @@ public static class BookingEndpoints
             [FromQuery] int? pageSize,
             [FromQuery] BookingStatus[]? statuses,
             [FromQuery] string? sort,
+            [FromQuery] bool? manual,
             IQueryHandler<GetVenueBookingsQuery, Result<PagedList<VenueBookingItemDto>>> handler,
             CancellationToken ct) =>
         {
             var safeSort = sort is not null && VenueBookingQueriesHandler.SortKeys.Contains(sort) ? sort : null;
             var result = await handler.HandleAsync(new GetVenueBookingsQuery(
                 venueId, status, startDateUtc, endDateUtc, pitchId, search?.Length > 100 ? search[..100] : search, page ?? 1, pageSize ?? 0,
-                statuses?.Distinct().Take(10).ToList(), safeSort), ct);
+                statuses?.Distinct().Take(10).ToList(), safeSort, manual), ct);
             return Results.Ok(result.Value);
         })
         .RequireVenuePermission(Permissions.BookingsView)
         .WithName("GetVenueBookings")
-        .WithSummary("List venue bookings with status, date, pitch and customer filters");
+        .WithSummary("List venue bookings with status, date range, pitch, customer and source (manual=true entered by hand, false made in the app) filters");
 
         // Dashboard overview (TASK-501): KPIs, occupancy, timeline, proofs to review, recent activity.
         venueManager.MapGet("/dashboard", async (
@@ -442,7 +443,9 @@ public static class BookingEndpoints
                 request.CustomerName,
                 request.CustomerPhone,
                 actorUserId.ToString("D"),
-                request.Notes);
+                request.Notes,
+                request.PaymentStatus ?? ManualPaymentStatus.FullyPaid,
+                request.DepositAmount);
 
             var result = await handler.HandleAsync(command, ct);
             return result.ToHttpResult(
@@ -452,7 +455,7 @@ public static class BookingEndpoints
         .RequireDistributedRateLimiting("booking-manual", permitLimit: 30, windowSeconds: 60)
         .RequireVenuePermission(Permissions.BookingsApprove)
         .WithName("CreateManualBooking")
-        .WithSummary("Create manual phone/walk-in reservation directly into Confirmed state under GiST protection");
+        .WithSummary("Create a manual phone/walk-in reservation under GiST protection. paymentStatus: 0 fully paid (default, confirmed), 1 deposit paid (confirmed; depositAmount = amount received), 2 awaiting deposit (slot held; depositAmount = deposit expected).");
 
         // Staff cancellation (TASK-502): reason required, full deposit refund owed.
         venueManager.MapPost("/bookings/{id:guid}/cancel", async (
@@ -537,7 +540,9 @@ public static class BookingEndpoints
         string? Currency,
         string CustomerName,
         string? CustomerPhone,
-        string? Notes = null);
+        string? Notes = null,
+        ManualPaymentStatus? PaymentStatus = null,
+        decimal? DepositAmount = null);
 
     public sealed record NoShowApiRequest(string? Reason = null);
 
