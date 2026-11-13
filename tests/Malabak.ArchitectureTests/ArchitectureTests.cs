@@ -183,6 +183,44 @@ public sealed class ArchitectureTests
     }
 
     [Fact]
+    public void AllModules_DomainAndApplication_ShouldEnforceIClock_OverDateTimeNowOrUtcNow()
+    {
+        foreach (var moduleAssembly in _moduleAssemblies)
+        {
+            var moduleName = moduleAssembly.GetName().Name!;
+            var testResult = Types.InAssembly(moduleAssembly)
+                .That()
+                .ResideInNamespace($"{moduleName}.Domain")
+                .Or()
+                .ResideInNamespace($"{moduleName}.Application")
+                .Should()
+                .MeetCustomRule(new DoNotUseDateTimeNowOrUtcNowRule())
+                .GetResult();
+
+            testResult.IsSuccessful.Should().BeTrue(
+                $"Domain and Application in module '{moduleName}' must use IClock instead of DateTime.Now, DateTime.UtcNow, or DateTime.Today.");
+        }
+    }
+
+    [Fact]
+    public void AllModules_Domain_ShouldNotDependOn_EntityFrameworkCore()
+    {
+        foreach (var moduleAssembly in _moduleAssemblies)
+        {
+            var moduleName = moduleAssembly.GetName().Name!;
+            var testResult = Types.InAssembly(moduleAssembly)
+                .That()
+                .ResideInNamespace($"{moduleName}.Domain")
+                .ShouldNot()
+                .HaveDependencyOn("Microsoft.EntityFrameworkCore")
+                .GetResult();
+
+            testResult.IsSuccessful.Should().BeTrue(
+                $"Domain in module '{moduleName}' must be persistence-ignorant and never depend on Microsoft.EntityFrameworkCore.");
+        }
+    }
+
+    [Fact]
     public void CommandAndQueryHandlers_ShouldHaveHandlerSuffix()
     {
         // Arrange
