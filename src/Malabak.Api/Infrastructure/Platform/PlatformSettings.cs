@@ -24,25 +24,25 @@ public static class PlatformCatalog
 {
     public static readonly IReadOnlyList<SettingDefinition> Settings =
     [
-        new(PlatformSettingKeys.HoldMinutes, SettingType.Integer, "30", "Default minutes a slot is held while the player uploads the deposit proof (new venue policies).", 5, 120),
-        new(PlatformSettingKeys.ProofReviewMinutes, SettingType.Integer, "120", "Default minutes a venue has to review a deposit proof (new venue policies).", 15, 1440),
-        new(PlatformSettingKeys.OtpMaxPerHour, SettingType.Integer, "5", "Most sign-in codes one phone can request per hour.", 1, 20),
-        new(PlatformSettingKeys.OtpResendCooldownSeconds, SettingType.Integer, "60", "Seconds before a new code can be requested.", 30, 600),
-        new(PlatformSettingKeys.RankingWinPoints, SettingType.Integer, "3", "Ranking points for a win.", 0, 10),
-        new(PlatformSettingKeys.RankingDrawPoints, SettingType.Integer, "1", "Ranking points for a draw.", 0, 10),
-        new(PlatformSettingKeys.RankingLossPoints, SettingType.Integer, "0", "Ranking points for a loss.", 0, 10),
-        new(PlatformSettingKeys.MaintenanceEnabled, SettingType.Boolean, "false", "Maintenance mode: the apps show the message and the API refuses non-admin requests."),
-        new(PlatformSettingKeys.MaintenanceMessage, SettingType.Text, "نعمل على تحسين الخدمة وهنرجع قريب.", "Message shown during maintenance.", MaxLength: 300),
+        new(PlatformSettingKeys.HoldMinutes, SettingType.Integer, "30", "مهلة تثبيت الحجز الافتراضية لحين رفع إشعار العربون (للملاعب الجديدة).", 5, 120),
+        new(PlatformSettingKeys.ProofReviewMinutes, SettingType.Integer, "120", "مهلة مراجعة إشعار العربون الافتراضية للملعب (للملاعب الجديدة).", 15, 1440),
+        new(PlatformSettingKeys.OtpMaxPerHour, SettingType.Integer, "5", "الحد الأقصى لرموز التحقق (OTP) لكل رقم هاتف في الساعة.", 1, 20),
+        new(PlatformSettingKeys.OtpResendCooldownSeconds, SettingType.Integer, "60", "فترة الانتظار بالثواني قبل إعادة طلب رمز التحقق.", 30, 600),
+        new(PlatformSettingKeys.RankingWinPoints, SettingType.Integer, "3", "نقاط تصنيف الفرق عند الفوز.", 0, 10),
+        new(PlatformSettingKeys.RankingDrawPoints, SettingType.Integer, "1", "نقاط تصنيف الفرق عند التعادل.", 0, 10),
+        new(PlatformSettingKeys.RankingLossPoints, SettingType.Integer, "0", "نقاط تصنيف الفرق عند الخسارة.", 0, 10),
+        new(PlatformSettingKeys.MaintenanceEnabled, SettingType.Boolean, "false", "وضع الصيانة: إيقاف طلبات المستخدمين وعرض رسالة الصيانة في التطبيقات."),
+        new(PlatformSettingKeys.MaintenanceMessage, SettingType.Text, "نعمل على تحسين الخدمة وهنرجع قريب.", "نص الرسالة المعروضة للمستخدمين أثناء فترة الصيانة.", MaxLength: 300),
     ];
 
     public static readonly IReadOnlyList<FlagDefinition> Flags =
     [
-        new(FeatureFlagKeys.SponsoredHomeItems, "Sponsored items in the player home feed (always labeled).", Public: true),
-        new(FeatureFlagKeys.FeaturedVenues, "Featured venues placement chosen by admins.", Public: true),
-        new(FeatureFlagKeys.PaymentGateway, "Online deposit payment through a gateway (post-MVP)."),
-        new(FeatureFlagKeys.Tournaments, "Tournaments (post-MVP).", Public: true),
-        new(FeatureFlagKeys.Reviews, "Venue reviews (post-MVP).", Public: true),
-        new(FeatureFlagKeys.Referrals, "Referral rewards (post-MVP).", Public: true),
+        new(FeatureFlagKeys.SponsoredHomeItems, "عناصر وإعلانات ممولة في الصفحة الرئيسية لتطبيق اللاعبين.", Public: true),
+        new(FeatureFlagKeys.FeaturedVenues, "قسم الملاعب المميزة المختارة بواسطة الإدارة.", Public: true),
+        new(FeatureFlagKeys.PaymentGateway, "الدفع الإلكتروني للعربون عبر بوابة دفع."),
+        new(FeatureFlagKeys.Tournaments, "نظام البطولات والدوريات.", Public: true),
+        new(FeatureFlagKeys.Reviews, "تقييمات ومراجعات الملاعب.", Public: true),
+        new(FeatureFlagKeys.Referrals, "برنامج ومكافآت الإحالة.", Public: true),
     ];
 
     private static string BoolText(bool value) => value ? "true" : "false";

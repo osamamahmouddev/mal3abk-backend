@@ -9,6 +9,27 @@ import { api, unwrap } from "@/lib/api";
 
 type Tab = "settings" | "flags" | "sessions";
 
+const SETTING_LABELS: Record<string, string> = {
+  "booking.default_hold_minutes": "مهلة تثبيت الحجز الافتراضية لحين رفع إشعار العربون (للملاعب الجديدة)",
+  "booking.default_proof_review_minutes": "مهلة مراجعة إشعار العربون الافتراضية للملعب (للملاعب الجديدة)",
+  "otp.max_per_hour": "الحد الأقصى لرموز التحقق (OTP) لكل رقم هاتف في الساعة",
+  "otp.resend_cooldown_seconds": "فترة الانتظار بالثواني قبل إعادة طلب رمز التحقق",
+  "ranking.win_points": "نقاط تصنيف الفرق عند الفوز",
+  "ranking.draw_points": "نقاط تصنيف الفرق عند التعادل",
+  "ranking.loss_points": "نقاط تصنيف الفرق عند الخسارة",
+  "maintenance.enabled": "وضع الصيانة: إيقاف طلبات المستخدمين وعرض رسالة الصيانة في التطبيقات",
+  "maintenance.message": "نص الرسالة المعروضة للمستخدمين أثناء فترة الصيانة",
+};
+
+const FLAG_LABELS: Record<string, string> = {
+  "app.home.sponsored": "عناصر وإعلانات ممولة في الصفحة الرئيسية لتطبيق اللاعبين",
+  "venue.featured": "قسم الملاعب المميزة المختارة بواسطة الإدارة",
+  "payment.gateway": "الدفع الإلكتروني للعربون عبر بوابة دفع",
+  "tournaments.enabled": "نظام البطولات والدوريات",
+  "venue.reviews": "تقييمات ومراجعات الملاعب",
+  "referrals.enabled": "برنامج ومكافآت الإحالة",
+};
+
 export default function SettingsPage() {
   const [tab, setTab] = useState<Tab>("settings");
   return (
@@ -48,10 +69,11 @@ function Settings() {
             {list.map((s: Schemas["SettingDto"]) => {
               const draft = drafts[s.key];
               const value = draft ?? s.value;
+              const description = SETTING_LABELS[s.key] ?? s.description;
               return (
                 <div key={s.key} className="p-4 flex flex-wrap gap-3 items-center">
                   <div className="flex-[1_1_260px] flex flex-col gap-0.5">
-                    <strong className="text-sm">{s.description}</strong>
+                    <strong className="text-sm">{description}</strong>
                     <span dir="ltr" className={`text-[11px] font-inter text-right ${muted}`}>{s.key}</span>
                     <span className={`text-[11px] ${muted}`}>
                       الافتراضي: {s.default}
@@ -61,10 +83,10 @@ function Settings() {
                     </span>
                   </div>
                   {s.type === "Boolean" ? (
-                    <Switch on={value === "true"} label={s.description} onToggle={() => setDrafts((d) => ({ ...d, [s.key]: value === "true" ? "false" : "true" }))} />
+                    <Switch on={value === "true"} label={description} onToggle={() => setDrafts((d) => ({ ...d, [s.key]: value === "true" ? "false" : "true" }))} />
                   ) : (
                     <TextInput
-                      aria-label={s.description}
+                      aria-label={description}
                       className="max-w-[240px]"
                       inputMode={s.type === "Integer" ? "numeric" : undefined}
                       maxLength={s.maxLength ?? undefined}
@@ -77,7 +99,7 @@ function Settings() {
                     type="button"
                     className={btnSmall}
                     disabled={draft === undefined || draft === s.value}
-                    onClick={() => setReason({ title: "تغيير إعداد", body: `${s.description}: ${s.value} ← ${draft}`, confirmLabel: "حفظ", onConfirm: (text) => save.mutate({ key: s.key, value: draft!, text }) })}
+                    onClick={() => setReason({ title: "تغيير إعداد", body: `${description}: ${s.value} ← ${draft}`, confirmLabel: "حفظ", onConfirm: (text) => save.mutate({ key: s.key, value: draft!, text }) })}
                   >
                     حفظ
                   </button>
@@ -112,26 +134,32 @@ function Flags() {
       <QueryState query={flags}>
         {(list) => (
           <div className={`${card} rounded-[18px] divide-y divide-[#EEF0F5]`}>
-            {list.map((f: Schemas["FlagDto"]) => (
-              <div key={f.key} className="p-4 flex gap-3 items-center">
-                <div className="flex-1 flex flex-col gap-0.5">
-                  <strong className="text-sm">{f.description}</strong>
-                  <span dir="ltr" className={`text-[11px] font-inter text-right ${muted}`}>{f.key}{f.public ? " · visible to apps" : ""}</span>
+            {list.map((f: Schemas["FlagDto"]) => {
+              const description = FLAG_LABELS[f.key] ?? f.description;
+              return (
+                <div key={f.key} className="p-4 flex gap-3 items-center">
+                  <div className="flex-1 flex flex-col gap-0.5">
+                    <strong className="text-sm">{description}</strong>
+                    <div className="flex items-center gap-1.5 text-[11px] text-[#5B6475]">
+                      <span dir="ltr" className="font-inter">{f.key}</span>
+                      {f.public && <span className="bg-[#EEF0F5] text-[#0F1B3D] text-[10px] font-medium px-1.5 py-0.5 rounded">متاح للتطبيقات</span>}
+                    </div>
+                  </div>
+                  <Switch
+                    on={f.enabled}
+                    label={description}
+                    onToggle={() =>
+                      setReason({
+                        title: f.enabled ? "إيقاف ميزة" : "تشغيل ميزة",
+                        body: description,
+                        confirmLabel: f.enabled ? "إيقاف" : "تشغيل",
+                        onConfirm: (text) => toggle.mutate({ key: f.key, enabled: !f.enabled, text }),
+                      })
+                    }
+                  />
                 </div>
-                <Switch
-                  on={f.enabled}
-                  label={f.description}
-                  onToggle={() =>
-                    setReason({
-                      title: f.enabled ? "إيقاف ميزة" : "تشغيل ميزة",
-                      body: f.description,
-                      confirmLabel: f.enabled ? "إيقاف" : "تشغيل",
-                      onConfirm: (text) => toggle.mutate({ key: f.key, enabled: !f.enabled, text }),
-                    })
-                  }
-                />
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </QueryState>
