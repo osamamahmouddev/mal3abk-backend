@@ -6,8 +6,37 @@ import type { Schemas } from "@malabak/api-client";
 import { Page, PageHeader, TONE, btnOutline, card, muted, toArabicDigits, useRevealOnSelect } from "@/components/ui";
 import { api, unwrap } from "@/lib/api";
 
-type Pending = Schemas["PendingVenueApprovalDto"];
+type PendingPitch = {
+  id?: string;
+  name: string;
+  turfType?: string;
+  capacity?: number;
+  lengthMeters?: number | null;
+  widthMeters?: number | null;
+  photos?: string[];
+};
+
+type Pending = Schemas["PendingVenueApprovalDto"] & {
+  pitches?: PendingPitch[];
+};
 type Decision = "reject" | "info";
+
+const TURF_LABELS: Record<string, string> = {
+  ArtificialTurf: "نجيل صناعي",
+  NaturalGrass: "نجيل طبيعي",
+  Hybrid: "نجيل هجين",
+  Tartan: "ترتان / مطاطي",
+  HardCourt: "أسمنتي / صلب",
+  Parquet: "باركيه صالات",
+  Sand: "رملي / شاطئي",
+};
+
+function mediaSrc(path: string) {
+  if (!path) return "";
+  if (/^https?:\/\//i.test(path)) return path;
+  if (path.startsWith("/admin/bff")) return path;
+  return `/admin/bff${path.startsWith("/") ? "" : "/"}${path}`;
+}
 
 const ACTIONS: Record<Decision, { title: string; placeholder: string; cta: string; btn: string }> = {
   reject: {
@@ -168,13 +197,81 @@ export default function ApprovalsPage() {
               </div>
             )}
 
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-              {(cur.photos ?? []).length === 0 && <span className={`text-xs ${muted} col-span-full`}>المالك مارفعش صور لسه.</span>}
-              {(cur.photos ?? []).map((photo) => (
-                // eslint-disable-next-line @next/next/no-img-element -- re-encoded WebP from our media API
-                <img key={photo} src={`/admin/bff${photo}`} alt={`صورة ${cur.name}`} className="aspect-[4/3] w-full object-cover rounded-[10px]" />
-              ))}
+            {/* صور المنشأة العامة */}
+            <div className="flex flex-col gap-2 pt-2 border-t border-[#EEF0F5]">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-bold text-slate-800">صور المكان / المنشأة العامة</h3>
+                <span className={`text-xs ${muted}`}>({toArabicDigits((cur.photos ?? []).length)} صور)</span>
+              </div>
+              {(cur.photos ?? []).length === 0 ? (
+                <span className={`text-xs ${muted}`}>المالك مارفعش صور عامة للمنشأة.</span>
+              ) : (
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  {cur.photos!.map((photo) => (
+                    // eslint-disable-next-line @next/next/no-img-element -- re-encoded WebP from our media API
+                    <img
+                      key={photo}
+                      src={mediaSrc(photo)}
+                      alt={`صورة ${cur.name}`}
+                      className="aspect-[4/3] w-full object-cover rounded-[10px] border border-[#E4E7EC]"
+                    />
+                  ))}
+                </div>
+              )}
             </div>
+
+            {/* ملاعب المكان وتفاصيلها وصور كل ملعب */}
+            {cur.pitches && cur.pitches.length > 0 && (
+              <div className="flex flex-col gap-3 pt-3 border-t border-[#EEF0F5]">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-bold text-slate-800">ملاعب المكان وتفاصيلها</h3>
+                  <span className={`text-xs ${muted}`}>({toArabicDigits(cur.pitches.length)} ملاعب)</span>
+                </div>
+                <div className="flex flex-col gap-3">
+                  {cur.pitches.map((pitch, idx) => (
+                    <div key={pitch.id ?? idx} className="rounded-xl border border-[#E4E7EC] bg-[#F8F9FB] p-3 flex flex-col gap-2.5">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <span className="text-sm font-bold text-slate-900">{pitch.name}</span>
+                        <div className="flex flex-wrap gap-1.5 text-xs">
+                          {pitch.turfType && (
+                            <span className="bg-white border border-[#DCE0E8] rounded-full px-2.5 py-0.5 text-slate-700 font-medium">
+                              {TURF_LABELS[pitch.turfType] ?? pitch.turfType}
+                            </span>
+                          )}
+                          {typeof pitch.capacity === "number" && (
+                            <span className="bg-white border border-[#DCE0E8] rounded-full px-2.5 py-0.5 text-slate-700 font-medium">
+                              {toArabicDigits(pitch.capacity)} ضد {toArabicDigits(pitch.capacity)}
+                            </span>
+                          )}
+                          {pitch.lengthMeters && pitch.widthMeters && (
+                            <span className="bg-white border border-[#DCE0E8] rounded-full px-2.5 py-0.5 text-slate-700 font-medium">
+                              {toArabicDigits(pitch.lengthMeters)} × {toArabicDigits(pitch.widthMeters)} م
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* صور الملعب ده */}
+                      {(pitch.photos ?? []).length === 0 ? (
+                        <span className={`text-xs ${muted}`}>المالك مارفعش صور للملعب ده لسه.</span>
+                      ) : (
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                          {pitch.photos!.map((photo) => (
+                            // eslint-disable-next-line @next/next/no-img-element -- re-encoded WebP from our media API
+                            <img
+                              key={photo}
+                              src={mediaSrc(photo)}
+                              alt={`صورة ${pitch.name}`}
+                              className="aspect-[4/3] w-full object-cover rounded-[10px] border border-[#DCE0E8]"
+                            />
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {cur.submissionMessage && (
               <div className="bg-[#F8F9FB] rounded-[10px] px-3.5 py-2.5 text-sm">

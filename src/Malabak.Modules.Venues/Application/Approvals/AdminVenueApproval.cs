@@ -126,13 +126,29 @@ public sealed class GetPendingVenueApprovalsHandler : IQueryHandler<GetPendingVe
             .Take(pageSize)
             .ToListAsync(cancellationToken);
 
+        var venueIds = pending.Select(p => p.Venue.Id).ToList();
+        var pitches = await _dbContext.Pitches.AsNoTracking()
+            .Where(p => venueIds.Contains(p.VenueId) && !p.IsDeleted)
+            .OrderBy(p => p.Name)
+            .ToListAsync(cancellationToken);
+
+        var pitchesByVenue = pitches
+            .GroupBy(p => p.VenueId)
+            .ToDictionary(
+                g => g.Key,
+                g => (IReadOnlyList<PendingApprovalPitchDto>)g.Select(p => new PendingApprovalPitchDto(
+                    p.Id, p.Name, p.TurfType, p.Capacity, p.LengthMeters, p.WidthMeters, p.Photos.ToList()
+                )).ToList()
+            );
+
         var owners = await _accounts.GetFullNamesAsync(pending.Select(p => p.Venue.OwnerId).Distinct().ToList(), cancellationToken);
 
         IReadOnlyList<PendingVenueApprovalDto> result = pending
             .Select(p => new PendingVenueApprovalDto(
                 p.Venue.Id, p.Venue.Name, p.Venue.City, p.Venue.Area, p.Venue.OwnerId, p.Submission?.CreatedAtUtc,
                 p.Venue.Address, p.Venue.PhoneNumber, p.Venue.Description, p.Venue.Facilities.ToList(), p.Venue.Photos.ToList(),
-                p.PitchCount, owners.GetValueOrDefault(p.Venue.OwnerId), p.Submission?.Message))
+                p.PitchCount, owners.GetValueOrDefault(p.Venue.OwnerId), p.Submission?.Message,
+                pitchesByVenue.GetValueOrDefault(p.Venue.Id) ?? Array.Empty<PendingApprovalPitchDto>()))
             .ToList();
 
         return Result.Success(result);

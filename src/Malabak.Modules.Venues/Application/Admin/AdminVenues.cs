@@ -13,7 +13,7 @@ public sealed record AdminVenueListItem(
 
 public sealed record AdminVenuePage(IReadOnlyList<AdminVenueListItem> Items, int Page, int PageSize, int Total);
 
-public sealed record AdminPitchItem(Guid Id, string Name, string TurfType, int Capacity, bool IsActive);
+public sealed record AdminPitchItem(Guid Id, string Name, string TurfType, int Capacity, bool IsActive, IReadOnlyList<string>? Photos = null);
 
 public sealed record AdminVenueEventItem(string Action, string FromStatus, string ToStatus, Guid ActorId, string? Message, DateTime OccurredAtUtc);
 
@@ -143,7 +143,7 @@ public sealed class AdminVenueService
         }
 
         var pitches = await _dbContext.Pitches.AsNoTracking().Where(p => p.VenueId == venueId && !p.IsDeleted).OrderBy(p => p.Name)
-            .Select(p => new AdminPitchItem(p.Id, p.Name, p.TurfType, p.Capacity, p.IsActive)).ToListAsync(cancellationToken);
+            .Select(p => new AdminPitchItem(p.Id, p.Name, p.TurfType, p.Capacity, p.IsActive, p.Photos.ToList())).ToListAsync(cancellationToken);
         var staff = await _dbContext.StaffMembers.AsNoTracking().CountAsync(m => m.VenueId == venueId && !m.IsDeleted, cancellationToken);
         var history = await _dbContext.ApprovalEvents.AsNoTracking().Where(e => e.VenueId == venueId).OrderByDescending(e => e.CreatedAtUtc).Take(50)
             .ToListAsync(cancellationToken);

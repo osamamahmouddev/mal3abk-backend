@@ -34,7 +34,7 @@ export function createProxy(config: BffConfig) {
     }
 
     const session = await getSession(config);
-    const isAnonymousAllowed = request.method === "GET" && apiPath.startsWith("/api/v1/reference/");
+    const isAnonymousAllowed = request.method === "GET" && (apiPath.startsWith("/api/v1/reference/") || apiPath.startsWith("/api/v1/media/"));
 
     if (!isAnonymousAllowed && (!session.refreshToken || !session.csrf)) {
       return problem(401, "Bff.NotSignedIn");

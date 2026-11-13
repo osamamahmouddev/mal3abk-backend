@@ -17,6 +17,15 @@ public sealed record VenueApprovalDto(
     bool IsSearchable,
     IReadOnlyList<VenueApprovalEventDto> History);
 
+public sealed record PendingApprovalPitchDto(
+    Guid Id,
+    string Name,
+    string TurfType,
+    int Capacity,
+    decimal? LengthMeters,
+    decimal? WidthMeters,
+    IReadOnlyList<string> Photos);
+
 public sealed record PendingVenueApprovalDto(
     Guid VenueId,
     string Name,
@@ -31,7 +40,8 @@ public sealed record PendingVenueApprovalDto(
     IReadOnlyList<string>? Photos = null,
     int PitchCount = 0,
     string? OwnerName = null,
-    string? SubmissionMessage = null);
+    string? SubmissionMessage = null,
+    IReadOnlyList<PendingApprovalPitchDto>? Pitches = null);
 
 public enum VenueApprovalDecision
 {

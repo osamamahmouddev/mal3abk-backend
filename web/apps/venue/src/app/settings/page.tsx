@@ -31,7 +31,7 @@ export default function SettingsPage() {
       <div role="tablist" className="flex gap-1.5 border-b border-[#DCE0E8] flex-wrap">
         {(
           [
-            ["info", "بيانات الملعب"],
+            ["info", "بيانات المكان / النادي"],
             ["pay", "طرق استلام العربون"],
             ["account", "الحساب والأمان"],
           ] as const
@@ -145,7 +145,7 @@ function VenueInfo({ onMessage }: { onMessage: (message: string) => void }) {
     <div className="flex flex-wrap gap-4 items-start">
       <section className={`flex-[999_1_460px] min-w-0 ${card} rounded-[20px] p-5 flex flex-col gap-3.5`}>
         <label className="flex flex-col gap-1.5 text-[13px] font-semibold">
-          اسم الملعب
+          اسم المكان / النادي
           <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className={inputClass} />
         </label>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -189,7 +189,7 @@ function VenueInfo({ onMessage }: { onMessage: (message: string) => void }) {
           <input dir="ltr" value={form.phoneNumber} onChange={(e) => setForm({ ...form, phoneNumber: e.target.value })} className={`${inputClass} text-right`} />
         </label>
         <label className="flex flex-col gap-1.5 text-[13px] font-semibold">
-          وصف الملعب
+          وصف المكان / النادي
           <textarea rows={3} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className={`${inputClass} py-2.5`} />
         </label>
         <div className="flex flex-col gap-2">
@@ -222,13 +222,16 @@ function VenueInfo({ onMessage }: { onMessage: (message: string) => void }) {
       </section>
 
       <section className={`flex-[1_1_320px] min-w-0 ${card} rounded-[20px] p-5 flex flex-col gap-3`}>
-        <h2 className="text-base font-bold">صور الملعب</h2>
+        <div className="flex flex-col gap-1">
+          <h2 className="text-base font-bold">صور المكان / المنشأة العامة</h2>
+          <span className={`text-xs ${muted}`}>صور المدخل، الاستراحة، والمرافق العامة. صور أرضيات الملاعب بتترفع من صفحة الملاعب لكل ملعب بشكل منفصل.</span>
+        </div>
         <div className="grid grid-cols-2 gap-2">
           {venue.photos.map((photo) => {
             return (
               <div key={photo} className="relative">
                 {/* eslint-disable-next-line @next/next/no-img-element -- signed media from our API, already re-encoded as WebP */}
-                <img src={mediaSrc(photo)} alt="صورة الملعب" className="w-full h-24 object-cover rounded-xl" />
+                <img src={mediaSrc(photo)} alt="صورة المنشأة" className="w-full h-24 object-cover rounded-xl" />
                 <button
                   type="button"
                   aria-label="مسح الصورة"
