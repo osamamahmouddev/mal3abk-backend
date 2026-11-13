@@ -1,5 +1,29 @@
 # Malabak Test Findings & Bug Catalog
 
+## Status of every bug (verified against `dev`)
+
+| Bug | Summary | Status |
+|---|---|---|
+| BUG-001 | Missing required query parameter returned 500 | Fixed in #72 |
+| BUG-002 | `docs/api/error-codes.json` lacks ~175 domain error codes | **Open** (test skipped) |
+| BUG-003 | TOTP replay inside one time step | Fixed in #72 |
+| BUG-004 | Phone change revealed whether a number is registered | Fixed in #72 |
+| BUG-005 | Concurrent phone change returned 500 | Fixed in #72 (the unique-index race is not covered by a Postgres-level test) |
+| BUG-006 | No attempt limit on phone-change OTPs | Fixed in #72 |
+| BUG-007 | 6-hour booking lock after 3 expired holds missing | Fixed in #71 |
+| BUG-008 | PDF payment receipts rejected | Fixed in #71 (byte-level active-content filter; real defence is private storage, download-only and ClamAV) |
+| BUG-009 | `CannotCancelPastBooking` unreachable | Fixed in #71 |
+| BUG-010 | Pitch with future bookings could be deleted | Fixed in #71 |
+| BUG-011 | Match result accepted after the 6-hour window | Fixed in #70 |
+| BUG-012 | Suspended teams on the public leaderboard | Fixed in #70 |
+| BUG-013 | Team limit not enforced when creating a team | Fixed in #70 |
+| BUG-014 | Team limit not enforced when accepting an invitation | Fixed in #70 |
+| BUG-015 | Concurrent refresh returned 500 | Fixed in #72 |
+
+Also fixed outside this catalog: idempotency keys were global instead of per user (#72), venues without coordinates were hidden from players who shared their location (#70), the web build failed on `next/font` (#73).
+
+Still open (no test yet): `/me/phone-change/recover` has no rate limit; the authorization matrix covers a handful of routes, not every endpoint; rate-limit tests use a fake limiter instead of the real endpoints (SECURITY.md section 7.5).
+
 ## Known Documentation Conflicts (Decided)
 
 | ID | Topic | Docs | Code (expected) |
