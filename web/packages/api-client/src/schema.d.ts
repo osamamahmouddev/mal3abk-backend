@@ -2911,7 +2911,7 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        /** Upload JPEG/PNG/WebP bytes (max 8 MB); stored only as re-encoded WebP variants */
+        /** Upload JPEG/PNG/WebP bytes (max 8 MB), or a PDF for payment proofs; images are stored only as re-encoded WebP variants, PDFs as validated bytes */
         put: operations["UploadMedia"];
         post?: never;
         delete?: never;
@@ -3281,6 +3281,23 @@ export interface paths {
         put?: never;
         /** Verify new phone OTP code in atomic transaction, rotate security stamp and revoke sessions */
         post: operations["VerifyNewPhone"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/phone-change/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Cancel an in-progress phone change request */
+        post: operations["CancelPhoneChange"];
         delete?: never;
         options?: never;
         head?: never;
@@ -5715,6 +5732,10 @@ export interface components {
         };
         CancelMatchRequest: {
             reason?: string | null;
+        };
+        CancelPhoneChangeApiRequest: {
+            /** Format: uuid */
+            requestId: string;
         };
         CancelPreviewResponse: {
             canCancel: boolean;
@@ -21733,6 +21754,91 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["VerifyNewPhoneResponse"];
                 };
+            };
+            /** @description Bad Request (Validation failure, invalid inputs) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Unauthorized (Missing or expired JWT access token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Forbidden (Insufficient role or permissions) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Not Found (Resource does not exist) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Conflict (Concurrent update or duplicate idempotency in flight) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Unprocessable Entity (Business rule violation or payload mismatch) */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Too Many Requests (Rate limit exceeded, check Retry-After header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    CancelPhoneChange: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CancelPhoneChangeApiRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Bad Request (Validation failure, invalid inputs) */
             400: {

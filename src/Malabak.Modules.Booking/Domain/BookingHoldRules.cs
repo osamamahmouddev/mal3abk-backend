@@ -8,4 +8,12 @@ public static class BookingHoldRules
     /// ADR-0008 says 3; SECURITY.md is stricter and wins (AGENTS.md).
     /// </summary>
     public const int MaxPendingBookingsPerPlayer = 2;
+
+    /// <summary>Holds that lapse without any payment proof, within <see cref="PenaltyWindow"/>, that trigger the lock (ADR-0008 section 1).</summary>
+    public const int ExpiredHoldsForPenalty = 3;
+
+    public static readonly TimeSpan PenaltyWindow = TimeSpan.FromHours(24);
+
+    /// <summary>How long a player cannot create bookings once the penalty applies; counted from the last hold that lapsed.</summary>
+    public static readonly TimeSpan PenaltyLockDuration = TimeSpan.FromHours(6);
 }

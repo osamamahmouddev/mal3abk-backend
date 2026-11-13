@@ -158,6 +158,21 @@ public sealed class CreateBookingHandler : ICommandHandler<CreateBookingCommand,
 
         await BookingConcurrency.ReleaseLapsedHoldsAsync(_dbContext, command.PlayerId, command.PitchId, command.StartUtc, command.EndUtc, nowUtc, cancellationToken);
 
+        // Penalty: three unpaid holds lapsing within 24 hours lock the player out for six hours. Server clock only.
+        var lapsedSince = nowUtc - BookingHoldRules.PenaltyWindow;
+        var recentLapses = await _dbContext.Bookings
+            .Where(b => b.PlayerId == command.PlayerId && b.Status == BookingStatus.Expired && !b.IsDeleted
+                && b.HoldExpiresAtUtc > lapsedSince && b.HoldExpiresAtUtc <= nowUtc
+                && !_dbContext.PaymentProofs.Any(p => p.BookingId == b.Id))
+            .OrderByDescending(b => b.HoldExpiresAtUtc)
+            .Select(b => b.HoldExpiresAtUtc!.Value)
+            .Take(BookingHoldRules.ExpiredHoldsForPenalty)
+            .ToListAsync(cancellationToken);
+        if (recentLapses.Count == BookingHoldRules.ExpiredHoldsForPenalty && nowUtc < recentLapses[0] + BookingHoldRules.PenaltyLockDuration)
+        {
+            return (Result.Failure<Domain.Booking>(BookingErrors.AccountLockedForHoarding), false);
+        }
+
         // Slot hoarding prevention: only holds that are still running count.
         var pendingHolds = await _dbContext.Bookings.CountAsync(
             b => b.PlayerId == command.PlayerId && b.Status == BookingStatus.PendingDeposit && b.HoldExpiresAtUtc > nowUtc && !b.IsDeleted,

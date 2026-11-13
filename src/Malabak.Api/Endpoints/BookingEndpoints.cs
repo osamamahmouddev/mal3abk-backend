@@ -66,6 +66,7 @@ public static class BookingEndpoints
             {
                 "Booking.SlotOverlap" => Results.Problem(title: result.Error.Code, detail: result.Error.Description, statusCode: StatusCodes.Status409Conflict),
                 "Booking.MaxPendingBookingsExceeded" => Results.Problem(title: result.Error.Code, detail: result.Error.Description, statusCode: StatusCodes.Status429TooManyRequests),
+                "Booking.AccountLockedForHoarding" => Results.Problem(title: result.Error.Code, detail: result.Error.Description, statusCode: StatusCodes.Status429TooManyRequests),
                 "Booking.PriceMismatch" => Results.Problem(title: result.Error.Code, detail: result.Error.Description, statusCode: StatusCodes.Status409Conflict),
                 _ => Results.Problem(title: result.Error.Code, detail: result.Error.Description, statusCode: StatusCodes.Status400BadRequest)
             };
@@ -138,8 +139,8 @@ public static class BookingEndpoints
                 userId,
                 request.MediaId,
                 fileKey,
-                $"proof_{asset.Id:N}.webp",
-                "image/webp",
+                $"proof_{asset.Id:N}.{(asset.IsPdf ? "pdf" : "webp")}",
+                asset.ContentType,
                 asset.SizeBytes ?? 0,
                 sha256,
                 request.Notes);

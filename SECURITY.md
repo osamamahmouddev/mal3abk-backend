@@ -934,6 +934,7 @@ POST /bookings  Idempotency-Key: 7c1a...   (الأب يولّده UUID مرة ل
 
 - **الحد الأقصى للحجم** (مثلاً 5MB) في Cloudflare + Kestrel + الـ endpoint.
 - **الأنواع المسموحة:** JPEG/PNG/WebP/PDF. **تحقق من الـ magic bytes** (مش الامتداد ولا الـ Content-Type لوحده).
+- **الـ PDF (إيصالات الدفع فقط):** بيتخزن كبايتات متحقَّق منها (`%PDF-` + `%%EOF` + رفض JavaScript/Launch/OpenAction/EmbeddedFile…) ومش بيتعمله re-encode ولا بيتفتح على السيرفر، وبيتقدّم دايماً `Content-Disposition: attachment` + `nosniff` + CSP `sandbox`. الفحص ده فلتر بسيط على البايتات (مش parser) ومش بيشوف الأسماء جوه object streams المضغوطة، فالحماية الأساسية هي الـ ClamAV + التخزين الخاص + التحميل فقط.
 - **أعد ترميز الصور** (re-encode) علشان تشيل أي payload مخفي، و**شيل EXIF** (فيه GPS/موديل الجهاز = خصوصية).
 - **مسح فيروسات** (ClamAV أو خدمة) قبل ما الملف يبقى متاح.
 - **اسم عشوائي** (GUID) — ما تستخدمش اسم المستخدم (Path traversal).
