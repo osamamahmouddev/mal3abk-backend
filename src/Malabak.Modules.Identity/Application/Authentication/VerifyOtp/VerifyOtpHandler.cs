@@ -4,6 +4,7 @@ using Malabak.Modules.Identity.Domain;
 using Malabak.Modules.Identity.Infrastructure;
 using Malabak.SharedKernel;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
 namespace Malabak.Modules.Identity.Application.Authentication.VerifyOtp;
@@ -18,6 +19,7 @@ public sealed class VerifyOtpHandler : ICommandHandler<VerifyOtpCommand, Result<
     private readonly ITokenService? _tokenService;
     private readonly SessionService? _sessionService;
     private readonly ILogger<VerifyOtpHandler> _logger;
+    private readonly IHostEnvironment? _environment;
 
     public VerifyOtpHandler(
         IPhoneNumberNormalizer normalizer,
@@ -27,7 +29,8 @@ public sealed class VerifyOtpHandler : ICommandHandler<VerifyOtpCommand, Result<
         IClock clock,
         ILogger<VerifyOtpHandler> logger,
         ITokenService? tokenService = null,
-        SessionService? sessionService = null)
+        SessionService? sessionService = null,
+        IHostEnvironment? environment = null)
     {
         _normalizer = normalizer;
         _securityService = securityService;
@@ -37,6 +40,7 @@ public sealed class VerifyOtpHandler : ICommandHandler<VerifyOtpCommand, Result<
         _logger = logger;
         _tokenService = tokenService;
         _sessionService = sessionService;
+        _environment = environment;
     }
 
     public async Task<Result<VerifyOtpResponse>> HandleAsync(
@@ -53,11 +57,25 @@ public sealed class VerifyOtpHandler : ICommandHandler<VerifyOtpCommand, Result<
         var normalizedPhone = normalizeResult.Value;
 
         // 2. Verify code using constant-time comparison in OTP store with 5-attempt limit
-        var verificationResult = await _otpStore.VerifyAndConsumeOtpAsync(
-            normalizedPhone,
-            command.Code,
-            _securityService,
-            cancellationToken);
+        // In Development/Testing, allow fixed bypass codes (123456 / 111111) for local mobile emulator testing.
+        var isDevBypass = _environment != null &&
+                          IdentityEnvironment.AllowsDevelopmentShortcuts(_environment) &&
+                          (command.Code == "123456" || command.Code == "111111");
+
+        OtpVerificationResult verificationResult;
+        if (isDevBypass)
+        {
+            _logger.LogWarning("Bypassing OTP verification in Development mode for phone {MaskedPhone}", PhoneNumberMasker.Mask(normalizedPhone));
+            verificationResult = new OtpVerificationResult(true, 5);
+        }
+        else
+        {
+            verificationResult = await _otpStore.VerifyAndConsumeOtpAsync(
+                normalizedPhone,
+                command.Code,
+                _securityService,
+                cancellationToken);
+        }
 
         if (verificationResult.IsExpiredOrNotFound)
         {

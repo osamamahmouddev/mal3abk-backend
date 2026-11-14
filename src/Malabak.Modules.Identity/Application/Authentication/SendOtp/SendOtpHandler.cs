@@ -1,5 +1,6 @@
 using Malabak.Modules.Identity.Application.Common;
 using Malabak.SharedKernel;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
 namespace Malabak.Modules.Identity.Application.Authentication.SendOtp;
@@ -12,6 +13,7 @@ public sealed class SendOtpHandler : ICommandHandler<SendOtpCommand, Result<Send
     private readonly IOtpStore _otpStore;
     private readonly IOtpSender _otpSender;
     private readonly ILogger<SendOtpHandler> _logger;
+    private readonly IHostEnvironment? _environment;
 
     public SendOtpHandler(
         IPhoneNumberNormalizer normalizer,
@@ -19,7 +21,8 @@ public sealed class SendOtpHandler : ICommandHandler<SendOtpCommand, Result<Send
         IOtpSecurityService securityService,
         IOtpStore otpStore,
         IOtpSender otpSender,
-        ILogger<SendOtpHandler> logger)
+        ILogger<SendOtpHandler> logger,
+        IHostEnvironment? environment = null)
     {
         _normalizer = normalizer;
         _turnstileValidator = turnstileValidator;
@@ -27,6 +30,7 @@ public sealed class SendOtpHandler : ICommandHandler<SendOtpCommand, Result<Send
         _otpStore = otpStore;
         _otpSender = otpSender;
         _logger = logger;
+        _environment = environment;
     }
 
     public async Task<Result<SendOtpResponse>> HandleAsync(
@@ -95,7 +99,14 @@ public sealed class SendOtpHandler : ICommandHandler<SendOtpCommand, Result<Send
             return Result.Failure<SendOtpResponse>(OtpDeliveryErrors.DeliveryFailed);
         }
 
-        _logger.LogInformation("Login OTP issued with {TtlMinutes}-minute validity.", ttlMinutes);
+        if (_environment != null && IdentityEnvironment.AllowsDevelopmentShortcuts(_environment))
+        {
+            _logger.LogInformation("DEVELOPMENT OTP for {MaskedPhone} is: {Code}", PhoneNumberMasker.Mask(normalizedPhone), code);
+        }
+        else
+        {
+            _logger.LogInformation("Login OTP issued with {TtlMinutes}-minute validity.", ttlMinutes);
+        }
 
         return Result.Success(new SendOtpResponse(
             normalizedPhone,
