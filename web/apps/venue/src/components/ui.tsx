@@ -25,7 +25,7 @@ export const secondaryBtn =
 export const disabledBtn = "bg-[#E4E7EC] text-[#6B7383] cursor-not-allowed shadow-none hover:bg-[#E4E7EC] active:scale-100";
 
 export const inputClass =
-  "min-h-[44px] px-3 rounded-xl border border-[#C9CFD9] bg-white text-sm text-slate-900 transition-all duration-150 ease-out focus:outline-none focus:ring-2 focus:ring-navy-900 focus:shadow-[0_0_0_3px_rgba(15,27,61,0.1)]";
+  "w-full min-h-[44px] px-3 rounded-xl border border-[#C9CFD9] bg-white text-sm text-slate-900 transition-all duration-150 ease-out focus:outline-none focus:ring-2 focus:ring-navy-900 focus:shadow-[0_0_0_3px_rgba(15,27,61,0.1)]";
 
 export const muted = "text-[#5B6475]";
 

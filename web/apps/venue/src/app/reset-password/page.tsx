@@ -46,7 +46,7 @@ function ResetPassword() {
       <form onSubmit={submit} className="flex flex-col gap-3.5">
         <label className="flex flex-col gap-1.5 text-sm font-semibold">
           كلمة السر الجديدة
-          <div className="relative">
+          <div className="relative w-full">
             <input
               required
               type={showPassword ? "text" : "password"}
@@ -54,7 +54,7 @@ function ResetPassword() {
               autoComplete="new-password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className={`${authField} pl-11`}
+              className={`${authField} pl-11 w-full`}
             />
             <button
               type="button"

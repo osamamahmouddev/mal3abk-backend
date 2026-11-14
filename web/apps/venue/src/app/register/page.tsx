@@ -77,7 +77,7 @@ export default function RegisterPage() {
         </label>
         <label className="flex flex-col gap-1.5 text-sm font-semibold">
           كلمة السر
-          <div className="relative">
+          <div className="relative w-full">
             <input
               required
               type={showPassword ? "text" : "password"}
@@ -85,7 +85,7 @@ export default function RegisterPage() {
               autoComplete="new-password"
               value={form.password}
               onChange={set("password")}
-              className={`${authField} pl-11`}
+              className={`${authField} pl-11 w-full`}
             />
             <button
               type="button"

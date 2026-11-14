@@ -3,7 +3,7 @@ import Image from "next/image";
 import Link from "next/link";
 
 export const authField =
-  "min-h-[48px] rounded-xl px-3.5 text-[15px] text-slate-900 border border-[#C9CFD9] transition-all duration-150 ease-out focus:outline-none focus:ring-2 focus:ring-navy-900 focus:shadow-[0_0_0_3px_rgba(15,27,61,0.1)]";
+  "w-full min-h-[48px] rounded-xl px-3.5 text-[15px] text-slate-900 border border-[#C9CFD9] transition-all duration-150 ease-out focus:outline-none focus:ring-2 focus:ring-navy-900 focus:shadow-[0_0_0_3px_rgba(15,27,61,0.1)]";
 export const authPrimary =
   "min-h-[52px] rounded-[14px] bg-brand-red hover:bg-brand-red-hover active:scale-[0.98] transition-all duration-150 ease-out disabled:opacity-60 text-white text-base font-bold shadow-[0_10px_22px_-10px_rgba(214,59,47,0.65)] hover:shadow-lg cursor-pointer";
 

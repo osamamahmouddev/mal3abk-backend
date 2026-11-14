@@ -12,7 +12,7 @@ export const card =
 export const redShadow = "shadow-[0_10px_22px_-10px_rgba(214,59,47,0.65)]";
 export const muted = "text-[#5B6475]";
 export const inputClass =
-  "min-h-[44px] px-3 rounded-xl border border-[#C9CFD9] bg-white text-sm text-slate-900 transition-all duration-150 ease-out focus:outline-none focus:ring-2 focus:ring-ink focus:shadow-[0_0_0_3px_rgba(10,19,48,0.1)]";
+  "w-full min-h-[44px] px-3 rounded-xl border border-[#C9CFD9] bg-white text-sm text-slate-900 transition-all duration-150 ease-out focus:outline-none focus:ring-2 focus:ring-ink focus:shadow-[0_0_0_3px_rgba(10,19,48,0.1)]";
 
 export const btnPrimary = `min-h-[44px] px-[18px] rounded-xl bg-brand-red hover:bg-brand-red-hover active:scale-[0.98] text-white text-sm font-bold ${redShadow} transition-all duration-150 ease-out inline-flex items-center justify-center cursor-pointer hover:shadow-lg disabled:cursor-not-allowed disabled:active:scale-100`;
 export const btnDark =

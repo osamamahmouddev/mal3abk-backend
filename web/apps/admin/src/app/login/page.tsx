@@ -158,7 +158,7 @@ function AdminLogin() {
               <label htmlFor="ap" className="text-[13px] font-semibold">
                 كلمة السر
               </label>
-              <div className="relative">
+              <div className="relative w-full">
                 <input
                   id="ap"
                   type={showPassword ? "text" : "password"}
@@ -168,13 +168,13 @@ function AdminLogin() {
                     setPass(e.target.value);
                     setCredErr(null);
                   }}
-                  className={`${inputClass} pl-11`}
+                  className={`${inputClass} w-full pl-11`}
                 />
                 <button
                   type="button"
                   aria-label={showPassword ? "إخفاء كلمة السر" : "إظهار كلمة السر"}
                   onClick={() => setShowPassword((s) => !s)}
-                  className="absolute left-3 top-1/2 -translate-y-1/2 text-[#7B8494] hover:text-navy-900 transition-colors p-1 flex items-center justify-center"
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-[#7B8494] hover:text-ink transition-colors p-1 flex items-center justify-center cursor-pointer"
                 >
                   {showPassword ? (
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
