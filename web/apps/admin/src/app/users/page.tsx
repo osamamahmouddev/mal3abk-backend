@@ -25,6 +25,8 @@ const STATUSES: [string, string][] = [
   ["Suspended", "موقوف"],
   ["Deleted", "محذوف"],
 ];
+const ROLE_MAP = Object.fromEntries(ROLES);
+const STATUS_MAP = Object.fromEntries(STATUSES);
 const STATUS_TONE = { Active: "ok", Suspended: "bad", Deleted: "neutral" } as const;
 const PAGE_SIZE = 25;
 
@@ -68,8 +70,8 @@ export default function UsersPage() {
                 { title: "الاسم", cell: (r) => <strong>{r.fullName}</strong> },
                 { title: "الرقم", cell: (r) => <span dir="ltr" className="font-inter">{r.maskedPhone}</span> },
                 { title: "الإيميل", cell: (r) => r.email ?? "—" },
-                { title: "الأدوار", cell: (r) => r.roles.join("، ") },
-                { title: "الحالة", cell: (r) => <Pill tone={STATUS_TONE[r.status as keyof typeof STATUS_TONE] ?? "neutral"}>{r.status}</Pill> },
+                { title: "الأدوار", cell: (r) => r.roles.map((x) => ROLE_MAP[x] ?? x).join("، ") },
+                { title: "الحالة", cell: (r) => <Pill tone={STATUS_TONE[r.status as keyof typeof STATUS_TONE] ?? "neutral"}>{STATUS_MAP[r.status] ?? r.status}</Pill> },
                 { title: "التسجيل", cell: (r) => fmtDate(r.createdAtUtc) },
               ]}
             />
@@ -131,8 +133,8 @@ function UserDrawer({ userId, onClose }: { userId: string | null; onClose: () =>
               <strong className="text-[17px]">{u.fullName}</strong>
               <KV k="الرقم"><span dir="ltr" className="font-inter">{u.phoneNumber}</span></KV>
               <KV k="الإيميل">{u.email ?? "—"}</KV>
-              <KV k="الأدوار">{u.roles.join("، ")}</KV>
-              <KV k="الحالة">{u.status}{u.suspensionReason ? ` — ${u.suspensionReason}` : ""}</KV>
+              <KV k="الأدوار">{u.roles.map((x) => ROLE_MAP[x] ?? x).join("، ")}</KV>
+              <KV k="الحالة"><Pill tone={STATUS_TONE[u.status as keyof typeof STATUS_TONE] ?? "neutral"}>{STATUS_MAP[u.status] ?? u.status}</Pill>{u.suspensionReason ? ` — ${u.suspensionReason}` : ""}</KV>
               <KV k="المنطقة">{[u.city, u.area].filter(Boolean).join("، ") || "—"}</KV>
               <KV k="التحقق بخطوتين">{u.twoFactorEnabled ? "مفعّل" : "مش مفعّل"}</KV>
               <KV k="جلسات نشطة">{num(u.activeSessions)} (آخر نشاط {fmtDateTime(u.lastActivityAtUtc)})</KV>

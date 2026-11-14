@@ -17,6 +17,7 @@ const FEATURES: [string, string][] = [
   ["support.priority", "دعم أولوية"],
 ];
 const STATUS_TONE = { Draft: "neutral", Active: "ok", Archived: "bad" } as const;
+const STATUS_MAP = { Draft: "مسودة", Active: "نشطة", Archived: "مؤرشفة" } as const;
 const STATUS_VALUE = { Draft: 0, Active: 1, Archived: 2 } as const;
 
 const empty: Form = { code: "", name: "", description: "", monthlyPrice: 0, annualPrice: 0, maxVenues: 1, maxPitches: 3, maxStaffPerVenue: 3, features: [], trialDays: 14, graceDays: 7, isPublic: true, sortOrder: 0 };
@@ -63,7 +64,7 @@ export default function PlansPage() {
                 <div className="flex items-center gap-2">
                   <strong className="text-[17px] flex-1">{p.name}</strong>
                   {p.isDefault && <Pill tone="navy">افتراضية</Pill>}
-                  <Pill tone={STATUS_TONE[p.status as keyof typeof STATUS_TONE] ?? "neutral"}>{p.status}</Pill>
+                  <Pill tone={STATUS_TONE[p.status as keyof typeof STATUS_TONE] ?? "neutral"}>{STATUS_MAP[p.status as keyof typeof STATUS_MAP] ?? p.status}</Pill>
                 </div>
                 <span dir="ltr" className={`text-xs font-inter text-right ${muted}`}>{p.code}</span>
                 <span className="text-sm">{money(p.monthlyPrice)} / شهر · {money(p.annualPrice)} / سنة</span>

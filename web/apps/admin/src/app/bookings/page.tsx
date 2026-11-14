@@ -22,6 +22,7 @@ const STATUSES: [string, string][] = [
   ["Expired", "منتهي"],
   ["NoShow", "غياب"],
 ];
+const STATUS_MAP = Object.fromEntries(STATUSES);
 const TONE: Record<string, "ok" | "warn" | "bad" | "neutral"> = {
   Confirmed: "ok",
   Completed: "ok",
@@ -72,7 +73,7 @@ export default function BookingsPage() {
                 { title: "السعر", cell: (r) => money(r.totalPrice) },
                 { title: "العربون", cell: (r) => money(r.depositAmount) },
                 { title: "النوع", cell: (r) => (r.isManual ? "يدوي" : "أونلاين") },
-                { title: "الحالة", cell: (r) => <Pill tone={TONE[r.status] ?? "neutral"}>{r.status}</Pill> },
+                { title: "الحالة", cell: (r) => <Pill tone={TONE[r.status] ?? "neutral"}>{STATUS_MAP[r.status] ?? r.status}</Pill> },
               ]}
             />
             <Pager page={page} pageSize={PAGE_SIZE} total={data.total} onChange={setPage} />
@@ -114,7 +115,7 @@ function BookingDrawer({ bookingId, onClose }: { bookingId: string | null; onClo
           <>
             <div className={`${card} rounded-[16px] p-4 flex flex-col gap-2`}>
               <strong dir="ltr" className="font-inter text-[17px] text-right">{d.booking.reference}</strong>
-              <KV k="الحالة"><Pill tone={TONE[d.booking.status] ?? "neutral"}>{d.booking.status}</Pill></KV>
+              <KV k="الحالة"><Pill tone={TONE[d.booking.status] ?? "neutral"}>{STATUS_MAP[d.booking.status] ?? d.booking.status}</Pill></KV>
               <KV k="الميعاد">{fmtDateTime(d.booking.startUtc)}</KV>
               <KV k="السعر / العربون">{money(d.booking.totalPrice)} / {money(d.booking.depositAmount)}</KV>
               <KV k="الملعب">{d.booking.venueId}</KV>

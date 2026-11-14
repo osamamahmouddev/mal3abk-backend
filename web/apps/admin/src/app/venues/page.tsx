@@ -13,12 +13,13 @@ type Row = Schemas["AdminVenueListItem"];
 const STATUSES: [string, string][] = [
   ["", "كل الحالات"],
   ["Approved", "معتمد"],
-  ["Submitted", "مستني موافقة"],
-  ["NeedsInfo", "محتاج معلومات"],
+  ["Submitted", "بانتظار الموافقة"],
+  ["NeedsInfo", "بحاجة لمعلومات"],
   ["Rejected", "مرفوض"],
   ["Suspended", "موقوف"],
   ["Draft", "مسودة"],
 ];
+const STATUS_MAP = Object.fromEntries(STATUSES);
 const TONE: Record<string, "ok" | "warn" | "bad" | "neutral"> = { Approved: "ok", Submitted: "warn", NeedsInfo: "warn", Rejected: "bad", Suspended: "bad", Draft: "neutral" };
 const PAGE_SIZE = 25;
 
@@ -56,8 +57,8 @@ export default function VenuesPage() {
                 { title: "الملعب", cell: (r) => <strong>{r.name}</strong> },
                 { title: "المكان", cell: (r) => `${r.city}، ${r.area}` },
                 { title: "الملاعب الفرعية", cell: (r) => num(r.pitches) },
-                { title: "الاعتماد", cell: (r) => <Pill tone={TONE[r.approvalStatus] ?? "neutral"}>{r.approvalStatus}</Pill> },
-                { title: "منشور", cell: (r) => (r.isPublished ? "أيوه" : "لأ") },
+                { title: "الاعتماد", cell: (r) => <Pill tone={TONE[r.approvalStatus] ?? "neutral"}>{STATUS_MAP[r.approvalStatus] ?? r.approvalStatus}</Pill> },
+                { title: "منشور", cell: (r) => (r.isPublished ? "منشور" : "مسودة") },
                 { title: "الإضافة", cell: (r) => fmtDate(r.createdAtUtc) },
               ]}
             />
@@ -139,8 +140,8 @@ function VenueDrawer({ venueId, onClose }: { venueId: string | null; onClose: ()
               <strong className="text-[17px]">{v.name}</strong>
               <KV k="العنوان">{v.address}، {v.area}، {v.city}</KV>
               <KV k="المالك">{v.ownerName ?? v.ownerId}</KV>
-              <KV k="الاعتماد"><Pill tone={TONE[v.approvalStatus] ?? "neutral"}>{v.approvalStatus}</Pill></KV>
-              <KV k="منشور">{v.isPublished ? "أيوه" : "لأ"}</KV>
+              <KV k="الاعتماد"><Pill tone={TONE[v.approvalStatus] ?? "neutral"}>{STATUS_MAP[v.approvalStatus] ?? v.approvalStatus}</Pill></KV>
+              <KV k="منشور">{v.isPublished ? "منشور" : "مسودة"}</KV>
               <KV k="الموظفين">{num(v.staffCount)}</KV>
             </div>
             <Section title="آخر ٣٠ يوم">

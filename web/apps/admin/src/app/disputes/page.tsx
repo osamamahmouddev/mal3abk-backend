@@ -16,6 +16,22 @@ const STATUSES: [string, string][] = [
   ["UnderReview", "تحت المراجعة"],
   ["Resolved", "محلولة"],
 ];
+const DISPUTE_STATUS_MAP: Record<string, string> = {
+  Open: "جديد",
+  UnderReview: "تحت المراجعة",
+  Resolved: "تمت التسوية",
+};
+const BOOKING_STATUS_MAP: Record<string, string> = {
+  PendingDeposit: "بانتظار العربون",
+  ProofSubmitted: "إيصال مرفوع",
+  UnderReview: "تحت المراجعة",
+  Confirmed: "مؤكد",
+  Completed: "مكتمل",
+  Cancelled: "ملغي",
+  Rejected: "مرفوض",
+  Expired: "منتهي",
+  NoShow: "غياب",
+};
 const OUTCOMES: { value: string; title: string; effect: string }[] = [
   { value: "ConfirmBooking", title: "تأكيد الحجز", effect: "الدفع سليم: الحجز اللي مستني مراجعة الإيصال بيتأكد." },
   { value: "RefundPlayer", title: "رد العربون للاعب", effect: "الحجز النشط بيتلغى والعربون كامل بيتسجل مستحق للاعب." },
@@ -52,8 +68,8 @@ export default function DisputesPage() {
                 { title: "الحجز", cell: (r) => <strong dir="ltr" className="font-inter">{r.bookingReference}</strong> },
                 { title: "فتحه", cell: (r) => SIDE[r.openedBy] ?? r.openedBy },
                 { title: "العربون", cell: (r) => money(r.depositAmount) },
-                { title: "حالة الحجز", cell: (r) => r.bookingStatus },
-                { title: "النزاع", cell: (r) => <Pill tone={r.status === "Resolved" ? "ok" : "warn"}>{r.status}</Pill> },
+                { title: "حالة الحجز", cell: (r) => BOOKING_STATUS_MAP[r.bookingStatus] ?? r.bookingStatus },
+                { title: "النزاع", cell: (r) => <Pill tone={r.status === "Resolved" ? "ok" : "warn"}>{DISPUTE_STATUS_MAP[r.status] ?? r.status}</Pill> },
                 { title: "اتفتح", cell: (r) => fmtDateTime(r.createdAtUtc) },
               ]}
             />
@@ -108,10 +124,10 @@ function DisputeDrawer({ disputeId, onClose }: { disputeId: string | null; onClo
         {(d) => (
           <>
             <div className={`${card} rounded-[16px] p-4 flex flex-col gap-2`}>
-              <KV k="الحجز"><span dir="ltr" className="font-inter">{d.bookingReference}</span> ({d.bookingStatus})</KV>
+              <KV k="الحجز"><span dir="ltr" className="font-inter">{d.bookingReference}</span> ({BOOKING_STATUS_MAP[d.bookingStatus] ?? d.bookingStatus})</KV>
               <KV k="العربون">{money(d.depositAmount)}</KV>
               <KV k="فتحه">{SIDE[d.openedBy] ?? d.openedBy} · {fmtDateTime(d.createdAtUtc)}</KV>
-              <KV k="الحالة">{d.status}{d.outcome ? ` — ${d.outcome}` : ""}</KV>
+              <KV k="الحالة"><Pill tone={d.status === "Resolved" ? "ok" : "warn"}>{DISPUTE_STATUS_MAP[d.status] ?? d.status}</Pill>{d.outcome ? ` — ${OUTCOMES.find(o => o.value === d.outcome)?.title ?? d.outcome}` : ""}</KV>
               <p className="text-sm leading-[1.7] bg-[#F6F7FA] rounded-xl p-3">{d.reason}</p>
               {d.resolutionNote && <KV k="سبب القرار">{d.resolutionNote}</KV>}
             </div>

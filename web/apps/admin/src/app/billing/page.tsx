@@ -9,6 +9,14 @@ import { api, openFile, unwrap } from "@/lib/api";
 
 type Tab = "subscriptions" | "requests" | "invoices";
 const STATUS_TONE: Record<string, "ok" | "warn" | "bad" | "neutral"> = { Active: "ok", Trial: "warn", Grace: "warn", Expired: "bad", Suspended: "bad", Cancelled: "neutral" };
+const SUBSCRIPTION_STATUS_LABELS: Record<string, string> = {
+  Active: "نشط",
+  Trial: "تجريبي",
+  Grace: "فترة سماح",
+  Expired: "منتهي",
+  Suspended: "موقوف",
+  Cancelled: "ملغي",
+};
 const STATUSES: [string, string][] = [["", "كل الحالات"], ["0", "تجربة"], ["1", "نشط"], ["2", "فترة سماح"], ["3", "منتهي"], ["4", "موقوف"], ["5", "ملغي"]];
 const METHODS: [string, string][] = [["0", "كاش"], ["1", "تحويل بنكي"], ["2", "إنستاباي"], ["3", "محفظة"]];
 const CYCLES: [string, string][] = [["0", "شهري"], ["1", "سنوي"]];
@@ -85,7 +93,7 @@ function Subscriptions() {
               { title: "المالك", cell: (s) => <span dir="ltr" className="font-inter text-xs">{s.ownerId.slice(0, 8)}</span> },
               { title: "الباقة", cell: (s) => s.planName },
               { title: "الدورة", cell: (s) => (s.cycle === "Annual" ? "سنوي" : "شهري") },
-              { title: "الحالة", cell: (s) => <Pill tone={STATUS_TONE[s.status] ?? "neutral"}>{s.status}</Pill> },
+              { title: "الحالة", cell: (s) => <Pill tone={STATUS_TONE[s.status] ?? "neutral"}>{SUBSCRIPTION_STATUS_LABELS[s.status] ?? s.status}</Pill> },
               { title: "نهاية الفترة", cell: (s) => fmtDate(s.currentPeriodEndUtc) },
             ]}
           />
@@ -197,11 +205,11 @@ function OwnerDrawer({ ownerId, onClose }: { ownerId: string | null; onClose: ()
           <>
             <div className={`${card} rounded-[16px] p-4 flex flex-col gap-2`}>
               <KV k="الباقة">{d.subscription.plan.name} ({d.subscription.cycle === "Annual" ? "سنوي" : "شهري"})</KV>
-              <KV k="الحالة"><Pill tone={STATUS_TONE[d.subscription.status] ?? "neutral"}>{d.subscription.status}</Pill></KV>
+              <KV k="الحالة"><Pill tone={STATUS_TONE[d.subscription.status] ?? "neutral"}>{SUBSCRIPTION_STATUS_LABELS[d.subscription.status] ?? d.subscription.status}</Pill></KV>
               <KV k="نهاية الفترة">{fmtDate(d.subscription.currentPeriodEndUtc)}</KV>
               {d.subscription.graceEndsAtUtc && <KV k="نهاية السماح">{fmtDate(d.subscription.graceEndsAtUtc)}</KV>}
               {d.subscription.statusReason && <KV k="السبب">{d.subscription.statusReason}</KV>}
-              <KV k="يقدر يضيف ملاعب">{d.subscription.allowsNewResources ? "أيوه" : "لأ"}</KV>
+              <KV k="يقدر يضيف ملاعب">{d.subscription.allowsNewResources ? "نعم" : "لا"}</KV>
             </div>
             <Section title="تسجيل دفعة">
               <div className="grid grid-cols-2 gap-2">
@@ -487,7 +495,7 @@ function Invoices() {
               { title: "الباقة", cell: (i) => i.planName },
               { title: "المبلغ", cell: (i) => money(i.amount) },
               { title: "التاريخ", cell: (i) => fmtDate(i.issuedAtUtc) },
-              { title: "الحالة", cell: (i) => <Pill tone={i.status === "Void" ? "bad" : "ok"}>{i.status}</Pill> },
+              { title: "الحالة", cell: (i) => <Pill tone={i.status === "Void" ? "bad" : "ok"}>{i.status === "Void" ? "ملغاة" : "مسددة"}</Pill> },
               {
                 title: "",
                 cell: (i) => (
