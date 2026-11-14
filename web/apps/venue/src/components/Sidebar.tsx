@@ -12,6 +12,7 @@ import { api, unwrap } from "@/lib/api";
 import { useVenue } from "./Providers";
 import { P } from "@/lib/permissions";
 import { toArabicDigits } from "./ui";
+import { LogOut } from "lucide-react";
 
 export interface NavItem {
   title: string;
@@ -69,11 +70,11 @@ export const Sidebar: React.FC<SidebarProps> = memo(({ user, onClose }) => {
   return (
     <aside
       id={onClose ? "venue-nav-drawer" : undefined}
-      className={`w-[248px] shrink-0 bg-navy-900 text-white px-4 py-6 flex flex-col gap-5 ${
-        onClose ? "h-full overflow-y-auto" : "h-screen sticky top-0 overflow-y-auto"
+      className={`w-[248px] shrink-0 bg-navy-900 text-white px-3.5 py-4 flex flex-col gap-3 ${
+        onClose ? "h-full overflow-y-auto" : "h-screen sticky top-0"
       }`}
     >
-      <div className="flex items-center gap-2 px-2">
+      <div className="flex items-center gap-2 px-2 shrink-0">
         <Image
           src="/venue/images/logo-horizontal-darkbg.png"
           alt="ملعبك"
@@ -99,7 +100,7 @@ export const Sidebar: React.FC<SidebarProps> = memo(({ user, onClose }) => {
         )}
       </div>
 
-      <div className="bg-white/[0.08] rounded-xl px-3 py-2.5 flex flex-col gap-0.5">
+      <div className="bg-white/[0.08] rounded-xl px-3 py-2 flex flex-col gap-0.5 shrink-0">
         <span className="text-[11px] text-[#AEB7CA]">الملعب الحالي</span>
         {venues.length > 1 ? (
           <select
@@ -119,7 +120,7 @@ export const Sidebar: React.FC<SidebarProps> = memo(({ user, onClose }) => {
         )}
       </div>
 
-      <nav aria-label="أقسام اللوحة" className="flex flex-col gap-0.5">
+      <nav aria-label="أقسام اللوحة" className="flex-1 overflow-y-auto flex flex-col gap-0.5 pe-1 py-0.5">
         {NAV_ITEMS.filter((item) => !item.permission || !venue || can(item.permission)).map((item) => {
           const isItemActive = checkIsActive(item.href);
           return (
@@ -149,11 +150,28 @@ export const Sidebar: React.FC<SidebarProps> = memo(({ user, onClose }) => {
         })}
       </nav>
 
-      <div className="mt-2 border-t border-white/[0.12] pt-3 px-2 flex items-center justify-between gap-2">
-        <span className="text-[13px] font-semibold truncate text-[#D5DBE7]" title={user.name}>{user.name}</span>
+      {/* User profile & Logout footer */}
+      <div className="shrink-0 border-t border-white/[0.12] pt-3 flex flex-col gap-2.5">
+        <div className="flex items-center gap-2.5 px-1">
+          <div className="w-8 h-8 rounded-full bg-brand-gold text-navy-900 flex items-center justify-center font-bold text-xs shrink-0 shadow-sm">
+            {user.name.trim().charAt(0) || "م"}
+          </div>
+          <div className="flex-1 min-w-0 flex flex-col">
+            <span className="text-[13px] font-bold text-white truncate" title={user.name}>
+              {user.name}
+            </span>
+            <span className="text-[11px] text-[#AEB7CA] truncate">
+              {user.roles.includes("VenueStaff") ? "موظف مصرح" : "مالك الملعب"}
+            </span>
+          </div>
+        </div>
         <form action={logout}>
-          <button type="submit" className="min-h-[34px] px-3 rounded-[10px] bg-white/[0.08] hover:bg-white/[0.14] text-xs font-semibold whitespace-nowrap transition-colors">
-            تسجيل الخروج
+          <button
+            type="submit"
+            className="w-full min-h-[36px] px-3 rounded-xl bg-white/[0.08] hover:bg-[#A8261C] text-xs font-semibold text-[#D5DBE7] hover:text-white transition-colors flex items-center justify-center gap-2"
+          >
+            <LogOut className="w-4 h-4" />
+            <span>تسجيل الخروج</span>
           </button>
         </form>
       </div>
