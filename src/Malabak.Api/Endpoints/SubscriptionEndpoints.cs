@@ -53,6 +53,23 @@ public static class SubscriptionEndpoints
         .ProducesProblem(StatusCodes.Status404NotFound)
         .WithName("DownloadMyInvoice")
         .WithSummary("Download one of the signed-in owner's invoices as PDF");
+
+        billing.MapPost("/requests", async ([FromBody] RequestPlanChangeApiRequest request, ClaimsPrincipal user, SubscriptionService subscriptions, CancellationToken ct) =>
+            ToResult(await subscriptions.CreateOrUpdateChangeRequestAsync(user.GetUserId()!.Value, request.PlanId, request.Cycle, request.Notes, ct)))
+        .RequireDistributedRateLimiting("plan-change-request", permitLimit: 10, windowSeconds: 60)
+        .Produces<OwnerSubscriptionRequestDto>()
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .WithName("RequestPlanChange")
+        .WithSummary("Request an upgrade or change to a subscription plan");
+
+        billing.MapGet("/requests/latest", async (ClaimsPrincipal user, SubscriptionService subscriptions, CancellationToken ct) =>
+        {
+            var req = await subscriptions.GetLatestRequestForOwnerAsync(user.GetUserId()!.Value, ct);
+            return Results.Ok(req);
+        })
+        .Produces<OwnerSubscriptionRequestDto?>()
+        .WithName("GetLatestPlanChangeRequest")
+        .WithSummary("The latest plan change request submitted by the signed-in owner");
     }
 
     private static void MapAdminPlans(RouteGroupBuilder plans)
@@ -110,6 +127,26 @@ public static class SubscriptionEndpoints
         subs.MapPost("/owners/{ownerId:guid}/cancel", async (Guid ownerId, [FromBody] ReasonApiRequest request, ClaimsPrincipal user, SubscriptionService service, CancellationToken ct) =>
             ToResult(await service.CancelAsync(ownerId, request.Reason, user.GetUserId()!.Value, ct)))
             .Produces<SubscriptionDto>().ProducesProblem(StatusCodes.Status400BadRequest).WithName("AdminCancelSubscription").WithSummary("Cancel (reason required)");
+
+        subs.MapGet("/requests", async ([FromQuery] SubscriptionRequestStatus? status, SubscriptionService service, CancellationToken ct) =>
+            Results.Ok(await service.ListRequestsAsync(status, ct)))
+            .Produces<IReadOnlyList<SubscriptionRequestDto>>().WithName("AdminListSubscriptionRequests").WithSummary("Pending or reviewed plan change requests");
+
+        subs.MapPost("/requests/{requestId:guid}/approve", async (Guid requestId, ClaimsPrincipal user, SubscriptionService service, CancellationToken ct) =>
+            ToResult(await service.ApproveRequestAsync(requestId, user.GetUserId()!.Value, ct)))
+            .Produces<SubscriptionDto>().ProducesProblem(StatusCodes.Status400BadRequest).WithName("AdminApproveSubscriptionRequest").WithSummary("Approve a plan change request and update the subscription");
+
+        subs.MapPost("/requests/{requestId:guid}/reply", async (Guid requestId, [FromBody] ReplySubscriptionRequestApiRequest request, ClaimsPrincipal user, SubscriptionService service, CancellationToken ct) =>
+            ToResult(await service.ReplyToRequestAsync(requestId, request.Instructions, user.GetUserId()!.Value, ct)))
+            .Produces(StatusCodes.Status200OK).ProducesProblem(StatusCodes.Status400BadRequest).WithName("AdminReplySubscriptionRequest").WithSummary("Send payment instructions for a plan request");
+
+        subs.MapPost("/requests/{requestId:guid}/reject", async (Guid requestId, [FromBody] RejectSubscriptionRequestApiRequest request, ClaimsPrincipal user, SubscriptionService service, CancellationToken ct) =>
+            ToResult(await service.RejectRequestAsync(requestId, request.Reason, user.GetUserId()!.Value, ct)))
+            .Produces(StatusCodes.Status200OK).ProducesProblem(StatusCodes.Status400BadRequest).WithName("AdminRejectSubscriptionRequest").WithSummary("Reject a plan change request");
+
+        subs.MapPost("/assign-or-change", async ([FromBody] AssignSubscriptionApiRequest request, ClaimsPrincipal user, SubscriptionService service, CancellationToken ct) =>
+            ToResult(await service.AssignOrChangeAsync(request.OwnerId, request.PlanId, request.Cycle, request.WithTrial, user.GetUserId()!.Value, ct)))
+            .Produces<SubscriptionDto>().ProducesProblem(StatusCodes.Status400BadRequest).WithName("AdminAssignOrChangeSubscription").WithSummary("Assign or change plan for any account seamlessly");
     }
 
     private static void MapAdminInvoices(RouteGroupBuilder invoices)
@@ -161,6 +198,22 @@ public static class SubscriptionEndpoints
 
         return Results.Problem(title: result.Error.Code, detail: result.Error.Description, statusCode: status);
     }
+
+    private static IResult ToResult(Result result)
+    {
+        if (result.IsSuccess)
+        {
+            return Results.Ok();
+        }
+
+        var status = StatusCodes.Status400BadRequest;
+        if (result.Error.Code.EndsWith("NotFound", StringComparison.Ordinal))
+        {
+            status = StatusCodes.Status404NotFound;
+        }
+
+        return Results.Problem(title: result.Error.Code, detail: result.Error.Description, statusCode: status);
+    }
 }
 
 public sealed record PlanApiRequest(
@@ -180,3 +233,9 @@ public sealed record ChangePlanApiRequest(Guid PlanId, BillingCycle Cycle, strin
 public sealed record RecordPaymentApiRequest(decimal Amount, PaymentMethod Method, string? Reference, DateTime? PaidAtUtc, string? Notes);
 
 public sealed record ReasonApiRequest(string Reason);
+
+public sealed record RequestPlanChangeApiRequest(Guid PlanId, BillingCycle Cycle, string? Notes);
+
+public sealed record ReplySubscriptionRequestApiRequest(string Instructions);
+
+public sealed record RejectSubscriptionRequestApiRequest(string? Reason);

@@ -7,7 +7,7 @@ import { KV, Page, PageHeader, Pill, ReasonModal, type ReasonRequest, Tabs, btnD
 import { Drawer, Field, QueryState, Section, Select, Table, TextInput, fmtDate, fmtDateTime, useNotice } from "@/components/admin";
 import { api, openFile, unwrap } from "@/lib/api";
 
-type Tab = "subscriptions" | "invoices";
+type Tab = "subscriptions" | "requests" | "invoices";
 const STATUS_TONE: Record<string, "ok" | "warn" | "bad" | "neutral"> = { Active: "ok", Trial: "warn", Grace: "warn", Expired: "bad", Suspended: "bad", Cancelled: "neutral" };
 const STATUSES: [string, string][] = [["", "كل الحالات"], ["0", "تجربة"], ["1", "نشط"], ["2", "فترة سماح"], ["3", "منتهي"], ["4", "موقوف"], ["5", "ملغي"]];
 const METHODS: [string, string][] = [["0", "كاش"], ["1", "تحويل بنكي"], ["2", "إنستاباي"], ["3", "محفظة"]];
@@ -15,11 +15,37 @@ const CYCLES: [string, string][] = [["0", "شهري"], ["1", "سنوي"]];
 
 export default function BillingPage() {
   const [tab, setTab] = useState<Tab>("subscriptions");
+  const pendingRequestsQuery = useQuery({
+    queryKey: ["admin-subscription-requests-count"],
+    queryFn: () =>
+      unwrap(
+        api.GET("/api/v1/admin/subscriptions/requests", {
+          params: { query: { status: 0 as Schemas["SubscriptionRequestStatus"] } },
+        }),
+      ),
+    refetchInterval: 30_000,
+  });
+
+  const pendingCount = (pendingRequestsQuery.data ?? []).length;
+
   return (
     <Page>
-      <PageHeader title="الاشتراكات والفواتير" sub="الدفع يدوي (كاش، تحويل، إنستاباي، محفظة): تسجيل الدفعة بيمد الاشتراك ويطلع فاتورة مرقّمة." />
-      <Tabs<Tab> tabs={[["subscriptions", "الاشتراكات"], ["invoices", "الفواتير"]]} value={tab} onChange={setTab} />
-      {tab === "subscriptions" ? <Subscriptions /> : <Invoices />}
+      <PageHeader
+        title="الاشتراكات والفواتير"
+        sub="الدفع يدوي (كاش، تحويل، إنستاباي، محفظة): مراجعة طلبات الترقية وتفعيل الباقات للملاك أو تسجيل الدفعات."
+      />
+      <Tabs<Tab>
+        tabs={[
+          ["subscriptions", "الاشتراكات"],
+          ["requests", pendingCount > 0 ? `طلبات الترقية (${pendingCount})` : "طلبات الترقية"],
+          ["invoices", "الفواتير"],
+        ]}
+        value={tab}
+        onChange={setTab}
+      />
+      {tab === "subscriptions" && <Subscriptions />}
+      {tab === "requests" && <SubscriptionRequests />}
+      {tab === "invoices" && <Invoices />}
     </Page>
   );
 }
@@ -89,7 +115,7 @@ function AssignDrawer({ onClose }: { onClose: () => void }) {
   const [trial, setTrial] = useState(true);
   const assign = useMutation({
     mutationFn: () =>
-      unwrap(api.POST("/api/v1/admin/subscriptions", { body: { ownerId: ownerId.trim(), planId, cycle: Number(cycle) as Schemas["BillingCycle"], withTrial: trial } })),
+      unwrap(api.POST("/api/v1/admin/subscriptions/assign-or-change", { body: { ownerId: ownerId.trim(), planId, cycle: Number(cycle) as Schemas["BillingCycle"], withTrial: trial } })),
     onSuccess: async () => { await queryClient.invalidateQueries({ queryKey: ["admin-subscriptions"] }); onClose(); },
     onError: notice.fail,
   });
@@ -99,7 +125,7 @@ function AssignDrawer({ onClose }: { onClose: () => void }) {
     ...((usersQuery.data?.items ?? []).map((u) => [u.id, `${u.fullName} (${u.maskedPhone || u.email || ""})`] as [string, string])),
   ];
   return (
-    <Drawer title="إسناد باقة" open onClose={onClose}>
+    <Drawer title="إسناد / تغيير باقة لمالك" open onClose={onClose}>
       {notice.node}
       <Field label="المالك">
         <Select label="المالك" value={ownerId} onChange={setOwnerId} options={ownerOptions} />
@@ -226,6 +252,214 @@ function OwnerDrawer({ ownerId, onClose }: { ownerId: string | null; onClose: ()
       </QueryState>
       <ReasonModal request={reason} onClose={() => setReason(null)} />
     </Drawer>
+  );
+}
+
+function SubscriptionRequests() {
+  const queryClient = useQueryClient();
+  const notice = useNotice();
+  const [statusFilter, setStatusFilter] = useState<string>("");
+  const [replyModal, setReplyModal] = useState<{ id: string; defaultMessage: string } | null>(null);
+  const [replyText, setReplyText] = useState("");
+  const [rejectReason, setRejectReason] = useState<ReasonRequest | null>(null);
+
+  const requests = useQuery({
+    queryKey: ["admin-subscription-requests", statusFilter],
+    queryFn: () =>
+      unwrap(
+        api.GET("/api/v1/admin/subscriptions/requests", {
+          params: { query: { status: statusFilter === "" ? undefined : (Number(statusFilter) as Schemas["SubscriptionRequestStatus"]) } },
+        }),
+      ),
+  });
+
+  const approve = useMutation({
+    mutationFn: (id: string) =>
+      unwrap(api.POST("/api/v1/admin/subscriptions/requests/{requestId}/approve", { params: { path: { requestId: id } } })),
+    onSuccess: async () => {
+      notice.ok("تمت الموافقة وترقية الباقة للمالك بنجاح!");
+      await queryClient.invalidateQueries({ queryKey: ["admin-subscription-requests"] });
+      await queryClient.invalidateQueries({ queryKey: ["admin-subscription-requests-count"] });
+      await queryClient.invalidateQueries({ queryKey: ["admin-subscriptions"] });
+    },
+    onError: notice.fail,
+  });
+
+  const reply = useMutation({
+    mutationFn: () =>
+      unwrap(
+        api.POST("/api/v1/admin/subscriptions/requests/{requestId}/reply", {
+          params: { path: { requestId: replyModal!.id } },
+          body: { instructions: replyText.trim() },
+        }),
+      ),
+    onSuccess: async () => {
+      notice.ok("تم إرسال تعليمات الدفع للمالك بنجاح.");
+      setReplyModal(null);
+      await queryClient.invalidateQueries({ queryKey: ["admin-subscription-requests"] });
+    },
+    onError: notice.fail,
+  });
+
+  const reject = useMutation({
+    mutationFn: ({ id, text }: { id: string; text: string }) =>
+      unwrap(
+        api.POST("/api/v1/admin/subscriptions/requests/{requestId}/reject", {
+          params: { path: { requestId: id } },
+          body: { reason: text || null },
+        }),
+      ),
+    onSuccess: async () => {
+      notice.ok("تم رفض طلب الترقية وإشعار المالك.");
+      await queryClient.invalidateQueries({ queryKey: ["admin-subscription-requests"] });
+      await queryClient.invalidateQueries({ queryKey: ["admin-subscription-requests-count"] });
+    },
+    onError: notice.fail,
+  });
+
+  const REQUEST_STATUSES: [string, string][] = [
+    ["", "كل الحالات"],
+    ["0", "قيد الانتظار"],
+    ["1", "تمت الموافقة"],
+    ["2", "مرفوض"],
+  ];
+
+  return (
+    <>
+      {notice.node}
+      <div className="flex flex-wrap gap-2 items-center">
+        <Select label="الحالة" value={statusFilter} onChange={setStatusFilter} options={REQUEST_STATUSES} />
+      </div>
+      <QueryState query={requests} isEmpty={(d) => d.length === 0} empty="مفيش طلبات تغيير باقات.">
+        {(list) => (
+          <Table<Schemas["SubscriptionRequestDto"]>
+            caption="طلبات تغيير الباقات"
+            rows={list}
+            rowKey={(r) => r.id}
+            columns={[
+              {
+                title: "صاحب الحساب / المالك",
+                cell: (r) => (
+                  <div className="flex flex-col">
+                    <span className="font-bold text-[#111827]">{r.ownerName || "مالك"}</span>
+                    <span className="text-xs text-[#6B7280]">{r.ownerPhone || r.ownerEmail || r.ownerId.slice(0, 8)}</span>
+                  </div>
+                ),
+              },
+              { title: "الباقة الحالية", cell: (r) => <span className="text-xs text-[#4B5563]">{r.currentPlanName}</span> },
+              {
+                title: "الباقة المطلوبة",
+                cell: (r) => (
+                  <div className="flex flex-col">
+                    <span className="font-bold text-navy-900">{r.requestedPlan?.name ?? "باقة"}</span>
+                    <span className="text-xs text-[#6B7280]">
+                      {r.cycle === "Annual" ? "سنوي" : "شهري"} · {money(r.amount)}
+                    </span>
+                  </div>
+                ),
+              },
+              { title: "تاريخ الطلب", cell: (r) => <span className="text-xs text-[#4B5563]">{fmtDateTime(r.createdAtUtc)}</span> },
+              {
+                title: "الحالة",
+                cell: (r) => (
+                  <Pill tone={r.status === "Approved" ? "ok" : r.status === "Pending" ? "warn" : "bad"}>
+                    {r.status === "Approved" ? "تم التفعيل" : r.status === "Pending" ? "قيد الانتظار" : "مرفوض"}
+                  </Pill>
+                ),
+              },
+              {
+                title: "ملاحظات / تعليمات",
+                cell: (r) => (
+                  <div className="max-w-[220px] text-xs flex flex-col gap-1">
+                    {r.notes && <p className="text-[#374151] italic">"{r.notes}"</p>}
+                    {r.adminReply && <p className="text-[#1E40AF] bg-blue-50 p-1.5 rounded text-[11px]">رد الإدارة: {r.adminReply}</p>}
+                  </div>
+                ),
+              },
+              {
+                title: "",
+                cell: (r) =>
+                  r.status === "Pending" ? (
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        className={`${btnSmall} bg-emerald-600 hover:bg-emerald-700 text-white font-semibold`}
+                        disabled={approve.isPending}
+                        onClick={() => approve.mutate(r.id)}
+                        title="تفعيل الباقة فوراً لحساب المالك"
+                      >
+                        تفعيل فوراً
+                      </button>
+                      <button
+                        type="button"
+                        className={btnSmall}
+                        onClick={() => {
+                          const def = `برجاء تحويل مبلغ ${money(r.amount)} عبر إنستاباي على حساب (osama@instapay) أو محفظة فودافون كاش على رقم (010xxxxxxxx) وتأكيد التحويل لتفعيل باقة ${r.requestedPlan?.name ?? ""}.`;
+                          setReplyText(def);
+                          setReplyModal({ id: r.id, defaultMessage: def });
+                        }}
+                        title="إرسال تعليمات الدفع بالإنستاباي / فودافون كاش"
+                      >
+                        تعليمات الدفع
+                      </button>
+                      <button
+                        type="button"
+                        className={`${btnSmall} text-red-600 hover:bg-red-50`}
+                        onClick={() =>
+                          setRejectReason({
+                            title: "رفض طلب الترقية",
+                            body: "حدد سبب الرفض (اختياري) وهيتم إرساله للمالك في الإشعارات.",
+                            confirmLabel: "رفض الطلب",
+                            onConfirm: (text) => reject.mutate({ id: r.id, text }),
+                          })
+                        }
+                      >
+                        رفض
+                      </button>
+                    </div>
+                  ) : null,
+              },
+            ]}
+          />
+        )}
+      </QueryState>
+
+      {replyModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-xl flex flex-col gap-4">
+            <h3 className="text-lg font-bold text-navy-900">إرسال تعليمات الدفع للمالك</h3>
+            <p className="text-sm text-gray-600">
+              الرسالة دي هتوصل للمالك كإشعار في حسابه وعلى صفحة الاشتراك، وهتظهرله بيانات السداد (إنستاباي / فودافون كاش).
+            </p>
+            <textarea
+              className="w-full h-32 p-3 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-navy-900"
+              value={replyText}
+              onChange={(e) => setReplyText(e.target.value)}
+              placeholder="اكتب تعليمات السداد..."
+            />
+            <div className="flex justify-end gap-2 mt-2">
+              <button
+                type="button"
+                className={btnOutline}
+                onClick={() => setReplyModal(null)}
+              >
+                إلغاء
+              </button>
+              <button
+                type="button"
+                className={btnPrimary}
+                disabled={!replyText.trim() || reply.isPending}
+                onClick={() => reply.mutate()}
+              >
+                إرسال التعليمات
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <ReasonModal request={rejectReason} onClose={() => setRejectReason(null)} />
+    </>
   );
 }
 

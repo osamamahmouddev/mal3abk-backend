@@ -53,6 +53,23 @@ public sealed class UserAccountsContract : IUserAccountsContract
             .ToDictionaryAsync(u => u.Id, u => u.FullName, cancellationToken);
     }
 
+    public async Task<IReadOnlyDictionary<Guid, UserAccountSummary>> GetSummariesAsync(IReadOnlyCollection<Guid> userIds, CancellationToken cancellationToken = default)
+    {
+        if (userIds.Count == 0)
+        {
+            return new Dictionary<Guid, UserAccountSummary>();
+        }
+
+        var users = await _dbContext.Users.AsNoTracking()
+            .Where(u => userIds.Contains(u.Id) && !u.IsDeleted)
+            .Select(u => new { u.Id, u.FullName, u.PhoneNumber, u.Email })
+            .ToListAsync(cancellationToken);
+
+        return users.ToDictionary(
+            u => u.Id,
+            u => new UserAccountSummary(u.Id, u.FullName, PhoneNumberMasker.Mask(u.PhoneNumber), u.Email));
+    }
+
     public async Task<bool> MatchesContactAsync(Guid userId, string? email, string? normalizedPhone, CancellationToken cancellationToken = default)
     {
         var user = await _dbContext.Users.AsNoTracking()

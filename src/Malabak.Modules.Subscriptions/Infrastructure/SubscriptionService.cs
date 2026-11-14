@@ -24,8 +24,26 @@ public sealed record SubscriptionDetailDto(SubscriptionDto Subscription, IReadOn
 
 public sealed record PaymentDto(Guid Id, decimal Amount, string Currency, string Method, string? Reference, DateTime PaidAtUtc, DateTime PeriodStartUtc, DateTime PeriodEndUtc, Guid RecordedBy, string? InvoiceNumber);
 
-/// <summary>What a venue owner sees on the billing page: plan, usage against limits and recent invoices.</summary>
-public sealed record OwnerBillingDto(SubscriptionDto? Subscription, PlanDto? EffectivePlan, OwnerUsage Usage, IReadOnlyList<InvoiceDto> Invoices);
+public sealed record OwnerSubscriptionRequestDto(Guid Id, Guid PlanId, string PlanName, string Cycle, decimal Amount, string Status, string? Notes, string? AdminReply, DateTime CreatedAtUtc);
+
+public sealed record SubscriptionRequestDto(
+    Guid Id,
+    Guid OwnerId,
+    string? OwnerName,
+    string? OwnerPhone,
+    string? OwnerEmail,
+    string? CurrentPlanName,
+    PlanDto? RequestedPlan,
+    string Cycle,
+    decimal Amount,
+    string Status,
+    string? Notes,
+    string? AdminReply,
+    DateTime CreatedAtUtc,
+    DateTime? ReviewedAtUtc);
+
+/// <summary>What a venue owner sees on the billing page: plan, usage against limits, recent invoices and pending request.</summary>
+public sealed record OwnerBillingDto(SubscriptionDto? Subscription, PlanDto? EffectivePlan, OwnerUsage Usage, IReadOnlyList<InvoiceDto> Invoices, OwnerSubscriptionRequestDto? PendingRequest = null);
 
 public sealed record RecordPaymentInput(decimal Amount, PaymentMethod Method, string? Reference, DateTime? PaidAtUtc, string? Notes);
 
@@ -43,9 +61,16 @@ public sealed class SubscriptionService
     private readonly INotificationPublisher _notifications;
     private readonly IAuditLog _audit;
     private readonly IClock _clock;
+    private readonly IUserAccountsContract? _accounts;
 
     public SubscriptionService(
-        SubscriptionsDbContext dbContext, IOwnerUsageReader usage, IInvoiceNumberGenerator numbers, INotificationPublisher notifications, IAuditLog audit, IClock clock)
+        SubscriptionsDbContext dbContext,
+        IOwnerUsageReader usage,
+        IInvoiceNumberGenerator numbers,
+        INotificationPublisher notifications,
+        IAuditLog audit,
+        IClock clock,
+        IUserAccountsContract? accounts = null)
     {
         _dbContext = dbContext;
         _usage = usage;
@@ -53,6 +78,7 @@ public sealed class SubscriptionService
         _notifications = notifications;
         _audit = audit;
         _clock = clock;
+        _accounts = accounts;
     }
 
     public async Task<IReadOnlyList<SubscriptionListItem>> ListAsync(SubscriptionStatus? status, Guid? planId, int? expiringWithinDays, CancellationToken cancellationToken = default)
@@ -104,11 +130,13 @@ public sealed class SubscriptionService
             ? await _dbContext.Plans.AsNoTracking().FirstOrDefaultAsync(p => p.Id == subscription.PlanId, cancellationToken)
             : await _dbContext.Plans.AsNoTracking().FirstOrDefaultAsync(p => p.IsDefault && p.Status == PlanStatus.Active, cancellationToken);
         var invoices = await _dbContext.Invoices.AsNoTracking().Where(i => i.OwnerId == ownerId).OrderByDescending(i => i.IssuedAtUtc).Take(50).ToListAsync(cancellationToken);
+        var pendingReq = await GetLatestRequestForOwnerAsync(ownerId, cancellationToken);
         return new OwnerBillingDto(
             subscription is null ? null : await ToDtoAsync(subscription, cancellationToken),
             plan is null ? null : PlanService.ToDto(plan, 0),
             await _usage.GetAsync(ownerId, cancellationToken),
-            invoices.Select(InvoiceService.ToDto).ToList());
+            invoices.Select(InvoiceService.ToDto).ToList(),
+            pendingReq);
     }
 
     public async Task<Result<SubscriptionDto>> AssignAsync(Guid ownerId, Guid planId, BillingCycle cycle, bool withTrial, Guid adminId, CancellationToken cancellationToken = default)
@@ -217,6 +245,279 @@ public sealed class SubscriptionService
 
     public Task<Result<SubscriptionDto>> CancelAsync(Guid ownerId, string reason, Guid adminId, CancellationToken cancellationToken = default) =>
         TransitionAsync(ownerId, "subscription.cancelled", reason, adminId, (s, now) => s.Cancel(reason, adminId, now), notifySuspended: false, cancellationToken);
+
+    public async Task<Result<SubscriptionDto>> AssignOrChangeAsync(
+        Guid ownerId, Guid planId, BillingCycle cycle, bool withTrial, Guid adminId, CancellationToken cancellationToken = default)
+    {
+        var existing = await _dbContext.Subscriptions.AsNoTracking().FirstOrDefaultAsync(s => s.OwnerId == ownerId, cancellationToken);
+        if (existing is not null)
+        {
+            return await ChangePlanAsync(ownerId, planId, cycle, "إسناد وتحديث مباشر من الإدارة", adminId, cancellationToken);
+        }
+
+        return await AssignAsync(ownerId, planId, cycle, withTrial, adminId, cancellationToken);
+    }
+
+    public async Task<Result<OwnerSubscriptionRequestDto>> CreateOrUpdateChangeRequestAsync(
+        Guid ownerId, Guid planId, BillingCycle cycle, string? notes, CancellationToken cancellationToken = default)
+    {
+        var plan = await _dbContext.Plans.AsNoTracking().FirstOrDefaultAsync(p => p.Id == planId, cancellationToken);
+        if (plan is null || plan.Status != PlanStatus.Active)
+        {
+            return Result.Failure<OwnerSubscriptionRequestDto>(SubscriptionErrors.NotFound);
+        }
+
+        var usage = await _usage.GetAsync(ownerId, cancellationToken);
+        if ((plan.MaxVenues is { } v && usage.Venues > v) || (plan.MaxPitches is { } p && usage.Pitches > p)
+            || (plan.MaxStaffPerVenue is { } st && usage.MaxStaffInOneVenue > st))
+        {
+            return Result.Failure<OwnerSubscriptionRequestDto>(SubscriptionErrors.DowngradeNotPossible);
+        }
+
+        var now = _clock.UtcNow;
+        var existingPending = await _dbContext.SubscriptionRequests
+            .FirstOrDefaultAsync(r => r.OwnerId == ownerId && r.Status == SubscriptionRequestStatus.Pending, cancellationToken);
+
+        if (existingPending is not null)
+        {
+            existingPending.UpdatePending(planId, cycle, notes, now);
+        }
+        else
+        {
+            var req = SubscriptionChangeRequest.Create(ownerId, planId, cycle, notes, now);
+            _dbContext.SubscriptionRequests.Add(req);
+            existingPending = req;
+        }
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+        var amount = cycle == BillingCycle.Annual ? plan.AnnualPrice : plan.MonthlyPrice;
+        return Result.Success(new OwnerSubscriptionRequestDto(
+            existingPending.Id,
+            plan.Id,
+            plan.Name,
+            cycle.ToString(),
+            amount,
+            existingPending.Status.ToString(),
+            existingPending.Notes,
+            existingPending.AdminReply,
+            existingPending.CreatedAtUtc));
+    }
+
+    public async Task<OwnerSubscriptionRequestDto?> GetLatestRequestForOwnerAsync(Guid ownerId, CancellationToken cancellationToken = default)
+    {
+        var req = await _dbContext.SubscriptionRequests.AsNoTracking()
+            .Where(r => r.OwnerId == ownerId)
+            .OrderByDescending(r => r.CreatedAtUtc)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (req is null)
+        {
+            return null;
+        }
+
+        var plan = await _dbContext.Plans.AsNoTracking().FirstOrDefaultAsync(p => p.Id == req.PlanId, cancellationToken);
+        var planName = plan?.Name ?? "باقة";
+        decimal amount = 0m;
+        if (plan is not null)
+        {
+            amount = req.Cycle == BillingCycle.Annual ? plan.AnnualPrice : plan.MonthlyPrice;
+        }
+
+        return new OwnerSubscriptionRequestDto(
+            req.Id,
+            req.PlanId,
+            planName,
+            req.Cycle.ToString(),
+            amount,
+            req.Status.ToString(),
+            req.Notes,
+            req.AdminReply,
+            req.CreatedAtUtc);
+    }
+
+    public async Task<IReadOnlyList<SubscriptionRequestDto>> ListRequestsAsync(SubscriptionRequestStatus? status, CancellationToken cancellationToken = default)
+    {
+        var query = _dbContext.SubscriptionRequests.AsNoTracking();
+        if (status is { } s)
+        {
+            query = query.Where(r => r.Status == s);
+        }
+
+        var rows = await query.OrderByDescending(r => r.CreatedAtUtc).Take(200).ToListAsync(cancellationToken);
+        if (rows.Count == 0)
+        {
+            return [];
+        }
+
+        var ownerIds = rows.Select(r => r.OwnerId).Distinct().ToList();
+        var planIds = rows.Select(r => r.PlanId).Distinct().ToList();
+
+        var plans = await _dbContext.Plans.AsNoTracking().Where(p => planIds.Contains(p.Id)).ToDictionaryAsync(p => p.Id, cancellationToken);
+        var currentSubs = await _dbContext.Subscriptions.AsNoTracking().Where(s => ownerIds.Contains(s.OwnerId)).ToDictionaryAsync(s => s.OwnerId, cancellationToken);
+        var currentSubPlanIds = currentSubs.Values.Select(s => s.PlanId).Distinct().ToList();
+        var currentPlans = await _dbContext.Plans.AsNoTracking().Where(p => currentSubPlanIds.Contains(p.Id)).ToDictionaryAsync(p => p.Id, cancellationToken);
+
+        IReadOnlyDictionary<Guid, UserAccountSummary> summaries = new Dictionary<Guid, UserAccountSummary>();
+        if (_accounts is not null)
+        {
+            summaries = await _accounts.GetSummariesAsync(ownerIds, cancellationToken);
+        }
+
+        return rows.Select(r =>
+        {
+            var plan = plans.GetValueOrDefault(r.PlanId);
+            var planDto = plan is not null ? PlanService.ToDto(plan, 0) : null;
+            var currentSub = currentSubs.GetValueOrDefault(r.OwnerId);
+            var currentPlan = currentSub is not null ? currentPlans.GetValueOrDefault(currentSub.PlanId) : null;
+            var owner = summaries.GetValueOrDefault(r.OwnerId);
+            var amount = r.Cycle == BillingCycle.Annual ? (plan?.AnnualPrice ?? 0) : (plan?.MonthlyPrice ?? 0);
+            var currentPlanName = currentPlan?.Name ?? (currentSub is null ? "من غير باقة" : "افتراضية");
+
+            return new SubscriptionRequestDto(
+                r.Id,
+                r.OwnerId,
+                owner?.FullName,
+                owner?.MaskedPhone,
+                owner?.Email,
+                currentPlanName,
+                planDto,
+                r.Cycle.ToString(),
+                amount,
+                r.Status.ToString(),
+                r.Notes,
+                r.AdminReply,
+                r.CreatedAtUtc,
+                r.ReviewedAtUtc);
+        }).ToList();
+    }
+
+    public async Task<Result<SubscriptionDto>> ApproveRequestAsync(Guid requestId, Guid adminId, CancellationToken cancellationToken = default)
+    {
+        var req = await _dbContext.SubscriptionRequests.FirstOrDefaultAsync(r => r.Id == requestId, cancellationToken);
+        if (req is null)
+        {
+            return Result.Failure<SubscriptionDto>(SubscriptionErrors.NotFound);
+        }
+
+        if (req.Status != SubscriptionRequestStatus.Pending)
+        {
+            return Result.Failure<SubscriptionDto>(SubscriptionErrors.InvalidTransition);
+        }
+
+        var plan = await _dbContext.Plans.FirstOrDefaultAsync(p => p.Id == req.PlanId, cancellationToken);
+        if (plan is null)
+        {
+            return Result.Failure<SubscriptionDto>(SubscriptionErrors.NotFound);
+        }
+
+        var existing = await _dbContext.Subscriptions.Include(s => s.Events).FirstOrDefaultAsync(s => s.OwnerId == req.OwnerId, cancellationToken);
+        Result<SubscriptionDto> subResult;
+        if (existing is not null)
+        {
+            subResult = await ChangePlanAsync(req.OwnerId, req.PlanId, req.Cycle, "تمت الترقية بناءً على طلب المالك", adminId, cancellationToken);
+        }
+        else
+        {
+            subResult = await AssignAsync(req.OwnerId, req.PlanId, req.Cycle, withTrial: false, adminId, cancellationToken);
+        }
+
+        if (subResult.IsFailure)
+        {
+            return subResult;
+        }
+
+        var now = _clock.UtcNow;
+        req.Approve(adminId, now);
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        await _notifications.PublishAsync(new NotificationRequest(
+            req.OwnerId,
+            NotificationTypes.SubscriptionRequestApproved,
+            new Dictionary<string, string>
+            {
+                ["planName"] = plan.Name
+            },
+            $"subscription-approved:{req.Id:N}"), cancellationToken);
+
+        await _audit.RecordAsync(new AuditEntry(
+            "subscription_request.approved",
+            "SubscriptionRequest",
+            req.Id.ToString("D"),
+            adminId,
+            AuditActorType.Admin,
+            After: new { req.OwnerId, req.PlanId, PlanName = plan.Name, Cycle = req.Cycle.ToString() }), cancellationToken);
+
+        return subResult;
+    }
+
+    public async Task<Result> ReplyToRequestAsync(Guid requestId, string instructions, Guid adminId, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(instructions))
+        {
+            return Result.Failure(Error.Validation("SubscriptionRequest.ReplyRequired", "Payment instructions cannot be empty."));
+        }
+
+        var req = await _dbContext.SubscriptionRequests.FirstOrDefaultAsync(r => r.Id == requestId, cancellationToken);
+        if (req is null)
+        {
+            return Result.Failure(SubscriptionErrors.NotFound);
+        }
+
+        var now = _clock.UtcNow;
+        req.Reply(adminId, instructions, now);
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        await _notifications.PublishAsync(new NotificationRequest(
+            req.OwnerId,
+            NotificationTypes.SubscriptionRequestInstructions,
+            new Dictionary<string, string>
+            {
+                ["instructions"] = instructions
+            },
+            $"subscription-instructions:{req.Id:N}:{now.Ticks}"), cancellationToken);
+
+        await _audit.RecordAsync(new AuditEntry(
+            "subscription_request.replied",
+            "SubscriptionRequest",
+            req.Id.ToString("D"),
+            adminId,
+            AuditActorType.Admin,
+            After: new { req.OwnerId, Instructions = instructions }), cancellationToken);
+
+        return Result.Success();
+    }
+
+    public async Task<Result> RejectRequestAsync(Guid requestId, string? reason, Guid adminId, CancellationToken cancellationToken = default)
+    {
+        var req = await _dbContext.SubscriptionRequests.FirstOrDefaultAsync(r => r.Id == requestId, cancellationToken);
+        if (req is null)
+        {
+            return Result.Failure(SubscriptionErrors.NotFound);
+        }
+
+        var now = _clock.UtcNow;
+        req.Reject(adminId, reason, now);
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        await _notifications.PublishAsync(new NotificationRequest(
+            req.OwnerId,
+            NotificationTypes.SubscriptionRequestRejected,
+            new Dictionary<string, string>
+            {
+                ["reason"] = string.IsNullOrWhiteSpace(reason) ? "تم رفض الطلب من قِبل الإدارة." : reason
+            },
+            $"subscription-rejected:{req.Id:N}"), cancellationToken);
+
+        await _audit.RecordAsync(new AuditEntry(
+            "subscription_request.rejected",
+            "SubscriptionRequest",
+            req.Id.ToString("D"),
+            adminId,
+            AuditActorType.Admin,
+            After: new { req.OwnerId, Reason = reason }), cancellationToken);
+
+        return Result.Success();
+    }
 
     private async Task<Result<SubscriptionDto>> TransitionAsync(
         Guid ownerId, string action, string? reason, Guid adminId, Func<OwnerSubscription, DateTime, Result> change, bool notifySuspended, CancellationToken cancellationToken)

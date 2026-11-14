@@ -14,6 +14,7 @@ public sealed class SubscriptionsDbContext : DbContext
     public DbSet<SubscriptionEvent> Events => Set<SubscriptionEvent>();
     public DbSet<SubscriptionPayment> Payments => Set<SubscriptionPayment>();
     public DbSet<Invoice> Invoices => Set<Invoice>();
+    public DbSet<SubscriptionChangeRequest> SubscriptionRequests => Set<SubscriptionChangeRequest>();
 
     public SubscriptionsDbContext(DbContextOptions<SubscriptionsDbContext> options)
         : base(options)
@@ -107,6 +108,19 @@ public sealed class SubscriptionsDbContext : DbContext
             b.Property(i => i.Currency).HasMaxLength(3);
             b.Property(i => i.Status).HasConversion<string>().HasMaxLength(10);
             b.Property(i => i.VoidReason).HasMaxLength(500);
+        });
+
+        modelBuilder.Entity<SubscriptionChangeRequest>(b =>
+        {
+            b.ToTable("subscription_requests");
+            b.HasKey(r => r.Id);
+            b.Property(r => r.Id).ValueGeneratedNever();
+            b.HasIndex(r => r.OwnerId);
+            b.HasIndex(r => new { r.Status, r.CreatedAtUtc });
+            b.Property(r => r.Status).HasConversion<string>().HasMaxLength(20);
+            b.Property(r => r.Cycle).HasConversion<string>().HasMaxLength(10);
+            b.Property(r => r.Notes).HasMaxLength(500);
+            b.Property(r => r.AdminReply).HasMaxLength(1000);
         });
     }
 }

@@ -186,6 +186,62 @@ public sealed class SubscriptionTests
         InvoicePdf.Escape(input).Should().Be(expected);
     }
 
+    [Fact]
+    public async Task VenueOwner_CanRequestPlanUpgrade_AndAdminCanReplyAndApproveAsync()
+    {
+        await using var db = NewDb();
+        var growth = await ActivePlanAsync(db, "growth", maxVenues: 3);
+        var service = Subscriptions(db);
+
+        // Owner requests upgrade to growth plan
+        var reqResult = await service.CreateOrUpdateChangeRequestAsync(_owner, growth.Id, BillingCycle.Monthly, "عاوز ادفع فودافون كاش");
+        reqResult.IsSuccess.Should().BeTrue();
+        reqResult.Value.Status.Should().Be("Pending");
+        reqResult.Value.PlanName.Should().Be(growth.Name);
+        reqResult.Value.Amount.Should().Be(growth.MonthlyPrice);
+
+        // Check latest request
+        var latest = await service.GetLatestRequestForOwnerAsync(_owner);
+        latest.Should().NotBeNull();
+        latest!.Id.Should().Be(reqResult.Value.Id);
+        latest.Status.Should().Be("Pending");
+
+        // Admin replies with payment instructions
+        var replyResult = await service.ReplyToRequestAsync(reqResult.Value.Id, "حوّل 500 ج.م على فودافون كاش 01012345678", _admin);
+        replyResult.IsSuccess.Should().BeTrue();
+        _recorder.Notifications.Should().Contain(n => n.Type == NotificationTypes.SubscriptionRequestInstructions);
+
+        // Admin approves request
+        var approveResult = await service.ApproveRequestAsync(reqResult.Value.Id, _admin);
+        approveResult.IsSuccess.Should().BeTrue();
+        _recorder.Notifications.Should().Contain(n => n.Type == NotificationTypes.SubscriptionRequestApproved);
+
+        // Verify owner subscription is now active on growth plan
+        var billing = await service.GetOwnerBillingAsync(_owner);
+        billing.Subscription.Should().NotBeNull();
+        billing.Subscription!.Plan.Code.Should().Be(growth.Code);
+    }
+
+    [Fact]
+    public async Task AssignOrChangeAsync_AssignsNew_OrChangesExistingSubscriptionAsync()
+    {
+        await using var db = NewDb();
+        var starter = await ActivePlanAsync(db, "starter", maxVenues: 1);
+        var growth = await ActivePlanAsync(db, "growth", maxVenues: 5);
+        var service = Subscriptions(db);
+
+        // 1. Assign for first time
+        var assignResult = await service.AssignOrChangeAsync(_owner, starter.Id, BillingCycle.Monthly, withTrial: true, _admin);
+        assignResult.IsSuccess.Should().BeTrue();
+        assignResult.Value.Plan.Code.Should().Be(starter.Code);
+
+        // 2. Assign/Change again without AlreadySubscribed error
+        var changeResult = await service.AssignOrChangeAsync(_owner, growth.Id, BillingCycle.Annual, withTrial: false, _admin);
+        changeResult.IsSuccess.Should().BeTrue();
+        changeResult.Value.Plan.Code.Should().Be(growth.Code);
+        changeResult.Value.Cycle.Should().Be("Annual");
+    }
+
     private PlanService Plans(SubscriptionsDbContext db) => new(db, _recorder, _clock);
 
     private SubscriptionService Subscriptions(SubscriptionsDbContext db) => new(db, _usage, new InvoiceNumberGenerator(db), _recorder, _recorder, _clock);

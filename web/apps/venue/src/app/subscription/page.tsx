@@ -31,7 +31,6 @@ export default function SubscriptionPage() {
   const queryClient = useQueryClient();
   const [cycle, setCycle] = useState<"month" | "year">("month");
   const [toast, setToast] = useState<string | null>(null);
-  const [requested, setRequested] = useState<{ plan: string; ticket: string } | null>(null);
 
   const billing = useQuery({ queryKey: ["billing"], queryFn: () => unwrap(api.GET("/api/v1/venue-manager/billing")) });
   const plans = useQuery({
@@ -40,22 +39,19 @@ export default function SubscriptionPage() {
     staleTime: 30_000,
   });
 
-  // No self-service payment: an upgrade is a request to the Malabak team (Flow G), tracked as a support ticket.
   const requestPlan = useMutation({
     mutationFn: (plan: Plan) =>
       unwrap(
-        api.POST("/api/v1/venue-manager/support/tickets", {
+        api.POST("/api/v1/venue-manager/billing/requests", {
           body: {
-            category: "Subscription",
-            subject: `طلب تغيير الباقة إلى ${plan.name}`,
-            message: `أرغب في الاشتراك في باقة ${plan.name} (${plan.code}) بدفع ${cycle === "year" ? "سنوي" : "شهري"}. برجاء التواصل لتأكيد الدفع.`,
-            relatedBookingId: null,
-            relatedVenueId: null,
+            planId: plan.id,
+            cycle: (cycle === "year" ? 1 : 0) as Schemas["BillingCycle"],
+            notes: `طلب ترقية إلى باقة ${plan.name} بدفع ${cycle === "year" ? "سنوي" : "شهري"}.`,
           },
         }),
       ),
-    onSuccess: async (ticket, plan) => {
-      setRequested({ plan: plan.name, ticket: ticket.ticket.number });
+    onSuccess: async (res) => {
+      setToast(`تم إرسال طلب الترقية إلى باقة ${res.planName} بنجاح.`);
       await queryClient.invalidateQueries({ queryKey: ["billing"] });
     },
     onError: (e: Error) => setToast(e.message),
@@ -79,15 +75,35 @@ export default function SubscriptionPage() {
   const sub = data?.subscription;
   const plan = sub?.plan ?? data?.effectivePlan;
   const status = sub ? STATUS[sub.status] : undefined;
+  const pendingReq = data?.pendingRequest;
 
   return (
     <Page className="gap-5">
       <h1 className="text-[26px] font-bold">الاشتراك والفواتير</h1>
 
-      {requested && (
-        <div role="status" className="bg-[#FEF3D6] text-[#6B4400] rounded-xl px-4 py-3.5 text-sm">
-          <strong>طلبك لباقة {requested.plan} وصل (تذكرة {requested.ticket}).</strong> فريق ملعبك هيتواصل معاك خلال يوم عمل لتأكيد الدفع. باقتك الحالية شغالة عادي لحد
-          التفعيل.
+      {pendingReq && pendingReq.status === "Pending" && (
+        <div role="status" className="bg-[#FFFBEB] border border-[#FDE68A] text-[#92400E] rounded-2xl p-4 sm:p-5 text-sm flex flex-col gap-2.5 shadow-sm">
+          <div className="flex items-center gap-2 font-bold text-base text-[#78350F]">
+            <span className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse" />
+            <span>طلب ترقية إلى باقة {pendingReq.planName} ({pendingReq.cycle === "Annual" ? "سنوي" : "شهري"}) قيد المراجعة</span>
+          </div>
+          <p className="text-sm text-[#92400E]">
+            طلبك قيد المراجعة لدى فريق الإدارة. باقتك الحالية شغالة عادي لحد تفعيل الباقة الجديدة.
+          </p>
+          {pendingReq.adminReply ? (
+            <div className="mt-1 bg-white/90 border border-amber-200 rounded-xl p-3.5 flex flex-col gap-1.5 shadow-xs">
+              <strong className="text-navy-900 text-xs font-bold uppercase tracking-wider flex items-center gap-1.5">
+                <span>💬</span> تعليمات السداد من الإدارة:
+              </strong>
+              <p className="whitespace-pre-line text-[#1F2A37] font-semibold text-sm leading-relaxed">
+                {pendingReq.adminReply}
+              </p>
+            </div>
+          ) : (
+            <span className="text-xs text-[#B45309]">
+              💡 هيوصلك إشعار وتعليمات الدفع (إنستاباي / محفظة فودافون كاش) هنا في الإشعارات بمجرد مراجعة الإدارة.
+            </span>
+          )}
         </div>
       )}
       {billing.isLoading && <div className={`${card} rounded-[18px] h-40 animate-pulse`} />}
@@ -228,6 +244,11 @@ export default function SubscriptionPage() {
 
                     {current ? (
                       <div className="min-h-[44px] rounded-xl bg-[#F3F5F9] text-[#5B6475] text-sm font-semibold flex items-center justify-center">دي باقتك دلوقتي</div>
+                    ) : pendingReq && pendingReq.planId === p.id && pendingReq.status === "Pending" ? (
+                      <div className="min-h-[44px] rounded-xl bg-amber-50 text-amber-800 border border-amber-200 text-sm font-semibold flex items-center justify-center gap-1.5">
+                        <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+                        <span>الطلب قيد المراجعة</span>
+                      </div>
                     ) : (
                       <button
                         type="button"

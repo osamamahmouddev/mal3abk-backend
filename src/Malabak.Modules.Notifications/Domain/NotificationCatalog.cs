@@ -184,6 +184,18 @@ public static class NotificationCatalog
         [NotificationTypes.SubscriptionSuspended] = new(NotificationCategory.Payments,
             "تم إيقاف الاشتراك", "تم إيقاف اشتراكك: {reason}. تواصل مع الدعم.",
             "Subscription suspended", "Your subscription was suspended: {reason}. Please contact support.",
+            _ => DeepLinks.Billing),
+        [NotificationTypes.SubscriptionRequestApproved] = new(NotificationCategory.Payments,
+            "تمت ترقية باقتك", "تمت الموافقة على طلب ترقية باقتك إلى {planName} بنجاح.",
+            "Plan upgraded", "Your subscription has been upgraded to {planName}.",
+            _ => DeepLinks.Billing),
+        [NotificationTypes.SubscriptionRequestRejected] = new(NotificationCategory.Payments,
+            "طلب ترقية الباقة", "تم رفض طلب ترقية الباقة: {reason}",
+            "Plan upgrade rejected", "Your plan upgrade request was rejected: {reason}",
+            _ => DeepLinks.Billing),
+        [NotificationTypes.SubscriptionRequestInstructions] = new(NotificationCategory.Payments,
+            "تعليمات سداد الباقة", "{instructions}",
+            "Payment instructions", "{instructions}",
             _ => DeepLinks.Billing)
     };
 
