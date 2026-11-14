@@ -19,10 +19,10 @@ public static class NotificationEndpoints
             .WithTags("Notifications");
 
         group.MapGet("/notifications", async (ClaimsPrincipal user, [FromQuery] int? page, [FromQuery] int? pageSize,
-            [FromQuery] NotificationSurface? surface, UserNotificationService notifications, CancellationToken ct) =>
-            Results.Ok(await notifications.ListAsync(user.GetUserId()!.Value, page ?? 1, pageSize ?? 20, IsArabic(), surface, ct)))
+            [FromQuery] bool? arabic, [FromQuery] NotificationSurface? surface, UserNotificationService notifications, CancellationToken ct) =>
+            Results.Ok(await notifications.ListAsync(user.GetUserId()!.Value, page ?? 1, pageSize ?? 20, arabic ?? IsArabic(), surface, ct)))
         .Produces<NotificationPageDto>().WithName("GetMyNotifications")
-        .WithSummary("Paged notifications in the request language (Accept-Language ar|en). Pass surface=Player|Venue|Admin to get only the ones shown in that app; omit it for all.");
+        .WithSummary("Paged notifications in the request language (Accept-Language ar|en or ?arabic=true|false). Pass surface=Player|Venue|Admin to get only the ones shown in that app; omit it for all.");
 
         group.MapGet("/notifications/unread-count", async (ClaimsPrincipal user, [FromQuery] NotificationSurface? surface, UserNotificationService notifications, CancellationToken ct) =>
             Results.Ok(new UnreadCountResponse(await notifications.UnreadCountAsync(user.GetUserId()!.Value, surface, ct))))

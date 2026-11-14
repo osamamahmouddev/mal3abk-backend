@@ -17,6 +17,12 @@ export function createBrowserApi(loginPath: string, basePath = ""): ApiClient {
   const appCsrfName = normalizedBase ? `malabak-${normalizedBase.slice(1)}-csrf` : CSRF_COOKIE;
   client.use({
     onRequest({ request }) {
+      if (!request.headers.has("Accept-Language")) {
+        request.headers.set("Accept-Language", "ar-EG,ar;q=0.9");
+      }
+      if (!request.headers.has("X-Locale")) {
+        request.headers.set("X-Locale", "ar");
+      }
       if (request.method !== "GET" && request.method !== "HEAD") {
         const token = readCookie(appCsrfName) ?? readCookie(CSRF_COOKIE);
         if (token) request.headers.set(CSRF_HEADER, decodeURIComponent(token));

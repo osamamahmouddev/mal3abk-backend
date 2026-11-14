@@ -14,6 +14,8 @@ export function notificationTarget(notification: { type: string; deepLink?: stri
   if (type.startsWith("subscription.")) return "/subscription";
   // Support tickets are opened from the subscription page, so replies belong there.
   if (type.startsWith("support.")) return "/subscription";
+  if (type === "venue.info_requested" || type === "venue.rejected") return "/setup";
+  if (type === "venue.approved") return "/overview";
   if (type.startsWith("venue.")) return "/settings";
   if (type.startsWith("security.")) return "/settings";
   return null;

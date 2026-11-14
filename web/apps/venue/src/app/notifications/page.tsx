@@ -38,7 +38,7 @@ export default function NotificationsPage() {
 
   const page = useQuery({
     queryKey: ["notifications", "list"],
-    queryFn: () => unwrap(api.GET("/api/v1/me/notifications", { params: { query: { page: 1, pageSize: 50, surface: VENUE_SURFACE } } })),
+    queryFn: () => unwrap(api.GET("/api/v1/me/notifications", { params: { query: { page: 1, pageSize: 50, surface: VENUE_SURFACE, arabic: true } as any } })),
   });
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["notifications"] });
 

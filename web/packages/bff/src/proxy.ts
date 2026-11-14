@@ -6,7 +6,7 @@ import { endSession, getSession } from "./session";
 import { callApi } from "./upstream";
 import { clientIpHeaders } from "./client-ip";
 
-const FORWARDED_REQUEST_HEADERS = ["content-type", "accept", "accept-language", "idempotency-key", "x-step-up-token"];
+const FORWARDED_REQUEST_HEADERS = ["content-type", "accept", "accept-language", "x-locale", "idempotency-key", "x-step-up-token"];
 const FORWARDED_RESPONSE_HEADERS = ["content-type", "content-disposition", "cache-control", "retry-after", "location"];
 const SAFE_METHODS = new Set(["GET", "HEAD"]);
 

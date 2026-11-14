@@ -63,6 +63,14 @@ export default function SetupPage() {
   const venueId = venue?.id ?? null;
   const governorate = reference.governorates.find((g) => g.nameAr === form.city);
 
+  const approval = useQuery({
+    queryKey: ["venue-approval", venueId],
+    enabled: !!venueId,
+    queryFn: () => unwrap(api.GET("/api/v1/venue-manager/venues/{venueId}/approval", { params: { path: { venueId: venueId! } } })),
+  });
+  const approvalStatus = approval.data?.approvalStatus ?? venue?.approvalStatus;
+  const lastAdminNote = approval.data?.history.filter((h) => h.message && h.action !== "Submitted").at(-1)?.message;
+
   const saveVenue = useMutation({
     mutationFn: async () => {
       const body = {
@@ -193,6 +201,30 @@ export default function SetupPage() {
         </nav>
 
         <main className={`flex-[999_1_560px] min-w-0 ${card} rounded-[20px] p-5 sm:p-7 flex flex-col gap-5`}>
+          {approvalStatus === "NeedsInfo" && lastAdminNote && (
+            <div className="bg-[#FEF3D6] border border-[#F5D485] text-[#7A4D00] rounded-[16px] p-4 flex items-start gap-3 shadow-xs animate-fadeIn">
+              <span className="w-8 h-8 rounded-full bg-[#F5D485]/60 flex items-center justify-center shrink-0 text-base">⚠️</span>
+              <div className="flex flex-col gap-1 flex-1 min-w-0">
+                <span className="font-bold text-[15px]">طلب استكمال بيانات من إدارة ملعبك:</span>
+                <p className="text-sm font-semibold text-[#5C3A00] leading-relaxed bg-white/80 p-3 rounded-xl border border-[#F5D485]/50">
+                  {lastAdminNote}
+                </p>
+                <p className="text-xs text-[#7A4D00]">عدّل البيانات أو الصور المطلوبة هنا، وانتقل للخطوة الأخيرة لإعادة الإرسال للمراجعة.</p>
+              </div>
+            </div>
+          )}
+          {approvalStatus === "Rejected" && lastAdminNote && (
+            <div className="bg-[#FDECEA] border border-[#F5C2BD] text-[#A8261C] rounded-[16px] p-4 flex items-start gap-3 shadow-xs animate-fadeIn">
+              <span className="w-8 h-8 rounded-full bg-[#F5C2BD]/60 flex items-center justify-center shrink-0 text-base">✕</span>
+              <div className="flex flex-col gap-1 flex-1 min-w-0">
+                <span className="font-bold text-[15px]">سبب عدم الموافقة على الملعب:</span>
+                <p className="text-sm font-semibold text-[#781B13] leading-relaxed bg-white/80 p-3 rounded-xl border border-[#F5C2BD]/50">
+                  {lastAdminNote}
+                </p>
+                <p className="text-xs text-[#A8261C]">يرجى تصحيح الملاحظات المطلوبة وإعادة إرسال الملعب للمراجعة من الخطوة الأخيرة.</p>
+              </div>
+            </div>
+          )}
           {step === 1 && (
             <div className="flex flex-col gap-[18px]">
               <h1 className="text-2xl font-bold">بيانات المكان</h1>
@@ -787,7 +819,7 @@ function SubmitStep({ venueId }: { venueId: string }) {
   const [message, setMessage] = useState("");
   const [error, setError] = useState<string | null>(null);
   const approval = useQuery({
-    queryKey: ["approval", venueId],
+    queryKey: ["venue-approval", venueId],
     queryFn: () => unwrap(api.GET("/api/v1/venue-manager/venues/{venueId}/approval", { params: { path: { venueId } } })),
   });
   const submit = useMutation({

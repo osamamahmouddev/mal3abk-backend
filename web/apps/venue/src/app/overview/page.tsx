@@ -26,6 +26,17 @@ export default function OverviewPage() {
     queryFn: () => unwrap(api.GET("/api/v1/venue-manager/venues/{venueId}/dashboard", { params: { path: { venueId: venueId! } } })),
   });
 
+  const approval = useQuery({
+    queryKey: ["venue-approval", venueId],
+    enabled: !!venueId && venue?.approvalStatus !== "Approved",
+    queryFn: () => unwrap(api.GET("/api/v1/venue-manager/venues/{venueId}/approval", { params: { path: { venueId: venueId! } } })),
+  });
+
+  const latestAdminEvent = approval.data?.history
+    .filter((h) => h.message && (h.action === "InfoRequested" || h.action === "Rejected"))
+    .at(-1);
+  const adminMessage = latestAdminEvent?.message;
+
   const pitchName = (id: string) => venue?.pitches.find((p) => p.id === id)?.name ?? "ملعب";
   const activePitches = venue?.pitches.filter((p) => p.isActive).length ?? 0;
   const today = new Date().toLocaleDateString("ar-EG", { timeZone: "Africa/Cairo", weekday: "long", day: "numeric", month: "long" });
@@ -33,19 +44,97 @@ export default function OverviewPage() {
   return (
     <Page className="gap-5">
       {venue && venue.approvalStatus !== "Approved" && (
-        <div role="status" className="bg-[#FEF3D6] text-[#7A4D00] rounded-[14px] px-4 py-3 flex flex-wrap items-center gap-3">
-          <span className="flex-[1_1_260px] text-sm leading-[1.6]">
-            <b>{APPROVAL_LABELS[venue.approvalStatus]?.label ?? venue.approvalStatus}:</b>{" "}
-            {venue.approvalStatus === "Submitted"
-              ? "فريق ملعبك بيراجع الملعب (عادةً خلال يومين عمل). الملعب مش هيظهر للاعبين غير بعد الموافقة."
-              : "الملعب لسه مش ظاهر للاعبين. كمّل البيانات وابعته للمراجعة."}
-          </span>
-          {venue.approvalStatus !== "Submitted" && (
-            <Link href="/setup" className="text-sm font-bold underline">
-              كمّل الإعداد
-            </Link>
+        <>
+          {venue.approvalStatus === "NeedsInfo" && (
+            <div role="status" className="bg-[#FEF3D6] border border-[#F5D485] text-[#7A4D00] rounded-[16px] p-4 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-xs animate-fadeIn">
+              <div className="flex items-start gap-3 flex-1 min-w-0">
+                <span className="w-10 h-10 rounded-full bg-[#F5D485]/60 flex items-center justify-center shrink-0 text-xl">⚠️</span>
+                <div className="flex flex-col gap-1.5 flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-bold text-[15px] text-[#7A4D00]">مطلوب استكمال بيانات من إدارة ملعبك</span>
+                    <span className="text-xs bg-[#7A4D00]/15 text-[#7A4D00] px-2.5 py-0.5 rounded-full font-bold">تعديل مطلوب</span>
+                  </div>
+                  {adminMessage ? (
+                    <div className="text-sm text-[#5C3A00] leading-relaxed bg-white/80 p-3 rounded-xl border border-[#F5D485]/60">
+                      <span className="font-bold text-[#7A4D00]">طلب الإدارة: </span>
+                      <span className="font-medium">{adminMessage}</span>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-[#7A4D00] leading-relaxed">الملعب لسه مش ظاهر للاعبين. كمّل البيانات أو الصور المطلوبة وابعته للمراجعة.</p>
+                  )}
+                </div>
+              </div>
+              <Link
+                href="/setup"
+                className="btn-press shrink-0 inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-[#7A4D00] hover:bg-[#5C3A00] text-white text-sm font-bold rounded-xl transition-all shadow-sm"
+              >
+                <span>تعديل واستكمال البيانات</span>
+                <span className="text-base font-bold">←</span>
+              </Link>
+            </div>
           )}
-        </div>
+
+          {venue.approvalStatus === "Rejected" && (
+            <div role="status" className="bg-[#FDECEA] border border-[#F5C2BD] text-[#A8261C] rounded-[16px] p-4 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-xs animate-fadeIn">
+              <div className="flex items-start gap-3 flex-1 min-w-0">
+                <span className="w-10 h-10 rounded-full bg-[#F5C2BD]/60 flex items-center justify-center shrink-0 text-xl">✕</span>
+                <div className="flex flex-col gap-1.5 flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-bold text-[15px] text-[#A8261C]">لم تتم الموافقة على انضمام الملعب</span>
+                    <span className="text-xs bg-[#A8261C]/15 text-[#A8261C] px-2.5 py-0.5 rounded-full font-bold">مرفوض</span>
+                  </div>
+                  {adminMessage ? (
+                    <div className="text-sm text-[#781B13] leading-relaxed bg-white/80 p-3 rounded-xl border border-[#F5C2BD]/60">
+                      <span className="font-bold text-[#A8261C]">سبب الرفض: </span>
+                      <span className="font-medium">{adminMessage}</span>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-[#A8261C] leading-relaxed">يرجى مراجعة وتعديل بيانات الملعب والصور المطلوبة وإعادة الإرسال.</p>
+                  )}
+                </div>
+              </div>
+              <Link
+                href="/setup"
+                className="btn-press shrink-0 inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-[#A8261C] hover:bg-[#8A1F17] text-white text-sm font-bold rounded-xl transition-all shadow-sm"
+              >
+                <span>تعديل البيانات وإعادة الإرسال</span>
+                <span className="text-base font-bold">←</span>
+              </Link>
+            </div>
+          )}
+
+          {venue.approvalStatus === "Submitted" && (
+            <div role="status" className="bg-[#FEF3D6] border border-[#F5D485] text-[#7A4D00] rounded-[16px] p-4 flex items-center gap-3 shadow-xs animate-fadeIn">
+              <span className="w-10 h-10 rounded-full bg-[#F5D485]/60 flex items-center justify-center shrink-0 text-xl">⏳</span>
+              <div className="flex flex-col gap-0.5">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="font-bold text-[15px]">طلب انضمام الملعب قيد المراجعة</span>
+                  <span className="text-xs bg-[#7A4D00]/15 text-[#7A4D00] px-2.5 py-0.5 rounded-full font-bold">تحت المراجعة</span>
+                </div>
+                <p className="text-sm text-[#7A4D00] leading-relaxed">فريق ملعبك بيراجع الملعب حالياً (عادةً خلال يومين عمل). الملعب مش هيظهر للاعبين غير بعد الموافقة.</p>
+              </div>
+            </div>
+          )}
+
+          {venue.approvalStatus !== "NeedsInfo" && venue.approvalStatus !== "Rejected" && venue.approvalStatus !== "Submitted" && (
+            <div role="status" className="bg-slate-100 border border-slate-200 text-slate-800 rounded-[16px] p-4 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-xs animate-fadeIn">
+              <div className="flex items-center gap-3">
+                <span className="w-10 h-10 rounded-full bg-slate-200 flex items-center justify-center shrink-0 text-xl">📝</span>
+                <div className="flex flex-col gap-0.5">
+                  <span className="font-bold text-[15px]">بيانات الملعب مسودة غير مكتملة</span>
+                  <p className="text-sm text-slate-600 leading-relaxed">الملعب لسه مش ظاهر للاعبين. كمّل باقي بيانات الملعب والصور وابعته للمراجعة.</p>
+                </div>
+              </div>
+              <Link
+                href="/setup"
+                className="btn-press shrink-0 inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-navy-900 hover:bg-navy-800 text-white text-sm font-bold rounded-xl transition-all shadow-sm"
+              >
+                <span>كمّل الإعداد الآن</span>
+                <span className="text-base font-bold">←</span>
+              </Link>
+            </div>
+          )}
+        </>
       )}
 
       <div className="flex flex-wrap items-center gap-3">
