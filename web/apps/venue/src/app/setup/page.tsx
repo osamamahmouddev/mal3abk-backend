@@ -13,6 +13,7 @@ import { useReference } from "@/lib/reference";
 import { CAPACITIES, DAY_ORDER, DAY_NAMES, DEFAULT_WEEK, METHOD_LABELS, toApiTime, type DayHours } from "@/lib/venue-format";
 import { AddAreaInline } from "@/components/AddAreaInline";
 import { PaymentMethodForm } from "@/components/PaymentMethodForm";
+import { mediaIdOf, mediaSrc, uploadImage } from "@/lib/upload";
 
 const pitchPattern =
   "radial-gradient(closest-side circle at 50% 50%, transparent 0 32%, rgba(255,255,255,0.55) 32% 36%, transparent 36%), linear-gradient(90deg, transparent calc(50% - 1px), rgba(255,255,255,0.55) calc(50% - 1px) calc(50% + 1px), transparent calc(50% + 1px)), repeating-linear-gradient(90deg, #2E8B55 0 12.5%, #287D4C 12.5% 25%)";
@@ -28,6 +29,7 @@ interface VenueForm {
   address: string;
   description: string;
   facilities: string[];
+  photos: string[];
 }
 
 export default function SetupPage() {
@@ -36,8 +38,10 @@ export default function SetupPage() {
   const reference = useReference();
   const [step, setStep] = useState(1);
   const [error, setError] = useState<string | null>(null);
-  const [form, setForm] = useState<VenueForm>({ name: "", city: "", area: "", phoneNumber: "", address: "", description: "", facilities: [] });
+  const [form, setForm] = useState<VenueForm>({ name: "", city: "", area: "", phoneNumber: "", address: "", description: "", facilities: [], photos: [] });
   const [loadedVenue, setLoadedVenue] = useState<string | null>(null);
+  const [venuePhotoUploading, setVenuePhotoUploading] = useState(false);
+  const [venuePhotoRemoving, setVenuePhotoRemoving] = useState(false);
 
   // Resume an unfinished setup with the owner's existing venue.
   useEffect(() => {
@@ -51,6 +55,7 @@ export default function SetupPage() {
         address: venue.address,
         description: venue.description ?? "",
         facilities: venue.facilities,
+        photos: venue.photos ?? [],
       });
     }
   }, [venue, loadedVenue]);
@@ -68,7 +73,7 @@ export default function SetupPage() {
         address: form.address.trim(),
         description: form.description.trim() || null,
         facilities: form.facilities,
-        photos: venue?.photos ?? [],
+        photos: form.photos,
       };
       return venueId
         ? unwrap(api.PUT("/api/v1/venue-manager/venues/{id}", { params: { path: { id: venueId } }, body }))
@@ -81,6 +86,45 @@ export default function SetupPage() {
     },
     onError: (e: Error) => setError(e.message),
   });
+
+  const handleUploadVenuePhotos = async (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    setVenuePhotoUploading(true);
+    setError(null);
+    try {
+      for (const file of Array.from(files)) {
+        const mediaId = await uploadImage(file, 0);
+        if (venueId) {
+          await unwrap(api.POST("/api/v1/venue-manager/venues/{venueId}/gallery", { params: { path: { venueId } }, body: { mediaId } }));
+          await queryClient.invalidateQueries({ queryKey: ["venues"] });
+        } else {
+          setForm((f) => ({ ...f, photos: [...f.photos, `/api/v1/media/${mediaId}/medium`] }));
+        }
+      }
+    } catch (e: any) {
+      setError(e.message ?? "فشل رفع صورة المكان.");
+    } finally {
+      setVenuePhotoUploading(false);
+    }
+  };
+
+  const removeVenuePhoto = async (photo: string, index: number) => {
+    setVenuePhotoRemoving(true);
+    setError(null);
+    try {
+      const mediaId = mediaIdOf(photo);
+      if (venueId && mediaId) {
+        await unwrap(api.DELETE("/api/v1/venue-manager/venues/{venueId}/gallery/{mediaId}", { params: { path: { venueId, mediaId } } }));
+        await queryClient.invalidateQueries({ queryKey: ["venues"] });
+      } else {
+        setForm((f) => ({ ...f, photos: f.photos.filter((_, i) => i !== index) }));
+      }
+    } catch (e: any) {
+      setError(e.message ?? "فشل حذف الصورة.");
+    } finally {
+      setVenuePhotoRemoving(false);
+    }
+  };
 
   const venueValid = form.name.trim().length >= 3 && form.city && form.area && form.phoneNumber.trim() && form.address.trim();
 
@@ -238,6 +282,47 @@ export default function SetupPage() {
                   })}
                 </div>
               </div>
+
+              {/* Venue general photos */}
+              <div className="flex flex-col gap-2 pt-2 border-t border-[#EDF0F5]">
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-sm font-semibold">صور المنشأة والمرافق العامة (اختياري)</span>
+                  <span className={`text-xs ${muted}`}>
+                    صور المدخل، الاستراحة، وغرف التبديل التي تظهر في بروفايل المكان. صور أرضيات الملاعب بتضاف من خطوة الملاعب لكل ملعب منفصل.
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 gap-2.5">
+                  {(venueId ? venue?.photos ?? [] : form.photos).map((photo, idx) => (
+                    <div key={photo} className="relative group rounded-xl overflow-hidden aspect-[4/3] bg-slate-100 border border-[#E2E8F0]">
+                      <img src={mediaSrc(photo)} alt="صورة المنشأة" className="w-full h-full object-cover" />
+                      <button
+                        type="button"
+                        aria-label="مسح الصورة"
+                        disabled={venuePhotoRemoving}
+                        onClick={() => removeVenuePhoto(photo, idx)}
+                        className="absolute top-1 left-1 w-6 h-6 rounded-full bg-black/60 hover:bg-[#A8261C] text-white text-xs font-bold flex items-center justify-center transition-colors shadow"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ))}
+                  <label className="rounded-xl border-2 border-dashed border-[#C9CFD9] hover:border-navy-900 aspect-[4/3] flex flex-col items-center justify-center gap-1 text-xs text-[#5B6475] hover:text-navy-900 cursor-pointer bg-slate-50/70 hover:bg-slate-100 transition-colors">
+                    <span className="text-lg font-bold leading-none">+</span>
+                    <span className="text-[11px] font-semibold">{venuePhotoUploading ? "بيترفع…" : "إضافة صورة"}</span>
+                    <input
+                      type="file"
+                      multiple
+                      accept="image/jpeg,image/png,image/webp"
+                      className="hidden"
+                      disabled={venuePhotoUploading}
+                      onChange={(e) => {
+                        handleUploadVenuePhotos(e.target.files);
+                        e.target.value = "";
+                      }}
+                    />
+                  </label>
+                </div>
+              </div>
             </div>
           )}
 
@@ -293,6 +378,9 @@ function PitchesStep({ venueId }: { venueId: string }) {
   const queryClient = useQueryClient();
   const { surfaces } = useReference();
   const [draft, setDraft] = useState({ name: "", turfType: "ArtificialTurf", capacity: 5 });
+  const [draftPhotos, setDraftPhotos] = useState<string[]>([]);
+  const [draftUploading, setDraftUploading] = useState(false);
+  const [uploadingPitchId, setUploadingPitchId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const pitches = useQuery({
@@ -307,11 +395,17 @@ function PitchesStep({ venueId }: { venueId: string }) {
       unwrap(
         api.POST("/api/v1/venue-manager/venues/{venueId}/pitches", {
           params: { path: { venueId } },
-          body: { name: draft.name.trim(), turfType: draft.turfType, capacity: draft.capacity, photos: [] },
+          body: {
+            name: draft.name.trim(),
+            turfType: draft.turfType,
+            capacity: draft.capacity,
+            photos: draftPhotos,
+          },
         }),
       ),
     onSuccess: async () => {
       setDraft({ ...draft, name: "" });
+      setDraftPhotos([]);
       setError(null);
       await refresh();
     },
@@ -324,62 +418,239 @@ function PitchesStep({ venueId }: { venueId: string }) {
     onError: (e: Error) => setError(e.message),
   });
 
+  const addPitchPhoto = useMutation({
+    mutationFn: async ({ pitchId, file }: { pitchId: string; file: File }) => {
+      setUploadingPitchId(pitchId);
+      const mediaId = await uploadImage(file, 1);
+      return unwrap(
+        api.POST("/api/v1/venue-manager/venues/{venueId}/pitches/{pitchId}/gallery", {
+          params: { path: { venueId, pitchId } },
+          body: { mediaId },
+        }),
+      );
+    },
+    onSuccess: async () => {
+      await refresh();
+      setError(null);
+    },
+    onError: (e: Error) => setError(e.message),
+    onSettled: () => setUploadingPitchId(null),
+  });
+
+  const removePitchPhoto = useMutation({
+    mutationFn: async ({ pitchId, photo }: { pitchId: string; photo: string }) => {
+      const mediaId = mediaIdOf(photo);
+      if (mediaId) {
+        await unwrap(
+          api.DELETE("/api/v1/venue-manager/venues/{venueId}/pitches/{pitchId}/gallery/{mediaId}", {
+            params: { path: { venueId, pitchId, mediaId } },
+          }),
+        );
+        return;
+      }
+      const p = pitches.data?.find((x) => x.id === pitchId);
+      if (p) {
+        await unwrap(
+          api.PUT("/api/v1/venue-manager/pitches/{id}", {
+            params: { path: { id: pitchId } },
+            body: {
+              name: p.name,
+              turfType: p.turfType,
+              capacity: p.capacity,
+              lengthMeters: p.lengthMeters ?? null,
+              widthMeters: p.widthMeters ?? null,
+              photos: p.photos.filter((x) => x !== photo),
+            },
+          }),
+        );
+      }
+    },
+    onSuccess: async () => {
+      await refresh();
+      setError(null);
+    },
+    onError: (e: Error) => setError(e.message),
+  });
+
+  const handleUploadDraftPhoto = async (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    setDraftUploading(true);
+    setError(null);
+    try {
+      const uploaded: string[] = [];
+      for (const file of Array.from(files)) {
+        const mediaId = await uploadImage(file, 1);
+        uploaded.push(`/api/v1/media/${mediaId}/medium`);
+      }
+      setDraftPhotos((prev) => [...prev, ...uploaded]);
+    } catch (e: any) {
+      setError(e.message ?? "فشل رفع صورة الملعب.");
+    } finally {
+      setDraftUploading(false);
+    }
+  };
+
   return (
     <div className="flex flex-col gap-4">
       <h1 className="text-2xl font-bold">الملاعب</h1>
-      <span className={`text-sm ${muted}`}>كل ملعب ليه مواعيده وسعره. تقدر تعدّل التفاصيل بعدين من صفحة الملاعب.</span>
-      {(pitches.data ?? []).map((p) => (
-        <div key={p.id} className="border border-[#EDF0F5] rounded-2xl px-4 py-3.5 flex items-center gap-3.5">
-          <span className="w-14 h-14 shrink-0 rounded-xl" style={{ background: pitchPattern }} />
-          <span className="flex-1 flex flex-col gap-0.5">
-            <span className="text-[15px] font-bold">{p.name}</span>
-            <span className={`text-[13px] ${muted}`}>
-              {toArabicDigits(p.capacity)} لاعب · {p.surfaceArabicDisplayName}
-            </span>
-          </span>
-          <button
-            type="button"
-            aria-label={`حذف ${p.name}`}
-            disabled={remove.isPending}
-            onClick={() => remove.mutate(p.id)}
-            className="min-w-[40px] min-h-[40px] rounded-[10px] border border-[#F3C4BF] bg-white text-[#A8261C]"
-          >
-            ✕
-          </button>
+      <span className={`text-sm ${muted}`}>كل ملعب ليه مواعيده وسعره وصوره الخاصة بأرضيته ومواصفاته. تقدر تعدّل باقي التفاصيل في أي وقت.</span>
+      {(pitches.data ?? []).map((p) => {
+        const isUploading = uploadingPitchId === p.id;
+        return (
+          <div key={p.id} className="border border-[#EDF0F5] rounded-2xl p-4 flex flex-col gap-3.5 bg-white shadow-sm">
+            <div className="flex items-center gap-3.5">
+              <span className="w-14 h-14 shrink-0 rounded-xl overflow-hidden bg-slate-100 flex items-center justify-center border border-[#EDF0F5]">
+                {p.photos.length > 0 ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={mediaSrc(p.photos[0])} alt={p.name} className="w-full h-full object-cover" />
+                ) : (
+                  <span className="w-full h-full" style={{ background: pitchPattern }} />
+                )}
+              </span>
+              <div className="flex-1 flex flex-col gap-0.5">
+                <div className="flex items-center gap-2">
+                  <span className="text-[16px] font-bold text-slate-900">{p.name}</span>
+                  {p.photos.length > 0 && (
+                    <span className="text-xs bg-[#EBF3FE] text-[#1B4D89] font-semibold px-2 py-0.5 rounded-md">
+                      {toArabicDigits(p.photos.length)} صور
+                    </span>
+                  )}
+                </div>
+                <span className={`text-[13px] ${muted}`}>
+                  {toArabicDigits(p.capacity)} لاعب · {p.surfaceArabicDisplayName}
+                </span>
+              </div>
+              <button
+                type="button"
+                aria-label={`حذف ${p.name}`}
+                disabled={remove.isPending}
+                onClick={() => remove.mutate(p.id)}
+                className="min-w-[40px] min-h-[40px] rounded-[10px] border border-[#F3C4BF] bg-white text-[#A8261C] hover:bg-[#FDECEA] transition-colors flex items-center justify-center"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Pitch Photos Gallery */}
+            <div className="border-t border-[#F1F3F7] pt-2.5 flex flex-col gap-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-slate-700">صور أرضية الملعب</span>
+                <span className="text-[11px] text-[#7B8494]">صور النجيلة، الشباك، والملعب ده بالتحديد</span>
+              </div>
+              <div className="grid grid-cols-3 sm:grid-cols-5 md:grid-cols-6 gap-2">
+                {p.photos.map((photo) => (
+                  <div key={photo} className="relative group rounded-xl overflow-hidden aspect-square bg-slate-100 border border-[#E2E8F0]">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={mediaSrc(photo)} alt={`صورة ${p.name}`} className="w-full h-full object-cover" />
+                    <button
+                      type="button"
+                      aria-label="مسح الصورة"
+                      disabled={removePitchPhoto.isPending}
+                      onClick={() => removePitchPhoto.mutate({ pitchId: p.id, photo })}
+                      className="absolute top-1 left-1 w-6 h-6 rounded-full bg-black/60 hover:bg-[#A8261C] text-white text-xs font-bold flex items-center justify-center transition-colors shadow"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ))}
+                <label className="rounded-xl border-2 border-dashed border-[#C9CFD9] hover:border-navy-900 aspect-square flex flex-col items-center justify-center gap-1 text-xs text-[#5B6475] hover:text-navy-900 cursor-pointer bg-slate-50/70 hover:bg-slate-100 transition-colors">
+                  <span className="text-lg font-bold leading-none">+</span>
+                  <span className="text-[11px] font-semibold">{isUploading ? "بيترفع…" : "إضافة صورة"}</span>
+                  <input
+                    type="file"
+                    multiple
+                    accept="image/jpeg,image/png,image/webp"
+                    className="hidden"
+                    disabled={isUploading}
+                    onChange={(e) => {
+                      const files = e.target.files;
+                      if (files && files.length > 0) {
+                        for (const file of Array.from(files)) {
+                          addPitchPhoto.mutate({ pitchId: p.id, file });
+                        }
+                      }
+                      e.target.value = "";
+                    }}
+                  />
+                </label>
+              </div>
+            </div>
+          </div>
+        );
+      })}
+
+      <div className="border-2 border-dashed border-[#9AA3B2] rounded-2xl p-4 flex flex-col gap-3">
+        <span className="text-sm font-bold text-navy-900">إضافة ملعب جديد</span>
+        <div className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_120px] gap-3 items-end">
+          <label className="flex flex-col gap-1.5 text-sm font-semibold">
+            اسم الملعب
+            <input value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} placeholder="ملعب ١" className={field} />
+          </label>
+          <label className="flex flex-col gap-1.5 text-sm font-semibold">
+            الأرضية
+            <select value={draft.turfType} onChange={(e) => setDraft({ ...draft, turfType: e.target.value })} className={field}>
+              {surfaces.map((s) => (
+                <option key={s.code} value={s.code}>
+                  {s.nameAr}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="flex flex-col gap-1.5 text-sm font-semibold">
+            لاعب/فريق
+            <select value={draft.capacity} onChange={(e) => setDraft({ ...draft, capacity: Number(e.target.value) })} className={field}>
+              {CAPACITIES.map((c) => (
+                <option key={c} value={c}>
+                  {toArabicDigits(c)}
+                </option>
+              ))}
+            </select>
+          </label>
         </div>
-      ))}
-      <div className="border-2 border-dashed border-[#9AA3B2] rounded-2xl p-4 grid grid-cols-1 sm:grid-cols-[1fr_1fr_120px_auto] gap-3 items-end">
-        <label className="flex flex-col gap-1.5 text-sm font-semibold">
-          اسم الملعب
-          <input value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} placeholder="ملعب ١" className={field} />
-        </label>
-        <label className="flex flex-col gap-1.5 text-sm font-semibold">
-          الأرضية
-          <select value={draft.turfType} onChange={(e) => setDraft({ ...draft, turfType: e.target.value })} className={field}>
-            {surfaces.map((s) => (
-              <option key={s.code} value={s.code}>
-                {s.nameAr}
-              </option>
+
+        {/* Draft Photos Section */}
+        <div className="flex flex-col gap-1.5">
+          <span className="text-xs font-semibold text-slate-700">صور أرضية الملعب (اختياري)</span>
+          <div className="grid grid-cols-3 sm:grid-cols-5 md:grid-cols-6 gap-2">
+            {draftPhotos.map((photo, idx) => (
+              <div key={photo} className="relative group rounded-xl overflow-hidden aspect-square bg-slate-100 border border-[#E2E8F0]">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={mediaSrc(photo)} alt="صورة الملعب" className="w-full h-full object-cover" />
+                <button
+                  type="button"
+                  aria-label="مسح الصورة"
+                  onClick={() => setDraftPhotos((list) => list.filter((_, i) => i !== idx))}
+                  className="absolute top-1 left-1 w-6 h-6 rounded-full bg-black/60 hover:bg-[#A8261C] text-white text-xs font-bold flex items-center justify-center transition-colors shadow"
+                >
+                  ✕
+                </button>
+              </div>
             ))}
-          </select>
-        </label>
-        <label className="flex flex-col gap-1.5 text-sm font-semibold">
-          لاعب/فريق
-          <select value={draft.capacity} onChange={(e) => setDraft({ ...draft, capacity: Number(e.target.value) })} className={field}>
-            {CAPACITIES.map((c) => (
-              <option key={c} value={c}>
-                {toArabicDigits(c)}
-              </option>
-            ))}
-          </select>
-        </label>
+            <label className="rounded-xl border-2 border-dashed border-[#C9CFD9] hover:border-navy-900 aspect-square flex flex-col items-center justify-center gap-1 text-xs text-[#5B6475] hover:text-navy-900 cursor-pointer bg-slate-50/70 hover:bg-slate-100 transition-colors">
+              <span className="text-lg font-bold leading-none">+</span>
+              <span className="text-[11px] font-semibold">{draftUploading ? "بيترفع…" : "صور الملعب"}</span>
+              <input
+                type="file"
+                multiple
+                accept="image/jpeg,image/png,image/webp"
+                className="hidden"
+                disabled={draftUploading}
+                onChange={(e) => {
+                  handleUploadDraftPhoto(e.target.files);
+                  e.target.value = "";
+                }}
+              />
+            </label>
+          </div>
+        </div>
+
         <button
           type="button"
-          disabled={!draft.name.trim() || add.isPending}
+          disabled={!draft.name.trim() || add.isPending || draftUploading}
           onClick={() => add.mutate()}
-          className="min-h-[46px] px-5 rounded-xl bg-navy-900 disabled:opacity-60 text-white text-sm font-bold"
+          className="self-end min-h-[44px] px-6 rounded-xl bg-navy-900 disabled:opacity-60 text-white text-sm font-bold shadow transition-colors"
         >
-          + إضافة
+          {add.isPending ? "جاري الإضافة…" : "+ إضافة الملعب"}
         </button>
       </div>
       {error && (
