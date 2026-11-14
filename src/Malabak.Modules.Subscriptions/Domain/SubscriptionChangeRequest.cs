@@ -26,6 +26,13 @@ public sealed class SubscriptionChangeRequest
     public DateTime? ReviewedAtUtc { get; private set; }
     public Guid? ReviewedBy { get; private set; }
 
+    public Guid? PaymentProofMediaId { get; private set; }
+    public string? PaymentProofUrl { get; private set; }
+    public string? TransferReference { get; private set; }
+    public string? TransferNotes { get; private set; }
+    public DateTime? PaymentTransferredAtUtc { get; private set; }
+    public bool IsPaymentReported { get; private set; }
+
     private SubscriptionChangeRequest() { }
 
     public static SubscriptionChangeRequest Create(Guid ownerId, Guid planId, BillingCycle cycle, string? notes, DateTime now) =>
@@ -74,5 +81,15 @@ public sealed class SubscriptionChangeRequest
         AdminReply = replyMessage.Trim();
         ReviewedBy = adminId;
         ReviewedAtUtc = now;
+    }
+
+    public void ReportPayment(Guid? paymentProofMediaId, string? paymentProofUrl, string? transferReference, string? transferNotes, DateTime now)
+    {
+        PaymentProofMediaId = paymentProofMediaId;
+        PaymentProofUrl = paymentProofUrl;
+        TransferReference = string.IsNullOrWhiteSpace(transferReference) ? null : transferReference.Trim();
+        TransferNotes = string.IsNullOrWhiteSpace(transferNotes) ? null : transferNotes.Trim();
+        PaymentTransferredAtUtc = now;
+        IsPaymentReported = true;
     }
 }

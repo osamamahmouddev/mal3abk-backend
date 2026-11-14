@@ -4359,6 +4359,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/venue-manager/billing/requests/report-payment": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Venue owner reports payment and attaches receipt proof for their plan change request */
+        post: operations["ReportSubscriptionPayment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/venue-manager/venues/{venueId}/bookings/{bookingId}/dispute": {
         parameters: {
             query?: never;
@@ -6866,6 +6883,14 @@ export interface components {
             adminReply?: string | null;
             /** Format: date-time */
             createdAtUtc: string;
+            isPaymentReported: boolean;
+            paymentProofUrl?: string | null;
+            transferReference?: string | null;
+            transferNotes?: string | null;
+            /** Format: date-time */
+            paymentTransferredAtUtc?: string | null;
+            /** Format: uuid */
+            paymentProofMediaId?: string | null;
         };
         OwnerUsage: {
             /** Format: int32 */
@@ -7458,6 +7483,12 @@ export interface components {
          * @enum {integer}
          */
         ReportGrouping: 0 | 1 | 2;
+        ReportSubscriptionPaymentApiRequest: {
+            /** Format: uuid */
+            paymentProofMediaId?: string | null;
+            transferReference?: string | null;
+            transferNotes?: string | null;
+        };
         RequestPlanChangeApiRequest: {
             /** Format: uuid */
             planId: string;
@@ -7857,6 +7888,14 @@ export interface components {
             createdAtUtc: string;
             /** Format: date-time */
             reviewedAtUtc?: string | null;
+            isPaymentReported: boolean;
+            paymentProofUrl?: string | null;
+            transferReference?: string | null;
+            transferNotes?: string | null;
+            /** Format: date-time */
+            paymentTransferredAtUtc?: string | null;
+            /** Format: uuid */
+            paymentProofMediaId?: string | null;
         };
         /**
          * Format: int32
@@ -28151,6 +28190,93 @@ export interface operations {
                 };
             };
             /** @description Bad Request (Validation failure, invalid inputs) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Unauthorized (Missing or expired JWT access token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Forbidden (Insufficient role or permissions) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Not Found (Resource does not exist) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Conflict (Concurrent update or duplicate idempotency in flight) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Unprocessable Entity (Business rule violation or payload mismatch) */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Too Many Requests (Rate limit exceeded, check Retry-After header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    ReportSubscriptionPayment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReportSubscriptionPaymentApiRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OwnerSubscriptionRequestDto"];
+                };
+            };
+            /** @description Bad Request */
             400: {
                 headers: {
                     [name: string]: unknown;

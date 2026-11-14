@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using Asp.Versioning.Builder;
 using Malabak.Api.Infrastructure.Authorization;
+using Malabak.Api.Infrastructure.Media;
 using Malabak.Api.Infrastructure.Security;
 using Malabak.Modules.Subscriptions.Domain;
 using Malabak.Modules.Subscriptions.Infrastructure;
@@ -37,10 +38,16 @@ public static class SubscriptionEndpoints
         MapAdminInvoices(v1.MapGroup("/admin/invoices").RequireAuthorization(Permissions.InvoicesView).WithTags("Admin Invoices"));
 
         var billing = v1.MapGroup("/venue-manager/billing").RequireAuthorization(Permissions.VenuesManage).WithTags("Venue Billing");
-        billing.MapGet("", async (ClaimsPrincipal user, HttpContext http, SubscriptionService subscriptions, CancellationToken ct) =>
+        billing.MapGet("", async (ClaimsPrincipal user, HttpContext http, SubscriptionService subscriptions, MediaService mediaService, CancellationToken ct) =>
         {
             http.Response.Headers.CacheControl = "private, no-store";
-            return Results.Ok(await subscriptions.GetOwnerBillingAsync(user.GetUserId()!.Value, ct));
+            var dto = await subscriptions.GetOwnerBillingAsync(user.GetUserId()!.Value, ct);
+            if (dto.PendingRequest?.PaymentProofMediaId is { } mId)
+            {
+                var reqWithSigned = dto.PendingRequest with { PaymentProofUrl = mediaService.SignedUrl(mId, "large") };
+                dto = dto with { PendingRequest = reqWithSigned };
+            }
+            return Results.Ok(dto);
         })
         .Produces<OwnerBillingDto>()
         .WithName("GetMyBilling")
@@ -62,14 +69,50 @@ public static class SubscriptionEndpoints
         .WithName("RequestPlanChange")
         .WithSummary("Request an upgrade or change to a subscription plan");
 
-        billing.MapGet("/requests/latest", async (ClaimsPrincipal user, SubscriptionService subscriptions, CancellationToken ct) =>
+        billing.MapGet("/requests/latest", async (ClaimsPrincipal user, SubscriptionService subscriptions, MediaService mediaService, CancellationToken ct) =>
         {
             var req = await subscriptions.GetLatestRequestForOwnerAsync(user.GetUserId()!.Value, ct);
+            if (req?.PaymentProofMediaId is { } mId)
+            {
+                req = req with { PaymentProofUrl = mediaService.SignedUrl(mId, "large") };
+            }
             return Results.Ok(req);
         })
         .Produces<OwnerSubscriptionRequestDto?>()
         .WithName("GetLatestPlanChangeRequest")
         .WithSummary("The latest plan change request submitted by the signed-in owner");
+
+        billing.MapPost("/requests/report-payment", async (
+            [FromBody] ReportSubscriptionPaymentApiRequest request,
+            ClaimsPrincipal user,
+            SubscriptionService subscriptions,
+            MediaService mediaService,
+            CancellationToken ct) =>
+        {
+            var userId = user.GetUserId()!.Value;
+            string? proofUrl = null;
+            if (request.PaymentProofMediaId is { } mediaId)
+            {
+                var asset = await mediaService.FindOwnedReadyAsync(mediaId, userId, MediaPurpose.PaymentProof, ct);
+                if (asset is not null)
+                {
+                    proofUrl = mediaService.SignedUrl(mediaId, "large");
+                }
+            }
+
+            return ToResult(await subscriptions.ReportPaymentAsync(
+                userId,
+                request.PaymentProofMediaId,
+                proofUrl,
+                request.TransferReference,
+                request.TransferNotes,
+                ct));
+        })
+        .RequireDistributedRateLimiting("plan-change-report-payment", permitLimit: 10, windowSeconds: 60)
+        .Produces<OwnerSubscriptionRequestDto>()
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .WithName("ReportSubscriptionPayment")
+        .WithSummary("Venue owner reports payment and attaches receipt proof for their plan change request");
     }
 
     private static void MapAdminPlans(RouteGroupBuilder plans)
@@ -128,9 +171,15 @@ public static class SubscriptionEndpoints
             ToResult(await service.CancelAsync(ownerId, request.Reason, user.GetUserId()!.Value, ct)))
             .Produces<SubscriptionDto>().ProducesProblem(StatusCodes.Status400BadRequest).WithName("AdminCancelSubscription").WithSummary("Cancel (reason required)");
 
-        subs.MapGet("/requests", async ([FromQuery] SubscriptionRequestStatus? status, SubscriptionService service, CancellationToken ct) =>
-            Results.Ok(await service.ListRequestsAsync(status, ct)))
-            .Produces<IReadOnlyList<SubscriptionRequestDto>>().WithName("AdminListSubscriptionRequests").WithSummary("Pending or reviewed plan change requests");
+        subs.MapGet("/requests", async ([FromQuery] SubscriptionRequestStatus? status, SubscriptionService service, MediaService mediaService, CancellationToken ct) =>
+        {
+            var list = await service.ListRequestsAsync(status, ct);
+            var withSigned = list.Select(r => r.PaymentProofMediaId is { } mId
+                ? r with { PaymentProofUrl = mediaService.SignedUrl(mId, "large") }
+                : r).ToList();
+            return Results.Ok(withSigned);
+        })
+        .Produces<IReadOnlyList<SubscriptionRequestDto>>().WithName("AdminListSubscriptionRequests").WithSummary("Pending or reviewed plan change requests");
 
         subs.MapPost("/requests/{requestId:guid}/approve", async (Guid requestId, ClaimsPrincipal user, SubscriptionService service, CancellationToken ct) =>
             ToResult(await service.ApproveRequestAsync(requestId, user.GetUserId()!.Value, ct)))
@@ -239,3 +288,5 @@ public sealed record RequestPlanChangeApiRequest(Guid PlanId, BillingCycle Cycle
 public sealed record ReplySubscriptionRequestApiRequest(string Instructions);
 
 public sealed record RejectSubscriptionRequestApiRequest(string? Reason);
+
+public sealed record ReportSubscriptionPaymentApiRequest(Guid? PaymentProofMediaId, string? TransferReference, string? TransferNotes);

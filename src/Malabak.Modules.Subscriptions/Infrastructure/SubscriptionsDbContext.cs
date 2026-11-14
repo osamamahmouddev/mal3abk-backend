@@ -121,6 +121,10 @@ public sealed class SubscriptionsDbContext : DbContext
             b.Property(r => r.Cycle).HasConversion<string>().HasMaxLength(10);
             b.Property(r => r.Notes).HasMaxLength(500);
             b.Property(r => r.AdminReply).HasMaxLength(1000);
+            b.Property(r => r.PaymentProofUrl).HasMaxLength(2000);
+            b.Property(r => r.TransferReference).HasMaxLength(100);
+            b.Property(r => r.TransferNotes).HasMaxLength(500);
+            b.Property(r => r.IsPaymentReported).HasDefaultValue(false);
         });
     }
 }

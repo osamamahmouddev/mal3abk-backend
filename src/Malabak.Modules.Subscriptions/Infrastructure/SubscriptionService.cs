@@ -24,7 +24,22 @@ public sealed record SubscriptionDetailDto(SubscriptionDto Subscription, IReadOn
 
 public sealed record PaymentDto(Guid Id, decimal Amount, string Currency, string Method, string? Reference, DateTime PaidAtUtc, DateTime PeriodStartUtc, DateTime PeriodEndUtc, Guid RecordedBy, string? InvoiceNumber);
 
-public sealed record OwnerSubscriptionRequestDto(Guid Id, Guid PlanId, string PlanName, string Cycle, decimal Amount, string Status, string? Notes, string? AdminReply, DateTime CreatedAtUtc);
+public sealed record OwnerSubscriptionRequestDto(
+    Guid Id,
+    Guid PlanId,
+    string PlanName,
+    string Cycle,
+    decimal Amount,
+    string Status,
+    string? Notes,
+    string? AdminReply,
+    DateTime CreatedAtUtc,
+    bool IsPaymentReported = false,
+    string? PaymentProofUrl = null,
+    string? TransferReference = null,
+    string? TransferNotes = null,
+    DateTime? PaymentTransferredAtUtc = null,
+    Guid? PaymentProofMediaId = null);
 
 public sealed record SubscriptionRequestDto(
     Guid Id,
@@ -40,7 +55,13 @@ public sealed record SubscriptionRequestDto(
     string? Notes,
     string? AdminReply,
     DateTime CreatedAtUtc,
-    DateTime? ReviewedAtUtc);
+    DateTime? ReviewedAtUtc,
+    bool IsPaymentReported = false,
+    string? PaymentProofUrl = null,
+    string? TransferReference = null,
+    string? TransferNotes = null,
+    DateTime? PaymentTransferredAtUtc = null,
+    Guid? PaymentProofMediaId = null);
 
 /// <summary>What a venue owner sees on the billing page: plan, usage against limits, recent invoices and pending request.</summary>
 public sealed record OwnerBillingDto(SubscriptionDto? Subscription, PlanDto? EffectivePlan, OwnerUsage Usage, IReadOnlyList<InvoiceDto> Invoices, OwnerSubscriptionRequestDto? PendingRequest = null);
@@ -300,7 +321,13 @@ public sealed class SubscriptionService
             existingPending.Status.ToString(),
             existingPending.Notes,
             existingPending.AdminReply,
-            existingPending.CreatedAtUtc));
+            existingPending.CreatedAtUtc,
+            existingPending.IsPaymentReported,
+            existingPending.PaymentProofUrl,
+            existingPending.TransferReference,
+            existingPending.TransferNotes,
+            existingPending.PaymentTransferredAtUtc,
+            existingPending.PaymentProofMediaId));
     }
 
     public async Task<OwnerSubscriptionRequestDto?> GetLatestRequestForOwnerAsync(Guid ownerId, CancellationToken cancellationToken = default)
@@ -332,7 +359,13 @@ public sealed class SubscriptionService
             req.Status.ToString(),
             req.Notes,
             req.AdminReply,
-            req.CreatedAtUtc);
+            req.CreatedAtUtc,
+            req.IsPaymentReported,
+            req.PaymentProofUrl,
+            req.TransferReference,
+            req.TransferNotes,
+            req.PaymentTransferredAtUtc,
+            req.PaymentProofMediaId);
     }
 
     public async Task<IReadOnlyList<SubscriptionRequestDto>> ListRequestsAsync(SubscriptionRequestStatus? status, CancellationToken cancellationToken = default)
@@ -387,8 +420,82 @@ public sealed class SubscriptionService
                 r.Notes,
                 r.AdminReply,
                 r.CreatedAtUtc,
-                r.ReviewedAtUtc);
+                r.ReviewedAtUtc,
+                r.IsPaymentReported,
+                r.PaymentProofUrl,
+                r.TransferReference,
+                r.TransferNotes,
+                r.PaymentTransferredAtUtc,
+                r.PaymentProofMediaId);
         }).ToList();
+    }
+
+    public async Task<Result<OwnerSubscriptionRequestDto>> ReportPaymentAsync(
+        Guid ownerId,
+        Guid? paymentProofMediaId,
+        string? paymentProofUrl,
+        string? transferReference,
+        string? transferNotes,
+        CancellationToken cancellationToken = default)
+    {
+        var req = await _dbContext.SubscriptionRequests
+            .OrderByDescending(r => r.CreatedAtUtc)
+            .FirstOrDefaultAsync(r => r.OwnerId == ownerId && r.Status == SubscriptionRequestStatus.Pending, cancellationToken);
+
+        if (req is null)
+        {
+            return Result.Failure<OwnerSubscriptionRequestDto>(SubscriptionErrors.NotFound);
+        }
+
+        var now = _clock.UtcNow;
+        req.ReportPayment(paymentProofMediaId, paymentProofUrl, transferReference, transferNotes, now);
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        var plan = await _dbContext.Plans.AsNoTracking().FirstOrDefaultAsync(p => p.Id == req.PlanId, cancellationToken);
+        var planName = plan?.Name ?? "الخطة المطلوبة";
+        var amount = req.Cycle == BillingCycle.Annual ? (plan?.AnnualPrice ?? 0) : (plan?.MonthlyPrice ?? 0);
+
+        await _notifications.PublishAsync(new NotificationRequest(
+            ownerId,
+            NotificationTypes.SubscriptionPaymentReported,
+            new Dictionary<string, string>
+            {
+                ["planName"] = planName,
+                ["amount"] = amount.ToString("F2", CultureInfo.InvariantCulture)
+            },
+            $"subscription-payment-reported:{req.Id:N}:{now.Ticks}"), cancellationToken);
+
+        await _audit.RecordAsync(new AuditEntry(
+            "subscription_request.payment_reported",
+            "SubscriptionRequest",
+            req.Id.ToString("D"),
+            ownerId,
+            AuditActorType.User,
+            After: new
+            {
+                req.OwnerId,
+                req.PlanId,
+                PaymentProofMediaId = paymentProofMediaId,
+                TransferReference = transferReference,
+                TransferNotes = transferNotes
+            }), cancellationToken);
+
+        return Result.Success(new OwnerSubscriptionRequestDto(
+            req.Id,
+            req.PlanId,
+            planName,
+            req.Cycle.ToString(),
+            amount,
+            req.Status.ToString(),
+            req.Notes,
+            req.AdminReply,
+            req.CreatedAtUtc,
+            req.IsPaymentReported,
+            req.PaymentProofUrl,
+            req.TransferReference,
+            req.TransferNotes,
+            req.PaymentTransferredAtUtc,
+            req.PaymentProofMediaId));
     }
 
     public async Task<Result<SubscriptionDto>> ApproveRequestAsync(Guid requestId, Guid adminId, CancellationToken cancellationToken = default)

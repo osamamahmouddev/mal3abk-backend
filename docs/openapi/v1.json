@@ -24528,6 +24528,107 @@
         }
       }
     },
+    "/api/v1/venue-manager/billing/requests/report-payment": {
+      "post": {
+        "tags": [
+          "Venue Billing"
+        ],
+        "summary": "Venue owner reports payment and attaches receipt proof for their plan change request",
+        "operationId": "ReportSubscriptionPayment",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReportSubscriptionPaymentApiRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OwnerSubscriptionRequestDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized (Missing or expired JWT access token)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (Insufficient role or permissions)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found (Resource does not exist)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict (Concurrent update or duplicate idempotency in flight)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity (Business rule violation or payload mismatch)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests (Rate limit exceeded, check Retry-After header)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/venue-manager/venues/{venueId}/bookings/{bookingId}/dispute": {
       "get": {
         "tags": [
@@ -37702,6 +37803,7 @@
           "createdAtUtc",
           "cycle",
           "id",
+          "isPaymentReported",
           "planId",
           "planName",
           "status"
@@ -37740,6 +37842,31 @@
           "createdAtUtc": {
             "type": "string",
             "format": "date-time"
+          },
+          "isPaymentReported": {
+            "type": "boolean"
+          },
+          "paymentProofUrl": {
+            "type": "string",
+            "nullable": true
+          },
+          "transferReference": {
+            "type": "string",
+            "nullable": true
+          },
+          "transferNotes": {
+            "type": "string",
+            "nullable": true
+          },
+          "paymentTransferredAtUtc": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "paymentProofMediaId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
           }
         },
         "additionalProperties": false
@@ -39658,6 +39785,25 @@
         "type": "integer",
         "format": "int32"
       },
+      "ReportSubscriptionPaymentApiRequest": {
+        "type": "object",
+        "properties": {
+          "paymentProofMediaId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "transferReference": {
+            "type": "string",
+            "nullable": true
+          },
+          "transferNotes": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
       "RequestPlanChangeApiRequest": {
         "required": [
           "cycle",
@@ -40882,6 +41028,7 @@
           "createdAtUtc",
           "cycle",
           "id",
+          "isPaymentReported",
           "ownerId",
           "status"
         ],
@@ -40939,6 +41086,31 @@
           "reviewedAtUtc": {
             "type": "string",
             "format": "date-time",
+            "nullable": true
+          },
+          "isPaymentReported": {
+            "type": "boolean"
+          },
+          "paymentProofUrl": {
+            "type": "string",
+            "nullable": true
+          },
+          "transferReference": {
+            "type": "string",
+            "nullable": true
+          },
+          "transferNotes": {
+            "type": "string",
+            "nullable": true
+          },
+          "paymentTransferredAtUtc": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "paymentProofMediaId": {
+            "type": "string",
+            "format": "uuid",
             "nullable": true
           }
         },

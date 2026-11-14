@@ -196,6 +196,10 @@ public static class NotificationCatalog
         [NotificationTypes.SubscriptionRequestInstructions] = new(NotificationCategory.Payments,
             "تعليمات سداد الباقة", "{instructions}",
             "Payment instructions", "{instructions}",
+            _ => DeepLinks.Billing),
+        [NotificationTypes.SubscriptionPaymentReported] = new(NotificationCategory.Payments,
+            "تم إرسال إيصال السداد", "قام المالك {ownerName} بإرسال إيصال سداد لطلب ترقية باقة {planName}.",
+            "Payment receipt submitted", "Owner {ownerName} submitted payment receipt for {planName} plan upgrade.",
             _ => DeepLinks.Billing)
     };
 

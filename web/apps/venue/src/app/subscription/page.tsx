@@ -1,10 +1,11 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { Schemas } from "@malabak/api-client";
-import { Badge, Page, Toast, card, formatEGP, muted, primaryBtn, secondaryBtn, toArabicDigits } from "@/components/ui";
+import { Badge, Page, Toast, card, formatEGP, inputClass, muted, primaryBtn, secondaryBtn, toArabicDigits } from "@/components/ui";
 import { api, unwrap } from "@/lib/api";
+import { uploadImage } from "@/lib/upload";
 
 type Plan = Schemas["PlanDto"];
 
@@ -32,12 +33,74 @@ export default function SubscriptionPage() {
   const [cycle, setCycle] = useState<"month" | "year">("month");
   const [toast, setToast] = useState<string | null>(null);
 
+  const [receiptMediaId, setReceiptMediaId] = useState<string | null>(null);
+  const [receiptFileName, setReceiptFileName] = useState<string | null>(null);
+  const [transferNotes, setTransferNotes] = useState("");
+  const [transferReference, setTransferReference] = useState("");
+  const [isUploadingReceipt, setIsUploadingReceipt] = useState(false);
+  const [isEditingProof, setIsEditingProof] = useState(false);
+
   const billing = useQuery({ queryKey: ["billing"], queryFn: () => unwrap(api.GET("/api/v1/venue-manager/billing")) });
   const plans = useQuery({
     queryKey: ["public-plans"],
     queryFn: () => unwrap(api.GET("/api/v1/plans")),
     staleTime: 30_000,
   });
+
+  const data = billing.data;
+  const sub = data?.subscription;
+  const plan = sub?.plan ?? data?.effectivePlan;
+  const status = sub ? STATUS[sub.status] : undefined;
+  const pendingReq = data?.pendingRequest;
+
+  useEffect(() => {
+    if (pendingReq) {
+      if (pendingReq.transferNotes && !transferNotes) {
+        setTransferNotes(pendingReq.transferNotes);
+      }
+      if (pendingReq.transferReference && !transferReference) {
+        setTransferReference(pendingReq.transferReference);
+      }
+      if (pendingReq.paymentProofMediaId && !receiptMediaId) {
+        setReceiptMediaId(pendingReq.paymentProofMediaId);
+      }
+    }
+  }, [pendingReq]);
+
+  const reportPayment = useMutation({
+    mutationFn: () =>
+      unwrap(
+        api.POST("/api/v1/venue-manager/billing/requests/report-payment", {
+          body: {
+            paymentProofMediaId: receiptMediaId || pendingReq?.paymentProofMediaId || null,
+            transferReference: transferReference.trim() || null,
+            transferNotes: transferNotes.trim() || null,
+          },
+        }),
+      ),
+    onSuccess: async () => {
+      setToast("تم إرسال إيصال السداد بنجاح! الإدارة تراجع الطلب وتفعّل الباقة فوراً.");
+      setIsEditingProof(false);
+      await queryClient.invalidateQueries({ queryKey: ["billing"] });
+    },
+    onError: (e: Error) => setToast(e.message),
+  });
+
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      setIsUploadingReceipt(true);
+      const mediaId = await uploadImage(file, 3 as Schemas["MediaPurpose"]);
+      setReceiptMediaId(mediaId);
+      setReceiptFileName(file.name);
+      setToast("تم رفع صورة الإيصال بنجاح. كمّل باقي البيانات واضغط تأكيد التحويل.");
+    } catch (err: any) {
+      setToast(err.message || "فشل رفع صورة الإيصال.");
+    } finally {
+      setIsUploadingReceipt(false);
+    }
+  };
 
   const requestPlan = useMutation({
     mutationFn: (plan: Plan) =>
@@ -71,27 +134,29 @@ export default function SubscriptionPage() {
     setTimeout(() => URL.revokeObjectURL(url), 30_000);
   };
 
-  const data = billing.data;
-  const sub = data?.subscription;
-  const plan = sub?.plan ?? data?.effectivePlan;
-  const status = sub ? STATUS[sub.status] : undefined;
-  const pendingReq = data?.pendingRequest;
-
   return (
     <Page className="gap-5">
       <h1 className="text-[26px] font-bold">الاشتراك والفواتير</h1>
 
       {pendingReq && pendingReq.status === "Pending" && (
-        <div role="status" className="bg-[#FFFBEB] border border-[#FDE68A] text-[#92400E] rounded-2xl p-4 sm:p-5 text-sm flex flex-col gap-2.5 shadow-sm">
-          <div className="flex items-center gap-2 font-bold text-base text-[#78350F]">
-            <span className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse" />
-            <span>طلب ترقية إلى باقة {pendingReq.planName} ({pendingReq.cycle === "Annual" ? "سنوي" : "شهري"}) قيد المراجعة</span>
+        <div role="status" className="bg-[#FFFBEB] border border-[#FDE68A] text-[#92400E] rounded-2xl p-4 sm:p-5 text-sm flex flex-col gap-3.5 shadow-sm">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2 font-bold text-base text-[#78350F]">
+              <span className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse" />
+              <span>طلب ترقية إلى باقة {pendingReq.planName} ({pendingReq.cycle === "Annual" ? "سنوي" : "شهري"}) قيد المراجعة</span>
+            </div>
+            {pendingReq.isPaymentReported ? (
+              <Badge tone="ok">تم سداد الرسوم 🧾</Badge>
+            ) : (
+              <Badge tone="warn">في انتظار السداد والتأكيد</Badge>
+            )}
           </div>
           <p className="text-sm text-[#92400E]">
             طلبك قيد المراجعة لدى فريق الإدارة. باقتك الحالية شغالة عادي لحد تفعيل الباقة الجديدة.
           </p>
+
           {pendingReq.adminReply ? (
-            <div className="mt-1 bg-white/90 border border-amber-200 rounded-xl p-3.5 flex flex-col gap-1.5 shadow-xs">
+            <div className="bg-white/90 border border-amber-200 rounded-xl p-3.5 flex flex-col gap-1.5 shadow-xs">
               <strong className="text-navy-900 text-xs font-bold uppercase tracking-wider flex items-center gap-1.5">
                 <span>💬</span> تعليمات السداد من الإدارة:
               </strong>
@@ -101,8 +166,139 @@ export default function SubscriptionPage() {
             </div>
           ) : (
             <span className="text-xs text-[#B45309]">
-              💡 هيوصلك إشعار وتعليمات الدفع (إنستاباي / محفظة فودافون كاش) هنا في الإشعارات بمجرد مراجعة الإدارة.
+              💡 هيوصلك إشعار وتعليمات الدفع (إنستاباي / محفظة فودافون كاش) هنا في الإشعارات بمجرد مراجعة الإدارة، وتقدر كمان تحوّل وترفق الإيصال هنا فوراً.
             </span>
+          )}
+
+          {pendingReq.isPaymentReported && !isEditingProof ? (
+            <div className="mt-1 bg-[#F0FDF4] border border-[#BBF7D0] rounded-xl p-4 flex flex-col gap-3 shadow-xs">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <span className="w-5 h-5 rounded-full bg-emerald-600 text-white flex items-center justify-center text-xs font-bold">✓</span>
+                  <span className="font-bold text-[#166534] text-sm sm:text-base">تم إرسال إيصال السداد، والطلب قيد المراجعة لتفعيل الباقة فورياً</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsEditingProof(true)}
+                  className="text-xs text-emerald-800 underline hover:text-emerald-950 font-semibold cursor-pointer"
+                >
+                  تعديل الإيصال أو البيانات
+                </button>
+              </div>
+
+              <div className="grid sm:grid-cols-3 gap-3 text-xs bg-white/90 rounded-lg p-3 border border-emerald-100">
+                <div>
+                  <span className="text-gray-500 block mb-0.5">تفاصيل الحساب المحول منه:</span>
+                  <span className="font-semibold text-gray-900">{pendingReq.transferNotes || "—"}</span>
+                </div>
+                <div>
+                  <span className="text-gray-500 block mb-0.5">رقم العملية / الحوالة:</span>
+                  <span className="font-semibold font-mono text-gray-900">{pendingReq.transferReference || "—"}</span>
+                </div>
+                <div>
+                  <span className="text-gray-500 block mb-0.5">تاريخ الإرسال:</span>
+                  <span className="font-semibold text-gray-900">{fmtDate(pendingReq.paymentTransferredAtUtc)}</span>
+                </div>
+              </div>
+
+              {pendingReq.paymentProofUrl && (
+                <div className="flex items-center gap-3 pt-1">
+                  <a
+                    href={pendingReq.paymentProofUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold transition shadow-xs"
+                  >
+                    <span>🧾</span>
+                    <span>عرض صورة إيصال التحويل</span>
+                  </a>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="mt-1 bg-white rounded-xl p-4 sm:p-5 border border-amber-300 shadow-sm flex flex-col gap-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 font-bold text-gray-900 text-sm sm:text-base">
+                  <span>🧾</span>
+                  <span>تأكيد التحويل وإرسال صورة الإيصال</span>
+                </div>
+                {isEditingProof && (
+                  <button
+                    type="button"
+                    onClick={() => setIsEditingProof(false)}
+                    className="text-xs text-gray-500 hover:text-gray-800 underline cursor-pointer"
+                  >
+                    إلغاء التعديل
+                  </button>
+                )}
+              </div>
+              <p className="text-xs text-gray-600">
+                بعد ما تحوّل المبلغ (سواء عبر إنستاباي أو محفظة فودافون كاش أو تحويل بنكي)، ارفع صورة إيصال التحويل واكتب بياناتك لتفعيل الباقة فورياً.
+              </p>
+
+              <div className="flex flex-col gap-3.5 pt-1">
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1.5">
+                    صورة إيصال التحويل (سكرين شوت أو صورة الإيصال) *
+                  </label>
+                  <div className="flex flex-wrap items-center gap-3">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      disabled={isUploadingReceipt}
+                      onChange={handleFileSelect}
+                      className="text-xs text-gray-600 file:me-3 file:py-2 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-navy-900 file:text-white hover:file:bg-navy-800 cursor-pointer"
+                    />
+                    {isUploadingReceipt && (
+                      <span className="text-xs text-amber-700 font-semibold animate-pulse">جاري رفع صورة الإيصال...</span>
+                    )}
+                    {receiptMediaId && !isUploadingReceipt && (
+                      <span className="text-xs text-emerald-700 font-semibold flex items-center gap-1">
+                        <span>✓</span> تم اختيار صورة الإيصال {receiptFileName ? `(${receiptFileName})` : ""}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="grid sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 mb-1.5">
+                      تفاصيل الحساب المحول منه (اسم الحساب / رقم المحفظة)
+                    </label>
+                    <input
+                      type="text"
+                      value={transferNotes}
+                      onChange={(e) => setTransferNotes(e.target.value)}
+                      placeholder="مثال: فودافون كاش 01012345678 أو إنستاباي osama@instapay"
+                      className={inputClass}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 mb-1.5">
+                      رقم العملية أو الحوالة (اختياري)
+                    </label>
+                    <input
+                      type="text"
+                      value={transferReference}
+                      onChange={(e) => setTransferReference(e.target.value)}
+                      placeholder="مثال: REF-839210"
+                      className={inputClass}
+                    />
+                  </div>
+                </div>
+
+                <div className="flex justify-end gap-2 pt-1">
+                  <button
+                    type="button"
+                    disabled={reportPayment.isPending || isUploadingReceipt || (!receiptMediaId && !pendingReq.paymentProofMediaId && !transferNotes.trim())}
+                    onClick={() => reportPayment.mutate()}
+                    className={primaryBtn}
+                  >
+                    {reportPayment.isPending ? "جاري الإرسال..." : "تأكيد التحويل وإرسال الإيصال"}
+                  </button>
+                </div>
+              </div>
+            </div>
           )}
         </div>
       )}

@@ -270,6 +270,7 @@ function SubscriptionRequests() {
   const [replyModal, setReplyModal] = useState<{ id: string; defaultMessage: string } | null>(null);
   const [replyText, setReplyText] = useState("");
   const [rejectReason, setRejectReason] = useState<ReasonRequest | null>(null);
+  const [viewReceipt, setViewReceipt] = useState<Schemas["SubscriptionRequestDto"] | null>(null);
 
   const requests = useQuery({
     queryKey: ["admin-subscription-requests", statusFilter],
@@ -376,6 +377,42 @@ function SubscriptionRequests() {
                 ),
               },
               {
+                title: "حالة السداد والإيصال",
+                cell: (r) => (
+                  <div className="flex flex-col gap-1 max-w-[200px]">
+                    {r.isPaymentReported ? (
+                      <>
+                        <div className="flex items-center gap-1.5">
+                          <Pill tone="ok">تم التحويل 🧾</Pill>
+                        </div>
+                        {r.transferNotes && (
+                          <span className="text-[11px] text-gray-700 leading-tight">
+                            {r.transferNotes}
+                          </span>
+                        )}
+                        {r.transferReference && (
+                          <span className="text-[10px] font-mono text-gray-500">
+                            رقم: {r.transferReference}
+                          </span>
+                        )}
+                        {r.paymentProofUrl && (
+                          <button
+                            type="button"
+                            onClick={() => setViewReceipt(r)}
+                            className="text-xs text-blue-600 hover:text-blue-800 underline font-semibold flex items-center gap-1 w-fit cursor-pointer mt-0.5"
+                          >
+                            <span>👁️</span>
+                            <span>معاينة الإيصال</span>
+                          </button>
+                        )}
+                      </>
+                    ) : (
+                      <span className="text-xs text-gray-400">لم يتم إرفاق إيصال بعد</span>
+                    )}
+                  </div>
+                ),
+              },
+              {
                 title: "ملاحظات / تعليمات",
                 cell: (r) => (
                   <div className="max-w-[220px] text-xs flex flex-col gap-1">
@@ -461,6 +498,93 @@ function SubscriptionRequests() {
               >
                 إرسال التعليمات
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {viewReceipt && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="bg-white rounded-2xl max-w-2xl w-full p-6 shadow-2xl flex flex-col gap-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b pb-3">
+              <div className="flex items-center gap-2">
+                <span className="text-xl">🧾</span>
+                <div>
+                  <h3 className="text-base font-bold text-navy-900">إيصال تحويل الاشتراك</h3>
+                  <span className="text-xs text-gray-500">
+                    المالك: {viewReceipt.ownerName || viewReceipt.ownerPhone || viewReceipt.ownerId} · باقة {viewReceipt.requestedPlan?.name}
+                  </span>
+                </div>
+              </div>
+              <button
+                type="button"
+                className="text-gray-400 hover:text-gray-600 text-lg p-1 font-bold cursor-pointer"
+                onClick={() => setViewReceipt(null)}
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="grid sm:grid-cols-2 gap-3 text-xs bg-gray-50 p-3.5 rounded-xl border border-gray-200">
+              <div>
+                <span className="text-gray-500 block mb-0.5">تفاصيل التحويل / الحساب:</span>
+                <span className="font-bold text-gray-900">{viewReceipt.transferNotes || "—"}</span>
+              </div>
+              <div>
+                <span className="text-gray-500 block mb-0.5">رقم العملية / الحوالة:</span>
+                <span className="font-bold font-mono text-gray-900">{viewReceipt.transferReference || "—"}</span>
+              </div>
+              <div>
+                <span className="text-gray-500 block mb-0.5">تاريخ الإرسال:</span>
+                <span className="font-semibold text-gray-900">{fmtDateTime(viewReceipt.paymentTransferredAtUtc)}</span>
+              </div>
+              <div>
+                <span className="text-gray-500 block mb-0.5">المبلغ المطلوب:</span>
+                <span className="font-bold text-navy-900">{money(viewReceipt.amount)}</span>
+              </div>
+            </div>
+
+            {viewReceipt.paymentProofUrl ? (
+              <div className="flex flex-col items-center gap-2 border border-gray-200 rounded-xl p-3 bg-gray-100/50">
+                <img
+                  src={viewReceipt.paymentProofUrl}
+                  alt="إيصال التحويل"
+                  className="max-h-[50vh] object-contain rounded-lg shadow-sm"
+                />
+                <a
+                  href={viewReceipt.paymentProofUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-xs text-blue-600 hover:text-blue-800 underline font-semibold mt-1"
+                >
+                  فتح الصورة بالحجم الكامل في نافذة جديدة ↗
+                </a>
+              </div>
+            ) : (
+              <div className="p-8 text-center text-sm text-gray-500">لا توجد صورة مرفقة للإيصال</div>
+            )}
+
+            <div className="flex items-center justify-between pt-2 border-t mt-2">
+              <button
+                type="button"
+                className={btnOutline}
+                onClick={() => setViewReceipt(null)}
+              >
+                إغلاق
+              </button>
+              {viewReceipt.status === "Pending" && (
+                <button
+                  type="button"
+                  className={`${btnPrimary} bg-emerald-600 hover:bg-emerald-700`}
+                  disabled={approve.isPending}
+                  onClick={async () => {
+                    await approve.mutateAsync(viewReceipt.id);
+                    setViewReceipt(null);
+                  }}
+                >
+                  {approve.isPending ? "جاري التفعيل..." : "الموافقة وتفعيل الباقة فوراً ✓"}
+                </button>
+              )}
             </div>
           </div>
         </div>

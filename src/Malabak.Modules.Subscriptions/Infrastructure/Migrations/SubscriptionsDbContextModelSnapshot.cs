@@ -178,12 +178,27 @@ namespace Malabak.Modules.Subscriptions.Infrastructure.Migrations
                         .HasMaxLength(10)
                         .HasColumnType("character varying(10)");
 
+                    b.Property<bool>("IsPaymentReported")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false);
+
                     b.Property<string>("Notes")
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)");
 
                     b.Property<Guid>("OwnerId")
                         .HasColumnType("uuid");
+
+                    b.Property<Guid?>("PaymentProofMediaId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("PaymentProofUrl")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<DateTime?>("PaymentTransferredAtUtc")
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<Guid>("PlanId")
                         .HasColumnType("uuid");
@@ -198,6 +213,14 @@ namespace Malabak.Modules.Subscriptions.Infrastructure.Migrations
                         .IsRequired()
                         .HasMaxLength(20)
                         .HasColumnType("character varying(20)");
+
+                    b.Property<string>("TransferNotes")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("TransferReference")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
 
                     b.HasKey("Id");
 
