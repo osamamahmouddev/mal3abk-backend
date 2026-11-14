@@ -2,11 +2,13 @@
 
 import React, { useEffect, useState, useTransition } from "react";
 import Link from "next/link";
+import { Eye, EyeOff } from "lucide-react";
 import { registerOwner, resendVerification } from "@/app/auth-actions";
 import { AuthCard, FormError, FormSuccess, authField, authPrimary } from "@/components/AuthCard";
 
 export default function RegisterPage() {
   const [form, setForm] = useState({ fullName: "", email: "", phoneNumber: "", password: "" });
+  const [showPassword, setShowPassword] = useState(false);
   const [done, setDone] = useState(false);
   const [resent, setResent] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -75,15 +77,25 @@ export default function RegisterPage() {
         </label>
         <label className="flex flex-col gap-1.5 text-sm font-semibold">
           كلمة السر
-          <input
-            required
-            type="password"
-            minLength={10}
-            autoComplete="new-password"
-            value={form.password}
-            onChange={set("password")}
-            className={authField}
-          />
+          <div className="relative">
+            <input
+              required
+              type={showPassword ? "text" : "password"}
+              minLength={10}
+              autoComplete="new-password"
+              value={form.password}
+              onChange={set("password")}
+              className={`${authField} pl-11`}
+            />
+            <button
+              type="button"
+              aria-label={showPassword ? "إخفاء كلمة السر" : "إظهار كلمة السر"}
+              onClick={() => setShowPassword((s) => !s)}
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-[#7B8494] hover:text-navy-900 transition-colors p-1 flex items-center justify-center"
+            >
+              {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+            </button>
+          </div>
           <span className="text-xs font-normal text-[#5B6475]">١٠ حروف على الأقل.</span>
         </label>
         <FormError message={error} />

@@ -4,6 +4,7 @@ import React, { Suspense, useState, useTransition } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+import { Eye, EyeOff } from "lucide-react";
 import { muted, redShadow } from "@/components/ui";
 import { forgotPassword, login } from "@/app/auth-actions";
 
@@ -32,6 +33,7 @@ function LoginView() {
   const [view, setView] = useState<View>("login");
   const [user, setUser] = useState("");
   const [pass, setPass] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [totp, setTotp] = useState("");
   const [needsTotp, setNeedsTotp] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -144,19 +146,29 @@ function LoginView() {
                     نسيت كلمة السر؟
                   </button>
                 </div>
-                <input
-                  id="pw"
-                  type="password"
-                  autoComplete="current-password"
-                  value={pass}
-                  required
-                  onChange={(e) => {
-                    setPass(e.target.value);
-                    setErr(null);
-                  }}
-                  aria-invalid={!!err}
-                  className={`${fieldClass} ${err ? "border-2 border-[#A8261C]" : "border border-[#C9CFD9]"}`}
-                />
+                <div className="relative">
+                  <input
+                    id="pw"
+                    type={showPassword ? "text" : "password"}
+                    autoComplete="current-password"
+                    value={pass}
+                    required
+                    onChange={(e) => {
+                      setPass(e.target.value);
+                      setErr(null);
+                    }}
+                    aria-invalid={!!err}
+                    className={`${fieldClass} pl-11 w-full ${err ? "border-2 border-[#A8261C]" : "border border-[#C9CFD9]"}`}
+                  />
+                  <button
+                    type="button"
+                    aria-label={showPassword ? "إخفاء كلمة السر" : "إظهار كلمة السر"}
+                    onClick={() => setShowPassword((s) => !s)}
+                    className="absolute left-3 top-1/2 -translate-y-1/2 text-[#7B8494] hover:text-navy-900 transition-colors p-1 flex items-center justify-center"
+                  >
+                    {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                  </button>
+                </div>
               </div>
               {needsTotp && (
                 <div className="flex flex-col gap-1.5">

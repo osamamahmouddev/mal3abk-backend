@@ -4,6 +4,7 @@ import React, { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { QRCodeSVG } from "qrcode.react";
+import { Eye, EyeOff } from "lucide-react";
 import { Page, Toast, card, chip, inputClass, muted, redShadow } from "@/components/ui";
 import { useVenue } from "@/components/Providers";
 import { AddAreaInline } from "@/components/AddAreaInline";
@@ -268,6 +269,8 @@ function Account({ onMessage }: { onMessage: (message: string) => void }) {
   const profile = useQuery({ queryKey: ["me"], queryFn: () => unwrap(api.GET("/api/v1/me")) });
   const sessions = useQuery({ queryKey: ["sessions"], queryFn: () => unwrap(api.GET("/api/v1/me/sessions")) });
   const [passwords, setPasswords] = useState(NO_PASSWORDS);
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
   const [enrollment, setEnrollment] = useState<{ secret: string; provisioningUri: string } | null>(null);
   const [totpCode, setTotpCode] = useState("");
 
@@ -325,25 +328,45 @@ function Account({ onMessage }: { onMessage: (message: string) => void }) {
 
         <section className={`${card} rounded-[20px] p-5 flex flex-col gap-3`}>
           <h2 className="text-base font-bold">تغيير كلمة السر</h2>
-          <input
-            type="password"
-            autoComplete="current-password"
-            aria-label="كلمة السر الحالية"
-            placeholder="كلمة السر الحالية"
-            value={passwords.currentPassword}
-            onChange={(e) => setPasswords({ ...passwords, currentPassword: e.target.value })}
-            className={inputClass}
-          />
-          <input
-            type="password"
-            autoComplete="new-password"
-            aria-label="كلمة السر الجديدة"
-            placeholder="كلمة السر الجديدة (١٠ حروف على الأقل)"
-            minLength={10}
-            value={passwords.newPassword}
-            onChange={(e) => setPasswords({ ...passwords, newPassword: e.target.value })}
-            className={inputClass}
-          />
+          <div className="relative">
+            <input
+              type={showCurrentPassword ? "text" : "password"}
+              autoComplete="current-password"
+              aria-label="كلمة السر الحالية"
+              placeholder="كلمة السر الحالية"
+              value={passwords.currentPassword}
+              onChange={(e) => setPasswords({ ...passwords, currentPassword: e.target.value })}
+              className={`${inputClass} pl-11`}
+            />
+            <button
+              type="button"
+              aria-label={showCurrentPassword ? "إخفاء كلمة السر" : "إظهار كلمة السر"}
+              onClick={() => setShowCurrentPassword((s) => !s)}
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-[#7B8494] hover:text-navy-900 transition-colors p-1 flex items-center justify-center"
+            >
+              {showCurrentPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+            </button>
+          </div>
+          <div className="relative">
+            <input
+              type={showNewPassword ? "text" : "password"}
+              autoComplete="new-password"
+              aria-label="كلمة السر الجديدة"
+              placeholder="كلمة السر الجديدة (١٠ حروف على الأقل)"
+              minLength={10}
+              value={passwords.newPassword}
+              onChange={(e) => setPasswords({ ...passwords, newPassword: e.target.value })}
+              className={`${inputClass} pl-11`}
+            />
+            <button
+              type="button"
+              aria-label={showNewPassword ? "إخفاء كلمة السر" : "إظهار كلمة السر"}
+              onClick={() => setShowNewPassword((s) => !s)}
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-[#7B8494] hover:text-navy-900 transition-colors p-1 flex items-center justify-center"
+            >
+              {showNewPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+            </button>
+          </div>
           <button
             type="button"
             disabled={changePassword.isPending || !passwords.currentPassword || passwords.newPassword.length < 10}

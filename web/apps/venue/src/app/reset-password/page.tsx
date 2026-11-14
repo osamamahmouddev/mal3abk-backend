@@ -3,6 +3,7 @@
 import React, { Suspense, useState, useTransition } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+import { Eye, EyeOff } from "lucide-react";
 import { resetPassword } from "@/app/auth-actions";
 import { AuthCard, FormError, FormSuccess, authField, authPrimary } from "@/components/AuthCard";
 
@@ -10,6 +11,7 @@ function ResetPassword() {
   const token = useSearchParams().get("token") ?? "";
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [done, setDone] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -44,27 +46,39 @@ function ResetPassword() {
       <form onSubmit={submit} className="flex flex-col gap-3.5">
         <label className="flex flex-col gap-1.5 text-sm font-semibold">
           كلمة السر الجديدة
-          <input
-            required
-            type="password"
-            minLength={10}
-            autoComplete="new-password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className={authField}
-          />
+          <div className="relative">
+            <input
+              required
+              type={showPassword ? "text" : "password"}
+              minLength={10}
+              autoComplete="new-password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className={`${authField} pl-11`}
+            />
+            <button
+              type="button"
+              aria-label={showPassword ? "إخفاء كلمة السر" : "إظهار كلمة السر"}
+              onClick={() => setShowPassword((s) => !s)}
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-[#7B8494] hover:text-navy-900 transition-colors p-1 flex items-center justify-center"
+            >
+              {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+            </button>
+          </div>
         </label>
         <label className="flex flex-col gap-1.5 text-sm font-semibold">
           اكتبها تاني
-          <input
-            required
-            type="password"
-            minLength={10}
-            autoComplete="new-password"
-            value={confirm}
-            onChange={(e) => setConfirm(e.target.value)}
-            className={authField}
-          />
+          <div className="relative">
+            <input
+              required
+              type={showPassword ? "text" : "password"}
+              minLength={10}
+              autoComplete="new-password"
+              value={confirm}
+              onChange={(e) => setConfirm(e.target.value)}
+              className={`${authField} pl-11`}
+            />
+          </div>
         </label>
         <FormError message={error} />
         <button type="submit" disabled={pending || !token} className={authPrimary}>

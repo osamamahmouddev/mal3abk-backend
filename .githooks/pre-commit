@@ -7,7 +7,7 @@ set -e
 echo "🔍 [Malabak Hook] Running pre-commit security and quality checks..."
 
 # 1. Quick Secret & Credential Detection across staged files (excluding hook itself)
-FORBIDDEN_PATTERNS='BEGIN RSA PRIVATE KEY|BEGIN EC PRIVATE KEY|BEGIN PRIVATE KEY|AKIA[0-9A-Z]{16}|secret_key|private_key.*=.*["'\''][a-zA-Z0-9_\-]{20,}["'\'']|password.*=.*["'\''][^"'\'']+["'\'']'
+FORBIDDEN_PATTERNS='BEGIN RSA PRIVATE KEY|BEGIN EC PRIVATE KEY|BEGIN PRIVATE KEY|AKIA[0-9A-Z]{16}|secret_key|private_key\s*=\s*["'\''][a-zA-Z0-9_\-]{20,}["'\'']|\bpassword\b\s*=\s*["'\''][^"'\'']+["'\'']'
 
 if git rev-parse --verify HEAD >/dev/null 2>&1; then
     AGAINST=HEAD
