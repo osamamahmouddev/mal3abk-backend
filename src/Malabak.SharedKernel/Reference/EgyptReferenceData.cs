@@ -10,7 +10,7 @@ public sealed record Governorate(string Code, string NameAr, string NameEn, IRea
 /// </summary>
 public static class EgyptReferenceData
 {
-    public const int Version = 1;
+    public const int Version = 2;
 
     public static readonly IReadOnlyList<Governorate> Governorates =
     [
@@ -65,8 +65,44 @@ public static class EgyptReferenceData
         new("toilets", "دورات مياه", "Toilets"), new("cafeteria", "كافيتريا", "Cafeteria"),
         new("drinking_water", "مياه شرب", "Drinking water"), new("seating", "مقاعد للجمهور", "Spectator seating"),
         new("prayer_room", "مصلى", "Prayer room"), new("first_aid", "إسعافات أولية", "First aid"),
-        new("ball_rental", "تأجير كرة", "Ball rental"), new("bibs", "بِبات (صديريات)", "Bibs"), new("wifi", "واي فاي", "Wi-Fi")
+        new("ball_rental", "تأجير كرة", "Ball rental"), new("bibs", "بِبات (صديريات)", "Bibs"), new("wifi", "واي فاي", "Wi-Fi"),
+        new("referee", "حَكَم عند الطلب", "Referee on demand")
     ];
+
+    /// <summary>Names earlier venue forms saved as free text, mapped to their facility code.</summary>
+    private static readonly IReadOnlyDictionary<string, string> _facilityAliases = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+    {
+        ["floodlights"] = "lighting",
+        ["lights"] = "lighting",
+        ["locker rooms"] = "changing_rooms",
+        ["lockers"] = "changing_rooms",
+        ["shower"] = "showers",
+        ["bibs / pinnies"] = "bibs",
+        ["pinnies"] = "bibs",
+        ["first aid station"] = "first_aid",
+        ["referee on-demand"] = "referee",
+        ["referee"] = "referee",
+        ["wifi"] = "wifi",
+        ["toilet"] = "toilets",
+        ["restrooms"] = "toilets"
+    };
+
+    /// <summary>The facility a stored value refers to: by code, by either name, or by an older free-text name.</summary>
+    public static LocalizedItem? FindFacility(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        var key = value.Trim();
+        if (_facilityAliases.TryGetValue(key, out var aliased))
+        {
+            key = aliased;
+        }
+
+        return Facilities.FirstOrDefault(f => Matches(f.Code, f.NameAr, f.NameEn, key));
+    }
 
     public static readonly IReadOnlyList<LocalizedItem> PitchTypes =
     [
@@ -94,22 +130,16 @@ public static class EgyptReferenceData
     }
 
     /// <summary>
-    /// True when the area is acceptable for the governorate: governorates with a curated list require a listed area
-    /// (by code or name); the others accept any non-empty area name.
+    /// True when the area is acceptable for the governorate: any non-empty name. The curated list (plus areas admins and
+    /// venues add) is what clients offer first, but a player whose district is not listed can still type it.
     /// </summary>
     public static bool IsValidArea(Governorate governorate, string? area)
     {
         ArgumentNullException.ThrowIfNull(governorate);
-        if (string.IsNullOrWhiteSpace(area))
-        {
-            return false;
-        }
-
-        return governorate.Areas.Count == 0 || governorate.Areas.Any(a => Matches(a.Code, a.NameAr, a.NameEn, area.Trim()));
+        return !string.IsNullOrWhiteSpace(area);
     }
 
-    public static bool IsKnownFacility(string? code) =>
-        !string.IsNullOrWhiteSpace(code) && Facilities.Any(f => Matches(f.Code, f.NameAr, f.NameEn, code.Trim()));
+    public static bool IsKnownFacility(string? code) => FindFacility(code) is not null;
 
     private static bool Matches(string code, string nameAr, string nameEn, string key) =>
         string.Equals(code, key, StringComparison.OrdinalIgnoreCase)

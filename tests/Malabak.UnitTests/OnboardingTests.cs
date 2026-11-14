@@ -106,6 +106,18 @@ public sealed class OnboardingTests
     }
 
     [Fact]
+    public async Task CompleteProfile_AcceptsAnAreaMissingFromTheList_AsTypedAsync()
+    {
+        await using var db = NewDb();
+        var player = await SeedPlayerAsync(db);
+
+        var result = await new ProfileHandlers(db, _clock).HandleAsync(new CompleteProfileCommand(player.Id, "Omar", "Cairo", "  التجمع الخامس ", null, null, null));
+
+        result.IsSuccess.Should().BeTrue();
+        (result.Value.City, result.Value.Area).Should().Be(("cairo", "التجمع الخامس"));
+    }
+
+    [Fact]
     public async Task PatchProfile_BeforeOnboarding_NeedsAPlaceAsync()
     {
         await using var db = NewDb();
