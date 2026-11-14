@@ -153,7 +153,10 @@ export default function PricingPage() {
         : unwrap(api.POST("/api/v1/venue-manager/venues/{venueId}/price-rules", { params: { path: { venueId: venueId! } }, body: toRequest(d) })),
     onSuccess: async (_, d) => {
       setDraft(null);
-      await queryClient.invalidateQueries({ queryKey: ["price-rules", venueId] });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["price-rules", venueId] }),
+        queryClient.invalidateQueries({ queryKey: ["price-preview"] }),
+      ]);
       setToast(d.id ? "اتحفظ التعديل. الأسعار الجديدة بتظهر في التطبيق فوراً." : "اتضافت القاعدة.");
     },
     onError: (e: Error) => setToast(e.message),
@@ -163,7 +166,10 @@ export default function PricingPage() {
   const remove = useMutation({
     mutationFn: (id: string) => unwrap(api.DELETE("/api/v1/venue-manager/venues/{venueId}/price-rules/{ruleId}", { params: { path: { venueId: venueId!, ruleId: id } } })),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["price-rules", venueId] });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["price-rules", venueId] }),
+        queryClient.invalidateQueries({ queryKey: ["price-preview"] }),
+      ]);
       setToast("اتمسحت القاعدة.");
     },
     onError: (e: Error) => setToast(e.message),
@@ -244,7 +250,7 @@ export default function PricingPage() {
           {rules.isSuccess && list.length === 0 && <p className={`${card} rounded-[18px] p-8 text-center text-sm ${muted}`}>مفيش قواعد أسعار لسه.</p>}
         </div>
 
-        {venueId && pitches.length > 0 && <PricePreview venueId={venueId} pitches={pitches} />}
+        {venueId && pitches.length > 0 && <PricePreview venueId={venueId} pitches={pitches} rulesVersion={rules.dataUpdatedAt} />}
       </div>
 
       {draft && (
@@ -416,22 +422,43 @@ function RuleEditor({
   );
 }
 
-function PricePreview({ venueId, pitches }: { venueId: string; pitches: Schemas["PitchDto"][] }) {
+function PricePreview({
+  venueId,
+  pitches,
+  rulesVersion,
+}: {
+  venueId: string;
+  pitches: Schemas["PitchDto"][];
+  rulesVersion?: number;
+}) {
   const [pitchId, setPitchId] = useState(pitches[0]?.id ?? "");
   const [date, setDate] = useState(cairoToday());
   const [time, setTime] = useState("20:00");
   const [hours, setHours] = useState(1);
+
+  useEffect(() => {
+    if (!pitchId && pitches[0]?.id) {
+      setPitchId(pitches[0].id);
+    }
+  }, [pitchId, pitches]);
+
   const [h, m] = time.split(":").map(Number);
   const startUtc = new Date(new Date(cairoDayStartUtc(date)).getTime() + (h * 60 + m) * 60_000).toISOString();
   const endUtc = new Date(new Date(startUtc).getTime() + hours * 3_600_000).toISOString();
 
   const preview = useQuery({
-    queryKey: ["price-preview", venueId, pitchId, startUtc, endUtc],
-    enabled: !!pitchId,
+    queryKey: ["price-preview", venueId, pitchId, startUtc, endUtc, rulesVersion],
+    enabled: !!pitchId && !!venueId,
     retry: false,
     queryFn: () => unwrap(api.POST("/api/v1/venue-manager/venues/{venueId}/price-rules/preview", { params: { path: { venueId } }, body: { pitchId, startUtc, endUtc } })),
   });
   const q = preview.data?.current;
+
+  const errorMessage = preview.error
+    ? ((preview.error as Error).message.includes("has no base price") || (preview.error as Error).message.includes("Pricing.NoBasePrice")
+        ? "لم يتم تحديد سعر أساسي لهذا الملعب بعد."
+        : (preview.error as Error).message)
+    : null;
 
   return (
     <aside aria-label="جرّب السعر" className={`flex-[1_1_300px] min-w-0 ${card} rounded-[18px] p-5 flex flex-col gap-3`}>
@@ -455,7 +482,7 @@ function PricePreview({ venueId, pitches }: { venueId: string; pitches: Schemas[
         </select>
       </div>
       {preview.isLoading && <span className={`text-sm ${muted}`}>بيحسب…</span>}
-      {preview.isError && <span className="text-sm text-[#A8261C]">{(preview.error as Error).message}</span>}
+      {preview.isError && <span className="text-sm text-[#A8261C]">{errorMessage}</span>}
       {q && (
         <div className="flex flex-col gap-1.5 text-sm" aria-live="polite">
           <div className="flex justify-between">
