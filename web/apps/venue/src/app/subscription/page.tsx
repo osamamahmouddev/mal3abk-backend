@@ -34,7 +34,11 @@ export default function SubscriptionPage() {
   const [requested, setRequested] = useState<{ plan: string; ticket: string } | null>(null);
 
   const billing = useQuery({ queryKey: ["billing"], queryFn: () => unwrap(api.GET("/api/v1/venue-manager/billing")) });
-  const plans = useQuery({ queryKey: ["public-plans"], queryFn: () => unwrap(api.GET("/api/v1/plans")) });
+  const plans = useQuery({
+    queryKey: ["public-plans"],
+    queryFn: () => unwrap(api.GET("/api/v1/plans")),
+    staleTime: 30_000,
+  });
 
   // No self-service payment: an upgrade is a request to the Malabak team (Flow G), tracked as a support ticket.
   const requestPlan = useMutation({
@@ -138,7 +142,33 @@ export default function SubscriptionPage() {
             ))}
           </div>
         </div>
-        {plans.data && (
+        {plans.isLoading && (
+          <div className="p-5 bg-[#F7F8FB]">
+            <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="h-80 rounded-[18px] bg-white border border-[#E4E7EC] skeleton-shimmer" />
+              ))}
+            </div>
+          </div>
+        )}
+        {plans.isError && (
+          <div className="p-8 text-center flex flex-col items-center gap-2 text-sm text-[#A8261C] bg-[#F7F8FB]">
+            <p>تعذّر تحميل الباقات: {(plans.error as Error).message}</p>
+            <button
+              type="button"
+              onClick={() => plans.refetch()}
+              className="text-navy-900 underline font-semibold cursor-pointer"
+            >
+              إعادة المحاولة
+            </button>
+          </div>
+        )}
+        {!plans.isLoading && !plans.isError && (!plans.data || plans.data.length === 0) && (
+          <div className="p-8 text-center text-sm text-[#5B6475] bg-[#F7F8FB]">
+            لا توجد باقات متاحة حالياً.
+          </div>
+        )}
+        {plans.data && plans.data.length > 0 && (
           <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4 p-5 bg-[#F7F8FB] items-stretch">
             {[...plans.data]
               .sort((x, y) => x.monthlyPrice - y.monthlyPrice)

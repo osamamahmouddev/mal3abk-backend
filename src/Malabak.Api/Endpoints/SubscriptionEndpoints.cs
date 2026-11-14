@@ -22,7 +22,7 @@ public static class SubscriptionEndpoints
 
         v1.MapGet("/plans", async (HttpContext http, PlanService plans, CancellationToken ct) =>
         {
-            http.Response.Headers.CacheControl = "public, max-age=300";
+            http.Response.Headers.CacheControl = "no-cache, must-revalidate";
             return Results.Ok(await plans.ListPublicAsync(ct));
         })
         .AllowAnonymous()
