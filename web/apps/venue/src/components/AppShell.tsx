@@ -10,6 +10,7 @@ import { useVenue } from "./Providers";
 import { Toast } from "./ui";
 import { RealtimeProvider, useVenueRealtime } from "@/lib/realtime";
 import { logout } from "@/app/auth-actions";
+import { TopProgressBar } from "./TopProgressBar";
 
 export interface AppShellProps {
   children: React.ReactNode;
@@ -79,6 +80,7 @@ export const AppShell: React.FC<AppShellProps> = ({ children, user }) => {
   return (
     <SessionGate>
     <RealtimeProvider venueId={venueId}>
+      <TopProgressBar />
       <div className="lg:flex min-h-screen w-full bg-[#F3F5F9] text-[#0F172A] font-arabic antialiased" dir="rtl">
         <NoVenueRedirect />
         <LiveUpdates />

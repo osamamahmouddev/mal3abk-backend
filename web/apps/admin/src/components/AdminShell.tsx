@@ -3,12 +3,13 @@
 import React, { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import type { SessionUser } from "@malabak/bff/server";
 import { adminLogout } from "@/app/auth-actions";
 import { api, unwrap } from "@/lib/api";
 import { SessionGate } from "./SessionGate";
+import { TopProgressBar } from "./TopProgressBar";
 
 /** Admin app sections, keyed by the navigation keys the API returns for the signed-in staff member's permissions. */
 const SECTIONS: Record<string, { title: string; href: string }[]> = {
@@ -48,6 +49,13 @@ function Brand({ height = "h-8" }: { height?: string; size?: string }) {
 const toArabicDigits = (n: number) => String(n).replace(/[0-9]/g, (d) => "٠١٢٣٤٥٦٧٨٩"[Number(d)]);
 
 function SideNav({ pathname, user, onClose }: { pathname: string; user: SessionUser; onClose?: () => void }) {
+  const router = useRouter();
+  const [pendingHref, setPendingHref] = useState<string | null>(null);
+
+  useEffect(() => {
+    setPendingHref(null);
+  }, [pathname]);
+
   const navigation = useQuery({
     queryKey: ["admin-navigation"],
     queryFn: () => unwrap(api.GET("/api/v1/admin/navigation")),
@@ -58,6 +66,13 @@ function SideNav({ pathname, user, onClose }: { pathname: string; user: SessionU
     .filter(([key]) => keys.has(key))
     .flatMap(([, list]) => list)
     .filter((item, i, all) => all.findIndex((x) => x.href === item.href) === i);
+
+  // Eagerly prefetch routes so clicking tabs is instantaneous
+  useEffect(() => {
+    items.forEach((n) => {
+      router.prefetch(n.href);
+    });
+  }, [items, router]);
 
   const pending = useQuery({
     queryKey: ["approvals"],
@@ -102,19 +117,35 @@ function SideNav({ pathname, user, onClose }: { pathname: string; user: SessionU
         {navigation.isLoading && <div className="h-40 rounded-[9px] bg-white/[0.06] animate-pulse" />}
         {items.map((n) => {
           const active = isActive(n.href);
+          const isPending = pendingHref === n.href && !active;
           return (
             <Link
               key={n.href}
               href={n.href}
+              prefetch={true}
               aria-current={active ? "page" : undefined}
-              className={`min-h-[40px] px-3 rounded-[9px] flex items-center gap-2 text-sm transition-all duration-150 ease-out active:scale-[0.98] ${
+              onClick={() => {
+                if (!active) {
+                  setPendingHref(n.href);
+                  if (typeof window !== "undefined") {
+                    window.dispatchEvent(new Event("malabak-nav-start"));
+                  }
+                }
+                onClose?.();
+              }}
+              className={`min-h-[40px] px-3 rounded-[9px] flex items-center gap-2 text-sm cursor-pointer transition-all duration-150 ease-out active:scale-[0.98] ${
                 active
                   ? "bg-white text-ink font-bold hover:text-ink shadow-xs -translate-x-0.5"
-                  : "text-[#D5DBE7] font-medium hover:bg-white/[0.08] hover:text-white hover:-translate-x-0.5"
+                  : isPending
+                    ? "bg-white/20 text-white font-bold shadow-xs -translate-x-0.5 ring-1 ring-white/30"
+                    : "text-[#D5DBE7] font-medium hover:bg-white/[0.08] hover:text-white hover:-translate-x-0.5"
               }`}
             >
               <span className="flex-1">{n.title}</span>
-              {(badge[n.href] ?? 0) > 0 && (
+              {isPending && (
+                <div className="w-3.5 h-3.5 rounded-full border-2 border-white/60 border-t-white animate-spin shrink-0" />
+              )}
+              {(badge[n.href] ?? 0) > 0 && !isPending && (
                 <span className="min-w-[20px] h-5 px-1.5 rounded-[10px] bg-brand-red text-white text-[11px] font-bold flex items-center justify-center animate-scale-in">
                   {toArabicDigits(badge[n.href])}
                 </span>
@@ -173,7 +204,8 @@ export function AdminShell({ children, user }: { children: React.ReactNode; user
 
   return (
     <SessionGate>
-    <div className="lg:flex min-h-screen w-full" dir="rtl">
+      <TopProgressBar />
+      <div className="lg:flex min-h-screen w-full" dir="rtl">
       {/* Desktop sidebar */}
       <div className="hidden lg:flex">
         <SideNav pathname={pathname} user={user} />

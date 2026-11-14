@@ -1,10 +1,10 @@
 "use client";
 
 import { VENUE_SURFACE } from "@/lib/notification-surface";
-import React, { memo } from "react";
+import React, { memo, useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import type { SessionUser } from "@malabak/bff/server";
 import { logout } from "@/app/auth-actions";
@@ -45,8 +45,23 @@ export interface SidebarProps {
 }
 
 export const Sidebar: React.FC<SidebarProps> = memo(({ user, onClose }) => {
+  const router = useRouter();
   const pathname = usePathname() ?? "/";
+  const [pendingHref, setPendingHref] = useState<string | null>(null);
   const { venue, venues, selectVenue, can } = useVenue();
+
+  // Reset pending state on route change
+  useEffect(() => {
+    setPendingHref(null);
+  }, [pathname]);
+
+  // Eagerly prefetch all sidebar routes on mount to ensure snappy zero-lag navigation
+  useEffect(() => {
+    NAV_ITEMS.forEach((item) => {
+      router.prefetch(item.href);
+    });
+  }, [router]);
+
   const unread = useQuery({
     queryKey: ["notifications", "unread"],
     queryFn: () => unwrap(api.GET("/api/v1/me/notifications/unread-count", { params: { query: { surface: VENUE_SURFACE } } })),
@@ -123,24 +138,40 @@ export const Sidebar: React.FC<SidebarProps> = memo(({ user, onClose }) => {
       <nav aria-label="أقسام اللوحة" className="flex-1 overflow-y-auto flex flex-col gap-0.5 pe-1 py-0.5">
         {NAV_ITEMS.filter((item) => !item.permission || !venue || can(item.permission)).map((item) => {
           const isItemActive = checkIsActive(item.href);
+          const isPending = pendingHref === item.href && !isItemActive;
           return (
             <Link
               key={item.href}
               href={item.href}
+              prefetch={true}
               aria-current={isItemActive ? "page" : undefined}
-              className={`min-h-[40px] px-3 rounded-[10px] flex items-center gap-2 text-sm no-underline transition-all duration-150 ease-out active:scale-[0.98] ${
+              onClick={() => {
+                if (!isItemActive) {
+                  setPendingHref(item.href);
+                  if (typeof window !== "undefined") {
+                    window.dispatchEvent(new Event("malabak-nav-start"));
+                  }
+                }
+                onClose?.();
+              }}
+              className={`min-h-[40px] px-3 rounded-[10px] flex items-center gap-2 text-sm no-underline cursor-pointer transition-all duration-150 ease-out active:scale-[0.98] ${
                 isItemActive
                   ? "bg-white text-navy-900 font-bold shadow-xs -translate-x-0.5"
-                  : "text-[#D5DBE7] font-medium hover:bg-white/[0.08] hover:text-white hover:-translate-x-0.5"
+                  : isPending
+                    ? "bg-white/20 text-white font-bold shadow-xs -translate-x-0.5 ring-1 ring-white/30"
+                    : "text-[#D5DBE7] font-medium hover:bg-white/[0.08] hover:text-white hover:-translate-x-0.5"
               }`}
             >
               <span className="flex-1">{item.title}</span>
-              {item.href === "/notifications" && unreadCount > 0 && (
+              {isPending && (
+                <div className="w-3.5 h-3.5 rounded-full border-2 border-white/60 border-t-white animate-spin shrink-0" />
+              )}
+              {item.href === "/notifications" && unreadCount > 0 && !isPending && (
                 <span className="min-w-[20px] h-5 px-1.5 rounded-[10px] bg-brand-red text-white text-[11px] font-bold flex items-center justify-center animate-scale-in">
                   {toArabicDigits(unreadCount)}
                 </span>
               )}
-              {item.badge && (
+              {item.badge && !isPending && (
                 <span className="min-w-[20px] h-5 px-1.5 rounded-[10px] bg-brand-red text-white text-[11px] font-bold flex items-center justify-center animate-scale-in">
                   {item.badge}
                 </span>
