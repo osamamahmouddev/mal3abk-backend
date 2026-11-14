@@ -5636,6 +5636,9 @@ export interface components {
             /** Format: uuid */
             ownerId: string;
             ownerName?: string | null;
+            ownerPhone?: string | null;
+            planName?: string | null;
+            subscriptionStatus?: string | null;
             approvalStatus: string;
             isPublished: boolean;
             adminNote?: string | null;
@@ -5665,6 +5668,10 @@ export interface components {
             area: string;
             /** Format: uuid */
             ownerId: string;
+            ownerName?: string | null;
+            ownerPhone?: string | null;
+            planName?: string | null;
+            subscriptionStatus?: string | null;
             approvalStatus: string;
             isPublished: boolean;
             /** Format: int32 */
@@ -6583,6 +6590,9 @@ export interface components {
             periodEndUtc: string;
             status: string;
             voidReason?: string | null;
+            venueName?: string | null;
+            ownerName?: string | null;
+            ownerPhone?: string | null;
         };
         /**
          * Format: int32
@@ -7859,10 +7869,16 @@ export interface components {
             id: string;
             /** Format: uuid */
             ownerId: string;
+            ownerName?: string | null;
+            ownerPhone?: string | null;
+            ownerEmail?: string | null;
+            venues: components["schemas"]["SubscriptionVenueInfo"][];
             planCode: string;
             planName: string;
             cycle: string;
             status: string;
+            /** Format: date-time */
+            startedAtUtc: string;
             /** Format: date-time */
             currentPeriodEndUtc: string;
             /** Format: date-time */
@@ -7907,6 +7923,12 @@ export interface components {
          * @enum {integer}
          */
         SubscriptionStatus: 0 | 1 | 2 | 3 | 4 | 5;
+        SubscriptionVenueInfo: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            city: string;
+        };
         SystemRoleDto: {
             role: string;
             isStaffRole: boolean;

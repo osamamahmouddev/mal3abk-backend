@@ -42,6 +42,26 @@ public sealed class OwnerUsageReader : IOwnerUsageReader
             .CountAsync(i => i.VenueId == venueId && i.Status == Domain.StaffInvitationStatus.Pending && i.ExpiresAtUtc > now, cancellationToken);
         return members + pending;
     }
+
+    public async Task<IReadOnlyDictionary<Guid, IReadOnlyList<OwnerVenueInfo>>> GetOwnerVenuesBatchAsync(IReadOnlyCollection<Guid> ownerIds, CancellationToken cancellationToken = default)
+    {
+        if (ownerIds.Count == 0)
+        {
+            return new Dictionary<Guid, IReadOnlyList<OwnerVenueInfo>>();
+        }
+
+        var venues = await _dbContext.Venues.AsNoTracking()
+            .Where(v => ownerIds.Contains(v.OwnerId) && !v.IsDeleted)
+            .OrderBy(v => v.Name)
+            .Select(v => new { v.OwnerId, v.Id, v.Name, v.City, v.IsPublished })
+            .ToListAsync(cancellationToken);
+
+        return venues
+            .GroupBy(v => v.OwnerId)
+            .ToDictionary(
+                g => g.Key,
+                g => (IReadOnlyList<OwnerVenueInfo>)g.Select(x => new OwnerVenueInfo(x.Id, x.Name, x.City, x.IsPublished)).ToList());
+    }
 }
 
 /// <summary>

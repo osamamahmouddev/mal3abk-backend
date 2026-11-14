@@ -20,7 +20,10 @@ public sealed record InvoiceDto(
     DateTime PeriodStartUtc,
     DateTime PeriodEndUtc,
     string Status,
-    string? VoidReason);
+    string? VoidReason,
+    string? VenueName = null,
+    string? OwnerName = null,
+    string? OwnerPhone = null);
 
 public sealed record ReconciliationDto(DateOnly From, DateOnly To, string Currency, int Invoices, decimal Collected, decimal Voided, IReadOnlyList<MethodTotal> ByMethod);
 
@@ -32,12 +35,21 @@ public sealed class InvoiceService
     private readonly SubscriptionsDbContext _dbContext;
     private readonly IAuditLog _audit;
     private readonly IClock _clock;
+    private readonly IOwnerUsageReader? _ownerUsage;
+    private readonly IUserAccountsContract? _accounts;
 
-    public InvoiceService(SubscriptionsDbContext dbContext, IAuditLog audit, IClock clock)
+    public InvoiceService(
+        SubscriptionsDbContext dbContext,
+        IAuditLog audit,
+        IClock clock,
+        IOwnerUsageReader? ownerUsage = null,
+        IUserAccountsContract? accounts = null)
     {
         _dbContext = dbContext;
         _audit = audit;
         _clock = clock;
+        _ownerUsage = ownerUsage;
+        _accounts = accounts;
     }
 
     public async Task<IReadOnlyList<InvoiceDto>> ListAsync(Guid? ownerId, DateOnly? from, DateOnly? to, CancellationToken cancellationToken = default)
@@ -60,14 +72,61 @@ public sealed class InvoiceService
             query = query.Where(i => i.IssuedAtUtc < end);
         }
 
-        return (await query.OrderByDescending(i => i.IssuedAtUtc).Take(500).ToListAsync(cancellationToken)).Select(ToDto).ToList();
+        var invoices = await query.OrderByDescending(i => i.IssuedAtUtc).Take(500).ToListAsync(cancellationToken);
+        if (invoices.Count == 0)
+        {
+            return [];
+        }
+
+        var ownerIds = invoices.Select(i => i.OwnerId).Distinct().ToList();
+        IReadOnlyDictionary<Guid, IReadOnlyList<OwnerVenueInfo>> venueMap = new Dictionary<Guid, IReadOnlyList<OwnerVenueInfo>>();
+        if (_ownerUsage != null && ownerIds.Count > 0)
+        {
+            venueMap = await _ownerUsage.GetOwnerVenuesBatchAsync(ownerIds, cancellationToken);
+        }
+
+        IReadOnlyDictionary<Guid, UserAccountSummary> accountMap = new Dictionary<Guid, UserAccountSummary>();
+        if (_accounts != null && ownerIds.Count > 0)
+        {
+            accountMap = await _accounts.GetSummariesAsync(ownerIds, cancellationToken);
+        }
+
+        return invoices.Select(i =>
+        {
+            var venues = venueMap.GetValueOrDefault(i.OwnerId);
+            var account = accountMap.GetValueOrDefault(i.OwnerId);
+            var venueName = venues?.FirstOrDefault()?.Name;
+            return ToDto(i, venueName, account?.FullName, account?.MaskedPhone);
+        }).ToList();
     }
 
     /// <summary>One invoice. With <paramref name="ownerId"/> it must belong to that owner (owners cannot read others' invoices).</summary>
     public async Task<Result<InvoiceDto>> GetAsync(Guid invoiceId, Guid? ownerId, CancellationToken cancellationToken = default)
     {
         var invoice = await _dbContext.Invoices.AsNoTracking().FirstOrDefaultAsync(i => i.Id == invoiceId && (ownerId == null || i.OwnerId == ownerId), cancellationToken);
-        return invoice is null ? Result.Failure<InvoiceDto>(SubscriptionErrors.InvoiceNotFound) : Result.Success(ToDto(invoice));
+        if (invoice is null)
+        {
+            return Result.Failure<InvoiceDto>(SubscriptionErrors.InvoiceNotFound);
+        }
+
+        string? venueName = null;
+        if (_ownerUsage != null)
+        {
+            var venues = await _ownerUsage.GetOwnerVenuesBatchAsync([invoice.OwnerId], cancellationToken);
+            venueName = venues.GetValueOrDefault(invoice.OwnerId)?.FirstOrDefault()?.Name;
+        }
+
+        string? ownerName = null;
+        string? ownerPhone = null;
+        if (_accounts != null)
+        {
+            var accounts = await _accounts.GetSummariesAsync([invoice.OwnerId], cancellationToken);
+            var account = accounts.GetValueOrDefault(invoice.OwnerId);
+            ownerName = account?.FullName;
+            ownerPhone = account?.MaskedPhone;
+        }
+
+        return Result.Success(ToDto(invoice, venueName, ownerName, ownerPhone));
     }
 
     public async Task<Result<byte[]>> PdfAsync(Guid invoiceId, Guid? ownerId, CancellationToken cancellationToken = default)
@@ -93,7 +152,7 @@ public sealed class InvoiceService
         await _dbContext.SaveChangesAsync(cancellationToken);
         await _audit.RecordAsync(new AuditEntry("subscription.invoice_voided", "Invoice", invoice.Number, adminId, AuditActorType.Admin,
             new { Status = nameof(InvoiceStatus.Paid) }, new { Status = nameof(InvoiceStatus.Void) }, reason), cancellationToken);
-        return Result.Success(ToDto(invoice));
+        return await GetAsync(invoiceId, null, cancellationToken);
     }
 
     /// <summary>Totals for a period for matching against the bank/wallet statement: collected (paid invoices) and voided.</summary>
@@ -111,8 +170,9 @@ public sealed class InvoiceService
             methods.GroupBy(p => p.Method).Select(g => new MethodTotal(g.Key.ToString(), g.Count(), g.Sum(p => p.Amount))).OrderByDescending(m => m.Amount).ToList());
     }
 
-    public static InvoiceDto ToDto(Invoice i) => new(
-        i.Id, i.Number, i.OwnerId, i.PlanCode, i.PlanName, i.Cycle.ToString(), i.Amount, i.Currency, i.IssuedAtUtc, i.PeriodStartUtc, i.PeriodEndUtc, i.Status.ToString(), i.VoidReason);
+    public static InvoiceDto ToDto(Invoice i, string? venueName = null, string? ownerName = null, string? ownerPhone = null) => new(
+        i.Id, i.Number, i.OwnerId, i.PlanCode, i.PlanName, i.Cycle.ToString(), i.Amount, i.Currency, i.IssuedAtUtc, i.PeriodStartUtc, i.PeriodEndUtc, i.Status.ToString(), i.VoidReason,
+        venueName, ownerName, ownerPhone);
 }
 
 /// <summary>
@@ -124,30 +184,67 @@ public static class InvoicePdf
     public static byte[] Render(InvoiceDto invoice)
     {
         var c = CultureInfo.InvariantCulture;
+        string venueLabel;
+        if (!string.IsNullOrWhiteSpace(invoice.VenueName))
+        {
+            venueLabel = invoice.VenueName;
+        }
+        else if (!string.IsNullOrWhiteSpace(invoice.OwnerName))
+        {
+            venueLabel = invoice.OwnerName;
+        }
+        else
+        {
+            venueLabel = invoice.OwnerId.ToString("D");
+        }
+
         var lines = new List<(int Size, string Text)>
         {
-            (20, "Malabak - Subscription invoice"),
-            (12, $"Invoice number: {invoice.Number}"),
-            (12, $"Issued: {invoice.IssuedAtUtc.ToString("yyyy-MM-dd", c)} (UTC)"),
+            (18, "MALABAK PLATFORM - SUBSCRIPTION INVOICE"),
+            (12, $"Invoice Number: {invoice.Number}"),
+            (12, $"Issued Date: {invoice.IssuedAtUtc.ToString("yyyy-MM-dd", c)} (UTC)"),
             (12, $"Status: {invoice.Status}{(invoice.VoidReason is null ? "" : " - " + invoice.VoidReason)}"),
-            (12, $"Customer account: {invoice.OwnerId:D}"),
+            (12, $"Customer / Venue: {venueLabel}"),
+            (12, string.IsNullOrWhiteSpace(invoice.OwnerName) ? "" : $"Owner Contact: {invoice.OwnerName}"),
             (12, ""),
-            (12, $"Plan: {invoice.PlanCode} ({invoice.Cycle})"),
-            (12, $"Period: {invoice.PeriodStartUtc.ToString("yyyy-MM-dd", c)} to {invoice.PeriodEndUtc.ToString("yyyy-MM-dd", c)}"),
-            (14, $"Amount paid: {invoice.Amount.ToString("0.00", c)} {invoice.Currency}"),
+            (12, $"Plan: {invoice.PlanName} [{invoice.PlanCode}] ({invoice.Cycle})"),
+            (12, $"Billing Period: {invoice.PeriodStartUtc.ToString("yyyy-MM-dd", c)} to {invoice.PeriodEndUtc.ToString("yyyy-MM-dd", c)}"),
+            (14, $"Amount Paid: {invoice.Amount.ToString("0.00", c)} {invoice.Currency}"),
             (12, ""),
-            (10, "Paid manually and recorded by Malabak administration. Keep this invoice for your records."),
+            (10, "Official Subscription Invoice - Recorded by Malabak Administration."),
         };
 
-        var content = new StringBuilder("BT\n");
-        var y = 780;
-        foreach (var (size, text) in lines)
+        var content = new StringBuilder();
+        // Top header banner (Navy)
+        content.Append("0.03 0.09 0.20 rg\n");
+        content.Append("40 730 515 65 re f\n");
+        // Accent brand red bar
+        content.Append("0.92 0.31 0.26 rg\n");
+        content.Append("40 726 515 4 re f\n");
+        content.Append("0 g\n");
+
+        content.Append("BT\n");
+        // Title in white over navy banner
+        content.Append("/F1 18 Tf 1 1 1 rg 1 0 0 1 56 756 Tm (MALABAK PLATFORM - INVOICE) Tj\n");
+        content.Append("0 g\n");
+
+        var y = 690;
+        foreach (var (size, text) in lines.Skip(1))
         {
+            if (string.IsNullOrEmpty(text))
+            {
+                y -= 10;
+                continue;
+            }
+
             content.Append(c, $"/F1 {size} Tf 1 0 0 1 56 {y} Tm ({Escape(text)}) Tj\n");
-            y -= size + 12;
+            y -= size + 10;
         }
 
         content.Append("ET\n");
+        // Divider line
+        content.Append("0.85 0.88 0.92 RG 1 w 56 525 m 540 525 l S\n");
+
         var stream = Encoding.ASCII.GetBytes(content.ToString());
 
         var objects = new List<string>

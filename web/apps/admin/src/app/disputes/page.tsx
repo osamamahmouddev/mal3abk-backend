@@ -45,6 +45,7 @@ export default function DisputesPage() {
   const [status, setStatus] = useState("");
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<"cards" | "table">("cards");
 
   const disputes = useQuery({
     queryKey: ["admin-disputes", status, page],
@@ -54,25 +55,125 @@ export default function DisputesPage() {
   return (
     <Page>
       <PageHeader title="نزاعات الإيصالات" sub="الأقدم الأول. كل قرار محتاج سبب وتأكيد هوية، وبيوصل للطرفين." />
-      <Select label="الحالة" value={status} onChange={(v) => { setStatus(v); setPage(1); }} options={STATUSES} />
-      <QueryState query={disputes} isEmpty={(d) => d.items.length === 0} empty="مفيش نزاعات مستنية. 🎉">
+      
+      <div className="flex flex-wrap gap-2.5 items-center justify-between bg-white p-3.5 rounded-2xl border border-[#EEF1F6] shadow-xs">
+        <div className="flex-[1_1_240px] max-w-sm">
+          <Select label="الحالة" value={status} onChange={(v) => { setStatus(v); setPage(1); }} options={STATUSES} />
+        </div>
+
+        <div className="inline-flex rounded-xl bg-slate-100 p-1 border border-slate-200">
+          <button
+            type="button"
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+              viewMode === "cards" ? "bg-white text-slate-900 shadow-xs" : "text-[#5B6475] hover:text-slate-900"
+            }`}
+            onClick={() => setViewMode("cards")}
+          >
+            🗂️ بطاقات
+          </button>
+          <button
+            type="button"
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+              viewMode === "table" ? "bg-white text-slate-900 shadow-xs" : "text-[#5B6475] hover:text-slate-900"
+            }`}
+            onClick={() => setViewMode("table")}
+          >
+            📊 جدول
+          </button>
+        </div>
+      </div>
+
+      <QueryState
+        query={disputes}
+        isEmpty={(d) => d.items.length === 0}
+        emptyTitle="لا توجد أي نزاعات معلقة"
+        emptyDescription={status ? "لا توجد نزاعات بالحالة المحددة حالياً. يمكنك تغيير الفلتر لعرض البقية." : "ممتاز! لا توجد أي نزاعات إيصالات أو مدفوعات معلقة بين الملاعب واللاعبين حالياً."}
+        emptyIcon="shield"
+        emptyBadge="السجل سليم 🛡️"
+        emptyAction={
+          status
+            ? {
+                label: "عرض كل النزاعات",
+                onClick: () => {
+                  setStatus("");
+                  setPage(1);
+                },
+                variant: "outline",
+              }
+            : undefined
+        }
+      >
         {(data) => (
           <>
-            <Table<Row>
-              caption="النزاعات"
-              rows={data.items}
-              rowKey={(r) => r.id}
-              selected={selected}
-              onSelect={(r) => setSelected(r.id)}
-              columns={[
-                { title: "الحجز", cell: (r) => <strong dir="ltr" className="font-inter">{r.bookingReference}</strong> },
-                { title: "فتحه", cell: (r) => SIDE[r.openedBy] ?? r.openedBy },
-                { title: "العربون", cell: (r) => money(r.depositAmount) },
-                { title: "حالة الحجز", cell: (r) => BOOKING_STATUS_MAP[r.bookingStatus] ?? r.bookingStatus },
-                { title: "النزاع", cell: (r) => <Pill tone={r.status === "Resolved" ? "ok" : "warn"}>{DISPUTE_STATUS_MAP[r.status] ?? r.status}</Pill> },
-                { title: "اتفتح", cell: (r) => fmtDateTime(r.createdAtUtc) },
-              ]}
-            />
+            {viewMode === "cards" ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                {data.items.map((r) => {
+                  const isSelected = selected === r.id;
+                  return (
+                    <div
+                      key={r.id}
+                      onClick={() => setSelected(r.id)}
+                      className={`${card} rounded-[20px] p-5 flex flex-col justify-between gap-4 border transition-all cursor-pointer hover:border-slate-400 hover:shadow-md active:scale-[0.99] ${
+                        isSelected ? "border-brand-red ring-2 ring-brand-red/20 bg-[#FDFDFE]" : "border-[#E2E6EF]"
+                      }`}
+                    >
+                      {/* Top: Booking Ref & Dispute Status */}
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex flex-col gap-1 min-w-0">
+                          <span className="text-[11px] font-semibold text-[#5B6475]">رقم الحجز</span>
+                          <strong dir="ltr" className="font-inter text-base font-bold text-slate-900 tracking-wide text-right truncate">
+                            {r.bookingReference}
+                          </strong>
+                        </div>
+                        <Pill tone={r.status === "Resolved" ? "ok" : "warn"}>
+                          {DISPUTE_STATUS_MAP[r.status] ?? r.status}
+                        </Pill>
+                      </div>
+
+                      {/* Dispute Details Box */}
+                      <div className="flex flex-col gap-2 p-3 rounded-xl bg-[#F6F8FB] border border-[#E9EDF5] text-xs">
+                        <div className="flex items-center justify-between">
+                          <span className={muted}>الطرف الذي فتح النزاع</span>
+                          <span className="font-bold text-slate-800">{SIDE[r.openedBy] ?? r.openedBy}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className={muted}>مبلغ العربون</span>
+                          <strong className="font-bold text-emerald-700">{money(r.depositAmount)}</strong>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className={muted}>حالة الحجز الحالية</span>
+                          <span className="font-medium text-slate-800">{BOOKING_STATUS_MAP[r.bookingStatus] ?? r.bookingStatus}</span>
+                        </div>
+                      </div>
+
+                      {/* Footer */}
+                      <div className="flex items-center justify-between text-xs pt-2 border-t border-[#F0F2F6]">
+                        <span className={muted}>تاريخ الفتح: {fmtDateTime(r.createdAtUtc)}</span>
+                        <span className="text-brand-red font-bold flex items-center gap-1">
+                          الفصل في النزاع <span className="text-sm">←</span>
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <Table<Row>
+                caption="النزاعات"
+                rows={data.items}
+                rowKey={(r) => r.id}
+                selected={selected}
+                onSelect={(r) => setSelected(r.id)}
+                columns={[
+                  { title: "الحجز", cell: (r) => <strong dir="ltr" className="font-inter">{r.bookingReference}</strong> },
+                  { title: "فتحه", cell: (r) => SIDE[r.openedBy] ?? r.openedBy },
+                  { title: "العربون", cell: (r) => money(r.depositAmount) },
+                  { title: "حالة الحجز", cell: (r) => BOOKING_STATUS_MAP[r.bookingStatus] ?? r.bookingStatus },
+                  { title: "النزاع", cell: (r) => <Pill tone={r.status === "Resolved" ? "ok" : "warn"}>{DISPUTE_STATUS_MAP[r.status] ?? r.status}</Pill> },
+                  { title: "اتفتح", cell: (r) => fmtDateTime(r.createdAtUtc) },
+                ]}
+              />
+            )}
             <Pager page={page} pageSize={PAGE_SIZE} total={data.total} onChange={setPage} />
           </>
         )}

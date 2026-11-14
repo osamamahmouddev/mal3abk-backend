@@ -36,6 +36,7 @@ export default function UsersPage() {
   const [status, setStatus] = useState("");
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<"cards" | "table">("cards");
 
   const users = useQuery({
     queryKey: ["admin-users", q, role, status, page],
@@ -50,31 +51,130 @@ export default function UsersPage() {
   return (
     <Page>
       <PageHeader title="المستخدمين" sub="الأرقام مخفية في القائمة. فتح تفاصيل أي مستخدم بيتسجل في سجل التدقيق." />
-      <div className="flex flex-wrap gap-2">
-        <div className="flex-[1_1_260px]">
-          <SearchBox value={q} onChange={(v) => { setQ(v); setPage(1); }} placeholder="اسم، رقم، إيميل أو ID" />
+      
+      <div className="flex flex-wrap gap-2.5 items-center justify-between bg-white p-3.5 rounded-2xl border border-[#EEF1F6] shadow-xs">
+        <div className="flex flex-wrap gap-2 flex-1 min-w-[280px]">
+          <div className="flex-[1_1_240px]">
+            <SearchBox value={q} onChange={(v) => { setQ(v); setPage(1); }} placeholder="اسم، رقم، إيميل أو ID" />
+          </div>
+          <Select label="الدور" value={role} onChange={(v) => { setRole(v); setPage(1); }} options={ROLES} />
+          <Select label="الحالة" value={status} onChange={(v) => { setStatus(v); setPage(1); }} options={STATUSES} />
         </div>
-        <Select label="الدور" value={role} onChange={(v) => { setRole(v); setPage(1); }} options={ROLES} />
-        <Select label="الحالة" value={status} onChange={(v) => { setStatus(v); setPage(1); }} options={STATUSES} />
+
+        <div className="inline-flex rounded-xl bg-slate-100 p-1 border border-slate-200">
+          <button
+            type="button"
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+              viewMode === "cards" ? "bg-white text-slate-900 shadow-xs" : "text-[#5B6475] hover:text-slate-900"
+            }`}
+            onClick={() => setViewMode("cards")}
+          >
+            🗂️ بطاقات
+          </button>
+          <button
+            type="button"
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+              viewMode === "table" ? "bg-white text-slate-900 shadow-xs" : "text-[#5B6475] hover:text-slate-900"
+            }`}
+            onClick={() => setViewMode("table")}
+          >
+            📊 جدول
+          </button>
+        </div>
       </div>
-      <QueryState query={users} isEmpty={(d) => d.items.length === 0} empty="مفيش مستخدمين بالبحث ده.">
+
+      <QueryState
+        query={users}
+        isEmpty={(d) => d.items.length === 0}
+        emptyTitle="لم يتم العثور على أي مستخدمين"
+        emptyDescription={q || role || status ? "لا يوجد مستخدمون يطابقون معايير البحث أو الفلتر المحدد. يمكنك مسح البحث أو تغيير الفلتر." : "لا يوجد مستخدمون مسجلون في النظام حتى الآن."}
+        emptyIcon={q || role || status ? "search" : "users"}
+        emptyAction={
+          q || role || status
+            ? {
+                label: "إعادة ضبط البحث والفلاتر",
+                onClick: () => {
+                  setQ("");
+                  setRole("");
+                  setStatus("");
+                  setPage(1);
+                },
+                variant: "outline",
+              }
+            : undefined
+        }
+      >
         {(data) => (
           <>
-            <Table<Row>
-              caption="المستخدمين"
-              rows={data.items}
-              rowKey={(r) => r.id}
-              selected={selected}
-              onSelect={(r) => setSelected(r.id)}
-              columns={[
-                { title: "الاسم", cell: (r) => <strong>{r.fullName}</strong> },
-                { title: "الرقم", cell: (r) => <span dir="ltr" className="font-inter">{r.maskedPhone}</span> },
-                { title: "الإيميل", cell: (r) => r.email ?? "—" },
-                { title: "الأدوار", cell: (r) => r.roles.map((x) => ROLE_MAP[x] ?? x).join("، ") },
-                { title: "الحالة", cell: (r) => <Pill tone={STATUS_TONE[r.status as keyof typeof STATUS_TONE] ?? "neutral"}>{STATUS_MAP[r.status] ?? r.status}</Pill> },
-                { title: "التسجيل", cell: (r) => fmtDate(r.createdAtUtc) },
-              ]}
-            />
+            {viewMode === "cards" ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                {data.items.map((r) => {
+                  const isSelected = selected === r.id;
+                  return (
+                    <div
+                      key={r.id}
+                      onClick={() => setSelected(r.id)}
+                      className={`${card} rounded-[20px] p-5 flex flex-col justify-between gap-4 border transition-all cursor-pointer hover:border-slate-400 hover:shadow-md active:scale-[0.99] ${
+                        isSelected ? "border-brand-red ring-2 ring-brand-red/20 bg-[#FDFDFE]" : "border-[#E2E6EF]"
+                      }`}
+                    >
+                      {/* Top: Name & Status */}
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex flex-col gap-1.5 min-w-0">
+                          <strong className="text-base font-bold text-slate-900 truncate">{r.fullName}</strong>
+                          <div className="flex flex-wrap gap-1">
+                            {r.roles.map((x) => (
+                              <span key={x} className="text-[11px] px-2 py-0.5 rounded-md font-semibold bg-slate-100 text-slate-700">
+                                {ROLE_MAP[x] ?? x}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                        <Pill tone={STATUS_TONE[r.status as keyof typeof STATUS_TONE] ?? "neutral"}>
+                          {STATUS_MAP[r.status] ?? r.status}
+                        </Pill>
+                      </div>
+
+                      {/* Contact Info */}
+                      <div className="flex flex-col gap-2 p-3 rounded-xl bg-[#F6F8FB] border border-[#E9EDF5] text-xs">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className={muted}>رقم الهاتف</span>
+                          <span dir="ltr" className="font-inter font-semibold text-slate-800">{r.maskedPhone}</span>
+                        </div>
+                        <div className="flex items-center justify-between gap-2">
+                          <span className={muted}>البريد الإلكتروني</span>
+                          <span className="font-medium text-slate-800 truncate max-w-[180px]">{r.email ?? "—"}</span>
+                        </div>
+                      </div>
+
+                      {/* Footer */}
+                      <div className="flex items-center justify-between text-xs pt-2 border-t border-[#F0F2F6]">
+                        <span className={muted}>انضم: {fmtDate(r.createdAtUtc)}</span>
+                        <span className="text-brand-red font-bold flex items-center gap-1">
+                          عرض الملف <span className="text-sm">←</span>
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <Table<Row>
+                caption="المستخدمين"
+                rows={data.items}
+                rowKey={(r) => r.id}
+                selected={selected}
+                onSelect={(r) => setSelected(r.id)}
+                columns={[
+                  { title: "الاسم", cell: (r) => <strong>{r.fullName}</strong> },
+                  { title: "الرقم", cell: (r) => <span dir="ltr" className="font-inter">{r.maskedPhone}</span> },
+                  { title: "الإيميل", cell: (r) => r.email ?? "—" },
+                  { title: "الأدوار", cell: (r) => r.roles.map((x) => ROLE_MAP[x] ?? x).join("، ") },
+                  { title: "الحالة", cell: (r) => <Pill tone={STATUS_TONE[r.status as keyof typeof STATUS_TONE] ?? "neutral"}>{STATUS_MAP[r.status] ?? r.status}</Pill> },
+                  { title: "التسجيل", cell: (r) => fmtDate(r.createdAtUtc) },
+                ]}
+              />
+            )}
             <Pager page={page} pageSize={PAGE_SIZE} total={data.total} onChange={setPage} />
           </>
         )}
@@ -157,13 +257,19 @@ function UserDrawer({ userId, onClose }: { userId: string | null; onClose: () =>
                 </button>
               )}
               {u.status === "Active" && (
-                <button
-                  type="button"
-                  className={btnSmall}
-                  onClick={() => ask("impersonate", "الدخول بصفة المستخدم", "هتاخد كود صالح ٦٠ ثانية لمرة واحدة. العميل هيوصله إشعار، ومفيش تغيير باسورد أو رقم أو بيانات دفع.", "إصدار كود")}
-                >
-                  دخول للمساعدة
-                </button>
+                u.roles.some((r) => ["Admin", "SuperAdmin", "SupportAgent", "Finance", "Staff"].includes(r)) ? (
+                  <span className="text-xs text-[#5B6475] py-2 px-3 bg-slate-100 rounded-xl border border-slate-200 flex items-center gap-1 font-medium">
+                    🛡️ حساب إداري (الدخول للمساعدة مخصص للعملاء فقط)
+                  </span>
+                ) : (
+                  <button
+                    type="button"
+                    className={btnSmall}
+                    onClick={() => ask("impersonate", "الدخول بصفة المستخدم", "هتاخد كود صالح ٦٠ ثانية لمرة واحدة. العميل هيوصله إشعار، ومفيش تغيير باسورد أو رقم أو بيانات دفع.", "إصدار كود")}
+                  >
+                    دخول للمساعدة
+                  </button>
+                )
               )}
             </div>
             {code && (

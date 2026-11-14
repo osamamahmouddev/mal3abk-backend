@@ -3,7 +3,19 @@
 import React, { useEffect, useState } from "react";
 import type { UseQueryResult } from "@tanstack/react-query";
 import { ApiError } from "@/lib/api";
-import { btnOutline, card, inputClass, muted, thCls, toArabicDigits } from "@/components/ui";
+import {
+  btnOutline,
+  card,
+  inputClass,
+  muted,
+  thCls,
+  toArabicDigits,
+  EmptyState,
+  type EmptyStateIcon,
+  type EmptyStateProps,
+} from "@/components/ui";
+
+export { EmptyState, type EmptyStateIcon, type EmptyStateProps };
 
 /** "7 نوفمبر 2026، 10:30" in Cairo time. */
 export function fmtDateTime(iso?: string | null) {
@@ -26,16 +38,79 @@ export function QueryState<T>({
   empty,
   isEmpty,
   children,
+  emptyTitle,
+  emptyDescription,
+  emptyIcon,
+  emptyAction,
+  emptySecondaryAction,
+  emptyBadge,
+  emptyHint,
 }: {
   query: UseQueryResult<T>;
-  empty?: string;
+  empty?: React.ReactNode | string;
   isEmpty?: (data: T) => boolean;
   children: (data: T) => React.ReactNode;
+  emptyTitle?: string;
+  emptyDescription?: string;
+  emptyIcon?: EmptyStateIcon;
+  emptyAction?: { label: string; onClick?: () => void; href?: string; variant?: "primary" | "outline" };
+  emptySecondaryAction?: { label: string; onClick?: () => void; href?: string };
+  emptyBadge?: string;
+  emptyHint?: string;
 }) {
   if (query.isLoading) return <div className={`${card} rounded-[18px] h-40 skeleton-shimmer`} aria-busy="true" />;
   if (query.error) return <ErrorState error={query.error} />;
   if (query.data === undefined) return null;
-  if (isEmpty?.(query.data)) return <div className={`${card} rounded-[18px] p-10 text-center text-sm ${muted} animate-fade-in`}>{empty ?? "مفيش بيانات."}</div>;
+  if (isEmpty?.(query.data)) {
+    if (React.isValidElement(empty)) {
+      return empty;
+    }
+
+    const text = typeof empty === "string" ? empty : "مفيش بيانات.";
+
+    let inferredIcon: EmptyStateIcon = emptyIcon ?? "inbox";
+    let inferredTitle = emptyTitle ?? text;
+    let inferredDesc = emptyDescription;
+    let inferredBadge = emptyBadge;
+
+    if (!emptyIcon) {
+      if (text.includes("بحث") || text.includes("فلتر")) {
+        inferredIcon = "search";
+        inferredDesc = inferredDesc ?? "لم نتمكن من العثور على أي نتائج مطابقة لمعايير البحث الحالية. يمكنك تعديل الكلمات أو إعادة ضبط الفلاتر.";
+      } else if (text.includes("🎉") || text.includes("مستنية") || text.includes("مراجعة") || text.includes("نزاعات")) {
+        inferredIcon = "check";
+        inferredBadge = inferredBadge ?? "مكتمل بالكامل ✨";
+        inferredDesc = inferredDesc ?? "كل شيء تحت السيطرة! لا توجد طلبات أو عناصر تحتاج لاتخاذ إجراء حالياً.";
+      } else if (text.includes("ملاعب")) {
+        inferredIcon = "stadium";
+        inferredDesc = inferredDesc ?? "لا توجد ملاعب تطابق المعايير المحددة في النظام.";
+      } else if (text.includes("حجوزات")) {
+        inferredIcon = "calendar";
+        inferredDesc = inferredDesc ?? "لا توجد حجوزات مسجلة تطابق الشروط المحددة.";
+      } else if (text.includes("تذاكر")) {
+        inferredIcon = "inbox";
+        inferredDesc = inferredDesc ?? "صندوق تذاكر الدعم الفني فارغ تماماً ولا توجد شكاوى معلقة.";
+      } else if (text.includes("فواتير") || text.includes("اشتراك") || text.includes("باقات")) {
+        inferredIcon = "receipt";
+        inferredDesc = inferredDesc ?? "لا توجد سجلات مالية أو اشتراكات تطابق الشروط الحالية.";
+      } else if (text.includes("مستخدمين") || text.includes("فرق") || text.includes("حسابات") || text.includes("بلاغات")) {
+        inferredIcon = "users";
+        inferredDesc = inferredDesc ?? "لا توجد حسابات أو عناصر لعرضها في هذا القسم حالياً.";
+      }
+    }
+
+    return (
+      <EmptyState
+        icon={inferredIcon}
+        title={inferredTitle}
+        description={inferredDesc}
+        badge={inferredBadge}
+        action={emptyAction}
+        secondaryAction={emptySecondaryAction}
+        hint={emptyHint}
+      />
+    );
+  }
   return <>{children(query.data)}</>;
 }
 
@@ -51,7 +126,7 @@ export function ErrorState({ error }: { error: unknown }) {
   );
 }
 
-/** Simple, accessible table: column headers + rows; clicking a row selects it. */
+/** Simple, accessible table: column headers + rows; transforms into responsive cards on mobile. */
 export function Table<T>({
   rows,
   columns,
@@ -59,6 +134,7 @@ export function Table<T>({
   onSelect,
   selected,
   caption,
+  cardView,
 }: {
   rows: T[];
   columns: { title: string; cell: (row: T) => React.ReactNode; className?: string }[];
@@ -66,46 +142,128 @@ export function Table<T>({
   onSelect?: (row: T) => void;
   selected?: string | null;
   caption: string;
+  cardView?: (row: T, isSelected: boolean) => React.ReactNode;
 }) {
   return (
-    <div className={`${card} rounded-[18px] overflow-x-auto`}>
-      <table className="w-full text-sm min-w-[640px]">
-        <caption className="sr-only">{caption}</caption>
-        <thead className="bg-[#F6F7FA] text-[#5B6475]">
-          <tr>
-            {columns.map((c) => (
-              <th key={c.title} scope="col" className={`${thCls} ${c.className ?? ""}`}>
-                {c.title}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row) => {
-            const key = rowKey(row);
-            const on = key === selected;
+    <>
+      {/* Mobile Card Layout (hidden on md and larger) */}
+      <div className="md:hidden flex flex-col gap-3">
+        {rows.map((row) => {
+          const key = rowKey(row);
+          const on = key === selected;
+
+          if (cardView) {
             return (
-              <tr
+              <div
                 key={key}
                 onClick={onSelect ? () => onSelect(row) : undefined}
-                onKeyDown={onSelect ? (e) => (e.key === "Enter" || e.key === " ") && onSelect(row) : undefined}
-                tabIndex={onSelect ? 0 : undefined}
-                aria-selected={onSelect ? on : undefined}
-                className={`border-t border-[#EEF0F5] transition-all duration-150 ease-out ${
-                  onSelect ? "cursor-pointer hover:bg-[#F6F7FA]" : ""
-                } ${on ? "bg-[#EEF0F5]" : ""}`}
+                className={onSelect ? "cursor-pointer" : undefined}
               >
-                {columns.map((c) => (
-                  <td key={c.title} className={`px-2 py-3 ${c.className ?? ""}`}>
-                    {c.cell(row)}
-                  </td>
-                ))}
-              </tr>
+                {cardView(row, on)}
+              </div>
             );
-          })}
-        </tbody>
-      </table>
-    </div>
+          }
+
+          const primaryCol = columns[0];
+          const badgeCol = columns.find(
+            (c) =>
+              c.title.includes("حالة") ||
+              c.title.includes("النزاع") ||
+              c.title.includes("الأولوية") ||
+              c.title.includes("الدور"),
+          ) ?? (columns.length > 1 ? columns[columns.length - 1] : undefined);
+
+          const secondaryCols = columns.filter((c) => c !== primaryCol && c !== badgeCol);
+
+          return (
+            <div
+              key={key}
+              onClick={onSelect ? () => onSelect(row) : undefined}
+              onKeyDown={onSelect ? (e) => (e.key === "Enter" || e.key === " ") && onSelect(row) : undefined}
+              tabIndex={onSelect ? 0 : undefined}
+              aria-selected={onSelect ? on : undefined}
+              className={`${card} rounded-2xl p-4 flex flex-col gap-3 border transition-all ${
+                onSelect ? "cursor-pointer active:scale-[0.99]" : ""
+              } ${on ? "border-brand-red ring-2 ring-brand-red/20 bg-[#FDFDFE]" : "border-[#E2E6EF] hover:border-slate-300"}`}
+            >
+              {/* Header: Primary title and Badge/Status */}
+              <div className="flex items-start justify-between gap-2 pb-2.5 border-b border-[#F0F2F6]">
+                <div className="flex flex-col gap-0.5 min-w-0">
+                  <span className="text-[11px] font-semibold text-[#5B6475]">{primaryCol?.title}</span>
+                  <div className="text-sm font-bold text-slate-900 truncate">{primaryCol?.cell(row)}</div>
+                </div>
+                {badgeCol && (
+                  <div className="flex flex-col items-end gap-0.5 shrink-0">
+                    <span className="text-[11px] font-semibold text-[#5B6475]">{badgeCol.title}</span>
+                    <div>{badgeCol.cell(row)}</div>
+                  </div>
+                )}
+              </div>
+
+              {/* Grid of other columns */}
+              {secondaryCols.length > 0 && (
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  {secondaryCols.map((c) => (
+                    <div key={c.title} className="flex flex-col gap-0.5">
+                      <span className={muted}>{c.title}</span>
+                      <div className="font-semibold text-slate-800">{c.cell(row)}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Action indicator if selectable */}
+              {onSelect && (
+                <div className="flex items-center justify-between text-xs text-brand-red font-semibold pt-2 border-t border-dashed border-[#EEF0F5]">
+                  <span>عرض التفاصيل</span>
+                  <span className="text-sm">←</span>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Desktop Table View */}
+      <div className="hidden md:block overflow-x-auto rounded-[18px] border border-[#EDF0F5] bg-white shadow-[0_1px_2px_rgba(15,27,61,0.04),0_10px_24px_-14px_rgba(15,27,61,0.16)]">
+        <table className="w-full text-sm">
+          <caption className="sr-only">{caption}</caption>
+          <thead className="bg-[#F6F7FA] text-[#5B6475]">
+            <tr>
+              {columns.map((c) => (
+                <th key={c.title} scope="col" className={`${thCls} ${c.className ?? ""}`}>
+                  {c.title}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row) => {
+              const key = rowKey(row);
+              const on = key === selected;
+              return (
+                <tr
+                  key={key}
+                  onClick={onSelect ? () => onSelect(row) : undefined}
+                  onKeyDown={onSelect ? (e) => (e.key === "Enter" || e.key === " ") && onSelect(row) : undefined}
+                  tabIndex={onSelect ? 0 : undefined}
+                  aria-selected={onSelect ? on : undefined}
+                  className={`border-t border-[#EEF0F5] transition-all duration-150 ease-out ${
+                    onSelect ? "cursor-pointer hover:bg-[#F6F7FA]" : ""
+                  } ${on ? "bg-[#EEF0F5]" : ""}`}
+                >
+                  {columns.map((c) => (
+                    <td key={c.title} className={`px-2 py-3 ${c.className ?? ""}`}>
+                      {c.cell(row)}
+                    </td>
+                  ))}
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </>
   );
 }
 

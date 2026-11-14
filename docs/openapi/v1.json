@@ -33934,6 +33934,18 @@
             "type": "string",
             "nullable": true
           },
+          "ownerPhone": {
+            "type": "string",
+            "nullable": true
+          },
+          "planName": {
+            "type": "string",
+            "nullable": true
+          },
+          "subscriptionStatus": {
+            "type": "string",
+            "nullable": true
+          },
           "approvalStatus": {
             "type": "string"
           },
@@ -34034,6 +34046,22 @@
           "ownerId": {
             "type": "string",
             "format": "uuid"
+          },
+          "ownerName": {
+            "type": "string",
+            "nullable": true
+          },
+          "ownerPhone": {
+            "type": "string",
+            "nullable": true
+          },
+          "planName": {
+            "type": "string",
+            "nullable": true
+          },
+          "subscriptionStatus": {
+            "type": "string",
+            "nullable": true
           },
           "approvalStatus": {
             "type": "string"
@@ -36918,6 +36946,18 @@
             "type": "string"
           },
           "voidReason": {
+            "type": "string",
+            "nullable": true
+          },
+          "venueName": {
+            "type": "string",
+            "nullable": true
+          },
+          "ownerName": {
+            "type": "string",
+            "nullable": true
+          },
+          "ownerPhone": {
             "type": "string",
             "nullable": true
           }
@@ -40986,7 +41026,9 @@
           "ownerId",
           "planCode",
           "planName",
-          "status"
+          "startedAtUtc",
+          "status",
+          "venues"
         ],
         "type": "object",
         "properties": {
@@ -40997,6 +41039,24 @@
           "ownerId": {
             "type": "string",
             "format": "uuid"
+          },
+          "ownerName": {
+            "type": "string",
+            "nullable": true
+          },
+          "ownerPhone": {
+            "type": "string",
+            "nullable": true
+          },
+          "ownerEmail": {
+            "type": "string",
+            "nullable": true
+          },
+          "venues": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SubscriptionVenueInfo"
+            }
           },
           "planCode": {
             "type": "string"
@@ -41009,6 +41069,10 @@
           },
           "status": {
             "type": "string"
+          },
+          "startedAtUtc": {
+            "type": "string",
+            "format": "date-time"
           },
           "currentPeriodEndUtc": {
             "type": "string",
@@ -41136,6 +41200,27 @@
         ],
         "type": "integer",
         "format": "int32"
+      },
+      "SubscriptionVenueInfo": {
+        "required": [
+          "city",
+          "id",
+          "name"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "city": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
       },
       "SystemRoleDto": {
         "required": [

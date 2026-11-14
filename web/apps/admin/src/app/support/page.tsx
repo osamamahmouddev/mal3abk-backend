@@ -33,6 +33,7 @@ export default function SupportPage() {
   const [mine, setMine] = useState<"all" | "unassigned">("all");
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<"cards" | "table">("cards");
 
   const tickets = useQuery({
     queryKey: ["admin-tickets", q, status, category, mine, page],
@@ -47,31 +48,139 @@ export default function SupportPage() {
   return (
     <Page>
       <PageHeader title="تذاكر الدعم" sub="الأعجل الأول، وبعدين الأقدم انتظارًا. الملاحظات الداخلية مش بتوصل للعميل." />
-      <div className="flex flex-wrap gap-2">
-        <div className="flex-[1_1_220px]"><SearchBox value={q} onChange={(v) => { setQ(v); setPage(1); }} placeholder="رقم التذكرة أو الموضوع" /></div>
-        <Select label="الحالة" value={status} onChange={(v) => { setStatus(v); setPage(1); }} options={STATUSES} />
-        <Select label="النوع" value={category} onChange={(v) => { setCategory(v); setPage(1); }} options={CATEGORIES} />
-        <Select label="الإسناد" value={mine} onChange={(v) => { setMine(v as "all" | "unassigned"); setPage(1); }} options={[["all", "الكل"], ["unassigned", "غير مسندة"]]} />
+      
+      <div className="flex flex-wrap gap-2.5 items-center justify-between bg-white p-3.5 rounded-2xl border border-[#EEF1F6] shadow-xs">
+        <div className="flex flex-wrap gap-2 flex-1 min-w-[280px]">
+          <div className="flex-[1_1_220px]"><SearchBox value={q} onChange={(v) => { setQ(v); setPage(1); }} placeholder="رقم التذكرة أو الموضوع" /></div>
+          <Select label="الحالة" value={status} onChange={(v) => { setStatus(v); setPage(1); }} options={STATUSES} />
+          <Select label="النوع" value={category} onChange={(v) => { setCategory(v); setPage(1); }} options={CATEGORIES} />
+          <Select label="الإسناد" value={mine} onChange={(v) => { setMine(v as "all" | "unassigned"); setPage(1); }} options={[["all", "الكل"], ["unassigned", "غير مسندة"]]} />
+        </div>
+
+        <div className="inline-flex rounded-xl bg-slate-100 p-1 border border-slate-200">
+          <button
+            type="button"
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+              viewMode === "cards" ? "bg-white text-slate-900 shadow-xs" : "text-[#5B6475] hover:text-slate-900"
+            }`}
+            onClick={() => setViewMode("cards")}
+          >
+            🗂️ بطاقات
+          </button>
+          <button
+            type="button"
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+              viewMode === "table" ? "bg-white text-slate-900 shadow-xs" : "text-[#5B6475] hover:text-slate-900"
+            }`}
+            onClick={() => setViewMode("table")}
+          >
+            📊 جدول
+          </button>
+        </div>
       </div>
-      <QueryState query={tickets} isEmpty={(d) => d.items.length === 0} empty="مفيش تذاكر.">
+
+      <QueryState
+        query={tickets}
+        isEmpty={(d) => d.items.length === 0}
+        emptyTitle="صندوق تذاكر الدعم فارغ"
+        emptyDescription={q || status || category || mine !== "all" ? "لا توجد تذاكر تطابق معايير البحث أو الفلتر المحدد. يمكنك مسح البحث أو تغيير الفلاتر." : "رائع! لا توجد أي تذاكر دعم فني مفتوحة أو تتطلب التدخل حالياً."}
+        emptyIcon={q || status || category ? "search" : "inbox"}
+        emptyBadge="كل شيء هادئ ✨"
+        emptyAction={
+          q || status || category || mine !== "all"
+            ? {
+                label: "إعادة ضبط الفلاتر والبحث",
+                onClick: () => {
+                  setQ("");
+                  setStatus("");
+                  setCategory("");
+                  setMine("all");
+                  setPage(1);
+                },
+                variant: "outline",
+              }
+            : undefined
+        }
+      >
         {(data) => (
           <>
-            <Table<Row>
-              caption="التذاكر"
-              rows={data.items}
-              rowKey={(t) => t.id}
-              selected={selected}
-              onSelect={(t) => setSelected(t.id)}
-              columns={[
-                { title: "الرقم", cell: (t) => <span dir="ltr" className="font-inter">{t.number}</span> },
-                { title: "الموضوع", cell: (t) => <strong>{t.subject}</strong> },
-                { title: "النوع", cell: (t) => label(CATEGORIES, t.category) },
-                { title: "الأولوية", cell: (t) => <Pill tone={PRIORITY_TONE[t.priority] ?? "neutral"}>{label(PRIORITIES, t.priority)}</Pill> },
-                { title: "الحالة", cell: (t) => label(STATUSES, t.status) },
-                { title: "من", cell: (t) => (t.requesterKind === "Venue" ? "ملعب" : "لاعب") },
-                { title: "آخر نشاط", cell: (t) => fmtDateTime(t.lastActivityAtUtc) },
-              ]}
-            />
+            {viewMode === "cards" ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                {data.items.map((t) => {
+                  const isSelected = selected === t.id;
+                  return (
+                    <div
+                      key={t.id}
+                      onClick={() => setSelected(t.id)}
+                      className={`${card} rounded-[20px] p-5 flex flex-col justify-between gap-4 border transition-all cursor-pointer hover:border-slate-400 hover:shadow-md active:scale-[0.99] ${
+                        isSelected ? "border-brand-red ring-2 ring-brand-red/20 bg-[#FDFDFE]" : "border-[#E2E6EF]"
+                      }`}
+                    >
+                      {/* Top: Ticket Number, Badges & Priority */}
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex flex-col gap-1 min-w-0">
+                          <span dir="ltr" className="font-inter text-xs font-bold text-slate-700 text-right">
+                            {t.number}
+                          </span>
+                          <strong className="text-base font-bold text-slate-900 truncate">
+                            {t.subject}
+                          </strong>
+                        </div>
+                        <div className="flex flex-col items-end gap-1 shrink-0">
+                          <Pill tone={PRIORITY_TONE[t.priority] ?? "neutral"}>
+                            {label(PRIORITIES, t.priority)}
+                          </Pill>
+                          <span className="text-[11px] px-2 py-0.5 rounded-md font-semibold bg-slate-100 text-slate-700">
+                            {label(STATUSES, t.status)}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Metadata Details */}
+                      <div className="flex flex-col gap-2 p-3 rounded-xl bg-[#F6F8FB] border border-[#E9EDF5] text-xs">
+                        <div className="flex items-center justify-between">
+                          <span className={muted}>النوع والتصنيف</span>
+                          <span className="font-semibold text-slate-800">{label(CATEGORIES, t.category)}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className={muted}>نوع مقدم الطلب</span>
+                          <span className="font-medium text-slate-800">{t.requesterKind === "Venue" ? "🏟️ صاحب ملعب" : "⚽ لاعب"}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className={muted}>آخر نشاط</span>
+                          <span className="text-slate-700">{fmtDateTime(t.lastActivityAtUtc)}</span>
+                        </div>
+                      </div>
+
+                      {/* Footer */}
+                      <div className="flex items-center justify-between text-xs pt-2 border-t border-[#F0F2F6]">
+                        <span className={muted}>{t.assigneeId ? "مُسندة لمشرف" : "غير مسندة"}</span>
+                        <span className="text-brand-red font-bold flex items-center gap-1">
+                          متابعة التذكرة <span className="text-sm">←</span>
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <Table<Row>
+                caption="التذاكر"
+                rows={data.items}
+                rowKey={(t) => t.id}
+                selected={selected}
+                onSelect={(t) => setSelected(t.id)}
+                columns={[
+                  { title: "الرقم", cell: (t) => <span dir="ltr" className="font-inter">{t.number}</span> },
+                  { title: "الموضوع", cell: (t) => <strong>{t.subject}</strong> },
+                  { title: "النوع", cell: (t) => label(CATEGORIES, t.category) },
+                  { title: "الأولوية", cell: (t) => <Pill tone={PRIORITY_TONE[t.priority] ?? "neutral"}>{label(PRIORITIES, t.priority)}</Pill> },
+                  { title: "الحالة", cell: (t) => label(STATUSES, t.status) },
+                  { title: "من", cell: (t) => (t.requesterKind === "Venue" ? "ملعب" : "لاعب") },
+                  { title: "آخر نشاط", cell: (t) => fmtDateTime(t.lastActivityAtUtc) },
+                ]}
+              />
+            )}
             <Pager page={page} pageSize={PAGE_SIZE} total={data.total} onChange={setPage} />
           </>
         )}

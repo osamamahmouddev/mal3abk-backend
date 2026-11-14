@@ -33,3 +33,19 @@ public interface IEntitlementService
 
     Task<bool> HasFeatureAsync(Guid ownerId, string feature, CancellationToken cancellationToken = default);
 }
+
+public sealed record OwnerSubscriptionSummary(
+    Guid OwnerId,
+    string PlanCode,
+    string PlanName,
+    string Cycle,
+    string Status,
+    DateTime? CurrentPeriodEndUtc);
+
+public interface IOwnerSubscriptionReader
+{
+    Task<IReadOnlyDictionary<Guid, OwnerSubscriptionSummary>> GetSummariesBatchAsync(
+        IReadOnlyCollection<Guid> ownerIds,
+        CancellationToken cancellationToken = default)
+        => Task.FromResult<IReadOnlyDictionary<Guid, OwnerSubscriptionSummary>>(new Dictionary<Guid, OwnerSubscriptionSummary>());
+}

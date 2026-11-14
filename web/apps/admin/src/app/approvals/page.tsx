@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { Schemas } from "@malabak/api-client";
-import { Page, PageHeader, TONE, btnOutline, card, muted, toArabicDigits, useRevealOnSelect } from "@/components/ui";
+import { Page, PageHeader, TONE, btnOutline, card, muted, toArabicDigits, useRevealOnSelect, EmptyState } from "@/components/ui";
 import { api, unwrap } from "@/lib/api";
 
 type PendingPitch = {
@@ -124,7 +124,22 @@ export default function ApprovalsPage() {
 
       {pending.isLoading && <div className={`${card} rounded-[18px] h-40 animate-pulse`} />}
       {!pending.isLoading && list.length === 0 && (
-        <div className={`${card} rounded-[18px] p-10 text-center text-sm ${muted}`}>مفيش طلبات مستنية مراجعة. 🎉</div>
+        <EmptyState
+          icon="check"
+          badge="كل الملاعب مراجعة ✨"
+          title="لا توجد طلبات اعتماد معلقة حالياً"
+          description="رائع جداً! تمت مراجعة واعتماد جميع طلبات تسجيل الملاعب. عند قيام أي مالك جديد بتسجيل ملعبه، سيظهر طلبه هنا فوراً للمراجعة والتدقيق."
+          action={{
+            label: "استعراض جميع الملاعب",
+            href: "/venues",
+            variant: "primary",
+          }}
+          secondaryAction={{
+            label: "تحديث القائمة",
+            onClick: () => pending.refetch(),
+          }}
+          hint="💡 نصيحة: يمكنك متابعة الملاعب المفعلة وتعديل إعداداتها وحالة اشتراكاتها من صفحة الملاعب."
+        />
       )}
 
       {cur && (

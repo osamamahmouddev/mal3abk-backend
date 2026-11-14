@@ -86,7 +86,18 @@ export default function AccountsPage() {
         </button>
       </PageHeader>
       {notice.node}
-      <QueryState query={accounts} isEmpty={(d) => d.length === 0} empty="لا توجد حسابات مسجلة للفريق حالياً.">
+      <QueryState
+        query={accounts}
+        isEmpty={(d) => d.length === 0}
+        emptyTitle="لا توجد حسابات مسجلة للفريق حالياً"
+        emptyDescription="يمكنك إضافة وتعيين حسابات جديدة للمشرفين والمسؤولين وتحديد أدوارهم وصلاحياتهم في إدارة المنصة."
+        emptyIcon="users"
+        emptyAction={{
+          label: "+ إضافة حساب مشرف جديد",
+          onClick: () => setCreating(true),
+          variant: "primary",
+        }}
+      >
         {(list) => (
           <Table<Account>
             caption="حسابات الفريق"

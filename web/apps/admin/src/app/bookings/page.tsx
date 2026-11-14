@@ -42,6 +42,7 @@ export default function BookingsPage() {
   const [status, setStatus] = useState("");
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<"cards" | "table">("cards");
 
   const bookings = useQuery({
     queryKey: ["admin-bookings", reference, status, page],
@@ -52,30 +53,137 @@ export default function BookingsPage() {
   return (
     <Page>
       <PageHeader title="الحجوزات" sub="كل الحجوزات في كل الملاعب. الإلغاء الإجباري بيرجّع العربون كامل للاعب وبيتسجل في التدقيق." />
-      <div className="flex flex-wrap gap-2">
-        <div className="flex-[1_1_260px]">
-          <SearchBox value={reference} onChange={(v) => { setReference(v); setPage(1); }} placeholder="رقم الحجز (MAL-…)" />
+      
+      <div className="flex flex-wrap gap-2.5 items-center justify-between bg-white p-3.5 rounded-2xl border border-[#EEF1F6] shadow-xs">
+        <div className="flex flex-wrap gap-2 flex-1 min-w-[280px]">
+          <div className="flex-[1_1_240px]">
+            <SearchBox value={reference} onChange={(v) => { setReference(v); setPage(1); }} placeholder="رقم الحجز (MAL-…)" />
+          </div>
+          <Select label="الحالة" value={status} onChange={(v) => { setStatus(v); setPage(1); }} options={STATUSES} />
         </div>
-        <Select label="الحالة" value={status} onChange={(v) => { setStatus(v); setPage(1); }} options={STATUSES} />
+
+        <div className="inline-flex rounded-xl bg-slate-100 p-1 border border-slate-200">
+          <button
+            type="button"
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+              viewMode === "cards" ? "bg-white text-slate-900 shadow-xs" : "text-[#5B6475] hover:text-slate-900"
+            }`}
+            onClick={() => setViewMode("cards")}
+          >
+            🗂️ بطاقات
+          </button>
+          <button
+            type="button"
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+              viewMode === "table" ? "bg-white text-slate-900 shadow-xs" : "text-[#5B6475] hover:text-slate-900"
+            }`}
+            onClick={() => setViewMode("table")}
+          >
+            📊 جدول
+          </button>
+        </div>
       </div>
-      <QueryState query={bookings} isEmpty={(d) => d.items.length === 0} empty="مفيش حجوزات بالبحث ده.">
+
+      <QueryState
+        query={bookings}
+        isEmpty={(d) => d.items.length === 0}
+        emptyTitle="لم يتم العثور على أي حجوزات"
+        emptyDescription={reference || status ? "لا توجد حجوزات تطابق رقم المرجع أو الحالة المحددة. يمكنك تعديل البحث لعرض باقي الحجوزات." : "لا توجد حجوزات مسجلة على المنصة حتى الآن."}
+        emptyIcon={reference || status ? "search" : "calendar"}
+        emptyAction={
+          reference || status
+            ? {
+                label: "إعادة ضبط البحث والفلاتر",
+                onClick: () => {
+                  setReference("");
+                  setStatus("");
+                  setPage(1);
+                },
+                variant: "outline",
+              }
+            : undefined
+        }
+      >
         {(data) => (
           <>
-            <Table<Row>
-              caption="الحجوزات"
-              rows={data.items}
-              rowKey={(r) => r.id}
-              selected={selected}
-              onSelect={(r) => setSelected(r.id)}
-              columns={[
-                { title: "الرقم", cell: (r) => <strong dir="ltr" className="font-inter">{r.reference}</strong> },
-                { title: "الميعاد", cell: (r) => fmtDateTime(r.startUtc) },
-                { title: "السعر", cell: (r) => money(r.totalPrice) },
-                { title: "العربون", cell: (r) => money(r.depositAmount) },
-                { title: "النوع", cell: (r) => (r.isManual ? "يدوي" : "أونلاين") },
-                { title: "الحالة", cell: (r) => <Pill tone={TONE[r.status] ?? "neutral"}>{STATUS_MAP[r.status] ?? r.status}</Pill> },
-              ]}
-            />
+            {viewMode === "cards" ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                {data.items.map((r) => {
+                  const isSelected = selected === r.id;
+                  return (
+                    <div
+                      key={r.id}
+                      onClick={() => setSelected(r.id)}
+                      className={`${card} rounded-[20px] p-5 flex flex-col justify-between gap-4 border transition-all cursor-pointer hover:border-slate-400 hover:shadow-md active:scale-[0.99] ${
+                        isSelected ? "border-brand-red ring-2 ring-brand-red/20 bg-[#FDFDFE]" : "border-[#E2E6EF]"
+                      }`}
+                    >
+                      {/* Top Header: Reference & Badges */}
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex flex-col gap-1 min-w-0">
+                          <span className="text-[11px] font-semibold text-[#5B6475]">رقم الحجز</span>
+                          <strong dir="ltr" className="font-inter text-base font-bold text-slate-900 tracking-wide text-right truncate">
+                            {r.reference}
+                          </strong>
+                        </div>
+                        <div className="flex flex-col items-end gap-1.5 shrink-0">
+                          <Pill tone={TONE[r.status] ?? "neutral"}>
+                            {STATUS_MAP[r.status] ?? r.status}
+                          </Pill>
+                          <span className="text-[11px] px-2 py-0.5 rounded-md font-semibold bg-slate-100 text-slate-600">
+                            {r.isManual ? "📝 يدوي" : "📱 أونلاين"}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Center: Timing badge */}
+                      <div className="flex items-center gap-3 p-3 rounded-xl bg-[#F6F8FB] border border-[#E9EDF5]">
+                        <span className="text-xl">📅</span>
+                        <div className="flex flex-col">
+                          <span className="text-xs text-[#5B6475]">تاريخ وميعاد الحجز</span>
+                          <span className="text-sm font-bold text-slate-800">{fmtDateTime(r.startUtc)}</span>
+                        </div>
+                      </div>
+
+                      {/* Bottom: Financials & Action */}
+                      <div className="flex flex-col gap-2 pt-2 border-t border-[#F0F2F6]">
+                        <div className="grid grid-cols-2 gap-2 text-xs">
+                          <div className="flex flex-col">
+                            <span className={muted}>السعر الإجمالي</span>
+                            <strong className="text-sm font-bold text-emerald-700">{money(r.totalPrice)}</strong>
+                          </div>
+                          <div className="flex flex-col text-left">
+                            <span className={muted}>العربون المدفوع</span>
+                            <strong className="text-sm font-bold text-slate-900">{money(r.depositAmount)}</strong>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center justify-between text-xs text-brand-red font-bold pt-2 border-t border-dashed border-[#EEF0F5]">
+                          <span>عرض تفاصيل الحجز والإلغاء</span>
+                          <span className="text-base font-normal">←</span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <Table<Row>
+                caption="الحجوزات"
+                rows={data.items}
+                rowKey={(r) => r.id}
+                selected={selected}
+                onSelect={(r) => setSelected(r.id)}
+                columns={[
+                  { title: "الرقم", cell: (r) => <strong dir="ltr" className="font-inter">{r.reference}</strong> },
+                  { title: "الميعاد", cell: (r) => fmtDateTime(r.startUtc) },
+                  { title: "السعر", cell: (r) => money(r.totalPrice) },
+                  { title: "العربون", cell: (r) => money(r.depositAmount) },
+                  { title: "النوع", cell: (r) => (r.isManual ? "يدوي" : "أونلاين") },
+                  { title: "الحالة", cell: (r) => <Pill tone={TONE[r.status] ?? "neutral"}>{STATUS_MAP[r.status] ?? r.status}</Pill> },
+                ]}
+              />
+            )}
             <Pager page={page} pageSize={PAGE_SIZE} total={data.total} onChange={setPage} />
           </>
         )}

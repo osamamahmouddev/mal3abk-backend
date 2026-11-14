@@ -265,7 +265,22 @@ export default function AreasPage() {
       <QueryState
         query={areas}
         isEmpty={(d) => d.length === 0}
-        empty="لا توجد مناطق مطابقة للفلتر المحدد. يمكنك تغيير المحافظة أو البحث عن منطقة أخرى."
+        emptyTitle="لا توجد مناطق مطابقة"
+        emptyDescription="لا توجد مناطق مسجلة مطابقة للفلتر أو البحث المحدد. يمكنك اختيار محافظة أخرى أو تعديل كلمة البحث."
+        emptyIcon="search"
+        emptyAction={
+          selectedGov || searchQuery || statusFilter !== "all"
+            ? {
+                label: "إعادة ضبط البحث والفلاتر",
+                onClick: () => {
+                  setSelectedGov("");
+                  setSearchQuery("");
+                  setStatusFilter("all");
+                },
+                variant: "outline",
+              }
+            : undefined
+        }
       >
         {(list) => (
           <Table<Row>

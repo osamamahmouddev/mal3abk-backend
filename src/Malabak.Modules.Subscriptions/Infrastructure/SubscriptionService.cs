@@ -68,7 +68,22 @@ public sealed record OwnerBillingDto(SubscriptionDto? Subscription, PlanDto? Eff
 
 public sealed record RecordPaymentInput(decimal Amount, PaymentMethod Method, string? Reference, DateTime? PaidAtUtc, string? Notes);
 
-public sealed record SubscriptionListItem(Guid Id, Guid OwnerId, string PlanCode, string PlanName, string Cycle, string Status, DateTime CurrentPeriodEndUtc, DateTime? GraceEndsAtUtc);
+public sealed record SubscriptionVenueInfo(Guid Id, string Name, string City);
+
+public sealed record SubscriptionListItem(
+    Guid Id,
+    Guid OwnerId,
+    string? OwnerName,
+    string? OwnerPhone,
+    string? OwnerEmail,
+    IReadOnlyList<SubscriptionVenueInfo> Venues,
+    string PlanCode,
+    string PlanName,
+    string Cycle,
+    string Status,
+    DateTime StartedAtUtc,
+    DateTime CurrentPeriodEndUtc,
+    DateTime? GraceEndsAtUtc);
 
 /// <summary>
 /// Subscription lifecycle for admins (TASK-708): assign, change plan (downgrades must fit current usage), record manual
@@ -123,8 +138,38 @@ public sealed class SubscriptionService
 
         var rows = await query.OrderBy(x => x.CurrentPeriodEndUtc).Take(500).ToListAsync(cancellationToken);
         var plans = await _dbContext.Plans.AsNoTracking().ToDictionaryAsync(x => x.Id, cancellationToken);
-        return rows.Select(x => new SubscriptionListItem(x.Id, x.OwnerId, plans.GetValueOrDefault(x.PlanId)?.Code ?? "", plans.GetValueOrDefault(x.PlanId)?.Name ?? "",
-            x.Cycle.ToString(), x.Status.ToString(), x.CurrentPeriodEndUtc, x.GraceEndsAtUtc)).ToList();
+        var ownerIds = rows.Select(x => x.OwnerId).Distinct().ToList();
+
+        IReadOnlyDictionary<Guid, UserAccountSummary> summaries = new Dictionary<Guid, UserAccountSummary>();
+        if (_accounts is not null && ownerIds.Count > 0)
+        {
+            summaries = await _accounts.GetSummariesAsync(ownerIds, cancellationToken);
+        }
+
+        var venuesMap = await _usage.GetOwnerVenuesBatchAsync(ownerIds, cancellationToken);
+
+        return rows.Select(x =>
+        {
+            var plan = plans.GetValueOrDefault(x.PlanId);
+            var owner = summaries.GetValueOrDefault(x.OwnerId);
+            var ownerVenues = venuesMap.GetValueOrDefault(x.OwnerId) ?? [];
+            var venueDtos = ownerVenues.Select(v => new SubscriptionVenueInfo(v.Id, v.Name, v.City)).ToList();
+
+            return new SubscriptionListItem(
+                x.Id,
+                x.OwnerId,
+                owner?.FullName,
+                owner?.MaskedPhone,
+                owner?.Email,
+                venueDtos,
+                plan?.Code ?? "",
+                plan?.Name ?? "",
+                x.Cycle.ToString(),
+                x.Status.ToString(),
+                x.StartedAtUtc,
+                x.CurrentPeriodEndUtc,
+                x.GraceEndsAtUtc);
+        }).ToList();
     }
 
     public async Task<Result<SubscriptionDetailDto>> GetByOwnerAsync(Guid ownerId, CancellationToken cancellationToken = default)
@@ -156,7 +201,7 @@ public sealed class SubscriptionService
             subscription is null ? null : await ToDtoAsync(subscription, cancellationToken),
             plan is null ? null : PlanService.ToDto(plan, 0),
             await _usage.GetAsync(ownerId, cancellationToken),
-            invoices.Select(InvoiceService.ToDto).ToList(),
+            invoices.Select(i => InvoiceService.ToDto(i)).ToList(),
             pendingReq);
     }
 

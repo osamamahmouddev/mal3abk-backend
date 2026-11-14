@@ -20,12 +20,18 @@ async function refreshTokens(config: BffConfig, refreshToken: string): Promise<R
       cache: "no-store",
     })
       .then(async (response): Promise<RefreshOutcome> => {
-        if (response.ok) return (await response.json()) as Tokens;
+        if (response.ok) {
+          setTimeout(() => inflight.delete(refreshToken), 60_000);
+          return (await response.json()) as Tokens;
+        }
+        inflight.delete(refreshToken);
         return response.status === 400 || response.status === 401 ? "invalid" : "unavailable";
       })
-      .catch((): RefreshOutcome => "unavailable");
+      .catch((): RefreshOutcome => {
+        inflight.delete(refreshToken);
+        return "unavailable";
+      });
     inflight.set(refreshToken, pending);
-    setTimeout(() => inflight.delete(refreshToken), 60_000);
   }
   return pending;
 }

@@ -60,9 +60,45 @@ function Settings() {
     onError: notice.fail,
   });
 
+  const maintenanceSetting = settings.data?.find((s) => s.key === "maintenance.enabled");
+  const isMaintenanceOn = maintenanceSetting?.value === "true";
+
   return (
     <>
       {notice.node}
+
+      {isMaintenanceOn && (
+        <div className="bg-red-50 border-2 border-red-300 text-red-950 p-4 sm:p-5 rounded-2xl flex flex-wrap items-center justify-between gap-4 shadow-sm">
+          <div className="flex items-center gap-3.5">
+            <div className="w-12 h-12 rounded-xl bg-red-100 flex items-center justify-center text-2xl shrink-0">
+              🛠️
+            </div>
+            <div>
+              <strong className="text-base font-black text-red-900 block">
+                وضع الصيانة مفعّل حالياً على منصة ملعبك!
+              </strong>
+              <span className="text-xs text-red-800 leading-relaxed block mt-0.5">
+                جميع طلبات المستخدمين متوقفة حالياً وتظهر لهم رسالة الصيانة الرسمية. لوحة تحكم الإدارة فقط هي المستثناة.
+              </span>
+            </div>
+          </div>
+          <button
+            type="button"
+            className={`${btnSmall} bg-red-600 hover:bg-red-700 text-white font-bold px-4 py-2 text-xs border-none shadow-sm cursor-pointer`}
+            onClick={() =>
+              setReason({
+                title: "إلغاء وضع الصيانة",
+                body: "إلغاء وضع الصيانة وعودة المنصة والتطبيقات للعمل الطبيعي فوراً.",
+                confirmLabel: "إلغاء الصيانة الآن",
+                onConfirm: (text) => save.mutate({ key: "maintenance.enabled", value: "false", text }),
+              })
+            }
+          >
+            ✓ إلغاء وضع الصيانة وإعادة المنصة للعمل
+          </button>
+        </div>
+      )}
+
       <QueryState query={settings}>
         {(list) => (
           <div className={`${card} rounded-[18px] divide-y divide-[#EEF0F5]`}>
@@ -83,7 +119,19 @@ function Settings() {
                     </span>
                   </div>
                   {s.type === "Boolean" ? (
-                    <Switch on={value === "true"} label={description} onToggle={() => setDrafts((d) => ({ ...d, [s.key]: value === "true" ? "false" : "true" }))} />
+                    <Switch
+                      on={s.value === "true"}
+                      label={description}
+                      disabled={save.isPending}
+                      onToggle={() =>
+                        setReason({
+                          title: s.value === "true" ? `إيقاف ${description}` : `تشغيل ${description}`,
+                          body: `${description}: ${s.value === "true" ? "مفعل" : "معطل"} ← ${s.value === "true" ? "معطل" : "مفعل"}`,
+                          confirmLabel: s.value === "true" ? "إيقاف" : "تشغيل",
+                          onConfirm: (text) => save.mutate({ key: s.key, value: s.value === "true" ? "false" : "true", text }),
+                        })
+                      }
+                    />
                   ) : (
                     <TextInput
                       aria-label={description}
@@ -95,14 +143,16 @@ function Settings() {
                     />
                   )}
                   {!s.isDefault && <Pill tone="navy">متعدّل</Pill>}
-                  <button
-                    type="button"
-                    className={btnSmall}
-                    disabled={draft === undefined || draft === s.value}
-                    onClick={() => setReason({ title: "تغيير إعداد", body: `${description}: ${s.value} ← ${draft}`, confirmLabel: "حفظ", onConfirm: (text) => save.mutate({ key: s.key, value: draft!, text }) })}
-                  >
-                    حفظ
-                  </button>
+                  {s.type !== "Boolean" && (
+                    <button
+                      type="button"
+                      className={btnSmall}
+                      disabled={draft === undefined || draft === s.value || save.isPending}
+                      onClick={() => setReason({ title: "تغيير إعداد", body: `${description}: ${s.value} ← ${draft}`, confirmLabel: "حفظ", onConfirm: (text) => save.mutate({ key: s.key, value: draft!, text }) })}
+                    >
+                      حفظ
+                    </button>
+                  )}
                 </div>
               );
             })}
@@ -180,7 +230,13 @@ function Sessions() {
   return (
     <>
       {notice.node}
-      <QueryState query={sessions} isEmpty={(d) => d.length === 0} empty="مفيش جلسات إدارة مفتوحة.">
+      <QueryState
+        query={sessions}
+        isEmpty={(d) => d.length === 0}
+        emptyTitle="لا توجد جلسات إدارة مفتوحة"
+        emptyDescription="لا توجد جلسات دخول نشطة أخرى للمشرفين في الوقت الحالي."
+        emptyIcon="shield"
+      >
         {(list) => (
           <div className={`${card} rounded-[18px] divide-y divide-[#EEF0F5]`}>
             {list.map((s) => (

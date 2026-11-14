@@ -13,6 +13,7 @@ public static class SubscriptionsModule
     {
         services.AddScoped<EntitlementService>();
         services.AddScoped<IEntitlementService>(sp => sp.GetRequiredService<EntitlementService>());
+        services.AddScoped<IOwnerSubscriptionReader>(sp => sp.GetRequiredService<EntitlementService>());
         services.AddScoped<PlanService>();
         services.AddScoped<SubscriptionService>();
         services.AddScoped<InvoiceService>();

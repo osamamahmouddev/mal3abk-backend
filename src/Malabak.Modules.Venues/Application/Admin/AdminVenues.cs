@@ -9,7 +9,19 @@ namespace Malabak.Modules.Venues.Application.Admin;
 public sealed record AdminVenueSearch(string? Query, string? ApprovalStatus, Guid? OwnerId, int Page = 1, int PageSize = 25);
 
 public sealed record AdminVenueListItem(
-    Guid Id, string Name, string City, string Area, Guid OwnerId, string ApprovalStatus, bool IsPublished, int Pitches, DateTime CreatedAtUtc);
+    Guid Id,
+    string Name,
+    string City,
+    string Area,
+    Guid OwnerId,
+    string? OwnerName,
+    string? OwnerPhone,
+    string? PlanName,
+    string? SubscriptionStatus,
+    string ApprovalStatus,
+    bool IsPublished,
+    int Pitches,
+    DateTime CreatedAtUtc);
 
 public sealed record AdminVenuePage(IReadOnlyList<AdminVenueListItem> Items, int Page, int PageSize, int Total);
 
@@ -27,6 +39,9 @@ public sealed record AdminVenueDetail(
     string PhoneNumber,
     Guid OwnerId,
     string? OwnerName,
+    string? OwnerPhone,
+    string? PlanName,
+    string? SubscriptionStatus,
     string ApprovalStatus,
     bool IsPublished,
     string? AdminNote,
@@ -61,6 +76,7 @@ public sealed class AdminVenueService
     private readonly INotificationPublisher _notifications;
     private readonly IAuditLog _audit;
     private readonly IClock _clock;
+    private readonly IOwnerSubscriptionReader? _subscriptions;
 
     public AdminVenueService(
         VenuesDbContext dbContext,
@@ -68,7 +84,8 @@ public sealed class AdminVenueService
         IUserAccountsContract accounts,
         INotificationPublisher notifications,
         IAuditLog audit,
-        IClock clock)
+        IClock clock,
+        IOwnerSubscriptionReader? subscriptions = null)
     {
         _dbContext = dbContext;
         _stats = stats;
@@ -76,6 +93,7 @@ public sealed class AdminVenueService
         _notifications = notifications;
         _audit = audit;
         _clock = clock;
+        _subscriptions = subscriptions;
     }
 
     public async Task<Result<AdminVenuePage>> SearchAsync(AdminVenueSearch search, CancellationToken cancellationToken = default)
@@ -130,7 +148,42 @@ public sealed class AdminVenueService
             })
             .ToListAsync(cancellationToken);
 
-        var items = rows.Select(v => new AdminVenueListItem(v.Id, v.Name, v.City, v.Area, v.OwnerId, v.ApprovalStatus.ToString(), v.IsPublished, v.Pitches, v.CreatedAtUtc)).ToList();
+        var ownerIds = rows.Select(v => v.OwnerId).Distinct().ToList();
+
+        var legacyNames = await _accounts.GetFullNamesAsync(ownerIds, cancellationToken);
+        IReadOnlyDictionary<Guid, UserAccountSummary> accountSummaries = new Dictionary<Guid, UserAccountSummary>();
+        if (_accounts is not null && ownerIds.Count > 0)
+        {
+            accountSummaries = await _accounts.GetSummariesAsync(ownerIds, cancellationToken);
+        }
+
+        IReadOnlyDictionary<Guid, OwnerSubscriptionSummary> subSummaries = new Dictionary<Guid, OwnerSubscriptionSummary>();
+        if (_subscriptions is not null && ownerIds.Count > 0)
+        {
+            subSummaries = await _subscriptions.GetSummariesBatchAsync(ownerIds, cancellationToken);
+        }
+
+        var items = rows.Select(v =>
+        {
+            var owner = accountSummaries.GetValueOrDefault(v.OwnerId);
+            var sub = subSummaries.GetValueOrDefault(v.OwnerId);
+            var ownerName = owner?.FullName ?? legacyNames.GetValueOrDefault(v.OwnerId);
+            return new AdminVenueListItem(
+                v.Id,
+                v.Name,
+                v.City,
+                v.Area,
+                v.OwnerId,
+                ownerName,
+                owner?.MaskedPhone,
+                sub?.PlanName,
+                sub?.Status,
+                v.ApprovalStatus.ToString(),
+                v.IsPublished,
+                v.Pitches,
+                v.CreatedAtUtc);
+        }).ToList();
+
         return Result.Success(new AdminVenuePage(items, search.Page, search.PageSize, total));
     }
 
@@ -149,11 +202,21 @@ public sealed class AdminVenueService
             .ToListAsync(cancellationToken);
         var now = _clock.UtcNow;
         var stats = await _stats.GetAsync(venueId, now.AddDays(-30), now, cancellationToken);
-        var names = await _accounts.GetFullNamesAsync([venue.OwnerId], cancellationToken);
+        var legacyNames = await _accounts.GetFullNamesAsync([venue.OwnerId], cancellationToken);
+        var summaries = await _accounts.GetSummariesAsync([venue.OwnerId], cancellationToken);
+        var ownerSummary = summaries.GetValueOrDefault(venue.OwnerId);
+        var ownerName = ownerSummary?.FullName ?? legacyNames.GetValueOrDefault(venue.OwnerId);
+
+        IReadOnlyDictionary<Guid, OwnerSubscriptionSummary> subSummaries = new Dictionary<Guid, OwnerSubscriptionSummary>();
+        if (_subscriptions is not null)
+        {
+            subSummaries = await _subscriptions.GetSummariesBatchAsync([venue.OwnerId], cancellationToken);
+        }
+        var sub = subSummaries.GetValueOrDefault(venue.OwnerId);
 
         return Result.Success(new AdminVenueDetail(
             venue.Id, venue.Name, venue.Slug, venue.Address, venue.City, venue.Area, venue.PhoneNumber, venue.OwnerId,
-            names.GetValueOrDefault(venue.OwnerId), venue.ApprovalStatus.ToString(), venue.IsPublished, venue.AdminNote, staff, pitches, stats,
+            ownerName, ownerSummary?.MaskedPhone, sub?.PlanName, sub?.Status, venue.ApprovalStatus.ToString(), venue.IsPublished, venue.AdminNote, staff, pitches, stats,
             history.Select(e => new AdminVenueEventItem(e.Action.ToString(), e.FromStatus.ToString(), e.ToStatus.ToString(), e.ActorUserId, e.Message, e.CreatedAtUtc)).ToList(),
             venue.CreatedAtUtc));
     }

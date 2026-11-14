@@ -33,7 +33,9 @@ public sealed class MaintenanceModeMiddleware(RequestDelegate next)
         var segments = value.Split('/', StringSplitOptions.RemoveEmptyEntries);
         // /api/v1/<area>/...
         var area = segments.Length > 2 ? segments[2] : string.Empty;
+        var sub = segments.Length > 3 ? segments[3] : string.Empty;
         return area.Equals("admin", StringComparison.OrdinalIgnoreCase)
-            || (area.Equals("platform", StringComparison.OrdinalIgnoreCase) && segments.Length > 3 && segments[3].Equals("status", StringComparison.OrdinalIgnoreCase));
+            || (area.Equals("platform", StringComparison.OrdinalIgnoreCase) && sub.Equals("status", StringComparison.OrdinalIgnoreCase))
+            || (area.Equals("auth", StringComparison.OrdinalIgnoreCase) && (sub.Equals("refresh", StringComparison.OrdinalIgnoreCase) || sub.Equals("logout", StringComparison.OrdinalIgnoreCase)));
     }
 }

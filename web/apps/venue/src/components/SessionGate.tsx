@@ -25,6 +25,37 @@ export const SessionGate: React.FC<{ children: React.ReactNode }> = ({ children 
   if (session.isSuccess) return <>{children}</>;
 
   if (session.isError) {
+    const errorMsg = session.error instanceof Error ? session.error.message : String(session.error ?? "");
+    const isMaintenance =
+      errorMsg.includes("صيانة") ||
+      errorMsg.includes("Maintenance") ||
+      errorMsg.includes("Platform.Maintenance");
+
+    if (isMaintenance) {
+      return (
+        <main className="min-h-screen w-full flex items-center justify-center p-6 bg-[#F8FAFC]" dir="rtl">
+          <div role="alert" className="max-w-md w-full rounded-3xl bg-white border border-[#E2E8F0] p-8 text-center flex flex-col items-center gap-4 shadow-xl">
+            <div className="w-16 h-16 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center text-3xl shadow-xs">
+              🛠️
+            </div>
+            <h1 className="text-xl font-black text-navy-900">المنصة في وضع الصيانة</h1>
+            <p className="text-sm text-gray-600 leading-relaxed">
+              {errorMsg.includes("صيانة") ? errorMsg : "نعمل حالياً على تحسين وتحديث الخدمة، وسنعود للعمل قريباً جداً. شكراً لتفهمكم وصبركم."}
+            </p>
+            <div className="flex gap-2 justify-center w-full mt-2">
+              <button
+                type="button"
+                onClick={() => session.refetch()}
+                className="min-h-[44px] px-6 rounded-xl bg-navy-900 hover:bg-slate-800 text-white text-sm font-bold cursor-pointer transition-all duration-150"
+              >
+                🔄 إعادة المحاولة الآن
+              </button>
+            </div>
+          </div>
+        </main>
+      );
+    }
+
     return (
       <main className="min-h-screen w-full flex items-center justify-center p-6" dir="rtl">
         <div role="alert" className="max-w-sm w-full rounded-2xl bg-white border border-[#EDF0F5] p-6 text-center flex flex-col gap-4">

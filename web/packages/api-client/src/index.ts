@@ -32,6 +32,9 @@ const ARABIC_PROBLEM_MESSAGES: Record<string, string> = {
   "Identity.TwoFactorRequired": "يلزم تفعيل التحقق بخطوتين لهذا الحساب.",
   "Identity.InvalidCredentials": "البريد الإلكتروني أو كلمة المرور غير صحيحة.",
   "Identity.UserLockedOut": "تم قفل الحساب مؤقتاً لكثرة المحاولات الخاطئة.",
+  "Impersonation.NotAllowed": "لا يمكن الدخول بصفة هذا الحساب: الدخول للمساعدة مخصص للعملاء فقط (اللاعبين وأصحاب الملاعب)، ولا يُسمح بالدخول على حسابك الشخصي أو حسابات موظفي الإدارة أو الحسابات الموقوفة.",
+  "Impersonation.ReasonRequired": "يجب كتابة سبب واضح لطلب الدخول بحساب العميل للمساعدة.",
+  "Impersonation.InvalidCode": "كود الدخول غير صالح أو انتهت صلاحيته (صالح لـ ٦٠ ثانية فقط).",
   "Pricing.NoBasePrice": "لم يتم تحديد سعر أساسي لهذا الملعب بعد.",
   "Pricing.CurrencyMismatch": "كل قواعد الأسعار يجب أن تكون بنفس العملة.",
   "PriceRule.Overlap": "يوجد تعارض مع قاعدة سعر أخرى نشطة في نفس الوقت والميعاد.",
@@ -39,6 +42,13 @@ const ARABIC_PROBLEM_MESSAGES: Record<string, string> = {
   "PriceRule.TooMany": "وصلت للحد الأقصى لقواعد الأسعار.",
   "Venue.NotFound": "المكان غير موجود.",
   "Pitch.NotFound": "الملعب غير موجود.",
+  "Featured.VenueNotLive": "لا يمكن تمييز هذا الملعب لأنه غير منشور حالياً. يجب أن يكون الملعب معتمداً ومنشوراً ليظهر للاعبين في المنصة.",
+  "Featured.InvalidSchedule": "تاريخ الانتهاء يجب أن يكون بعد تاريخ البدء وفي المستقبل، وبحد أقصى ٩٠ يوماً.",
+  "Featured.SlotFull": "وصلت المساحة الإعلانية المحددة للحد الأقصى من الملاعب المميزة في هذه الفترة (١٠ ملاعب كحد أقصى).",
+  "Featured.NotFound": "العرض الترويجي للملعب غير موجود.",
+  "Featured.Cancelled": "تم إلغاء هذا العرض الترويجي بالفعل.",
+  "Featured.Invalid": "برجاء التأكد من صحة بيانات الجدولة وترتيب العرض.",
+  "Platform.Maintenance": "المنصة في وضع الصيانة حالياً. نعمل على تحسين الخدمة وسنعود للعمل قريباً.",
 };
 
 /** Readable message for a failed call: the API puts its error code in `title` and the reason in `detail`. */

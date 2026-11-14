@@ -6,6 +6,7 @@ import type { Schemas } from "@malabak/api-client";
 import { Badge, Page, Toast, card, formatEGP, inputClass, muted, primaryBtn, secondaryBtn, toArabicDigits } from "@/components/ui";
 import { api, unwrap } from "@/lib/api";
 import { uploadImage } from "@/lib/upload";
+import { InvoiceModal } from "@/components/invoice-modal";
 
 type Plan = Schemas["PlanDto"];
 
@@ -32,6 +33,7 @@ export default function SubscriptionPage() {
   const queryClient = useQueryClient();
   const [cycle, setCycle] = useState<"month" | "year">("month");
   const [toast, setToast] = useState<string | null>(null);
+  const [viewInvoice, setViewInvoice] = useState<Schemas["InvoiceDto"] | null>(null);
 
   const [receiptMediaId, setReceiptMediaId] = useState<string | null>(null);
   const [receiptFileName, setReceiptFileName] = useState<string | null>(null);
@@ -464,19 +466,71 @@ export default function SubscriptionPage() {
         <p className={`px-5 py-4 text-[13px] ${muted}`}>مفيش دفع أونلاين: بعد الطلب فريق ملعبك بيتواصل معاك بتعليمات الدفع (تحويل، إنستاباي، محفظة أو كاش) وبيفعّل الباقة.</p>
       </section>
 
-      <section className={`${card} rounded-[18px] p-5 flex flex-col gap-2`}>
-        <h2 className="text-base font-bold">الفواتير</h2>
-        {data && data.invoices.length === 0 && <span className={`text-sm ${muted}`}>مفيش فواتير لسه.</span>}
+      <section className={`${card} rounded-[18px] p-5 flex flex-col gap-3`}>
+        <div className="flex items-center justify-between">
+          <h2 className="text-base font-bold text-navy-900 flex items-center gap-2">
+            <span>🧾</span>
+            <span>فواتير الاشتراكات</span>
+          </h2>
+          {data && data.invoices.length > 0 && (
+            <span className="text-xs text-gray-500 font-semibold">
+              إجمالي {toArabicDigits(data.invoices.length)} فاتورة
+            </span>
+          )}
+        </div>
+        {data && data.invoices.length === 0 && (
+          <div className="p-8 text-center text-sm text-gray-500 bg-gray-50 rounded-xl border border-dashed border-gray-200">
+            لا توجد فواتير اشتراكات بعد. ستظهر الفواتير هنا فور سداد وتفعيل أي باقة.
+          </div>
+        )}
         {data?.invoices.map((inv) => (
-          <div key={inv.id} className="flex flex-wrap gap-2 items-center border-t border-[#EDF0F5] pt-2 text-sm">
-            <span dir="ltr" className="font-inter">{inv.number}</span>
-            <span className={muted}>{fmtDate(inv.periodStartUtc)} – {fmtDate(inv.periodEndUtc)} · {inv.planName}</span>
-            <strong className="ms-auto">{formatEGP(inv.amount)}</strong>
-            {inv.status === "Void" ? <Badge tone="bad">ملغية</Badge> : <button type="button" className={secondaryBtn} onClick={() => downloadInvoice(inv)}>تحميل PDF</button>}
+          <div
+            key={inv.id}
+            className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border border-[#EDF0F5] hover:border-gray-300 p-4 rounded-xl transition-all duration-150 bg-white"
+          >
+            <div className="flex flex-col gap-1">
+              <div className="flex items-center gap-2">
+                <span dir="ltr" className="font-inter font-bold text-[#071832]">
+                  {inv.number}
+                </span>
+                {inv.status === "Void" ? (
+                  <Badge tone="bad">ملغاة</Badge>
+                ) : (
+                  <Badge tone="ok">مسددة بالكامل ✓</Badge>
+                )}
+              </div>
+              <span className={`text-xs ${muted}`}>
+                باقة {inv.planName} · التغطية: {fmtDate(inv.periodStartUtc)} إلى {fmtDate(inv.periodEndUtc)}
+              </span>
+            </div>
+
+            <div className="flex items-center justify-between sm:justify-end gap-3 border-t sm:border-t-0 pt-2 sm:pt-0">
+              <strong className="text-base font-black text-navy-900">
+                {formatEGP(inv.amount)} ج.م
+              </strong>
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  className={`${primaryBtn} min-h-[36px] px-3.5 text-xs bg-[#071832] hover:bg-slate-800`}
+                  onClick={() => setViewInvoice(inv)}
+                >
+                  <span>🧾</span>
+                  <span>عرض الفاتورة</span>
+                </button>
+                <button
+                  type="button"
+                  className={`${secondaryBtn} min-h-[36px] px-3 text-xs`}
+                  onClick={() => downloadInvoice(inv)}
+                >
+                  PDF
+                </button>
+              </div>
+            </div>
           </div>
         ))}
       </section>
 
+      <InvoiceModal invoice={viewInvoice} onClose={() => setViewInvoice(null)} />
       <Toast message={toast} onClose={() => setToast(null)} />
     </Page>
   );

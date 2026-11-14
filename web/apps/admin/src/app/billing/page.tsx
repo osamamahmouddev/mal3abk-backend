@@ -1,11 +1,12 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { Schemas } from "@malabak/api-client";
-import { KV, Page, PageHeader, Pill, ReasonModal, type ReasonRequest, Tabs, btnDanger, btnOutline, btnPrimary, btnSmall, card, money, muted } from "@/components/ui";
+import { KV, Page, PageHeader, Pill, ReasonModal, type ReasonRequest, Tabs, btnDanger, btnOutline, btnPrimary, btnSmall, card, money, muted, toArabicDigits } from "@/components/ui";
 import { Drawer, Field, QueryState, Section, Select, Table, TextInput, fmtDate, fmtDateTime, useNotice } from "@/components/admin";
 import { api, openFile, unwrap } from "@/lib/api";
+import { InvoiceModal } from "@/components/invoice-modal";
 
 type Tab = "subscriptions" | "requests" | "invoices";
 const STATUS_TONE: Record<string, "ok" | "warn" | "bad" | "neutral"> = { Active: "ok", Trial: "warn", Grace: "warn", Expired: "bad", Suspended: "bad", Cancelled: "neutral" };
@@ -58,11 +59,126 @@ export default function BillingPage() {
   );
 }
 
+function getExpiryBadge(endUtc: string, status: string) {
+  if (status === "Expired" || status === "Cancelled") {
+    return { text: "منتهي", tone: "bad" as const };
+  }
+  const end = new Date(endUtc);
+  const now = new Date();
+  const diffDays = Math.ceil((end.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+  if (diffDays < 0) {
+    return { text: `انتهى منذ ${toArabicDigits(Math.abs(diffDays))} يوم`, tone: "bad" as const };
+  }
+  if (diffDays === 0) {
+    return { text: "ينتهي اليوم", tone: "warn" as const };
+  }
+  if (diffDays <= 7) {
+    return { text: `متبقي ${toArabicDigits(diffDays)} أيام`, tone: "warn" as const };
+  }
+  return { text: `متبقي ${toArabicDigits(diffDays)} يوم`, tone: "ok" as const };
+}
+
+function QuickRenewModal({
+  target,
+  onClose,
+  onSuccess,
+}: {
+  target: { ownerId: string; ownerName?: string | null; planName: string; cycle: string } | null;
+  onClose: () => void;
+  onSuccess: (msg: string) => void;
+}) {
+  const [amount, setAmount] = useState("");
+  const [method, setMethod] = useState("2");
+  const [reference, setReference] = useState("");
+  const notice = useNotice();
+
+  const pay = useMutation({
+    mutationFn: () =>
+      unwrap(
+        api.POST("/api/v1/admin/subscriptions/owners/{ownerId}/payments", {
+          params: { path: { ownerId: target?.ownerId ?? "" } },
+          body: {
+            amount: Number(amount),
+            method: Number(method) as Schemas["PaymentMethod"],
+            reference: reference || null,
+            paidAtUtc: null,
+            notes: "تجديد اشتراك من لوحة الأدمن",
+          },
+        }),
+      ),
+    onSuccess: (invoice) => {
+      onSuccess(`تم تجديد الاشتراك وتسجيل الدفعة بنجاح! فاتورة رقم: ${invoice.number}`);
+      onClose();
+    },
+    onError: notice.fail,
+  });
+
+  if (!target) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs animate-fade-in">
+      <div className="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl border border-slate-200 flex flex-col gap-4 animate-scale-in">
+        <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+          <div>
+            <h3 className="font-bold text-slate-900 text-lg">تجديد الاشتراك وتسجيل سداد</h3>
+            <span className="text-xs text-[#5B6475]">المالك: {target.ownerName || target.ownerId.slice(0, 8)} · باقة {target.planName}</span>
+          </div>
+          <button type="button" onClick={onClose} className="text-slate-600 hover:text-slate-600 text-xl font-bold">×</button>
+        </div>
+
+        {notice.node}
+
+        <Field label="المبلغ المدفوع (ج.م)">
+          <TextInput
+            placeholder="مثال: 500"
+            inputMode="decimal"
+            value={amount}
+            onChange={(e) => setAmount(e.target.value.replace(/[^\d.]/g, ""))}
+          />
+        </Field>
+
+        <Field label="طريقة التحويل / السداد">
+          <Select label="طريقة السداد" value={method} onChange={setMethod} options={METHODS} />
+        </Field>
+
+        <Field label="رقم العملية / المرجع (اختياري)">
+          <TextInput
+            placeholder="مثال: IPN12345678"
+            value={reference}
+            onChange={(e) => setReference(e.target.value)}
+          />
+        </Field>
+
+        <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+          <button type="button" className={btnOutline} onClick={onClose} disabled={pay.isPending}>
+            إلغاء
+          </button>
+          <button
+            type="button"
+            className={btnPrimary}
+            disabled={!(Number(amount) > 0) || pay.isPending}
+            onClick={() => pay.mutate()}
+          >
+            {pay.isPending ? "جارٍ التسجيل..." : "تأكيد التجديد وتمديد الاشتراك"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function Subscriptions() {
+  const queryClient = useQueryClient();
+  const notice = useNotice();
   const [status, setStatus] = useState("");
   const [expiring, setExpiring] = useState(false);
+  const [search, setSearch] = useState("");
+  const [viewMode, setViewMode] = useState<"cards" | "table">("cards");
   const [owner, setOwner] = useState<string | null>(null);
   const [assign, setAssign] = useState(false);
+  const [reason, setReason] = useState<ReasonRequest | null>(null);
+  const [renewTarget, setRenewTarget] = useState<{ ownerId: string; ownerName?: string | null; planName: string; cycle: string } | null>(null);
+
   const subs = useQuery({
     queryKey: ["admin-subscriptions", status, expiring],
     queryFn: () =>
@@ -72,35 +188,397 @@ function Subscriptions() {
         }),
       ),
   });
+
+  const lifecycle = useMutation({
+    mutationFn: ({ ownerId, kind, text }: { ownerId: string; kind: "suspend" | "reactivate" | "cancel"; text: string }) => {
+      if (kind === "suspend") return unwrap(api.POST("/api/v1/admin/subscriptions/owners/{ownerId}/suspend", { params: { path: { ownerId } }, body: { reason: text } }));
+      if (kind === "reactivate") return unwrap(api.POST("/api/v1/admin/subscriptions/owners/{ownerId}/reactivate", { params: { path: { ownerId } }, body: { reason: text } }));
+      return unwrap(api.POST("/api/v1/admin/subscriptions/owners/{ownerId}/cancel", { params: { path: { ownerId } }, body: { reason: text } }));
+    },
+    onSuccess: async (_, { kind }) => {
+      await queryClient.invalidateQueries({ queryKey: ["admin-subscriptions"] });
+      await queryClient.invalidateQueries({ queryKey: ["admin-subscription"] });
+      notice.ok({ suspend: "اتوقف الاشتراك بنجاح.", reactivate: "تمت إعادة تنشيط الاشتراك.", cancel: "اتلغى الاشتراك." }[kind]);
+    },
+    onError: notice.fail,
+  });
+
+  const filterList = (list: Schemas["SubscriptionListItem"][]) => {
+    if (!search.trim()) return list;
+    const q = search.trim().toLowerCase();
+    return list.filter((s) => {
+      const matchOwner = (s.ownerName || "").toLowerCase().includes(q);
+      const matchPhone = (s.ownerPhone || "").includes(q);
+      const matchEmail = (s.ownerEmail || "").toLowerCase().includes(q);
+      const matchPlan = (s.planName || "").toLowerCase().includes(q);
+      const matchVenues = (s.venues || []).some((v) => v.name.toLowerCase().includes(q) || v.city.toLowerCase().includes(q));
+      const matchId = s.ownerId.toLowerCase().includes(q);
+      return matchOwner || matchPhone || matchEmail || matchPlan || matchVenues || matchId;
+    });
+  };
+
   return (
     <>
-      <div className="flex flex-wrap gap-2 items-center">
-        <Select label="الحالة" value={status} onChange={setStatus} options={STATUSES} />
-        <label className="flex gap-2 text-sm items-center">
-          <input type="checkbox" checked={expiring} onChange={(e) => setExpiring(e.target.checked)} /> بتنتهي خلال ٧ أيام
-        </label>
-        <button type="button" className={`${btnPrimary} ms-auto`} onClick={() => setAssign(true)}>إسناد باقة لمالك</button>
+      {notice.node}
+      <div className="flex flex-wrap gap-3 items-center justify-between bg-white p-4 rounded-2xl border border-[#EEF1F6] shadow-xs">
+        <div className="flex flex-wrap gap-2.5 items-center flex-1 min-w-[280px]">
+          <div className="relative min-w-[220px] flex-1 max-w-sm">
+            <TextInput
+              placeholder="ابحث بالاسم، الموبايل، أو الملعب..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
+          <Select label="الحالة" value={status} onChange={setStatus} options={STATUSES} />
+          <label className="flex gap-2 text-sm font-semibold items-center text-slate-700 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              className="w-4 h-4 rounded text-brand-red focus:ring-brand-red"
+              checked={expiring}
+              onChange={(e) => setExpiring(e.target.checked)}
+            />
+            بتنتهي خلال ٧ أيام
+          </label>
+        </div>
+
+        <div className="flex items-center gap-2">
+          {/* Toggle between Cards & Table */}
+          <div className="inline-flex rounded-xl bg-slate-100 p-1 border border-slate-200">
+            <button
+              type="button"
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                viewMode === "cards" ? "bg-white text-slate-900 shadow-xs" : "text-[#5B6475] hover:text-slate-900"
+              }`}
+              onClick={() => setViewMode("cards")}
+            >
+              🗂️ بطاقات
+            </button>
+            <button
+              type="button"
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                viewMode === "table" ? "bg-white text-slate-900 shadow-xs" : "text-[#5B6475] hover:text-slate-900"
+              }`}
+              onClick={() => setViewMode("table")}
+            >
+              📊 جدول
+            </button>
+          </div>
+
+          <button type="button" className={`${btnPrimary}`} onClick={() => setAssign(true)}>
+            + إسناد باقة لمالك
+          </button>
+        </div>
       </div>
-      <QueryState query={subs} isEmpty={(d) => d.length === 0} empty="مفيش اشتراكات.">
-        {(list) => (
-          <Table<Schemas["SubscriptionListItem"]>
-            caption="الاشتراكات"
-            rows={list}
-            rowKey={(s) => s.id}
-            selected={owner}
-            onSelect={(s) => setOwner(s.ownerId)}
-            columns={[
-              { title: "المالك", cell: (s) => <span dir="ltr" className="font-inter text-xs">{s.ownerId.slice(0, 8)}</span> },
-              { title: "الباقة", cell: (s) => s.planName },
-              { title: "الدورة", cell: (s) => (s.cycle === "Annual" ? "سنوي" : "شهري") },
-              { title: "الحالة", cell: (s) => <Pill tone={STATUS_TONE[s.status] ?? "neutral"}>{SUBSCRIPTION_STATUS_LABELS[s.status] ?? s.status}</Pill> },
-              { title: "نهاية الفترة", cell: (s) => fmtDate(s.currentPeriodEndUtc) },
-            ]}
-          />
-        )}
+
+      <QueryState
+        query={subs}
+        isEmpty={(d) => filterList(d).length === 0}
+        emptyTitle="لم يتم العثور على أي اشتراكات"
+        emptyDescription={search || status || expiring ? "لا توجد اشتراكات تطابق البحث أو الفلتر المحدد. يمكنك إعادة ضبط الفلاتر أو إسناد باقة جديدة." : "لا توجد اشتراكات مسجلة لأصحاب الملاعب حتى الآن."}
+        emptyIcon={search || status || expiring ? "search" : "receipt"}
+        emptyAction={
+          search || status || expiring
+            ? {
+                label: "إعادة ضبط الفلاتر",
+                onClick: () => {
+                  setSearch("");
+                  setStatus("");
+                  setExpiring(false);
+                },
+                variant: "outline",
+              }
+            : {
+                label: "إسناد باقة لمالك الآن",
+                onClick: () => setAssign(true),
+                variant: "primary",
+              }
+        }
+      >
+        {(list) => {
+          const filtered = filterList(list);
+          if (viewMode === "cards") {
+            return (
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                {filtered.map((s) => {
+                  const exp = getExpiryBadge(s.currentPeriodEndUtc, s.status);
+                  return (
+                    <div
+                      key={s.id}
+                      className={`${card} rounded-[20px] p-5 flex flex-col justify-between gap-4 border border-[#E2E6EF] hover:border-slate-400 hover:shadow-md transition-all`}
+                    >
+                      {/* Top: Owner & Status */}
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-slate-900 to-slate-700 text-white flex items-center justify-center font-bold text-base shrink-0 shadow-sm">
+                            {(s.ownerName || "م")[0]}
+                          </div>
+                          <div className="min-w-0 flex flex-col">
+                            <div className="flex items-center gap-2">
+                              <h3 className="font-bold text-slate-900 text-base truncate">{s.ownerName || "مالك ملعب"}</h3>
+                              <span dir="ltr" className="text-[10px] font-mono text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
+                                {s.ownerId.slice(0, 8)}
+                              </span>
+                            </div>
+                            <div className="flex flex-wrap items-center gap-1.5 text-xs text-[#5B6475] mt-1">
+                              {s.ownerPhone && (
+                                <span dir="ltr" className="font-medium text-slate-800 bg-[#F4F6F9] px-2 py-0.5 rounded-md flex items-center gap-1">
+                                  📱 {s.ownerPhone}
+                                </span>
+                              )}
+                              {s.ownerEmail && <span className="truncate text-slate-600">{s.ownerEmail}</span>}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="shrink-0 flex items-center gap-1.5">
+                          <Pill tone={STATUS_TONE[s.status] ?? "neutral"} className="flex items-center gap-1.5 text-xs py-1 px-3">
+                            {s.status === "Active" && <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />}
+                            {SUBSCRIPTION_STATUS_LABELS[s.status] ?? s.status}
+                          </Pill>
+                        </div>
+                      </div>
+
+                      {/* Middle: Plan info & Dates */}
+                      <div className="bg-[#F8FAFC] rounded-xl p-3.5 border border-[#EEF1F6] flex flex-col gap-2.5">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs text-[#5B6475]">الباقة:</span>
+                            <span className="font-extrabold text-slate-900 text-sm bg-white px-2.5 py-1 rounded-lg border border-[#E2E6EF] shadow-xs">
+                              {s.planName}
+                            </span>
+                            <span className="text-xs bg-[#EBF0FF] text-[#1E3A8A] font-semibold px-2 py-0.5 rounded-md">
+                              {s.cycle === "Annual" ? "سنوي" : "شهري"}
+                            </span>
+                          </div>
+                          <div>
+                            <Pill tone={exp.tone} className="text-[11px] font-medium">
+                              {exp.text}
+                            </Pill>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2 text-xs pt-2 border-t border-[#E8ECF2]">
+                          <div>
+                            <span className="text-[#5B6475] block text-[11px]">📅 تاريخ الاشتراك</span>
+                            <span className="font-bold text-slate-800 mt-0.5 block">{fmtDate(s.startedAtUtc)}</span>
+                          </div>
+                          <div>
+                            <span className="text-[#5B6475] block text-[11px]">🔄 تاريخ التجديد</span>
+                            <span className="font-bold text-slate-800 mt-0.5 block">{fmtDate(s.currentPeriodEndUtc)}</span>
+                          </div>
+                          {s.graceEndsAtUtc && (
+                            <div className="col-span-2 pt-1 text-[11px] text-amber-700 bg-amber-50 p-1.5 rounded border border-amber-200">
+                              ⏳ فترة السماح تنتهي في: <b>{fmtDate(s.graceEndsAtUtc)}</b>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Venues Section */}
+                      <div className="flex flex-col gap-1.5">
+                        <div className="flex items-center justify-between text-xs text-[#5B6475] font-semibold">
+                          <span>🏟️ الملاعب المشتركة ({toArabicDigits(s.venues?.length ?? 0)}):</span>
+                        </div>
+                        <div className="flex flex-wrap gap-1.5 min-h-[30px]">
+                          {(s.venues?.length ?? 0) > 0 ? (
+                            s.venues.map((v) => (
+                              <span
+                                key={v.id}
+                                className="inline-flex items-center gap-1.5 bg-white border border-[#DCE2ED] text-slate-800 px-2.5 py-1 rounded-lg text-xs font-semibold shadow-2xs"
+                              >
+                                <span className="text-emerald-700">⚽</span>
+                                <span>{v.name}</span>
+                                {v.city && <span className="text-[11px] text-[#5B6475]">({v.city})</span>}
+                              </span>
+                            ))
+                          ) : (
+                            <span className="text-xs text-slate-600 italic">لا توجد ملاعب مسجلة لهذا المالك بعد</span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Bottom: Action Buttons */}
+                      <div className="pt-3 border-t border-[#EEF0F5] flex flex-wrap items-center justify-between gap-2 mt-auto">
+                        <div className="flex flex-wrap gap-1.5">
+                          <button
+                            type="button"
+                            className={`${btnSmall} bg-slate-900 text-white hover:bg-slate-800 border-none font-bold`}
+                            onClick={() => setRenewTarget({ ownerId: s.ownerId, ownerName: s.ownerName, planName: s.planName, cycle: s.cycle })}
+                          >
+                            💳 تجديد / سداد
+                          </button>
+
+                          {s.status !== "Suspended" && s.status !== "Cancelled" && (
+                            <button
+                              type="button"
+                              className={`${btnSmall} text-[#A8261C] border-[#F3C4BF] hover:bg-red-50`}
+                              onClick={() =>
+                                setReason({
+                                  title: "إيقاف الاشتراك",
+                                  body: `هل أنت متأكد من إيقاف اشتراك المالك (${s.ownerName || s.ownerId.slice(0, 8)})؟ لن يتمكن من إضافة ملاعب أو موظفين جديدة.`,
+                                  confirmLabel: "إيقاف الاشتراك",
+                                  onConfirm: (text) => lifecycle.mutate({ ownerId: s.ownerId, kind: "suspend", text }),
+                                })
+                              }
+                            >
+                              إيقاف
+                            </button>
+                          )}
+
+                          {s.status === "Suspended" && (
+                            <button
+                              type="button"
+                              className={`${btnSmall} text-emerald-700 border-emerald-300 hover:bg-emerald-50`}
+                              onClick={() =>
+                                setReason({
+                                  title: "إعادة تنشيط الاشتراك",
+                                  body: `سيتم إعادة تنشيط اشتراك المالك (${s.ownerName || s.ownerId.slice(0, 8)}) فوراً.`,
+                                  confirmLabel: "إعادة التنشيط",
+                                  onConfirm: (text) => lifecycle.mutate({ ownerId: s.ownerId, kind: "reactivate", text }),
+                                })
+                              }
+                            >
+                              إعادة التنشيط
+                            </button>
+                          )}
+                        </div>
+
+                        <button
+                          type="button"
+                          className={`${btnSmall} text-slate-700 hover:bg-slate-100 font-medium`}
+                          onClick={() => setOwner(s.ownerId)}
+                        >
+                          التفاصيل والفواتير ↗
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          }
+
+          return (
+            <Table<Schemas["SubscriptionListItem"]>
+              caption="الاشتراكات"
+              rows={filtered}
+              rowKey={(s) => s.id}
+              selected={owner}
+              onSelect={(s) => setOwner(s.ownerId)}
+              columns={[
+                {
+                  title: "المالك",
+                  cell: (s) => (
+                    <div className="flex flex-col">
+                      <span className="font-bold text-slate-900">{s.ownerName || "مالك ملعب"}</span>
+                      <div className="flex items-center gap-1.5 text-xs text-[#5B6475]">
+                        {s.ownerPhone && <span dir="ltr">{s.ownerPhone}</span>}
+                        <span dir="ltr" className="text-[10px] font-mono text-slate-600 bg-slate-100 px-1 rounded">
+                          {s.ownerId.slice(0, 8)}
+                        </span>
+                      </div>
+                    </div>
+                  ),
+                },
+                {
+                  title: "الملاعب المشتركة",
+                  cell: (s) => (
+                    <div className="flex flex-wrap gap-1 max-w-xs">
+                      {(s.venues?.length ?? 0) > 0 ? (
+                        s.venues.map((v) => (
+                          <span key={v.id} className="text-xs bg-slate-100 text-slate-800 px-2 py-0.5 rounded border border-slate-200">
+                            ⚽ {v.name}
+                          </span>
+                        ))
+                      ) : (
+                        <span className="text-xs text-slate-600 italic">بدون ملاعب</span>
+                      )}
+                    </div>
+                  ),
+                },
+                { title: "الباقة", cell: (s) => s.planName },
+                { title: "الدورة", cell: (s) => (s.cycle === "Annual" ? "سنوي" : "شهري") },
+                {
+                  title: "الحالة",
+                  cell: (s) => <Pill tone={STATUS_TONE[s.status] ?? "neutral"}>{SUBSCRIPTION_STATUS_LABELS[s.status] ?? s.status}</Pill>,
+                },
+                { title: "تاريخ الاشتراك", cell: (s) => fmtDate(s.startedAtUtc) },
+                {
+                  title: "تاريخ التجديد",
+                  cell: (s) => {
+                    const exp = getExpiryBadge(s.currentPeriodEndUtc, s.status);
+                    return (
+                      <div className="flex flex-col">
+                        <span>{fmtDate(s.currentPeriodEndUtc)}</span>
+                        <span className="text-[10px] text-[#5B6475]">{exp.text}</span>
+                      </div>
+                    );
+                  },
+                },
+                {
+                  title: "الإجراءات",
+                  cell: (s) => (
+                    <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+                      <button
+                        type="button"
+                        className={`${btnSmall} bg-slate-900 text-white hover:bg-slate-800 border-none`}
+                        onClick={() => setRenewTarget({ ownerId: s.ownerId, ownerName: s.ownerName, planName: s.planName, cycle: s.cycle })}
+                      >
+                        تجديد
+                      </button>
+                      {s.status !== "Suspended" && s.status !== "Cancelled" && (
+                        <button
+                          type="button"
+                          className={`${btnSmall} text-[#A8261C] border-[#F3C4BF] hover:bg-red-50`}
+                          onClick={() =>
+                            setReason({
+                              title: "إيقاف الاشتراك",
+                              body: `إيقاف اشتراك المالك (${s.ownerName || s.ownerId.slice(0, 8)})؟`,
+                              confirmLabel: "إيقاف",
+                              onConfirm: (text) => lifecycle.mutate({ ownerId: s.ownerId, kind: "suspend", text }),
+                            })
+                          }
+                        >
+                          إيقاف
+                        </button>
+                      )}
+                      {s.status === "Suspended" && (
+                        <button
+                          type="button"
+                          className={`${btnSmall} text-emerald-700 border-emerald-300 hover:bg-emerald-50`}
+                          onClick={() =>
+                            setReason({
+                              title: "إعادة تنشيط الاشتراك",
+                              body: `إعادة تنشيط اشتراك المالك (${s.ownerName || s.ownerId.slice(0, 8)})؟`,
+                              confirmLabel: "تنشيط",
+                              onConfirm: (text) => lifecycle.mutate({ ownerId: s.ownerId, kind: "reactivate", text }),
+                            })
+                          }
+                        >
+                          تنشيط
+                        </button>
+                      )}
+                    </div>
+                  ),
+                },
+              ]}
+            />
+          );
+        }}
       </QueryState>
+
       <OwnerDrawer ownerId={owner} onClose={() => setOwner(null)} />
       {assign && <AssignDrawer onClose={() => setAssign(false)} />}
+      <QuickRenewModal
+        target={renewTarget}
+        onClose={() => setRenewTarget(null)}
+        onSuccess={async (msg) => {
+          notice.ok(msg);
+          await queryClient.invalidateQueries({ queryKey: ["admin-subscriptions"] });
+          await queryClient.invalidateQueries({ queryKey: ["admin-invoices"] });
+        }}
+      />
+      <ReasonModal request={reason} onClose={() => setReason(null)} />
     </>
   );
 }
@@ -113,31 +591,160 @@ function AssignDrawer({ onClose }: { onClose: () => void }) {
   const queryClient = useQueryClient();
   const notice = useNotice();
   const plans = usePlans();
+
+  const venuesQuery = useQuery({
+    queryKey: ["admin-venues-for-assign"],
+    queryFn: () => unwrap(api.GET("/api/v1/admin/venues", { params: { query: { pageSize: 100 } } })),
+  });
+
+  const subsQuery = useQuery({
+    queryKey: ["admin-subscriptions"],
+    queryFn: () => unwrap(api.GET("/api/v1/admin/subscriptions")),
+  });
+
   const usersQuery = useQuery({
     queryKey: ["admin-users-owners-select"],
     queryFn: () => unwrap(api.GET("/api/v1/admin/users", { params: { query: { role: "VenueOwner", pageSize: 100 } } })),
   });
+
   const [ownerId, setOwnerId] = useState("");
   const [planId, setPlanId] = useState("");
   const [cycle, setCycle] = useState("0");
   const [trial, setTrial] = useState(true);
+
   const assign = useMutation({
     mutationFn: () =>
       unwrap(api.POST("/api/v1/admin/subscriptions/assign-or-change", { body: { ownerId: ownerId.trim(), planId, cycle: Number(cycle) as Schemas["BillingCycle"], withTrial: trial } })),
     onSuccess: async () => { await queryClient.invalidateQueries({ queryKey: ["admin-subscriptions"] }); onClose(); },
     onError: notice.fail,
   });
+
   const active = (plans.data ?? []).filter((p) => p.status === "Active");
+
+  interface OwnerEntry {
+    id: string;
+    name: string;
+    phone: string;
+    email: string;
+    venues: string[];
+    currentPlan?: string;
+  }
+
+  const ownersMap = useMemo(() => {
+    const map = new Map<string, OwnerEntry>();
+
+    // 1. From Venues
+    for (const v of venuesQuery.data?.items ?? []) {
+      if (!v.ownerId) continue;
+      const existing = map.get(v.ownerId) ?? {
+        id: v.ownerId,
+        name: v.ownerName || "مالك ملعب",
+        phone: v.ownerPhone || "",
+        email: "",
+        venues: [],
+        currentPlan: v.planName || undefined,
+      };
+      const venueStr = `${v.name}${v.city ? ` (${v.city})` : ""}`;
+      if (!existing.venues.includes(venueStr)) {
+        existing.venues.push(venueStr);
+      }
+      if (v.ownerName && (!existing.name || existing.name === "مالك ملعب")) existing.name = v.ownerName;
+      if (v.ownerPhone && !existing.phone) existing.phone = v.ownerPhone;
+      if (v.planName && !existing.currentPlan) existing.currentPlan = v.planName;
+      map.set(v.ownerId, existing);
+    }
+
+    // 2. From Subscriptions
+    for (const s of subsQuery.data ?? []) {
+      if (!s.ownerId) continue;
+      const existing = map.get(s.ownerId) ?? {
+        id: s.ownerId,
+        name: s.ownerName || "مالك ملعب",
+        phone: s.ownerPhone || "",
+        email: s.ownerEmail || "",
+        venues: [],
+        currentPlan: s.planName || undefined,
+      };
+      if (s.ownerName) existing.name = s.ownerName;
+      if (s.ownerPhone) existing.phone = s.ownerPhone;
+      if (s.ownerEmail) existing.email = s.ownerEmail;
+      if (s.planName) existing.currentPlan = s.planName;
+      for (const v of s.venues ?? []) {
+        const venueStr = `${v.name}${v.city ? ` (${v.city})` : ""}`;
+        if (!existing.venues.includes(venueStr)) existing.venues.push(venueStr);
+      }
+      map.set(s.ownerId, existing);
+    }
+
+    // 3. From Users (registered owners who might not have a venue yet)
+    for (const u of usersQuery.data?.items ?? []) {
+      if (!u.id) continue;
+      const existing = map.get(u.id) ?? {
+        id: u.id,
+        name: u.fullName,
+        phone: u.maskedPhone || "",
+        email: u.email || "",
+        venues: [],
+      };
+      if (u.fullName && (!existing.name || existing.name === "مالك ملعب")) existing.name = u.fullName;
+      if (u.maskedPhone && !existing.phone) existing.phone = u.maskedPhone;
+      if (u.email && !existing.email) existing.email = u.email;
+      map.set(u.id, existing);
+    }
+
+    return Array.from(map.values()).sort((a, b) => {
+      // Prioritize owners with venues, then alphabetically
+      if (a.venues.length > 0 && b.venues.length === 0) return -1;
+      if (a.venues.length === 0 && b.venues.length > 0) return 1;
+      return a.name.localeCompare(b.name, "ar");
+    });
+  }, [venuesQuery.data, subsQuery.data, usersQuery.data]);
+
   const ownerOptions: [string, string][] = [
-    ["", "— اختر المالك —"],
-    ...((usersQuery.data?.items ?? []).map((u) => [u.id, `${u.fullName} (${u.maskedPhone || u.email || ""})`] as [string, string])),
+    ["", "— اختر المالك أو الملعب —"],
+    ...ownersMap.map((o) => {
+      const venueLabel = o.venues.length > 0 ? `🏟️ ${o.venues.join("، ")}` : "بدون ملاعب مسجلة";
+      const contact = o.phone || o.email || "";
+      const text = `${o.name} — ${venueLabel}${contact ? ` (${contact})` : ""}`;
+      return [o.id, text] as [string, string];
+    }),
   ];
+
+  const selectedOwner = ownersMap.find((o) => o.id === ownerId);
+
   return (
     <Drawer title="إسناد / تغيير باقة لمالك" open onClose={onClose}>
       {notice.node}
-      <Field label="المالك">
-        <Select label="المالك" value={ownerId} onChange={setOwnerId} options={ownerOptions} />
+      <Field label="المالك والملعب التابع">
+        <Select label="المالك والملعب التابع" value={ownerId} onChange={setOwnerId} options={ownerOptions} />
+        {(venuesQuery.isLoading || usersQuery.isLoading) && (
+          <span className="text-xs text-muted mt-1 block">جاري تحميل بيانات الملاك والملاعب...</span>
+        )}
       </Field>
+
+      {selectedOwner && (
+        <div className="p-3.5 bg-blue-50/70 border border-blue-200/80 rounded-xl flex flex-col gap-2 text-xs animate-fade-in -mt-2">
+          <div className="flex items-center justify-between border-b border-blue-100 pb-1.5">
+            <span className="font-bold text-navy-950 text-sm">👤 {selectedOwner.name}</span>
+            <span className="text-gray-500 font-mono text-[11px]">{selectedOwner.phone || selectedOwner.email}</span>
+          </div>
+          <div className="flex items-start gap-1.5 text-navy-900">
+            <span className="font-semibold text-gray-600 shrink-0">🏟️ الملاعب التابعة:</span>
+            <span className="font-bold text-emerald-800">
+              {selectedOwner.venues.length > 0 ? selectedOwner.venues.join("، ") : "لا توجد ملاعب مسجلة باسمه بعد"}
+            </span>
+          </div>
+          {selectedOwner.currentPlan && (
+            <div className="flex items-center gap-1.5 text-navy-800">
+              <span className="font-semibold text-gray-600 shrink-0">📦 الاشتراك الحالي:</span>
+              <span className="font-bold text-blue-700 bg-blue-100 px-2 py-0.5 rounded-md">
+                {selectedOwner.currentPlan}
+              </span>
+            </div>
+          )}
+        </div>
+      )}
+
       <Field label="الباقة">
         <Select label="الباقة" value={planId} onChange={setPlanId} options={[["", "اختار باقة"], ...active.map((p) => [p.id, p.name] as [string, string])]} />
       </Field>
@@ -339,7 +946,14 @@ function SubscriptionRequests() {
       <div className="flex flex-wrap gap-2 items-center">
         <Select label="الحالة" value={statusFilter} onChange={setStatusFilter} options={REQUEST_STATUSES} />
       </div>
-      <QueryState query={requests} isEmpty={(d) => d.length === 0} empty="مفيش طلبات تغيير باقات.">
+      <QueryState
+        query={requests}
+        isEmpty={(d) => d.length === 0}
+        emptyTitle="لا توجد طلبات تغيير باقات"
+        emptyDescription="رائع! تمت مراجعة ومعالجة جميع طلبات ترقية أو تجديد الباقات المقدمة من الملاك."
+        emptyIcon="check"
+        emptyBadge="كل الطلبات منتهية ✨"
+      >
         {(list) => (
           <Table<Schemas["SubscriptionRequestDto"]>
             caption="طلبات تغيير الباقات"
@@ -599,6 +1213,7 @@ function Invoices() {
   const queryClient = useQueryClient();
   const notice = useNotice();
   const [reason, setReason] = useState<ReasonRequest | null>(null);
+  const [viewInvoice, setViewInvoice] = useState<Schemas["InvoiceDto"] | null>(null);
   const invoices = useQuery({ queryKey: ["admin-invoices"], queryFn: () => unwrap(api.GET("/api/v1/admin/invoices", { params: { query: {} } })) });
   const voidInvoice = useMutation({
     mutationFn: ({ id, text }: { id: string; text: string }) => unwrap(api.POST("/api/v1/admin/invoices/{invoiceId}/void", { params: { path: { invoiceId: id } }, body: { reason: text } })),
@@ -608,25 +1223,96 @@ function Invoices() {
   return (
     <>
       {notice.node}
-      <QueryState query={invoices} isEmpty={(d) => d.length === 0} empty="مفيش فواتير.">
+      <QueryState
+        query={invoices}
+        isEmpty={(d) => d.length === 0}
+        emptyTitle="لا توجد فواتير صادرة"
+        emptyDescription="لم يتم إصدار أي فواتير اشتراكات بعد. ستظهر الفواتير هنا فور سداد الاشتراكات أو إصدارها يدوياً."
+        emptyIcon="receipt"
+      >
         {(list) => (
           <Table<Schemas["InvoiceDto"]>
             caption="الفواتير"
             rows={list}
             rowKey={(i) => i.id}
             columns={[
-              { title: "الرقم", cell: (i) => <span dir="ltr" className="font-inter">{i.number}</span> },
-              { title: "الباقة", cell: (i) => i.planName },
-              { title: "المبلغ", cell: (i) => money(i.amount) },
+              {
+                title: "الرقم",
+                cell: (i) => (
+                  <button
+                    type="button"
+                    onClick={() => setViewInvoice(i)}
+                    className="font-inter font-bold text-navy-900 hover:text-brand-red transition-colors text-right cursor-pointer"
+                    dir="ltr"
+                  >
+                    {i.number}
+                  </button>
+                ),
+              },
+              {
+                title: "العميل (اسم النادي / الملعب)",
+                cell: (i) => (
+                  <div className="flex flex-col">
+                    <span className="font-bold text-[#071832] flex items-center gap-1.5">
+                      <span>🏟️</span>
+                      <span>{i.venueName || "نادي وملعب رياضي"}</span>
+                    </span>
+                    {i.ownerName && (
+                      <span className="text-[11px] text-gray-500">
+                        المسؤول: {i.ownerName} {i.ownerPhone ? `(${toArabicDigits(i.ownerPhone)})` : ""}
+                      </span>
+                    )}
+                  </div>
+                ),
+              },
+              {
+                title: "الباقة",
+                cell: (i) => (
+                  <div className="flex flex-col">
+                    <span className="font-medium text-gray-900">{i.planName}</span>
+                    <span className="text-[11px] text-gray-500">
+                      {i.cycle === "Annual" || i.cycle === "1" ? "سنوي" : "شهري"}
+                    </span>
+                  </div>
+                ),
+              },
+              { title: "المبلغ", cell: (i) => <strong className="text-gray-900">{money(i.amount)}</strong> },
               { title: "التاريخ", cell: (i) => fmtDate(i.issuedAtUtc) },
               { title: "الحالة", cell: (i) => <Pill tone={i.status === "Void" ? "bad" : "ok"}>{i.status === "Void" ? "ملغاة" : "مسددة"}</Pill> },
               {
                 title: "",
                 cell: (i) => (
-                  <div className="flex gap-1">
-                    <button type="button" className={btnSmall} onClick={() => openFile(`/api/v1/admin/invoices/${i.id}/pdf`).catch(notice.fail)}>PDF</button>
+                  <div className="flex gap-1.5 items-center">
+                    <button
+                      type="button"
+                      className={`${btnSmall} bg-[#071832] hover:bg-slate-800 text-white font-semibold flex items-center gap-1`}
+                      onClick={() => setViewInvoice(i)}
+                      title="عرض الفاتورة الرسمية بالعربي وطباعتها"
+                    >
+                      <span>🧾</span>
+                      <span>عرض الفاتورة</span>
+                    </button>
+                    <button
+                      type="button"
+                      className={btnSmall}
+                      onClick={() => openFile(`/api/v1/admin/invoices/${i.id}/pdf`).catch(notice.fail)}
+                      title="تحميل ملف PDF"
+                    >
+                      PDF
+                    </button>
                     {i.status !== "Void" && (
-                      <button type="button" className={btnSmall} onClick={() => setReason({ title: `إلغاء الفاتورة ${i.number}`, body: "الفاتورة مش بتتمسح، بتتعلّم ملغاة وبتطلع من الإيراد.", confirmLabel: "إلغاء", onConfirm: (text) => voidInvoice.mutate({ id: i.id, text }) })}>
+                      <button
+                        type="button"
+                        className={`${btnSmall} text-red-600 hover:bg-red-50`}
+                        onClick={() =>
+                          setReason({
+                            title: `إلغاء الفاتورة ${i.number}`,
+                            body: "الفاتورة مش بتتمسح، بتتعلّم ملغاة وبتطلع من الإيراد.",
+                            confirmLabel: "إلغاء",
+                            onConfirm: (text) => voidInvoice.mutate({ id: i.id, text }),
+                          })
+                        }
+                      >
                         إلغاء
                       </button>
                     )}
@@ -638,6 +1324,7 @@ function Invoices() {
         )}
       </QueryState>
       <ReasonModal request={reason} onClose={() => setReason(null)} />
+      <InvoiceModal invoice={viewInvoice} onClose={() => setViewInvoice(null)} />
     </>
   );
 }

@@ -250,7 +250,7 @@ internal static class UserQueries
         if (dbContext.Database.IsRelational())
         {
             var pattern = $"%\"{canonical}\"%";
-            return dbContext.Users.FromSqlInterpolated($"SELECT * FROM identity.users WHERE \"Roles\" LIKE {pattern}");
+            return dbContext.Users.FromSqlInterpolated($"SELECT *, xmin FROM identity.users WHERE \"Roles\" LIKE {pattern}");
         }
 
         var ids = dbContext.Users.IgnoreQueryFilters().AsNoTracking().AsEnumerable()

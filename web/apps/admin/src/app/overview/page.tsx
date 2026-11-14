@@ -93,6 +93,62 @@ const DISTRIBUTION_TITLES: Record<string, string> = {
   "support.open_by_category": "التذاكر المفتوحة حسب النوع",
 };
 
+const LABEL_TRANSLATIONS: Record<string, string> = {
+  // Roles
+  Player: "لاعب",
+  VenueOwner: "صاحب ملعب",
+  Admin: "مسؤول نظام",
+  SupportAgent: "موظف دعم",
+  VenueStaff: "موظف ملعب",
+  Finance: "مالية ومحاسبة",
+
+  // Booking statuses
+  Pending: "قيد الانتظار",
+  Confirmed: "مؤكد",
+  Completed: "مكتمل",
+  Cancelled: "ملغي",
+  Expired: "منتهي",
+  Refunded: "مسترجع",
+  Disputed: "قيد النزاع",
+
+  // Support categories
+  Subscription: "اشتراكات وفواتير",
+  Booking: "حجوزات",
+  Account: "حساب ودخول",
+  Venue: "ملاعب",
+  General: "عام",
+  Technical: "مشاكل تقنية",
+
+  // Egyptian Cities / Governorates (English to Arabic)
+  Cairo: "القاهرة",
+  Alexandria: "الإسكندرية",
+  Giza: "الجيزة",
+  Qalyubia: "القليوبية",
+  Sharqia: "الشرقية",
+  Dakahlia: "الدقهلية",
+  Gharbia: "الغربية",
+  Monufia: "المنوفية",
+  Beheira: "البحيرة",
+  KafrElSheikh: "كفر الشيخ",
+  Damietta: "دمياط",
+  PortSaid: "بورسعيد",
+  Ismailia: "الإسماعيلية",
+  Suez: "السويس",
+  Fayoum: "الفيوم",
+  BeniSuef: "بني سويف",
+  Minya: "المنيا",
+  Asyut: "أسيوط",
+  Sohag: "سوهاج",
+  Qena: "قنا",
+  Luxor: "الأقصر",
+  Aswan: "أسوان",
+  RedSea: "البحر الأحمر",
+  NewValley: "الوادي الجديد",
+  Matrouh: "مطروح",
+  NorthSinai: "شمال سيناء",
+  SouthSinai: "جنوب سيناء",
+};
+
 function Bars({ title, points, asMoney }: { title: string; points: Schemas["SeriesPoint"][]; asMoney?: boolean }) {
   const max = Math.max(1, ...points.map((p) => p.value));
   const total = points.reduce((sum, p) => sum + p.value, 0);
@@ -117,7 +173,14 @@ function Bars({ title, points, asMoney }: { title: string; points: Schemas["Seri
 }
 
 function Distribution({ title, values }: { title: string; values: Record<string, number> }) {
-  const entries = Object.entries(values).sort((a, b) => b[1] - a[1]);
+  // Normalize and group by translated label in case English & Arabic versions exist for the same entity (e.g. Cairo & القاهرة)
+  const grouped: Record<string, number> = {};
+  for (const [k, v] of Object.entries(values)) {
+    const localized = LABEL_TRANSLATIONS[k] ?? k;
+    grouped[localized] = (grouped[localized] ?? 0) + v;
+  }
+
+  const entries = Object.entries(grouped).sort((a, b) => b[1] - a[1]);
   const total = Math.max(1, entries.reduce((s, [, v]) => s + v, 0));
   return (
     <section className={`${card} rounded-[16px] p-4 flex flex-col gap-2`}>
@@ -125,11 +188,13 @@ function Distribution({ title, values }: { title: string; values: Record<string,
       {entries.length === 0 && <span className={`text-sm ${muted}`}>مفيش بيانات.</span>}
       {entries.map(([k, v]) => (
         <div key={k} className="flex items-center gap-2 text-[13px]">
-          <span className="w-28 truncate">{k}</span>
-          <div className="flex-1 h-2 rounded bg-[#EEF0F5] overflow-hidden">
-            <div className="h-full bg-navy-900" style={{ width: `${(v / total) * 100}%` }} />
+          <span className="w-32 truncate font-medium text-slate-800" title={k}>
+            {k}
+          </span>
+          <div className="flex-1 h-2 rounded-full bg-[#EEF0F5] overflow-hidden">
+            <div className="h-full bg-slate-900 rounded-full transition-all duration-500" style={{ width: `${(v / total) * 100}%` }} />
           </div>
-          <span className="w-10 text-left">{num(v)}</span>
+          <span className="w-10 text-left font-bold text-slate-700">{num(v)}</span>
         </div>
       ))}
     </section>

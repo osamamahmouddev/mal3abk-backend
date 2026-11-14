@@ -56,7 +56,18 @@ export default function PlansPage() {
         </button>
       </PageHeader>
       {notice.node}
-      <QueryState query={plans} isEmpty={(d) => d.length === 0} empty="مفيش باقات لسه. ابدأ بباقة جديدة.">
+      <QueryState
+        query={plans}
+        isEmpty={(d) => d.length === 0}
+        emptyTitle="لا توجد باقات اشتراك مضافة"
+        emptyDescription="لم يتم إنشاء أي باقات اشتراك لأصحاب الملاعب حتى الآن. يمكنك البدء بإضافة الباقة الأولى الآن وتحديد مزاياها وأسعارها."
+        emptyIcon="receipt"
+        emptyAction={{
+          label: "+ إضافة باقة جديدة الآن",
+          onClick: () => setEditing({ id: null, form: empty }),
+          variant: "primary",
+        }}
+      >
         {(list) => (
           <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-3">
             {list.map((p) => (

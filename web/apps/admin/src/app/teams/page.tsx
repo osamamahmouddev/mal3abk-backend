@@ -97,7 +97,14 @@ function Reports({ notice }: { notice: Notice }) {
   return (
     <>
       <Select label="الحالة" value={status} onChange={(v) => { setStatus(v); setPage(1); }} options={REPORT_STATUS} />
-      <QueryState query={reports} isEmpty={(d) => d.items.length === 0} empty="مفيش بلاغات بالحالة دي.">
+      <QueryState
+        query={reports}
+        isEmpty={(d) => d.items.length === 0}
+        emptyTitle="لا توجد بلاغات مسجلة"
+        emptyDescription="ممتاز! لا توجد بلاغات ضد الفرق بالحالة المحددة حالياً."
+        emptyIcon="check"
+        emptyBadge="السلوك الرياضي منضبط ✨"
+      >
         {(data) => (
           <div className="flex flex-col gap-3">
             {data.items.map((r) => (
@@ -202,7 +209,14 @@ function Results({ notice }: { notice: Notice }) {
 
   return (
     <>
-      <QueryState query={disputes} isEmpty={(d) => d.items.length === 0} empty="مفيش نتائج متنازع عليها.">
+      <QueryState
+        query={disputes}
+        isEmpty={(d) => d.items.length === 0}
+        emptyTitle="لا توجد نتائج متنازع عليها"
+        emptyDescription="جميع نتائج المباريات معتمدة ومقبولة من الفرق دون اعتراضات معلقة."
+        emptyIcon="shield"
+        emptyBadge="كل النتائج مستقرة ✨"
+      >
         {(data) => (
           <div className="flex flex-col gap-3">
             {data.items.map((m) => (
@@ -274,7 +288,25 @@ function Teams({ notice }: { notice: Notice }) {
   return (
     <>
       <SearchBox value={q} onChange={(v) => { setQ(v); setPage(1); }} placeholder="اسم الفريق أو المدينة" />
-      <QueryState query={teams} isEmpty={(d) => d.items.length === 0} empty="مفيش فرق.">
+      <QueryState
+        query={teams}
+        isEmpty={(d) => d.items.length === 0}
+        emptyTitle="لم يتم العثور على أي فرق"
+        emptyDescription={q ? "لا توجد فرق تطابق كلمات البحث المحددة. يمكنك تجربة كلمات أخرى." : "لا توجد فرق رياضية مسجلة في المنصة حتى الآن."}
+        emptyIcon={q ? "search" : "users"}
+        emptyAction={
+          q
+            ? {
+                label: "إعادة ضبط البحث",
+                onClick: () => {
+                  setQ("");
+                  setPage(1);
+                },
+                variant: "outline",
+              }
+            : undefined
+        }
+      >
         {(data) => (
           <>
             <Table<Schemas["AdminTeamListItem"]>

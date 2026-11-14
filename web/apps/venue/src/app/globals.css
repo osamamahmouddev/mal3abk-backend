@@ -105,3 +105,46 @@ body {
     scroll-behavior: auto !important;
   }
 }
+
+/* Print Styles for Official Invoices */
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 10mm 12mm;
+  }
+  body {
+    background: #ffffff !important;
+    color: #000000 !important;
+  }
+  body > * {
+    visibility: hidden;
+  }
+  .invoice-modal-overlay {
+    position: static !important;
+    background: transparent !important;
+    padding: 0 !important;
+    visibility: visible !important;
+    display: block !important;
+    overflow: visible !important;
+  }
+  .invoice-print-container,
+  .invoice-print-container * {
+    visibility: visible !important;
+  }
+  .invoice-print-container {
+    position: absolute !important;
+    top: 0 !important;
+    right: 0 !important;
+    left: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+    border: none !important;
+  }
+  .no-print {
+    display: none !important;
+  }
+}
+
