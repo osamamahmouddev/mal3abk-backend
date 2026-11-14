@@ -116,7 +116,7 @@ export default function NotificationsPage() {
             ))}
           </div>
           <section className={`${card} rounded-[20px] overflow-hidden`}>
-            {page.isLoading && <div className="h-20 m-4 rounded-xl bg-slate-200 animate-pulse" />}
+            {page.isLoading && <div className="h-20 m-4 rounded-xl skeleton-shimmer" />}
             {!page.isLoading && items.length === 0 && <p className={`p-8 text-center text-sm ${muted}`}>مفيش إشعارات.</p>}
             {items.map((n) => {
               const [letter, tone] = CATEGORY[n.category]?.icon ?? ["•", "bg-[#EEF0F5] text-[#3B4352]"];
@@ -125,13 +125,20 @@ export default function NotificationsPage() {
                   key={n.id}
                   type="button"
                   onClick={() => open(n)}
-                  className={`w-full text-right flex gap-3 px-4 py-3.5 border-b border-[#EEF0F5] last:border-b-0 hover:bg-slate-50 ${n.isRead ? "" : "bg-[#F7F9FD]"}`}
+                  className={`w-full text-right flex gap-3 px-4 py-3.5 border-b border-[#EEF0F5] last:border-b-0 hover:bg-slate-50 transition-all duration-150 ease-out active:scale-[0.99] cursor-pointer ${
+                    n.isRead ? "" : "bg-[#F7F9FD]"
+                  }`}
                 >
-                  <span className={`w-10 h-10 rounded-full shrink-0 flex items-center justify-center text-sm font-bold ${tone}`}>{letter}</span>
+                  <span className={`w-10 h-10 rounded-full shrink-0 flex items-center justify-center text-sm font-bold shadow-xs ${tone}`}>{letter}</span>
                   <span className="flex-1 min-w-0 flex flex-col gap-0.5">
                     <span className="flex items-center gap-2">
-                      <span className={`text-sm ${n.isRead ? "font-semibold" : "font-bold"}`}>{n.title}</span>
-                      {!n.isRead && <span className="w-2 h-2 rounded-full bg-brand-red" aria-label="غير مقروء" />}
+                      <span className={`text-sm ${n.isRead ? "font-semibold" : "font-bold text-slate-900"}`}>{n.title}</span>
+                      {!n.isRead && (
+                        <span className="relative flex h-2 w-2" aria-label="غير مقروء">
+                          <span className="animate-live-ping absolute inline-flex h-full w-full rounded-full bg-brand-red opacity-75" />
+                          <span className="relative inline-flex rounded-full h-2 w-2 bg-brand-red" />
+                        </span>
+                      )}
                     </span>
                     <span className="text-[13px] text-[#333B4A] leading-[1.6]">{n.body}</span>
                     <span className={`text-xs ${muted}`}>{timeAgo(n.createdAtUtc)}</span>

@@ -118,16 +118,30 @@ function Calendar() {
         <h1 className="text-[24px] font-bold flex-[1_1_200px]">التقويم</h1>
         <ViewSwitch view={view} onChange={(v) => switchTo(v)} />
         <div className="flex items-center gap-1.5">
-          <button type="button" aria-label="السابق" onClick={() => switchTo(view, view === "month" ? addDays(monthStart(date), -1) : addDays(date, -step))} className="w-10 h-10 rounded-[10px] border border-[#EDF0F5] bg-white">
+          <button
+            type="button"
+            aria-label="السابق"
+            onClick={() => switchTo(view, view === "month" ? addDays(monthStart(date), -1) : addDays(date, -step))}
+            className="w-10 h-10 rounded-[10px] border border-[#EDF0F5] bg-white hover:bg-slate-50 active:scale-95 transition-all cursor-pointer flex items-center justify-center font-bold"
+          >
             ›
           </button>
           <span className="min-w-[180px] text-center text-sm font-bold" aria-live="polite">
             {title}
           </span>
-          <button type="button" aria-label="التالي" onClick={() => switchTo(view, view === "month" ? addDays(monthEnd(date), 1) : addDays(date, step))} className="w-10 h-10 rounded-[10px] border border-[#EDF0F5] bg-white">
+          <button
+            type="button"
+            aria-label="التالي"
+            onClick={() => switchTo(view, view === "month" ? addDays(monthEnd(date), 1) : addDays(date, step))}
+            className="w-10 h-10 rounded-[10px] border border-[#EDF0F5] bg-white hover:bg-slate-50 active:scale-95 transition-all cursor-pointer flex items-center justify-center font-bold"
+          >
             ‹
           </button>
-          <button type="button" onClick={() => switchTo(view, cairoToday())} className="min-h-[40px] px-3 rounded-[10px] border border-[#EDF0F5] bg-white text-[13px] font-semibold">
+          <button
+            type="button"
+            onClick={() => switchTo(view, cairoToday())}
+            className="min-h-[40px] px-3 rounded-[10px] border border-[#EDF0F5] bg-white hover:bg-slate-50 active:scale-95 transition-all text-[13px] font-semibold cursor-pointer"
+          >
             النهارده
           </button>
         </div>
@@ -552,13 +566,26 @@ function Dialog({ title, onClose, wide = false, children }: { title: string; onC
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
   return (
-    <div className="fixed inset-0 bg-[rgba(15,27,61,0.55)] flex items-center justify-center p-4 z-50" onClick={(e) => e.target === e.currentTarget && onClose()}>
-      <div role="dialog" aria-modal="true" aria-labelledby="dialog-title" className={`w-full ${wide ? "max-w-[640px]" : "max-w-[440px]"} max-h-[90vh] overflow-y-auto bg-white rounded-[20px] p-6 flex flex-col gap-3`}>
+    <div
+      className="fixed inset-0 bg-[rgba(15,27,61,0.55)] backdrop-blur-xs animate-fade-in flex items-center justify-center p-4 z-50 cursor-pointer"
+      onClick={(e) => e.target === e.currentTarget && onClose()}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="dialog-title"
+        className={`w-full ${wide ? "max-w-[640px]" : "max-w-[440px]"} max-h-[90vh] overflow-y-auto bg-white rounded-[20px] p-6 flex flex-col gap-3 animate-modal-in shadow-2xl cursor-default`}
+      >
         <div className="flex justify-between items-center gap-2">
           <h2 id="dialog-title" className="text-[19px] font-bold">
             {title}
           </h2>
-          <button type="button" onClick={onClose} aria-label="إغلاق" className="min-w-[36px] min-h-[36px] rounded-[10px] bg-surface">
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="إغلاق"
+            className="min-w-[36px] min-h-[36px] rounded-[10px] bg-surface hover:bg-slate-200 active:scale-95 transition-all cursor-pointer flex items-center justify-center"
+          >
             ✕
           </button>
         </div>

@@ -31,11 +31,77 @@ body {
   background: #aeb7ca;
 }
 
-/* Phones: wide tables scroll sideways inside their card instead of squeezing
-   every cell into a narrow, multi-line column. */
+/* Phones: wide tables scroll sideways inside their card instead of squeezing */
 @media (max-width: 767px) {
   .overflow-x-auto > table th,
   .overflow-x-auto > table td {
     white-space: nowrap;
+  }
+}
+
+/* Modern Shimmer Skeleton Wave */
+.skeleton-shimmer {
+  position: relative;
+  overflow: hidden;
+  background-color: #E6EAF0;
+}
+
+.skeleton-shimmer::after {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  transform: translateX(-100%);
+  background-image: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0) 0,
+    rgba(255, 255, 255, 0.45) 20%,
+    rgba(255, 255, 255, 0.65) 60%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  animation: shimmer 1.8s infinite ease-in-out;
+  content: '';
+}
+
+/* Stagger entrance delays for lists and grids */
+.stagger-1 { animation-delay: 40ms; }
+.stagger-2 { animation-delay: 80ms; }
+.stagger-3 { animation-delay: 120ms; }
+.stagger-4 { animation-delay: 160ms; }
+.stagger-5 { animation-delay: 200ms; }
+.stagger-6 { animation-delay: 240ms; }
+.stagger-7 { animation-delay: 280ms; }
+.stagger-8 { animation-delay: 320ms; }
+
+/* Interactive micro-interaction utilities */
+.interactive-card {
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.2s ease;
+}
+
+.interactive-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 28px -10px rgba(15, 27, 61, 0.12), 0 1px 3px rgba(15, 27, 61, 0.05);
+}
+
+.interactive-card:active {
+  transform: translateY(0);
+}
+
+.btn-press {
+  transition: transform 0.15s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.15s ease, background-color 0.15s ease;
+}
+
+.btn-press:active {
+  transform: scale(0.97);
+}
+
+/* Respect user accessibility preferences */
+@media (prefers-reduced-motion: reduce) {
+  *, ::before, ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }

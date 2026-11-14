@@ -30,8 +30,13 @@ export function ReasonDialog({
   const valid = reason.trim().length > 0;
 
   return (
-    <div className="fixed inset-0 bg-[rgba(15,27,61,0.55)] flex items-center justify-center p-4 z-50">
-      <div role="dialog" aria-modal="true" aria-labelledby="reason-title" className="w-full max-w-[460px] bg-white rounded-[20px] p-6 flex flex-col gap-3">
+    <div className="fixed inset-0 bg-[rgba(15,27,61,0.55)] backdrop-blur-xs animate-fade-in flex items-center justify-center p-4 z-50">
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="reason-title"
+        className="w-full max-w-[460px] bg-white rounded-[20px] p-6 flex flex-col gap-3 animate-modal-in shadow-2xl"
+      >
         <h2 id="reason-title" className="text-[19px] font-bold">
           {title}
         </h2>
@@ -50,7 +55,7 @@ export function ReasonDialog({
           value={reason}
           onChange={(e) => setReason(e.target.value)}
           placeholder="أو اكتب السبب"
-          className="border border-[#C9CFD9] rounded-xl px-3 py-2.5 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-navy-900"
+          className="border border-[#C9CFD9] rounded-xl px-3 py-2.5 text-sm resize-none transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-navy-900 focus:shadow-[0_0_0_3px_rgba(15,27,61,0.1)]"
         />
         <div className="bg-[#FEF3D6] text-[#6B4400] rounded-xl px-3 py-2.5 text-[13px] leading-5">{note}</div>
         <div className="flex gap-2">
@@ -58,11 +63,17 @@ export function ReasonDialog({
             type="button"
             onClick={() => onConfirm(reason.trim())}
             disabled={!valid || busy}
-            className={`min-h-[46px] px-5 rounded-xl text-[15px] font-bold ${valid && !busy ? "bg-[#A8261C] text-white" : "bg-[#E4E7EC] text-[#6B7383] cursor-not-allowed"}`}
+            className={`min-h-[46px] px-5 rounded-xl text-[15px] font-bold transition-all active:scale-[0.98] ${
+              valid && !busy ? "bg-[#A8261C] hover:bg-[#8F1F17] text-white cursor-pointer shadow-sm" : "bg-[#E4E7EC] text-[#6B7383] cursor-not-allowed"
+            }`}
           >
             {busy ? "جاري…" : confirmLabel}
           </button>
-          <button type="button" onClick={onClose} className="min-h-[46px] px-5 rounded-xl border border-[#C9CFD9] bg-white text-navy-900 text-[15px] font-semibold">
+          <button
+            type="button"
+            onClick={onClose}
+            className="min-h-[46px] px-5 rounded-xl border border-[#C9CFD9] bg-white hover:bg-slate-50 active:scale-[0.98] text-navy-900 text-[15px] font-semibold transition-all cursor-pointer"
+          >
             رجوع
           </button>
         </div>

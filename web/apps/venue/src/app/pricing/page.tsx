@@ -220,7 +220,7 @@ export default function PricingPage() {
                   {KINDS[kind].label}
                 </h2>
                 {items.map((r) => (
-                  <div key={r.id} className="flex flex-wrap items-center gap-3 py-2 border-t border-[#EEF0F5] first:border-t-0">
+                  <div key={r.id} className="flex flex-wrap items-center gap-3 py-2 border-t border-[#EEF0F5] first:border-t-0 transition-colors duration-150 hover:bg-[#F9FAFC] rounded-lg px-2">
                     <div className="flex-[1_1_220px] min-w-0 flex flex-col">
                       <span className="font-semibold">{r.name}</span>
                       <span className={`text-xs ${muted}`}>
@@ -231,13 +231,17 @@ export default function PricingPage() {
                     {editable && (
                       <span className="flex items-center gap-2">
                         <Switch label={`تفعيل ${r.name}`} isChecked={r.isActive} handleToggle={() => save.mutate({ ...toDraft(r), isActive: !r.isActive })} />
-                        <button type="button" onClick={() => setDraft(toDraft(r))} className="min-h-[36px] px-3 rounded-[9px] bg-[#EEF1F7] text-navy-900 text-xs font-semibold">
+                        <button
+                          type="button"
+                          onClick={() => setDraft(toDraft(r))}
+                          className="min-h-[36px] px-3 rounded-[9px] bg-[#EEF1F7] hover:bg-[#E3E7F0] active:scale-95 text-navy-900 text-xs font-semibold transition-all cursor-pointer"
+                        >
                           تعديل
                         </button>
                         <button
                           type="button"
                           onClick={() => confirm({ title: `تمسح «${r.name}»؟`, message: "القاعدة هتتشال من حساب الأسعار.", confirmLabel: "مسح", destructive: true }, () => remove.mutate(r.id))}
-                          className="min-h-[36px] px-3 rounded-[9px] border border-[#F3C4BF] text-[#A8261C] text-xs font-semibold"
+                          className="min-h-[36px] px-3 rounded-[9px] border border-[#F3C4BF] hover:bg-red-50 active:scale-95 text-[#A8261C] text-xs font-semibold transition-all cursor-pointer"
                         >
                           مسح
                         </button>
@@ -305,8 +309,13 @@ function RuleEditor({
   }, [onClose]);
 
   return (
-    <div className="fixed inset-0 bg-[rgba(15,27,61,0.55)] flex items-center justify-center p-4 z-50">
-      <div role="dialog" aria-modal="true" aria-labelledby="rule-title" className="w-full max-w-[560px] max-h-[90vh] overflow-y-auto bg-white rounded-[20px] p-6 flex flex-col gap-3">
+    <div className="fixed inset-0 bg-[rgba(15,27,61,0.55)] backdrop-blur-xs animate-fade-in flex items-center justify-center p-4 z-50">
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="rule-title"
+        className="w-full max-w-[560px] max-h-[90vh] overflow-y-auto bg-white rounded-[20px] p-6 flex flex-col gap-3 animate-modal-in shadow-2xl"
+      >
         <h2 id="rule-title" className="text-[19px] font-bold">
           {draft.id ? "تعديل قاعدة سعر" : "قاعدة سعر جديدة"}
         </h2>

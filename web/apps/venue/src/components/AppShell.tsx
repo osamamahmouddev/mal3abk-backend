@@ -30,9 +30,9 @@ const NoVenueRedirect: React.FC = () => {
 };
 
 const ShellFallback: React.FC = () => (
-  <div className="flex-1 p-4 sm:p-8 animate-pulse flex flex-col gap-4">
-    <div className="h-8 w-48 bg-slate-200 rounded-lg" />
-    <div className="h-64 w-full bg-slate-200 rounded-2xl" />
+  <div className="flex-1 p-4 sm:p-8 flex flex-col gap-4 animate-fade-in">
+    <div className="h-8 w-48 skeleton-shimmer rounded-lg" />
+    <div className="h-64 w-full skeleton-shimmer rounded-2xl" />
   </div>
 );
 
@@ -114,9 +114,14 @@ export const AppShell: React.FC<AppShellProps> = ({ children, user }) => {
 
         {/* Mobile / tablet drawer */}
         {menuOpen && (
-          <div className="lg:hidden fixed inset-0 z-50" role="dialog" aria-modal="true" aria-label="أقسام اللوحة">
-            <button type="button" aria-label="إغلاق القائمة" onClick={() => setMenuOpen(false)} className="absolute inset-0 bg-[rgba(15,27,61,0.55)]" />
-            <div className="absolute inset-y-0 right-0 max-w-[85vw] shadow-2xl">
+          <div className="lg:hidden fixed inset-0 z-50 animate-fade-in" role="dialog" aria-modal="true" aria-label="أقسام اللوحة">
+            <button
+              type="button"
+              aria-label="إغلاق القائمة"
+              onClick={() => setMenuOpen(false)}
+              className="absolute inset-0 bg-[rgba(15,27,61,0.55)] backdrop-blur-xs transition-opacity"
+            />
+            <div className="absolute inset-y-0 right-0 max-w-[85vw] shadow-2xl animate-slide-in-right">
               <Sidebar user={user} onClose={() => setMenuOpen(false)} />
             </div>
           </div>

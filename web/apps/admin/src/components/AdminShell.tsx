@@ -107,13 +107,15 @@ function SideNav({ pathname, user, onClose }: { pathname: string; user: SessionU
               key={n.href}
               href={n.href}
               aria-current={active ? "page" : undefined}
-              className={`min-h-[40px] px-3 rounded-[9px] flex items-center gap-2 text-sm ${
-                active ? "bg-white text-ink font-bold hover:text-ink" : "text-[#D5DBE7] font-medium hover:bg-white/[0.08] hover:text-white"
+              className={`min-h-[40px] px-3 rounded-[9px] flex items-center gap-2 text-sm transition-all duration-150 ease-out active:scale-[0.98] ${
+                active
+                  ? "bg-white text-ink font-bold hover:text-ink shadow-xs -translate-x-0.5"
+                  : "text-[#D5DBE7] font-medium hover:bg-white/[0.08] hover:text-white hover:-translate-x-0.5"
               }`}
             >
               <span className="flex-1">{n.title}</span>
               {(badge[n.href] ?? 0) > 0 && (
-                <span className="min-w-[20px] h-5 px-1.5 rounded-[10px] bg-brand-red text-white text-[11px] font-bold flex items-center justify-center">
+                <span className="min-w-[20px] h-5 px-1.5 rounded-[10px] bg-brand-red text-white text-[11px] font-bold flex items-center justify-center animate-scale-in">
                   {toArabicDigits(badge[n.href])}
                 </span>
               )}
@@ -196,9 +198,14 @@ export function AdminShell({ children, user }: { children: React.ReactNode; user
 
       {/* Mobile / tablet drawer */}
       {menuOpen && (
-        <div className="lg:hidden fixed inset-0 z-50" role="dialog" aria-modal="true" aria-label="أقسام الإدارة">
-          <button type="button" aria-label="إغلاق القائمة" onClick={() => setMenuOpen(false)} className="absolute inset-0 bg-[rgba(10,19,48,0.55)]" />
-          <div className="absolute inset-y-0 right-0 max-w-[85vw] shadow-2xl">
+        <div className="lg:hidden fixed inset-0 z-50 animate-fade-in" role="dialog" aria-modal="true" aria-label="أقسام الإدارة">
+          <button
+            type="button"
+            aria-label="إغلاق القائمة"
+            onClick={() => setMenuOpen(false)}
+            className="absolute inset-0 bg-[rgba(10,19,48,0.55)] backdrop-blur-xs transition-opacity"
+          />
+          <div className="absolute inset-y-0 right-0 max-w-[85vw] shadow-2xl animate-slide-in-right">
             <SideNav pathname={pathname} user={user} onClose={() => setMenuOpen(false)} />
           </div>
         </div>

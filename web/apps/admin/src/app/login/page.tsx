@@ -117,7 +117,7 @@ function AdminLogin() {
       dir="rtl"
       className="min-h-screen flex items-center justify-center px-4 py-8 bg-ink bg-[radial-gradient(circle_at_15%_20%,rgba(214,59,47,0.18),transparent_40%),radial-gradient(circle_at_85%_80%,rgba(245,182,43,0.12),transparent_40%)]"
     >
-      <main className="w-full max-w-[440px] bg-white rounded-3xl p-8 flex flex-col gap-4 shadow-[0_30px_60px_-30px_rgba(0,0,0,0.6)]">
+      <main className="w-full max-w-[440px] bg-white rounded-3xl p-8 flex flex-col gap-4 shadow-[0_30px_60px_-30px_rgba(0,0,0,0.6)] animate-fade-in-up">
         <div className="flex items-center gap-2.5">
           <Image
             src="/admin/images/logo-horizontal.png"

@@ -26,14 +26,17 @@ export function ConfirmDialog({
   }, [onClose]);
 
   return (
-    <div className="fixed inset-0 bg-[rgba(15,27,61,0.55)] flex items-center justify-center p-4 z-50" onClick={onClose}>
+    <div
+      className="fixed inset-0 bg-[rgba(15,27,61,0.55)] backdrop-blur-xs animate-fade-in flex items-center justify-center p-4 z-50 cursor-pointer"
+      onClick={onClose}
+    >
       <div
         role="alertdialog"
         aria-modal="true"
         aria-labelledby="confirm-title"
         aria-describedby={message ? "confirm-message" : undefined}
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-[400px] bg-white rounded-[20px] p-6 flex flex-col gap-4 shadow-[0_24px_60px_-20px_rgba(15,27,61,0.45)]"
+        className="w-full max-w-[400px] bg-white rounded-[20px] p-6 flex flex-col gap-4 shadow-[0_24px_60px_-15px_rgba(15,27,61,0.45)] animate-modal-in cursor-default"
         dir="rtl"
       >
         <div className="flex items-start gap-3">
@@ -54,7 +57,11 @@ export function ConfirmDialog({
           </div>
         </div>
         <div className="flex gap-2 justify-end">
-          <button type="button" onClick={onClose} className="min-h-[44px] px-5 rounded-xl bg-white border border-[#D9DEE8] text-sm font-bold">
+          <button
+            type="button"
+            onClick={onClose}
+            className="min-h-[44px] px-5 rounded-xl bg-white border border-[#D9DEE8] hover:bg-slate-50 active:scale-[0.98] text-sm font-bold transition-all cursor-pointer"
+          >
             إلغاء
           </button>
           <button
@@ -64,7 +71,9 @@ export function ConfirmDialog({
               onClose();
               onConfirm();
             }}
-            className={`min-h-[44px] px-5 rounded-xl text-white text-sm font-bold ${destructive ? "bg-[#C8372B] hover:bg-[#A8261C]" : "bg-navy-900 hover:bg-navy-800"}`}
+            className={`min-h-[44px] px-5 rounded-xl text-white text-sm font-bold active:scale-[0.98] transition-all cursor-pointer ${
+              destructive ? "bg-[#C8372B] hover:bg-[#A8261C] shadow-sm" : "bg-navy-900 hover:bg-navy-800 shadow-sm"
+            }`}
           >
             {confirmLabel}
           </button>

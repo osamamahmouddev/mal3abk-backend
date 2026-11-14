@@ -32,17 +32,17 @@ export function QueryState<T>({
   isEmpty?: (data: T) => boolean;
   children: (data: T) => React.ReactNode;
 }) {
-  if (query.isLoading) return <div className={`${card} rounded-[18px] h-40 animate-pulse`} aria-busy="true" />;
+  if (query.isLoading) return <div className={`${card} rounded-[18px] h-40 skeleton-shimmer`} aria-busy="true" />;
   if (query.error) return <ErrorState error={query.error} />;
   if (query.data === undefined) return null;
-  if (isEmpty?.(query.data)) return <div className={`${card} rounded-[18px] p-10 text-center text-sm ${muted}`}>{empty ?? "مفيش بيانات."}</div>;
+  if (isEmpty?.(query.data)) return <div className={`${card} rounded-[18px] p-10 text-center text-sm ${muted} animate-fade-in`}>{empty ?? "مفيش بيانات."}</div>;
   return <>{children(query.data)}</>;
 }
 
 export function ErrorState({ error }: { error: unknown }) {
   const denied = error instanceof ApiError && error.status === 403;
   return (
-    <div role="alert" className={`${card} rounded-[18px] p-8 text-center flex flex-col gap-1`}>
+    <div role="alert" className={`${card} rounded-[18px] p-8 text-center flex flex-col gap-1 animate-fade-in`}>
       <strong className="text-[15px]">{denied ? "مش عندك صلاحية للصفحة دي" : "حصل خطأ"}</strong>
       <span className={`text-sm ${muted}`}>
         {denied ? "دورك الحالي مايسمحش بالإجراء ده. لو محتاجه، كلّم مدير المنصة." : error instanceof Error ? error.message : "حاول تاني."}
@@ -91,7 +91,9 @@ export function Table<T>({
                 onKeyDown={onSelect ? (e) => (e.key === "Enter" || e.key === " ") && onSelect(row) : undefined}
                 tabIndex={onSelect ? 0 : undefined}
                 aria-selected={onSelect ? on : undefined}
-                className={`border-t border-[#EEF0F5] ${onSelect ? "cursor-pointer hover:bg-[#F6F7FA]" : ""} ${on ? "bg-[#EEF0F5]" : ""}`}
+                className={`border-t border-[#EEF0F5] transition-all duration-150 ease-out ${
+                  onSelect ? "cursor-pointer hover:bg-[#F6F7FA]" : ""
+                } ${on ? "bg-[#EEF0F5]" : ""}`}
               >
                 {columns.map((c) => (
                   <td key={c.title} className={`px-2 py-3 ${c.className ?? ""}`}>
@@ -117,9 +119,14 @@ export function Drawer({ title, open, onClose, children }: { title: string; open
   }, [open, onClose]);
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-50" role="dialog" aria-modal="true" aria-label={title}>
-      <button type="button" aria-label="إغلاق" onClick={onClose} className="absolute inset-0 bg-[rgba(10,19,48,0.45)]" />
-      <div className="absolute inset-y-0 left-0 w-full sm:w-[520px] bg-white shadow-2xl overflow-y-auto p-5 flex flex-col gap-4" dir="rtl">
+    <div className="fixed inset-0 z-50 animate-fade-in" role="dialog" aria-modal="true" aria-label={title}>
+      <button
+        type="button"
+        aria-label="إغلاق"
+        onClick={onClose}
+        className="absolute inset-0 bg-[rgba(10,19,48,0.45)] backdrop-blur-xs transition-opacity duration-200 cursor-pointer"
+      />
+      <div className="absolute inset-y-0 left-0 w-full sm:w-[520px] bg-white shadow-2xl overflow-y-auto p-5 flex flex-col gap-4 animate-slide-in-left" dir="rtl">
         <div className="flex items-center gap-2">
           <h2 className="text-[19px] font-bold flex-1">{title}</h2>
           <button type="button" onClick={onClose} className={btnOutline}>
@@ -170,7 +177,12 @@ export function Select({ value, onChange, options, label }: { value: string; onC
 export function useNotice() {
   const [notice, setNotice] = useState<{ text: string; bad?: boolean } | null>(null);
   const node = notice ? (
-    <div role="status" className={`rounded-xl px-4 py-3 text-sm font-semibold ${notice.bad ? "bg-[#FDECEA] text-[#A8261C]" : "bg-[#EEF0F5] text-[#1F2A44]"}`}>
+    <div
+      role="status"
+      className={`rounded-xl px-4 py-3 text-sm font-semibold animate-fade-in-up transition-all ${
+        notice.bad ? "bg-[#FDECEA] text-[#A8261C]" : "bg-[#EEF0F5] text-[#1F2A44]"
+      }`}
+    >
       {notice.text}
     </div>
   ) : null;
@@ -190,7 +202,7 @@ export function Pager({ page, pageSize, total, onChange }: { page: number; pageS
       <button type="button" className={btnOutline} disabled={page <= 1} onClick={() => onChange(page - 1)}>
         السابق
       </button>
-      <span>
+      <span className="font-semibold text-slate-700">
         {toArabicDigits(page)} / {toArabicDigits(pages)}
       </span>
       <button type="button" className={btnOutline} disabled={page >= pages} onClick={() => onChange(page + 1)}>

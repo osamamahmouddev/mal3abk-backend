@@ -96,7 +96,7 @@ function DashboardBody({
   return (
     <>
       {/* KPIs */}
-      <div className="grid gap-3 grid-cols-2 md:grid-cols-[repeat(auto-fit,minmax(min(190px,100%),1fr))]">
+      <div className="grid gap-3 grid-cols-2 md:grid-cols-[repeat(auto-fit,minmax(min(190px,100%),1fr))] animate-fade-in-up">
         <Kpi label="حجوزات اليوم" value={toArabicDigits(data.today.todayBookings)} hint={`${toArabicDigits(data.today.confirmed)} مؤكدة`} />
         <Kpi
           label="طلبات بانتظار العربون"
@@ -105,17 +105,17 @@ function DashboardBody({
         />
         <Link
           href="/reservations/proof-review"
-          className="bg-white border-2 border-brand-gold rounded-[14px] p-[15px] flex flex-col gap-1.5 text-slate-900 no-underline"
+          className="bg-white border-2 border-brand-gold rounded-[14px] p-[15px] flex flex-col gap-1.5 text-slate-900 no-underline interactive-card cursor-pointer"
         >
           <span className="text-[13px] text-[#7A4D00] font-semibold">إيصالات للمراجعة</span>
           <span className="text-[30px] font-bold">{toArabicDigits(data.proofsAwaitingReview.length)}</span>
           <span className="text-xs text-navy-900 font-semibold underline">راجع الآن ←</span>
         </Link>
-        <div className={`${card} rounded-[18px] p-4 flex flex-col gap-1.5`}>
+        <div className={`${card} interactive-card rounded-[18px] p-4 flex flex-col gap-1.5 cursor-default`}>
           <span className={`text-[13px] ${muted}`}>إشغال اليوم</span>
-          <span className="text-[30px] font-bold">{percent(data.todayOccupancy.percent)}</span>
+          <span className="text-[30px] font-bold text-slate-900">{percent(data.todayOccupancy.percent)}</span>
           <div className="h-1.5 rounded-[3px] bg-[#E4E7EC] overflow-hidden" aria-hidden="true">
-            <div className="h-full bg-navy-900" style={{ width: `${Math.min(100, data.todayOccupancy.percent)}%` }} />
+            <div className="h-full bg-navy-900 transition-all duration-700 ease-out" style={{ width: `${Math.min(100, data.todayOccupancy.percent)}%` }} />
           </div>
         </div>
       </div>
@@ -183,9 +183,9 @@ function QuickActions() {
 
 function Kpi({ label, value, hint }: { label: string; value: string; hint: string }) {
   return (
-    <div className={`${card} rounded-[18px] p-4 flex flex-col gap-1.5`}>
+    <div className={`${card} interactive-card rounded-[18px] p-4 flex flex-col gap-1.5 cursor-default`}>
       <span className={`text-[13px] ${muted}`}>{label}</span>
-      <span className="text-[30px] font-bold">{value}</span>
+      <span className="text-[30px] font-bold text-slate-900">{value}</span>
       <span className={`text-xs ${muted}`}>{hint}</span>
     </div>
   );
@@ -226,7 +226,7 @@ function BookingTable({ rows, pitchName }: { rows: Row[]; pitchName: (id: string
         </thead>
         <tbody>
           {rows.map((b) => (
-            <tr key={b.bookingId} className="border-t border-[#EEF0F5]">
+            <tr key={b.bookingId} className="border-t border-[#EEF0F5] transition-colors duration-150 hover:bg-[#F8FAFC]">
               <td className="px-5 py-3 font-semibold whitespace-nowrap">{cairoTime(b.startUtc)}</td>
               <td className="p-3 whitespace-nowrap">{pitchName(b.pitchId)}</td>
               <td className="p-3">
@@ -264,7 +264,7 @@ function ProofsCard({ rows, pitchName }: { rows: Row[]; pitchName: (id: string) 
         <Link
           key={p.bookingId}
           href={`/reservations/proof-review?booking=${p.bookingId}`}
-          className="flex gap-3 items-center p-2.5 rounded-[10px] bg-[#F8F9FB] text-slate-900 no-underline hover:bg-[#F1F3F7]"
+          className="flex gap-3 items-center p-2.5 rounded-[10px] bg-[#F8F9FB] text-slate-900 no-underline hover:bg-[#EEF1F7] transition-all duration-150 active:scale-[0.99]"
         >
           <span className="w-10 h-12 rounded-md bg-[repeating-linear-gradient(135deg,#DCE0E8_0_5px,#EEF0F5_5px_10px)]" aria-hidden="true" />
           <span className="flex-1 flex flex-col gap-0.5 min-w-0">
@@ -324,7 +324,7 @@ function OccupancyCard({
           <div key={p.date} className="flex flex-col items-center gap-1 h-full justify-end">
             <span className="text-[11px] text-[#3B4352]">{percent(p.percent)}</span>
             <div
-              className={`w-full max-w-[32px] rounded-t-md rounded-b-sm ${i === points.length - 1 && range === "this" ? "bg-brand-red" : "bg-navy-900"}`}
+              className={`w-full max-w-[32px] rounded-t-md rounded-b-sm transition-all duration-500 ease-out hover:opacity-85 ${i === points.length - 1 && range === "this" ? "bg-brand-red" : "bg-navy-900"}`}
               style={{ height: Math.max(2, Math.round(p.percent * 1.15)) }}
             />
           </div>
@@ -421,9 +421,9 @@ function ActivityCard({ items }: { items: Schemas["DashboardActivity"][] }) {
 
 function SkeletonGrid() {
   return (
-    <div className="grid gap-3 grid-cols-2 md:grid-cols-4" aria-busy="true" aria-label="جاري التحميل">
+    <div className="grid gap-3 grid-cols-2 md:grid-cols-4 animate-fade-in" aria-busy="true" aria-label="جاري التحميل">
       {[0, 1, 2, 3].map((i) => (
-        <div key={i} className={`${card} rounded-[18px] p-4 h-[112px] animate-pulse bg-[#F4F5F7]`} />
+        <div key={i} className="skeleton-shimmer rounded-[18px] h-[112px]" />
       ))}
     </div>
   );

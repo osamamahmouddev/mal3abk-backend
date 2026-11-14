@@ -242,27 +242,28 @@ export default function PitchesPage() {
       {tab === "pitches" && (
         <div className="flex flex-wrap gap-4 items-start">
           <section className="flex-[999_1_460px] min-w-0 flex flex-col gap-3">
-            {pitches.isLoading && <div className="h-24 rounded-[18px] bg-slate-200 animate-pulse" />}
+            {pitches.isLoading && <div className="h-24 rounded-[18px] skeleton-shimmer" />}
             {!pitches.isLoading && list.length === 0 && (
-              <div className="bg-white rounded-[18px] p-6 text-center text-sm text-[#5B6475]">مفيش ملاعب لسه. اضغط «إضافة ملعب».</div>
+              <div className="bg-white rounded-[18px] p-6 text-center text-sm text-[#5B6475] border border-[#EDF0F5]">مفيش ملاعب لسه. اضغط «إضافة ملعب».</div>
             )}
             {list.map((item) => {
               const isSelected = item.id === selected?.id;
               return (
                 <article
                   key={item.id}
-                  className={`bg-white rounded-[18px] px-4 py-3.5 flex flex-wrap sm:flex-nowrap items-center gap-3.5 ${cardShadow} ${
-                    isSelected ? "border-2 border-navy-900" : "border border-[#EDF0F5]"
+                  className={`bg-white rounded-[18px] px-4 py-3.5 flex flex-wrap sm:flex-nowrap items-center gap-3.5 ${cardShadow} transition-all duration-200 ease-out hover:-translate-y-0.5 hover:shadow-lg ${
+                    isSelected ? "border-2 border-navy-900 shadow-md" : "border border-[#EDF0F5] hover:border-slate-300"
                   }`}
                 >
-                  <span className={`w-[72px] h-[72px] shrink-0 rounded-[14px] ${item.isActive ? "" : "opacity-45"}`} style={{ background: pitchPattern }} />
+                  <span className={`w-[72px] h-[72px] shrink-0 rounded-[14px] transition-opacity duration-200 ${item.isActive ? "" : "opacity-45"}`} style={{ background: pitchPattern }} />
                   <span className="flex-1 min-w-[150px] flex flex-col gap-[3px]">
-                    <span className="text-base font-bold">{item.name}</span>
+                    <span className="text-base font-bold text-slate-900">{item.name}</span>
                     <span className="text-[13px] text-[#5B6475]">
                       {toArabicDigits(item.capacity)} لاعب · {item.surfaceArabicDisplayName}
                     </span>
-                    <span className={`text-xs font-bold ${item.isActive ? "text-[#1B6E3E]" : "text-[#8A94AA]"}`}>
-                      {item.isActive ? "● شغال" : "● متوقف"}
+                    <span className={`text-xs font-bold flex items-center gap-1.5 ${item.isActive ? "text-[#1B6E3E]" : "text-[#8A94AA]"}`}>
+                      <span className={`w-2 h-2 rounded-full ${item.isActive ? "bg-[#1B6E3E]" : "bg-[#8A94AA]"}`} />
+                      <span>{item.isActive ? "شغال" : "متوقف"}</span>
                     </span>
                   </span>
                   <span className="w-full sm:w-auto flex items-center justify-end gap-3.5 pt-3 sm:pt-0 border-t sm:border-t-0 border-[#EEF0F5]">
@@ -275,7 +276,7 @@ export default function PitchesPage() {
                     <button
                       type="button"
                       onClick={() => setSelectedId(item.id)}
-                      className="min-h-[40px] px-3.5 rounded-[10px] border border-[#C9CFD9] bg-white hover:bg-slate-50 text-navy-900 text-[13px] font-semibold transition"
+                      className="min-h-[40px] px-3.5 rounded-[10px] border border-[#C9CFD9] bg-white hover:bg-slate-50 active:scale-95 text-navy-900 text-[13px] font-semibold transition-all cursor-pointer"
                     >
                       تعديل
                     </button>

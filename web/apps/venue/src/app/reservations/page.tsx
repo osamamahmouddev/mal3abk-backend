@@ -336,7 +336,12 @@ export default function ReservationsPage() {
               </thead>
               <tbody>
                 {list.map((b) => (
-                  <tr key={b.id} className={`border-t border-[#EEF1F5] ${b.id === selId ? "bg-[#F5F7FB]" : ""}`}>
+                  <tr
+                    key={b.id}
+                    className={`border-t border-[#EEF1F5] transition-all duration-150 ease-out hover:bg-[#F8FAFC] ${
+                      b.id === selId ? "bg-[#F3F5FA] shadow-[inset_-3px_0_0_#0F1B3D]" : ""
+                    }`}
+                  >
                     <td dir="ltr" className="px-[18px] py-3 text-right text-[13px] text-[#3B4352]">
                       {b.reference}
                     </td>
@@ -483,7 +488,7 @@ function BookingDrawer({
   const canNoShow = b && b.status === 5 && new Date(b.startUtc).getTime() <= Date.now() && can(P.bookingsApprove);
 
   return (
-    <aside ref={panelRef} aria-label="تفاصيل الحجز" className={`scroll-mt-20 flex-[1_1_320px] min-w-0 ${card} rounded-[18px] p-5 flex flex-col gap-3.5`}>
+    <aside ref={panelRef} aria-label="تفاصيل الحجز" className={`scroll-mt-20 flex-[1_1_320px] min-w-0 ${card} rounded-[18px] p-5 flex flex-col gap-3.5 animate-scale-in shadow-xl`}>
       <div className="flex justify-between items-center">
         <h2 className="text-lg font-bold">{b?.customerName || "تفاصيل الحجز"}</h2>
         <button type="button" onClick={onClose} aria-label="إغلاق" className="min-w-[36px] min-h-[36px] rounded-[10px] bg-surface text-navy-900">

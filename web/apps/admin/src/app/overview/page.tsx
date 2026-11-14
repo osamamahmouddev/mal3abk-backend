@@ -63,9 +63,9 @@ function DashboardView({ data }: { data: Dashboard }) {
   const tiles = TILES.filter((t) => t.key in data.figures);
   return (
     <>
-      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3 animate-fade-in-up">
         {tiles.map((t) => (
-          <div key={t.key} className={`${card} rounded-[16px] p-4 flex flex-col gap-1`} title={t.hint}>
+          <div key={t.key} className={`${card} interactive-card rounded-[16px] p-4 flex flex-col gap-1 cursor-default hover:border-slate-300`} title={t.hint}>
             <span className={`text-[13px] ${muted}`}>{t.label}</span>
             <strong className="text-[22px]">{t.money ? money(data.figures[t.key]) : num(data.figures[t.key])}</strong>
             <span className={`text-[11px] ${muted}`}>{t.hint}</span>
@@ -73,7 +73,7 @@ function DashboardView({ data }: { data: Dashboard }) {
         ))}
       </div>
 
-      <div className="grid md:grid-cols-2 gap-3">
+      <div className="grid md:grid-cols-2 gap-3 animate-fade-in-up">
         {SERIES.filter((s) => data.series[s.key]).map((s) => (
           <Bars key={s.key} title={s.label} points={data.series[s.key]} asMoney={s.money} />
         ))}
@@ -107,7 +107,7 @@ function Bars({ title, points, asMoney }: { title: string; points: Schemas["Seri
           <div
             key={p.day}
             title={`${p.day}: ${asMoney ? money(p.value) : num(p.value)}`}
-            className="flex-1 bg-brand-red/80 rounded-t-[3px] min-h-[2px]"
+            className="flex-1 bg-brand-red/80 hover:bg-brand-red rounded-t-[3px] min-h-[2px] transition-all duration-500 ease-out cursor-pointer"
             style={{ height: `${(p.value / max) * 100}%` }}
           />
         ))}

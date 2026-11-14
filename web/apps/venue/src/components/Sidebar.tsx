@@ -128,20 +128,20 @@ export const Sidebar: React.FC<SidebarProps> = memo(({ user, onClose }) => {
               key={item.href}
               href={item.href}
               aria-current={isItemActive ? "page" : undefined}
-              className={`min-h-[40px] px-3 rounded-[10px] flex items-center gap-2 text-sm no-underline transition ${
+              className={`min-h-[40px] px-3 rounded-[10px] flex items-center gap-2 text-sm no-underline transition-all duration-150 ease-out active:scale-[0.98] ${
                 isItemActive
-                  ? "bg-white text-navy-900 font-bold"
-                  : "text-[#D5DBE7] font-medium hover:bg-white/[0.08]"
+                  ? "bg-white text-navy-900 font-bold shadow-xs -translate-x-0.5"
+                  : "text-[#D5DBE7] font-medium hover:bg-white/[0.08] hover:text-white hover:-translate-x-0.5"
               }`}
             >
               <span className="flex-1">{item.title}</span>
               {item.href === "/notifications" && unreadCount > 0 && (
-                <span className="min-w-[20px] h-5 px-1.5 rounded-[10px] bg-brand-red text-white text-[11px] font-bold flex items-center justify-center">
+                <span className="min-w-[20px] h-5 px-1.5 rounded-[10px] bg-brand-red text-white text-[11px] font-bold flex items-center justify-center animate-scale-in">
                   {toArabicDigits(unreadCount)}
                 </span>
               )}
               {item.badge && (
-                <span className="min-w-[20px] h-5 px-1.5 rounded-[10px] bg-brand-red text-white text-[11px] font-bold flex items-center justify-center">
+                <span className="min-w-[20px] h-5 px-1.5 rounded-[10px] bg-brand-red text-white text-[11px] font-bold flex items-center justify-center animate-scale-in">
                   {item.badge}
                 </span>
               )}
@@ -168,7 +168,7 @@ export const Sidebar: React.FC<SidebarProps> = memo(({ user, onClose }) => {
         <form action={logout}>
           <button
             type="submit"
-            className="w-full min-h-[36px] px-3 rounded-xl bg-white/[0.08] hover:bg-[#A8261C] text-xs font-semibold text-[#D5DBE7] hover:text-white transition-colors flex items-center justify-center gap-2"
+            className="w-full min-h-[36px] px-3 rounded-xl bg-white/[0.08] hover:bg-[#A8261C] active:scale-[0.98] text-xs font-semibold text-[#D5DBE7] hover:text-white transition-all duration-150 flex items-center justify-center gap-2 cursor-pointer"
           >
             <LogOut className="w-4 h-4" />
             <span>تسجيل الخروج</span>
