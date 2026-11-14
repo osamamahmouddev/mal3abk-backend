@@ -7,6 +7,7 @@ import { KV, Page, PageHeader, Pill, ReasonModal, type ReasonRequest, SearchBox,
 import { Drawer, Field, Pager, QueryState, Section, Select, Table, TextInput, fmtDate, fmtDateTime, num, useNotice } from "@/components/admin";
 import { api, unwrap } from "@/lib/api";
 import { useStepUp } from "@/lib/stepup";
+import { ImageLightbox } from "@/components/ImageLightbox";
 import { Camera, ChevronLeft, Eye, Image as ImageIcon, LayoutGrid, MapPin, Package, Smartphone, Table2, X } from "lucide-react";
 import { Pitch, SoccerBall } from "@/components/icons";
 
@@ -436,7 +437,7 @@ function VenueDrawer({ venueId, onClose }: { venueId: string | null; onClose: ()
   const [reason, setReason] = useState<ReasonRequest | null>(null);
   const [note, setNote] = useState<string | null>(null);
   const [newOwner, setNewOwner] = useState("");
-  const [lightboxPhoto, setLightboxPhoto] = useState<{ src: string; title: string } | null>(null);
+  const [gallery, setGallery] = useState<{ photos: string[]; index: number; title: string } | null>(null);
 
   const usersQuery = useQuery({
     queryKey: ["admin-users-candidates-select"],
@@ -558,12 +559,18 @@ function VenueDrawer({ venueId, onClose }: { venueId: string | null; onClose: ()
                     لم يقم النادي برفع صور للمنشأة حتى الآن.
                   </div>
                 ) : (
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
                     {v.photos!.map((photo, i) => (
                       <div
                         key={photo}
                         className="relative aspect-video rounded-xl overflow-hidden border border-slate-200 group cursor-pointer bg-slate-100 hover:ring-2 hover:ring-emerald-500 transition-all shadow-2xs"
-                        onClick={() => setLightboxPhoto({ src: mediaSrc(photo), title: `${v.name} - صورة عامة ${toArabicDigits(i + 1)}` })}
+                        onClick={() =>
+                          setGallery({
+                            photos: v.photos!.map((p) => mediaSrc(p)),
+                            index: i,
+                            title: `معرض صور منشأة ${v.name}`,
+                          })
+                        }
                       >
                         <img
                           src={mediaSrc(photo)}
@@ -617,7 +624,13 @@ function VenueDrawer({ venueId, onClose }: { venueId: string | null; onClose: ()
                                 <div
                                   key={photo}
                                   className="relative aspect-video rounded-lg overflow-hidden border border-slate-200 group cursor-pointer bg-white hover:ring-2 hover:ring-emerald-500 transition-all shadow-2xs"
-                                  onClick={() => setLightboxPhoto({ src: mediaSrc(photo), title: `${p.name} - صورة ${toArabicDigits(i + 1)}` })}
+                                  onClick={() =>
+                                    setGallery({
+                                      photos: pitchPhotos.map((p) => mediaSrc(p)),
+                                      index: i,
+                                      title: `صور ${p.name}`,
+                                    })
+                                  }
                                 >
                                   <img
                                     src={mediaSrc(photo)}
@@ -696,35 +709,13 @@ function VenueDrawer({ venueId, onClose }: { venueId: string | null; onClose: ()
       </QueryState>
       <ReasonModal request={reason} onClose={() => setReason(null)} />
 
-      {lightboxPhoto && (
-        <div
-          className="fixed inset-0 z-50 bg-black/85 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-200"
-          onClick={() => setLightboxPhoto(null)}
-        >
-          <div
-            className="relative max-w-4xl w-full bg-slate-900 rounded-2xl overflow-hidden shadow-2xl flex flex-col border border-slate-700"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between px-4 py-3 bg-slate-950 text-white border-b border-slate-800">
-              <span className="text-sm font-bold truncate">{lightboxPhoto.title}</span>
-              <button
-                type="button"
-                onClick={() => setLightboxPhoto(null)}
-                className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition"
-              >
-                <X className="size-5" />
-              </button>
-            </div>
-            <div className="p-3 flex items-center justify-center bg-black/40 overflow-auto max-h-[calc(90vh-60px)]">
-              <img
-                src={lightboxPhoto.src}
-                alt={lightboxPhoto.title}
-                className="max-h-[75vh] w-auto max-w-full object-contain rounded-lg shadow-lg"
-              />
-            </div>
-          </div>
-        </div>
-      )}
+      <ImageLightbox
+        photos={gallery?.photos}
+        index={gallery?.index}
+        onIndexChange={(newIdx) => setGallery((prev) => (prev ? { ...prev, index: newIdx } : null))}
+        title={gallery?.title}
+        onClose={() => setGallery(null)}
+      />
     </Drawer>
   );
 }

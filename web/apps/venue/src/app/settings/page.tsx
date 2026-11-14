@@ -280,17 +280,11 @@ function VenueInfo({ onMessage }: { onMessage: (message: string) => void }) {
       </section>
 
       <ImageLightbox
-        photo={
-          lightboxIndex !== null && venue.photos[lightboxIndex]
-            ? {
-                src: mediaSrc(venue.photos[lightboxIndex]),
-                title: `صورة المنشأة (${toArabicDigits(lightboxIndex + 1)} من ${toArabicDigits(venue.photos.length)})`,
-              }
-            : null
-        }
+        photos={venue.photos.map((p) => mediaSrc(p))}
+        index={lightboxIndex ?? undefined}
+        onIndexChange={setLightboxIndex}
+        title="صور المنشأة"
         onClose={() => setLightboxIndex(null)}
-        onNext={lightboxIndex !== null && lightboxIndex < venue.photos.length - 1 ? () => setLightboxIndex(lightboxIndex + 1) : undefined}
-        onPrev={lightboxIndex !== null && lightboxIndex > 0 ? () => setLightboxIndex(lightboxIndex - 1) : undefined}
       />
     </div>
   );

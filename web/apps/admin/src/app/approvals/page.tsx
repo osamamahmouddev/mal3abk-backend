@@ -69,7 +69,7 @@ export default function ApprovalsPage() {
   const [message, setMessage] = useState("");
   const [notice, setNotice] = useState<string | null>(null);
   const [facilityNames, setFacilityNames] = useState<Record<string, string>>({});
-  const [lightboxPhoto, setLightboxPhoto] = useState<LightboxPhoto | null>(null);
+  const [gallery, setGallery] = useState<{ photos: string[]; index: number; title: string } | null>(null);
 
   const pending = useQuery({
     queryKey: ["approvals"],
@@ -229,7 +229,13 @@ export default function ApprovalsPage() {
                     <div
                       key={photo}
                       className="relative group rounded-[10px] overflow-hidden aspect-[4/3] bg-slate-100 border border-[#E4E7EC] cursor-pointer hover:ring-2 hover:ring-navy-900 transition-all shadow-2xs"
-                      onClick={() => setLightboxPhoto({ src: mediaSrc(photo), title: `صورة ${cur.name} (${toArabicDigits(pIdx + 1)})` })}
+                      onClick={() =>
+                        setGallery({
+                          photos: (cur.photos ?? []).map((p) => mediaSrc(p)),
+                          index: pIdx,
+                          title: `صور منشأة ${cur.name}`,
+                        })
+                      }
                     >
                       {/* eslint-disable-next-line @next/next/no-img-element -- re-encoded WebP from our media API */}
                       <img
@@ -287,7 +293,13 @@ export default function ApprovalsPage() {
                             <div
                               key={photo}
                               className="relative group rounded-[10px] overflow-hidden aspect-[4/3] bg-white border border-[#DCE0E8] cursor-pointer hover:ring-2 hover:ring-navy-900 transition-all shadow-2xs"
-                              onClick={() => setLightboxPhoto({ src: mediaSrc(photo), title: `صورة ${pitch.name} (${toArabicDigits(pIdx + 1)})` })}
+                              onClick={() =>
+                                setGallery({
+                                  photos: (pitch.photos ?? []).map((p) => mediaSrc(p)),
+                                  index: pIdx,
+                                  title: `صور ${pitch.name}`,
+                                })
+                              }
                             >
                               {/* eslint-disable-next-line @next/next/no-img-element -- re-encoded WebP from our media API */}
                               <img
@@ -372,7 +384,13 @@ export default function ApprovalsPage() {
         </div>
       )}
 
-      <ImageLightbox photo={lightboxPhoto} onClose={() => setLightboxPhoto(null)} />
+      <ImageLightbox
+        photos={gallery?.photos}
+        index={gallery?.index}
+        onIndexChange={(newIdx) => setGallery((prev) => (prev ? { ...prev, index: newIdx } : null))}
+        title={gallery?.title}
+        onClose={() => setGallery(null)}
+      />
     </Page>
   );
 }

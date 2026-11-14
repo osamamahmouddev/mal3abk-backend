@@ -436,17 +436,11 @@ export default function PitchesPage() {
       {confirmDialog}
 
       <ImageLightbox
-        photo={
-          lightboxIndex !== null && selected?.photos?.[lightboxIndex]
-            ? {
-                src: mediaSrc(selected.photos[lightboxIndex]),
-                title: `${selected.name} (${toArabicDigits(lightboxIndex + 1)} من ${toArabicDigits(selected.photos.length)})`,
-              }
-            : null
-        }
+        photos={(selected?.photos ?? []).map((p) => mediaSrc(p))}
+        index={lightboxIndex ?? undefined}
+        onIndexChange={setLightboxIndex}
+        title={selected ? `صور ${selected.name}` : undefined}
         onClose={() => setLightboxIndex(null)}
-        onNext={lightboxIndex !== null && selected?.photos && lightboxIndex < selected.photos.length - 1 ? () => setLightboxIndex(lightboxIndex + 1) : undefined}
-        onPrev={lightboxIndex !== null && lightboxIndex > 0 ? () => setLightboxIndex(lightboxIndex - 1) : undefined}
       />
     </Page>
   );

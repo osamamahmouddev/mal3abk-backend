@@ -44,7 +44,7 @@ export default function SetupPage() {
   const [loadedVenue, setLoadedVenue] = useState<string | null>(null);
   const [venuePhotoUploading, setVenuePhotoUploading] = useState(false);
   const [venuePhotoRemoving, setVenuePhotoRemoving] = useState(false);
-  const [lightboxPhoto, setLightboxPhoto] = useState<LightboxPhoto | null>(null);
+  const [gallery, setGallery] = useState<{ photos: string[]; index: number; title: string } | null>(null);
 
   // Resume an unfinished setup with the owner's existing venue.
   useEffect(() => {
@@ -331,7 +331,10 @@ export default function SetupPage() {
                     <div
                       key={photo}
                       className="relative group rounded-xl overflow-hidden aspect-[4/3] bg-slate-100 border border-[#E2E8F0] cursor-pointer shadow-2xs hover:ring-2 hover:ring-emerald-500 transition-all"
-                      onClick={() => setLightboxPhoto({ src: mediaSrc(photo), title: `صورة المنشأة (${toArabicDigits(idx + 1)})` })}
+                      onClick={() => {
+                        const allPhotos = (venueId ? venue?.photos ?? [] : form.photos).map((p) => mediaSrc(p));
+                        setGallery({ photos: allPhotos, index: idx, title: "صور المنشأة والمرافق" });
+                      }}
                     >
                       <img src={mediaSrc(photo)} alt="صورة المنشأة" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200" />
                       <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-xs font-semibold gap-1 pointer-events-none">
@@ -417,7 +420,13 @@ export default function SetupPage() {
         </main>
       </div>
 
-      <ImageLightbox photo={lightboxPhoto} onClose={() => setLightboxPhoto(null)} />
+      <ImageLightbox
+        photos={gallery?.photos}
+        index={gallery?.index}
+        onIndexChange={(newIdx) => setGallery((prev) => (prev ? { ...prev, index: newIdx } : null))}
+        title={gallery?.title}
+        onClose={() => setGallery(null)}
+      />
     </div>
   );
 }
@@ -430,7 +439,7 @@ function PitchesStep({ venueId }: { venueId: string }) {
   const [draftUploading, setDraftUploading] = useState(false);
   const [uploadingPitchId, setUploadingPitchId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [lightboxPhoto, setLightboxPhoto] = useState<LightboxPhoto | null>(null);
+  const [gallery, setGallery] = useState<{ photos: string[]; index: number; title: string } | null>(null);
 
   const pitches = useQuery({
     queryKey: ["pitches", venueId],
@@ -591,7 +600,13 @@ function PitchesStep({ venueId }: { venueId: string }) {
                   <div
                     key={photo}
                     className="relative group rounded-xl overflow-hidden aspect-square bg-slate-100 border border-[#E2E8F0] cursor-pointer shadow-2xs hover:ring-2 hover:ring-emerald-500 transition-all"
-                    onClick={() => setLightboxPhoto({ src: mediaSrc(photo), title: `صورة ${p.name} (${toArabicDigits(pIdx + 1)})` })}
+                    onClick={() =>
+                      setGallery({
+                        photos: p.photos.map((ph) => mediaSrc(ph)),
+                        index: pIdx,
+                        title: `صور ${p.name}`,
+                      })
+                    }
                   >
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={mediaSrc(photo)} alt={`صورة ${p.name}`} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200" />
@@ -675,7 +690,13 @@ function PitchesStep({ venueId }: { venueId: string }) {
               <div
                 key={photo}
                 className="relative group rounded-xl overflow-hidden aspect-square bg-slate-100 border border-[#E2E8F0] cursor-pointer shadow-2xs hover:ring-2 hover:ring-emerald-500 transition-all"
-                onClick={() => setLightboxPhoto({ src: mediaSrc(photo), title: `صورة الملعب (${toArabicDigits(idx + 1)})` })}
+                onClick={() =>
+                  setGallery({
+                    photos: draftPhotos.map((ph) => mediaSrc(ph)),
+                    index: idx,
+                    title: "صور مسودة الملعب",
+                  })
+                }
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={mediaSrc(photo)} alt="صورة الملعب" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200" />
@@ -728,7 +749,13 @@ function PitchesStep({ venueId }: { venueId: string }) {
         </span>
       )}
 
-      <ImageLightbox photo={lightboxPhoto} onClose={() => setLightboxPhoto(null)} />
+      <ImageLightbox
+        photos={gallery?.photos}
+        index={gallery?.index}
+        onIndexChange={(newIdx) => setGallery((prev) => (prev ? { ...prev, index: newIdx } : null))}
+        title={gallery?.title}
+        onClose={() => setGallery(null)}
+      />
     </div>
   );
 }
