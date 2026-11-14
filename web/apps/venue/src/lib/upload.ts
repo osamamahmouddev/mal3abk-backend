@@ -3,21 +3,34 @@
 import { problemMessage, type Schemas } from "@malabak/api-client";
 import { api, unwrap } from "./api";
 
+function getCsrfToken(): string {
+  if (typeof document === "undefined") return "";
+  const match =
+    document.cookie.match(/(?:^|;\s*)malabak-venue-csrf=([^;]*)/) ||
+    document.cookie.match(/(?:^|;\s*)malabak-csrf=([^;]*)/) ||
+    document.cookie.match(/(?:^|;\s*)[^=]*csrf=([^;]*)/i);
+  return match ? decodeURIComponent(match[1]) : "";
+}
+
 /** Two-step upload: get a single-use upload ticket, then PUT the image bytes to it. Returns the media id. */
 export async function uploadImage(file: File, purpose: Schemas["MediaPurpose"]): Promise<string> {
   const ticket = await unwrap(api.POST("/api/v1/media/uploads", { body: { purpose } }));
   if (file.size > ticket.maxBytes) throw new Error("الصورة أكبر من ٨ ميجا.");
 
-  const csrf = document.cookie
-    .split("; ")
-    .find((c) => c.startsWith("malabak-csrf="))
-    ?.slice("malabak-csrf=".length);
+  const csrf = getCsrfToken();
   const response = await fetch(`/venue/bff${ticket.uploadUrl}`, {
     method: "PUT",
-    headers: { "content-type": file.type || "application/octet-stream", "x-csrf-token": decodeURIComponent(csrf ?? "") },
+    headers: {
+      "content-type": file.type || "application/octet-stream",
+      "x-csrf-token": csrf,
+    },
+    credentials: "same-origin",
     body: file,
   });
-  if (!response.ok) throw new Error(problemMessage(await response.json().catch(() => null), "الصورة مترفعتش. جرّب صورة JPG أو PNG."));
+  if (!response.ok) {
+    const errorBody = await response.json().catch(() => null);
+    throw new Error(problemMessage(errorBody, "الصورة مترفعتش. جرّب صورة JPG أو PNG."));
+  }
   return ticket.mediaId;
 }
 

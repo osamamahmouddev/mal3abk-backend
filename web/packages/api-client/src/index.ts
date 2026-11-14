@@ -19,6 +19,10 @@ export function createApiClient(options: ClientOptions): ApiClient {
 
 const ARABIC_PROBLEM_MESSAGES: Record<string, string> = {
   "Bff.ApiUnavailable": "تعذر الاتصال بالخادم، يُرجى التأكد من تشغيل السيرفر والمحاولة مرة أخرى.",
+  "Bff.InvalidCsrfToken": "انتهت صلاحية جلسة الأمان، يُرجى إعادة تحميل الصفحة والمحاولة مرة أخرى.",
+  "Bff.SessionExpired": "انتهت جلستك، يُرجى تسجيل الدخول مرة أخرى.",
+  "Bff.NotSignedIn": "يجب تسجيل الدخول أولاً للمتابعة.",
+  "Bff.CrossOriginRequest": "طلب غير مسموح من مصدر خارجي.",
   "Identity.StepUpFailed": "كود التحقق غير صحيح أو انتهت صلاحيته، يُرجى التأكد من الكود والمحاولة مجدداً.",
   "Identity.InvalidTotpCode": "كود التحقق (TOTP) غير صحيح، تأكد من الوقت في تطبيق التحقق.",
   "Identity.LoginThrottled": "محاولات كثيرة خاطئة، يُرجى الانتظار قليلاً والمحاولة مجدداً.",
