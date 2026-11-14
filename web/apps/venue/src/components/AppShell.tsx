@@ -75,7 +75,7 @@ export const AppShell: React.FC<AppShellProps> = ({ children, user }) => {
         <NoVenueRedirect />
         <LiveUpdates />
         {/* Desktop sidebar */}
-        <div className="hidden lg:flex">
+        <div className="hidden lg:flex shrink-0">
           <Sidebar user={user} />
         </div>
 

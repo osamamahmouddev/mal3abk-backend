@@ -69,8 +69,8 @@ export const Sidebar: React.FC<SidebarProps> = memo(({ user, onClose }) => {
   return (
     <aside
       id={onClose ? "venue-nav-drawer" : undefined}
-      className={`w-[248px] shrink-0 bg-navy-900 text-white px-4 py-6 flex flex-col gap-6 ${
-        onClose ? "h-full overflow-y-auto" : "min-h-screen"
+      className={`w-[248px] shrink-0 bg-navy-900 text-white px-4 py-6 flex flex-col gap-5 ${
+        onClose ? "h-full overflow-y-auto" : "h-screen sticky top-0 overflow-y-auto"
       }`}
     >
       <div className="flex items-center gap-2 px-2">
@@ -149,10 +149,10 @@ export const Sidebar: React.FC<SidebarProps> = memo(({ user, onClose }) => {
         })}
       </nav>
 
-      <div className="mt-auto border-t border-white/[0.12] pt-4 px-2 flex flex-col gap-2">
-        <span className="text-[13px] font-semibold">{user.name}</span>
+      <div className="mt-2 border-t border-white/[0.12] pt-3 px-2 flex items-center justify-between gap-2">
+        <span className="text-[13px] font-semibold truncate text-[#D5DBE7]" title={user.name}>{user.name}</span>
         <form action={logout}>
-          <button type="submit" className="min-h-[36px] px-3 rounded-[10px] bg-white/[0.08] hover:bg-white/[0.14] text-[13px] font-semibold">
+          <button type="submit" className="min-h-[34px] px-3 rounded-[10px] bg-white/[0.08] hover:bg-white/[0.14] text-xs font-semibold whitespace-nowrap transition-colors">
             تسجيل الخروج
           </button>
         </form>
