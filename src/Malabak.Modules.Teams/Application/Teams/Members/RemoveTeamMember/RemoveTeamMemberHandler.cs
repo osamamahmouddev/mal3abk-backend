@@ -18,6 +18,10 @@ public sealed class RemoveTeamMemberHandler : ICommandHandler<RemoveTeamMemberCo
 
     public async Task<Result> HandleAsync(RemoveTeamMemberCommand command, CancellationToken cancellationToken = default)
     {
+        await using var transaction = await TeamConcurrency.BeginAsync(_dbContext, cancellationToken);
+        await TeamConcurrency.LockPlayerAsync(_dbContext, command.MemberPlayerId, cancellationToken);
+        await TeamConcurrency.LockTeamAsync(_dbContext, command.TeamId, cancellationToken);
+
         var team = await _dbContext.Teams
             .Include(t => t.Members)
             .FirstOrDefaultAsync(t => t.Id == command.TeamId, cancellationToken);
@@ -34,6 +38,10 @@ public sealed class RemoveTeamMemberHandler : ICommandHandler<RemoveTeamMemberCo
         }
 
         await _dbContext.SaveChangesAsync(cancellationToken);
+        if (transaction is not null)
+        {
+            await transaction.CommitAsync(cancellationToken);
+        }
 
         return Result.Success();
     }

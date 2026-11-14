@@ -18,8 +18,14 @@ public sealed class LeaveTeamHandler : ICommandHandler<LeaveTeamCommand, Result>
 
     public async Task<Result> HandleAsync(LeaveTeamCommand command, CancellationToken cancellationToken = default)
     {
+        // Serialised with joins on this team, so a lone captain cannot close it while someone is joining.
+        await using var transaction = await TeamConcurrency.BeginAsync(_dbContext, cancellationToken);
+        await TeamConcurrency.LockPlayerAsync(_dbContext, command.PlayerId, cancellationToken);
+        await TeamConcurrency.LockTeamAsync(_dbContext, command.TeamId, cancellationToken);
+
         var team = await _dbContext.Teams
             .Include(t => t.Members)
+            .Include(t => t.JoinRequests)
             .FirstOrDefaultAsync(t => t.Id == command.TeamId, cancellationToken);
 
         if (team is null)
@@ -34,6 +40,10 @@ public sealed class LeaveTeamHandler : ICommandHandler<LeaveTeamCommand, Result>
         }
 
         await _dbContext.SaveChangesAsync(cancellationToken);
+        if (transaction is not null)
+        {
+            await transaction.CommitAsync(cancellationToken);
+        }
 
         return Result.Success();
     }

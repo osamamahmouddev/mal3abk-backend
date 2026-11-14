@@ -8,6 +8,8 @@ namespace Malabak.Modules.Teams.Application.Teams.CreateTeam;
 
 public sealed class CreateTeamHandler : ICommandHandler<CreateTeamCommand, Result<TeamDetailDto>>
 {
+    private const int _maxAttempts = 3;
+
     private readonly ITeamsDbContext _dbContext;
     private readonly IUserAccountsContract? _accounts;
     private readonly IClock _clock;
@@ -30,6 +32,29 @@ public sealed class CreateTeamHandler : ICommandHandler<CreateTeamCommand, Resul
 
     public async Task<Result<TeamDetailDto>> HandleAsync(CreateTeamCommand command, CancellationToken cancellationToken = default)
     {
+        // The slug and invite code are checked first, but two creations can still pick the same value at once; the
+        // unique indexes catch that and the whole attempt is retried with fresh values.
+        for (var attempt = 1; attempt <= _maxAttempts; attempt++)
+        {
+            try
+            {
+                return await TryCreateAsync(command, cancellationToken);
+            }
+            catch (DbUpdateException ex) when (TeamConcurrency.IsCodeOrSlugCollision(ex) && attempt < _maxAttempts)
+            {
+                _dbContext.ChangeTracker.Clear();
+            }
+        }
+
+        return Result.Failure<TeamDetailDto>(TeamErrors.InviteCodeUnavailable);
+    }
+
+    private async Task<Result<TeamDetailDto>> TryCreateAsync(CreateTeamCommand command, CancellationToken cancellationToken)
+    {
+        await using var transaction = await TeamConcurrency.BeginAsync(_dbContext, cancellationToken);
+        await TeamConcurrency.LockPlayerAsync(_dbContext, command.CaptainId, cancellationToken);
+
+        // Counted under the player lock, so parallel creations or joins cannot pass the limit together.
         var activeTeamsCount = await _dbContext.TeamMembers
             .CountAsync(m => m.PlayerId == command.CaptainId && m.IsActive, cancellationToken);
         if (activeTeamsCount >= Team.MaxTeamsPerPlayer)
@@ -37,25 +62,22 @@ public sealed class CreateTeamHandler : ICommandHandler<CreateTeamCommand, Resul
             return Result.Failure<TeamDetailDto>(TeamErrors.MaxPlayerTeamsExceeded);
         }
 
-        // 1. Generate unique slug
+        // Disbanded (soft-deleted) teams keep their slug and code in the unique indexes, so they are checked too.
         var baseSlug = _slugGenerator.GenerateSlug(command.Name);
         var slug = baseSlug;
-        var attempt = 1;
-
-        while (await _dbContext.Teams.AnyAsync(t => t.Slug == slug, cancellationToken))
+        var suffix = 1;
+        while (await _dbContext.Teams.IgnoreQueryFilters().AnyAsync(t => t.Slug == slug, cancellationToken))
         {
-            attempt++;
-            slug = $"{baseSlug}-{attempt}";
+            suffix++;
+            slug = $"{baseSlug}-{suffix}";
         }
 
-        // 2. Generate unique 6-character invite code
         var inviteCode = _inviteCodeGenerator.GenerateCode();
-        while (await _dbContext.Teams.AnyAsync(t => t.InviteCode == inviteCode, cancellationToken))
+        while (await _dbContext.Teams.IgnoreQueryFilters().AnyAsync(t => t.InviteCode == inviteCode, cancellationToken))
         {
             inviteCode = _inviteCodeGenerator.GenerateCode();
         }
 
-        // 3. Create Team Aggregate
         var teamResult = Team.Create(
             Guid.NewGuid(),
             command.Name,
@@ -68,7 +90,10 @@ public sealed class CreateTeamHandler : ICommandHandler<CreateTeamCommand, Resul
             command.Description,
             command.District,
             command.LogoUrl,
-            command.CoverUrl);
+            command.CoverUrl,
+            isPublic: command.IsPublic ?? true,
+            isRecruiting: command.IsRecruiting ?? true,
+            isOpenForChallenges: command.IsOpenForChallenges ?? true);
 
         if (!teamResult.IsSuccess)
         {
@@ -79,6 +104,10 @@ public sealed class CreateTeamHandler : ICommandHandler<CreateTeamCommand, Resul
         _dbContext.Teams.Add(team);
 
         await _dbContext.SaveChangesAsync(cancellationToken);
+        if (transaction is not null)
+        {
+            await transaction.CommitAsync(cancellationToken);
+        }
 
         var detail = TeamMapper.ToDetailDto(team, includePrivateInfo: true);
         return Result.Success(detail with { Members = await detail.Members.WithNamesAsync(_accounts, cancellationToken) });

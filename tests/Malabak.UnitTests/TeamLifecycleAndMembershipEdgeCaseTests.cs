@@ -152,7 +152,7 @@ public sealed class TeamLifecycleAndMembershipEdgeCaseTests
     }
 
     [Fact]
-    public void LeaveTeam_WhenLastCaptainAttemptsToLeave_ShouldBeRejected()
+    public void LeaveTeam_WhenLoneCaptainLeaves_ShouldDisbandTheTeam()
     {
         // Arrange
         var captainId = Guid.NewGuid();
@@ -166,13 +166,13 @@ public sealed class TeamLifecycleAndMembershipEdgeCaseTests
             inviteCode: "NASR01",
             nowUtc: _clock.UtcNow).Value;
 
-        // Act: Captain attempts self-removal without transferring captaincy
+        // Act: the only member is the captain, so there is nobody to hand captaincy to
         var result = team.LeaveTeam(captainId, _clock.UtcNow);
 
-        // Assert
-        result.IsFailure.Should().BeTrue();
-        result.Error.Should().Be(TeamErrors.SelfRemovalMustTransferCaptaincy);
-        team.Members.Should().ContainSingle(m => m.PlayerId == captainId && m.IsActive);
+        // Assert: leaving closes the team and frees the captain's slot
+        result.IsSuccess.Should().BeTrue();
+        team.IsDeleted.Should().BeTrue();
+        team.Members.Should().NotContain(m => m.IsActive);
     }
 
     [Fact]

@@ -9,6 +9,7 @@ using Malabak.Modules.Teams.Application.Teams.JoinRequests.RequestToJoinTeam;
 using Malabak.Modules.Teams.Application.Teams.Members.LeaveTeam;
 using Malabak.Modules.Teams.Application.Teams.Members.RemoveTeamMember;
 using Malabak.Modules.Teams.Application.Teams.Members.TransferCaptaincy;
+using Malabak.Modules.Teams.Application.Teams.Members.UpdateMemberRole;
 using Malabak.Modules.Teams.Application.Teams.Queries.DiscoverTeams;
 using Malabak.Modules.Teams.Application.Teams.Queries.GetMyTeams;
 using Malabak.Modules.Teams.Application.Teams.Queries.GetTeamById;
@@ -47,6 +48,7 @@ public static class TeamsModule
         services.AddScoped<ICommandHandler<AcceptTeamInvitationCommand, Result<TeamDetailDto>>, AcceptTeamInvitationHandler>();
         services.AddScoped<ICommandHandler<RemoveTeamMemberCommand, Result>, RemoveTeamMemberHandler>();
         services.AddScoped<ICommandHandler<TransferCaptaincyCommand, Result>, TransferCaptaincyHandler>();
+        services.AddScoped<ICommandHandler<UpdateMemberRoleCommand, Result>, UpdateMemberRoleHandler>();
         services.AddScoped<ICommandHandler<RequestToJoinTeamCommand, Result<TeamJoinRequestDto>>, RequestToJoinTeamHandler>();
         services.AddScoped<ICommandHandler<ApproveJoinRequestCommand, Result>, ApproveJoinRequestHandler>();
         services.AddScoped<ICommandHandler<DeclineJoinRequestCommand, Result>, DeclineJoinRequestHandler>();

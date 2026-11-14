@@ -11,4 +11,7 @@ public sealed record CreateTeamCommand(
     string Governorate,
     string? District = null,
     string? LogoUrl = null,
-    string? CoverUrl = null) : ICommand<Result<TeamDetailDto>>;
+    string? CoverUrl = null,
+    bool? IsPublic = null,
+    bool? IsRecruiting = null,
+    bool? IsOpenForChallenges = null) : ICommand<Result<TeamDetailDto>>;

@@ -44,3 +44,13 @@ public sealed record JoinRequestDeclinedDomainEvent(
     Guid TeamId,
     Guid PlayerId,
     Guid DeclinedBy) : DomainEvent;
+
+public sealed record TeamDisbandedDomainEvent(
+    Guid TeamId,
+    Guid CaptainId) : DomainEvent;
+
+public sealed record MemberRoleChangedDomainEvent(
+    Guid TeamId,
+    Guid PlayerId,
+    TeamRole NewRole,
+    Guid ChangedBy) : DomainEvent;

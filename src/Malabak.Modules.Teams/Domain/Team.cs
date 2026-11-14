@@ -60,7 +60,9 @@ public sealed class Team : Entity<Guid>
         string? logoUrl = null,
         string? coverUrl = null,
         DateTime? inviteCodeExpiresAtUtc = null,
-        bool isPublic = true)
+        bool isPublic = true,
+        bool isRecruiting = true,
+        bool isOpenForChallenges = true)
     {
         if (string.IsNullOrWhiteSpace(name))
         {
@@ -96,8 +98,8 @@ public sealed class Team : Entity<Guid>
             CaptainId = captainId,
             InviteCode = inviteCode.Trim().ToUpperInvariant(),
             InviteCodeExpiresAtUtc = inviteCodeExpiresAtUtc,
-            IsRecruiting = true,
-            IsOpenForChallenges = true,
+            IsRecruiting = isRecruiting,
+            IsOpenForChallenges = isOpenForChallenges,
             IsPublic = isPublic,
             Rating = 1500.0,
             RatingDeviation = 350.0,
@@ -114,7 +116,9 @@ public sealed class Team : Entity<Guid>
         return Result.Success(team);
     }
 
-    public Result<TeamMember> JoinWithInviteCode(string inviteCode, Guid playerId, DateTime nowUtc)
+    /// <param name="activeTeamsCount">How many teams the player is an active member of right now (read under the player lock).</param>
+    /// <param name="rejoinBlocked">A leader removed this player and has not invited them again since.</param>
+    public Result<TeamMember> JoinWithInviteCode(string inviteCode, Guid playerId, DateTime nowUtc, int activeTeamsCount = 0, bool rejoinBlocked = false)
     {
         if (playerId == Guid.Empty)
         {
@@ -142,26 +146,50 @@ public sealed class Team : Entity<Guid>
             return Result.Failure<TeamMember>(TeamErrors.PlayerAlreadyInTeam);
         }
 
+        if (rejoinBlocked || existingMember is { RejoinBlocked: true })
+        {
+            return Result.Failure<TeamMember>(TeamErrors.RemovedFromTeam);
+        }
+
+        if (activeTeamsCount >= MaxTeamsPerPlayer)
+        {
+            return Result.Failure<TeamMember>(TeamErrors.MaxPlayerTeamsExceeded);
+        }
+
         if (_members.Count(m => m.IsActive) >= MaxTeamMembers)
         {
             return Result.Failure<TeamMember>(TeamErrors.TeamRosterFull);
         }
 
+        return Result.Success(AddMember(playerId, nowUtc, existingMember));
+    }
+
+    /// <summary>
+    /// Makes the player an active Member and closes any join request they still have pending here: whatever path brought
+    /// them in, a later approval of that request must not run again (it would reset their role).
+    /// </summary>
+    private TeamMember AddMember(Guid playerId, DateTime nowUtc, TeamMember? existingMember)
+    {
+        TeamMember member;
         if (existingMember is not null)
         {
             existingMember.Reactivate(TeamRole.Member, nowUtc);
-            SetUpdatedAt(nowUtc);
-            RaiseDomainEvent(new TeamMemberJoinedDomainEvent(Id, playerId, TeamRole.Member));
-            return Result.Success(existingMember);
+            member = existingMember;
+        }
+        else
+        {
+            member = TeamMember.Create(Id, playerId, TeamRole.Member, nowUtc);
+            _members.Add(member);
         }
 
-        var newMember = TeamMember.Create(Id, playerId, TeamRole.Member, nowUtc);
-        _members.Add(newMember);
+        foreach (var pending in _joinRequests.Where(r => r.PlayerId == playerId && r.Status == JoinRequestStatus.Pending))
+        {
+            pending.Cancel(nowUtc);
+        }
+
         SetUpdatedAt(nowUtc);
-
         RaiseDomainEvent(new TeamMemberJoinedDomainEvent(Id, playerId, TeamRole.Member));
-
-        return Result.Success(newMember);
+        return member;
     }
 
     public Result RotateInviteCode(string newInviteCode, Guid requestedByPlayerId, DateTime nowUtc, DateTime? expiresAtUtc = null)
@@ -217,7 +245,8 @@ public sealed class Team : Entity<Guid>
             return Result.Failure(TeamErrors.NotAuthorizedToManageRoster);
         }
 
-        memberToRemove.Deactivate(nowUtc);
+        // Leaving on your own keeps the door open; being removed by a leader closes the shared code for you.
+        memberToRemove.Deactivate(nowUtc, blockRejoin: !isSelfRemoval);
         SetUpdatedAt(nowUtc);
 
         RaiseDomainEvent(new TeamMemberRemovedDomainEvent(Id, memberPlayerId, requestedByPlayerId));
@@ -270,9 +299,10 @@ public sealed class Team : Entity<Guid>
             return Result.Failure(TeamErrors.CannotChangeCaptainRole);
         }
 
-        if (newRole == TeamRole.Captain)
+        // Captaincy has its own transfer flow; only these two roles are assigned here.
+        if (newRole is not (TeamRole.ViceCaptain or TeamRole.Member))
         {
-            return TransferCaptaincy(targetPlayerId, requestedByPlayerId, nowUtc);
+            return Result.Failure(TeamErrors.InvalidRole);
         }
 
         var member = _members.FirstOrDefault(m => m.PlayerId == targetPlayerId && m.IsActive);
@@ -281,8 +311,14 @@ public sealed class Team : Entity<Guid>
             return Result.Failure(TeamErrors.MemberNotFound);
         }
 
+        if (member.Role == newRole)
+        {
+            return Result.Success();
+        }
+
         member.UpdateRole(newRole, nowUtc);
         SetUpdatedAt(nowUtc);
+        RaiseDomainEvent(new MemberRoleChangedDomainEvent(Id, targetPlayerId, newRole, requestedByPlayerId));
 
         return Result.Success();
     }
@@ -374,9 +410,42 @@ public sealed class Team : Entity<Guid>
         return Result.Success();
     }
 
+    /// <summary>
+    /// A member leaves. A captain must hand over captaincy first, unless they are the only active member: then nobody
+    /// could take over, so leaving closes (disbands) the team.
+    /// </summary>
     public Result LeaveTeam(Guid playerId, DateTime nowUtc)
     {
-        return RemoveMember(playerId, playerId, nowUtc);
+        var isLoneCaptain = playerId == CaptainId
+            && _members.Count(m => m.IsActive) == 1
+            && _members.Any(m => m.PlayerId == playerId && m.IsActive);
+
+        return isLoneCaptain ? Disband(nowUtc) : RemoveMember(playerId, playerId, nowUtc);
+    }
+
+    /// <summary>
+    /// Closes the team: the captain's membership ends (freeing one of their team slots), pending join requests are
+    /// cancelled and the team is soft-deleted, so it drops out of discovery, the leaderboard and invite-code lookups.
+    /// </summary>
+    private Result Disband(DateTime nowUtc)
+    {
+        foreach (var member in _members.Where(m => m.IsActive))
+        {
+            member.Deactivate(nowUtc);
+        }
+
+        foreach (var pending in _joinRequests.Where(r => r.Status == JoinRequestStatus.Pending))
+        {
+            pending.Cancel(nowUtc);
+        }
+
+        IsRecruiting = false;
+        IsOpenForChallenges = false;
+        SetUpdatedAt(nowUtc);
+        SoftDelete(nowUtc);
+
+        RaiseDomainEvent(new TeamDisbandedDomainEvent(Id, CaptainId));
+        return Result.Success();
     }
 
     public Result<TeamJoinRequest> CreateJoinRequest(Guid playerId, string? message, int activeTeamsCount, DateTime nowUtc)
@@ -425,7 +494,8 @@ public sealed class Team : Entity<Guid>
         return Result.Success(request);
     }
 
-    public Result<TeamMember> ApproveJoinRequest(Guid requestId, Guid reviewerPlayerId, DateTime nowUtc)
+    /// <param name="requesterActiveTeamsCount">How many teams the requester is an active member of right now (read under the player lock).</param>
+    public Result<TeamMember> ApproveJoinRequest(Guid requestId, Guid reviewerPlayerId, DateTime nowUtc, int requesterActiveTeamsCount = 0)
     {
         var reviewer = _members.FirstOrDefault(m => m.PlayerId == reviewerPlayerId && m.IsActive);
         if (reviewer is null || (reviewer.Role != TeamRole.Captain && reviewer.Role != TeamRole.ViceCaptain))
@@ -444,30 +514,32 @@ public sealed class Team : Entity<Guid>
             return Result.Failure<TeamMember>(TeamErrors.JoinRequestAlreadyHandled);
         }
 
+        if (IsSuspended)
+        {
+            return Result.Failure<TeamMember>(TeamErrors.Suspended);
+        }
+
+        // Already in (e.g. joined by code meanwhile): approving would re-add them as a plain Member.
+        if (_members.Any(m => m.PlayerId == request.PlayerId && m.IsActive))
+        {
+            return Result.Failure<TeamMember>(TeamErrors.PlayerAlreadyInTeam);
+        }
+
+        // The request stays pending, so it can still be approved once the player has a free slot again.
+        if (requesterActiveTeamsCount >= MaxTeamsPerPlayer)
+        {
+            return Result.Failure<TeamMember>(TeamErrors.MaxPlayerTeamsExceeded);
+        }
+
         if (_members.Count(m => m.IsActive) >= MaxTeamMembers)
         {
             return Result.Failure<TeamMember>(TeamErrors.TeamRosterFull);
         }
 
         request.Approve(reviewerPlayerId, nowUtc);
-
-        var existingMember = _members.FirstOrDefault(m => m.PlayerId == request.PlayerId);
-        TeamMember member;
-        if (existingMember is not null)
-        {
-            existingMember.Reactivate(TeamRole.Member, nowUtc);
-            member = existingMember;
-        }
-        else
-        {
-            member = TeamMember.Create(Id, request.PlayerId, TeamRole.Member, nowUtc);
-            _members.Add(member);
-        }
-
-        SetUpdatedAt(nowUtc);
+        var member = AddMember(request.PlayerId, nowUtc, _members.FirstOrDefault(m => m.PlayerId == request.PlayerId));
 
         RaiseDomainEvent(new JoinRequestApprovedDomainEvent(request.Id, Id, request.PlayerId, reviewerPlayerId));
-        RaiseDomainEvent(new TeamMemberJoinedDomainEvent(Id, request.PlayerId, TeamRole.Member));
 
         return Result.Success(member);
     }

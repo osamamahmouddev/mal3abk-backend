@@ -165,7 +165,8 @@ namespace Malabak.Modules.Teams.Infrastructure.Migrations
 
                     b.HasIndex("CaptainId");
 
-                    b.HasIndex("InviteCode");
+                    b.HasIndex("InviteCode")
+                        .IsUnique();
 
                     b.HasIndex("Slug")
                         .IsUnique();
@@ -357,6 +358,11 @@ namespace Malabak.Modules.Teams.Infrastructure.Migrations
                     b.Property<string>("Position")
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)");
+
+                    b.Property<bool>("RejoinBlocked")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false);
 
                     b.Property<int>("Role")
                         .HasColumnType("integer");

@@ -8,6 +8,8 @@ namespace Malabak.Modules.Teams.Application.Teams.Invitations.CreateTeamInvitati
 
 public sealed class CreateTeamInvitationHandler : ICommandHandler<CreateTeamInvitationCommand, Result<TeamInvitationDto>>
 {
+    private const int _maxAttempts = 3;
+
     private readonly ITeamsDbContext _dbContext;
     private readonly IClock _clock;
     private readonly ITeamInviteCodeGenerator _inviteCodeGenerator;
@@ -27,33 +29,30 @@ public sealed class CreateTeamInvitationHandler : ICommandHandler<CreateTeamInvi
 
     public async Task<Result<TeamInvitationDto>> HandleAsync(CreateTeamInvitationCommand command, CancellationToken cancellationToken = default)
     {
-        var team = await _dbContext.Teams
-            .Include(t => t.Members)
-            .FirstOrDefaultAsync(t => t.Id == command.TeamId, cancellationToken);
+        Team? team = null;
+        for (var attempt = 1; attempt <= _maxAttempts && team is null; attempt++)
+        {
+            try
+            {
+                var rotated = await TryRotateAsync(command, cancellationToken);
+                if (!rotated.IsSuccess)
+                {
+                    return Result.Failure<TeamInvitationDto>(rotated.Error);
+                }
+
+                team = rotated.Value;
+            }
+            catch (DbUpdateException ex) when (TeamConcurrency.IsCodeOrSlugCollision(ex))
+            {
+                // Another team took the same code between the check and the save: try a fresh one.
+                _dbContext.ChangeTracker.Clear();
+            }
+        }
 
         if (team is null)
         {
-            return Result.Failure<TeamInvitationDto>(TeamErrors.NotFound);
+            return Result.Failure<TeamInvitationDto>(TeamErrors.InviteCodeUnavailable);
         }
-
-        // Generate unique 6-character code
-        var newCode = _inviteCodeGenerator.GenerateCode();
-        while (await _dbContext.Teams.AnyAsync(t => t.InviteCode == newCode && t.Id != team.Id, cancellationToken))
-        {
-            newCode = _inviteCodeGenerator.GenerateCode();
-        }
-
-        DateTime? expiresAt = command.ValidityDays.HasValue
-            ? _clock.UtcNow.AddDays(command.ValidityDays.Value)
-            : null;
-
-        var rotateResult = team.RotateInviteCode(newCode, command.RequestingPlayerId, _clock.UtcNow, expiresAt);
-        if (!rotateResult.IsSuccess)
-        {
-            return Result.Failure<TeamInvitationDto>(rotateResult.Error);
-        }
-
-        await _dbContext.SaveChangesAsync(cancellationToken);
 
         if (_notificationPublisher is not null && command.InvitedPlayerId.HasValue && command.InvitedPlayerId.Value != Guid.Empty)
         {
@@ -72,5 +71,44 @@ public sealed class CreateTeamInvitationHandler : ICommandHandler<CreateTeamInvi
         }
 
         return Result.Success(new TeamInvitationDto(team.Id, team.InviteCode, team.InviteCodeExpiresAtUtc));
+    }
+
+    private async Task<Result<Team>> TryRotateAsync(CreateTeamInvitationCommand command, CancellationToken cancellationToken)
+    {
+        var team = await _dbContext.Teams
+            .Include(t => t.Members)
+            .FirstOrDefaultAsync(t => t.Id == command.TeamId, cancellationToken);
+
+        if (team is null)
+        {
+            return Result.Failure<Team>(TeamErrors.NotFound);
+        }
+
+        // Disbanded teams keep their code in the unique index, so they are checked too.
+        var newCode = _inviteCodeGenerator.GenerateCode();
+        while (await _dbContext.Teams.IgnoreQueryFilters().AnyAsync(t => t.InviteCode == newCode && t.Id != team.Id, cancellationToken))
+        {
+            newCode = _inviteCodeGenerator.GenerateCode();
+        }
+
+        var nowUtc = _clock.UtcNow;
+        DateTime? expiresAt = command.ValidityDays.HasValue
+            ? nowUtc.AddDays(command.ValidityDays.Value)
+            : null;
+
+        var rotateResult = team.RotateInviteCode(newCode, command.RequestingPlayerId, nowUtc, expiresAt);
+        if (!rotateResult.IsSuccess)
+        {
+            return Result.Failure<Team>(rotateResult.Error);
+        }
+
+        // A leader inviting a removed player by name lets them use the code again.
+        if (command.InvitedPlayerId is { } invited && invited != Guid.Empty)
+        {
+            await TeamRejoin.AllowAsync(_dbContext, team.Id, invited, nowUtc, cancellationToken);
+        }
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+        return Result.Success(team);
     }
 }
