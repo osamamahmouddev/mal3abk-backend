@@ -64,8 +64,16 @@ export const AppShell: React.FC<AppShellProps> = ({ children, user }) => {
     }
   }, [user, isAuthOrSetupRoute, pathname]);
 
-  if (isAuthOrSetupRoute || !user) {
+  if (isAuthOrSetupRoute) {
     return <main className="min-h-screen w-full">{children}</main>;
+  }
+
+  if (!user) {
+    return (
+      <main className="min-h-screen w-full flex items-center justify-center bg-[#F3F5F9]">
+        <div className="w-8 h-8 rounded-full border-2 border-navy-900 border-t-transparent animate-spin" />
+      </main>
+    );
   }
 
   return (

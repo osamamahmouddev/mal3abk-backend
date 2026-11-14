@@ -159,7 +159,15 @@ export function AdminShell({ children, user }: { children: React.ReactNode; user
     }
   }, [user, pathname]);
 
-  if (pathname.startsWith("/login") || !user) return <>{children}</>;
+  if (pathname.startsWith("/login")) return <>{children}</>;
+
+  if (!user) {
+    return (
+      <div className="min-h-screen w-full flex items-center justify-center bg-[#F3F5F9]">
+        <div className="w-8 h-8 rounded-full border-2 border-slate-900 border-t-transparent animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <SessionGate>
