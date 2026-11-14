@@ -14,7 +14,8 @@ import { CAPACITIES, DAY_ORDER, DAY_NAMES, DEFAULT_WEEK, METHOD_LABELS, toApiTim
 import { AddAreaInline } from "@/components/AddAreaInline";
 import { PaymentMethodForm } from "@/components/PaymentMethodForm";
 import { mediaIdOf, mediaSrc, uploadImage } from "@/lib/upload";
-import { Check, CircleCheck, CircleX, TriangleAlert, X } from "lucide-react";
+import { ImageLightbox, type LightboxPhoto } from "@/components/ImageLightbox";
+import { Check, CircleCheck, CircleX, Eye, TriangleAlert, X } from "lucide-react";
 
 const pitchPattern =
   "radial-gradient(closest-side circle at 50% 50%, transparent 0 32%, rgba(255,255,255,0.55) 32% 36%, transparent 36%), linear-gradient(90deg, transparent calc(50% - 1px), rgba(255,255,255,0.55) calc(50% - 1px) calc(50% + 1px), transparent calc(50% + 1px)), repeating-linear-gradient(90deg, #2E8B55 0 12.5%, #287D4C 12.5% 25%)";
@@ -43,6 +44,7 @@ export default function SetupPage() {
   const [loadedVenue, setLoadedVenue] = useState<string | null>(null);
   const [venuePhotoUploading, setVenuePhotoUploading] = useState(false);
   const [venuePhotoRemoving, setVenuePhotoRemoving] = useState(false);
+  const [lightboxPhoto, setLightboxPhoto] = useState<LightboxPhoto | null>(null);
 
   // Resume an unfinished setup with the owner's existing venue.
   useEffect(() => {
@@ -326,14 +328,25 @@ export default function SetupPage() {
                 </div>
                 <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 gap-2.5">
                   {(venueId ? venue?.photos ?? [] : form.photos).map((photo, idx) => (
-                    <div key={photo} className="relative group rounded-xl overflow-hidden aspect-[4/3] bg-slate-100 border border-[#E2E8F0]">
-                      <img src={mediaSrc(photo)} alt="صورة المنشأة" className="w-full h-full object-cover" />
+                    <div
+                      key={photo}
+                      className="relative group rounded-xl overflow-hidden aspect-[4/3] bg-slate-100 border border-[#E2E8F0] cursor-pointer shadow-2xs hover:ring-2 hover:ring-emerald-500 transition-all"
+                      onClick={() => setLightboxPhoto({ src: mediaSrc(photo), title: `صورة المنشأة (${toArabicDigits(idx + 1)})` })}
+                    >
+                      <img src={mediaSrc(photo)} alt="صورة المنشأة" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200" />
+                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-xs font-semibold gap-1 pointer-events-none">
+                        <Eye className="size-4" />
+                        <span>معاينة</span>
+                      </div>
                       <button
                         type="button"
                         aria-label="مسح الصورة"
                         disabled={venuePhotoRemoving}
-                        onClick={() => removeVenuePhoto(photo, idx)}
-                        className="absolute top-1 left-1 w-6 h-6 rounded-full bg-black/60 hover:bg-[#A8261C] text-white text-xs font-bold flex items-center justify-center transition-colors shadow"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          removeVenuePhoto(photo, idx);
+                        }}
+                        className="absolute top-1 left-1 w-6 h-6 rounded-full bg-black/60 hover:bg-[#A8261C] text-white text-xs font-bold flex items-center justify-center transition-colors shadow z-10"
                       >
                         <X className="size-3.5" strokeWidth={2.5} />
                       </button>
@@ -403,6 +416,8 @@ export default function SetupPage() {
           </div>
         </main>
       </div>
+
+      <ImageLightbox photo={lightboxPhoto} onClose={() => setLightboxPhoto(null)} />
     </div>
   );
 }
@@ -415,6 +430,7 @@ function PitchesStep({ venueId }: { venueId: string }) {
   const [draftUploading, setDraftUploading] = useState(false);
   const [uploadingPitchId, setUploadingPitchId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [lightboxPhoto, setLightboxPhoto] = useState<LightboxPhoto | null>(null);
 
   const pitches = useQuery({
     queryKey: ["pitches", venueId],
@@ -571,16 +587,26 @@ function PitchesStep({ venueId }: { venueId: string }) {
                 <span className="text-[11px] text-[#7B8494]">صور النجيلة، الشباك، والملعب ده بالتحديد</span>
               </div>
               <div className="grid grid-cols-3 sm:grid-cols-5 md:grid-cols-6 gap-2">
-                {p.photos.map((photo) => (
-                  <div key={photo} className="relative group rounded-xl overflow-hidden aspect-square bg-slate-100 border border-[#E2E8F0]">
+                {p.photos.map((photo, pIdx) => (
+                  <div
+                    key={photo}
+                    className="relative group rounded-xl overflow-hidden aspect-square bg-slate-100 border border-[#E2E8F0] cursor-pointer shadow-2xs hover:ring-2 hover:ring-emerald-500 transition-all"
+                    onClick={() => setLightboxPhoto({ src: mediaSrc(photo), title: `صورة ${p.name} (${toArabicDigits(pIdx + 1)})` })}
+                  >
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={mediaSrc(photo)} alt={`صورة ${p.name}`} className="w-full h-full object-cover" />
+                    <img src={mediaSrc(photo)} alt={`صورة ${p.name}`} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200" />
+                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-xs font-semibold gap-1 pointer-events-none">
+                      <Eye className="size-4" />
+                    </div>
                     <button
                       type="button"
                       aria-label="مسح الصورة"
                       disabled={removePitchPhoto.isPending}
-                      onClick={() => removePitchPhoto.mutate({ pitchId: p.id, photo })}
-                      className="absolute top-1 left-1 w-6 h-6 rounded-full bg-black/60 hover:bg-[#A8261C] text-white text-xs font-bold flex items-center justify-center transition-colors shadow"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        removePitchPhoto.mutate({ pitchId: p.id, photo });
+                      }}
+                      className="absolute top-1 left-1 w-6 h-6 rounded-full bg-black/60 hover:bg-[#A8261C] text-white text-xs font-bold flex items-center justify-center transition-colors shadow z-10"
                     >
                       <X className="size-3.5" strokeWidth={2.5} />
                     </button>
@@ -646,14 +672,24 @@ function PitchesStep({ venueId }: { venueId: string }) {
           <span className="text-xs font-semibold text-slate-700">صور أرضية الملعب (اختياري)</span>
           <div className="grid grid-cols-3 sm:grid-cols-5 md:grid-cols-6 gap-2">
             {draftPhotos.map((photo, idx) => (
-              <div key={photo} className="relative group rounded-xl overflow-hidden aspect-square bg-slate-100 border border-[#E2E8F0]">
+              <div
+                key={photo}
+                className="relative group rounded-xl overflow-hidden aspect-square bg-slate-100 border border-[#E2E8F0] cursor-pointer shadow-2xs hover:ring-2 hover:ring-emerald-500 transition-all"
+                onClick={() => setLightboxPhoto({ src: mediaSrc(photo), title: `صورة الملعب (${toArabicDigits(idx + 1)})` })}
+              >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={mediaSrc(photo)} alt="صورة الملعب" className="w-full h-full object-cover" />
+                <img src={mediaSrc(photo)} alt="صورة الملعب" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200" />
+                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-xs font-semibold gap-1 pointer-events-none">
+                  <Eye className="size-4" />
+                </div>
                 <button
                   type="button"
                   aria-label="مسح الصورة"
-                  onClick={() => setDraftPhotos((list) => list.filter((_, i) => i !== idx))}
-                  className="absolute top-1 left-1 w-6 h-6 rounded-full bg-black/60 hover:bg-[#A8261C] text-white text-xs font-bold flex items-center justify-center transition-colors shadow"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setDraftPhotos((list) => list.filter((_, i) => i !== idx));
+                  }}
+                  className="absolute top-1 left-1 w-6 h-6 rounded-full bg-black/60 hover:bg-[#A8261C] text-white text-xs font-bold flex items-center justify-center transition-colors shadow z-10"
                 >
                   <X className="size-3.5" strokeWidth={2.5} />
                 </button>
@@ -691,6 +727,8 @@ function PitchesStep({ venueId }: { venueId: string }) {
           {error}
         </span>
       )}
+
+      <ImageLightbox photo={lightboxPhoto} onClose={() => setLightboxPhoto(null)} />
     </div>
   );
 }

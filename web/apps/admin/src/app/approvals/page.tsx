@@ -5,6 +5,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { Schemas } from "@malabak/api-client";
 import { Page, PageHeader, TONE, btnOutline, card, muted, toArabicDigits, useRevealOnSelect, EmptyState } from "@/components/ui";
 import { api, unwrap } from "@/lib/api";
+import { Eye } from "lucide-react";
+import { ImageLightbox, type LightboxPhoto } from "@/components/ImageLightbox";
 
 type PendingPitch = {
   id?: string;
@@ -67,6 +69,7 @@ export default function ApprovalsPage() {
   const [message, setMessage] = useState("");
   const [notice, setNotice] = useState<string | null>(null);
   const [facilityNames, setFacilityNames] = useState<Record<string, string>>({});
+  const [lightboxPhoto, setLightboxPhoto] = useState<LightboxPhoto | null>(null);
 
   const pending = useQuery({
     queryKey: ["approvals"],
@@ -222,14 +225,23 @@ export default function ApprovalsPage() {
                 <span className={`text-xs ${muted}`}>المالك مارفعش صور عامة للمنشأة.</span>
               ) : (
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                  {cur.photos!.map((photo) => (
-                    // eslint-disable-next-line @next/next/no-img-element -- re-encoded WebP from our media API
-                    <img
+                  {cur.photos!.map((photo, pIdx) => (
+                    <div
                       key={photo}
-                      src={mediaSrc(photo)}
-                      alt={`صورة ${cur.name}`}
-                      className="aspect-[4/3] w-full object-cover rounded-[10px] border border-[#E4E7EC]"
-                    />
+                      className="relative group rounded-[10px] overflow-hidden aspect-[4/3] bg-slate-100 border border-[#E4E7EC] cursor-pointer hover:ring-2 hover:ring-navy-900 transition-all shadow-2xs"
+                      onClick={() => setLightboxPhoto({ src: mediaSrc(photo), title: `صورة ${cur.name} (${toArabicDigits(pIdx + 1)})` })}
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element -- re-encoded WebP from our media API */}
+                      <img
+                        src={mediaSrc(photo)}
+                        alt={`صورة ${cur.name}`}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+                      />
+                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-xs font-semibold gap-1 pointer-events-none">
+                        <Eye className="size-4" />
+                        <span>معاينة</span>
+                      </div>
+                    </div>
                   ))}
                 </div>
               )}
@@ -271,14 +283,23 @@ export default function ApprovalsPage() {
                         <span className={`text-xs ${muted}`}>المالك مارفعش صور للملعب ده لسه.</span>
                       ) : (
                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                          {pitch.photos!.map((photo) => (
-                            // eslint-disable-next-line @next/next/no-img-element -- re-encoded WebP from our media API
-                            <img
+                          {pitch.photos!.map((photo, pIdx) => (
+                            <div
                               key={photo}
-                              src={mediaSrc(photo)}
-                              alt={`صورة ${pitch.name}`}
-                              className="aspect-[4/3] w-full object-cover rounded-[10px] border border-[#DCE0E8]"
-                            />
+                              className="relative group rounded-[10px] overflow-hidden aspect-[4/3] bg-white border border-[#DCE0E8] cursor-pointer hover:ring-2 hover:ring-navy-900 transition-all shadow-2xs"
+                              onClick={() => setLightboxPhoto({ src: mediaSrc(photo), title: `صورة ${pitch.name} (${toArabicDigits(pIdx + 1)})` })}
+                            >
+                              {/* eslint-disable-next-line @next/next/no-img-element -- re-encoded WebP from our media API */}
+                              <img
+                                src={mediaSrc(photo)}
+                                alt={`صورة ${pitch.name}`}
+                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+                              />
+                              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-xs font-semibold gap-1 pointer-events-none">
+                                <Eye className="size-4" />
+                                <span>معاينة</span>
+                              </div>
+                            </div>
                           ))}
                         </div>
                       )}
@@ -350,6 +371,8 @@ export default function ApprovalsPage() {
           </section>
         </div>
       )}
+
+      <ImageLightbox photo={lightboxPhoto} onClose={() => setLightboxPhoto(null)} />
     </Page>
   );
 }

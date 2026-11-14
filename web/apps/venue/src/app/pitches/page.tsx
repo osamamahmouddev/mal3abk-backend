@@ -11,7 +11,8 @@ import { api, unwrap } from "@/lib/api";
 import { useReference } from "@/lib/reference";
 import { APPROVAL_LABELS, CAPACITIES } from "@/lib/venue-format";
 import { mediaIdOf, mediaSrc, uploadImage } from "@/lib/upload";
-import { X } from "lucide-react";
+import { ImageLightbox } from "@/components/ImageLightbox";
+import { Eye, X } from "lucide-react";
 
 type Pitch = Schemas["PitchDto"];
 
@@ -28,6 +29,7 @@ export default function PitchesPage() {
   const [tab, setTab] = useState<"pitches" | "venues">("pitches");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [draft, setDraft] = useState<Pitch | null>(null);
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const detailsRef = useRevealOnSelect<HTMLElement>(selectedId);
   const [toast, setToast] = useState<string | null>(null);
 
@@ -354,16 +356,31 @@ export default function PitchesPage() {
               <div className="flex flex-col gap-1.5">
                 <span className="text-[13px] font-semibold">صور الملعب</span>
                 <div className="grid grid-cols-3 gap-2">
-                  {(selected?.photos ?? []).map((photo) => {
+                  {(selected?.photos ?? []).map((photo, idx) => {
                     return (
-                      <div key={photo} className="relative">
+                      <div
+                        key={photo}
+                        className="relative group rounded-xl overflow-hidden aspect-[4/3] bg-slate-100 border border-slate-200 cursor-pointer shadow-2xs hover:ring-2 hover:ring-emerald-500 transition-all"
+                        onClick={() => setLightboxIndex(idx)}
+                      >
                         {/* eslint-disable-next-line @next/next/no-img-element -- media from our API, re-encoded on upload */}
-                        <img src={mediaSrc(photo)} alt={`صورة ${selected?.name}`} className="w-full h-20 object-cover rounded-xl" />
+                        <img
+                          src={mediaSrc(photo)}
+                          alt={`صورة ${selected?.name} ${toArabicDigits(idx + 1)}`}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+                        />
+                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-xs font-semibold gap-1 pointer-events-none">
+                          <Eye className="size-4" />
+                          <span>معاينة</span>
+                        </div>
                         <button
                           type="button"
                           aria-label="مسح الصورة"
-                          onClick={() => selected && removePhoto.mutate({ pitchId: selected.id, photo })}
-                          className="absolute top-1 left-1 w-7 h-7 rounded-full bg-white/90 text-[#A8261C] text-xs font-bold grid place-items-center"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (selected) removePhoto.mutate({ pitchId: selected.id, photo });
+                          }}
+                          className="absolute top-1 left-1 w-6 h-6 rounded-full bg-white/90 hover:bg-[#A8261C] text-[#A8261C] hover:text-white text-xs font-bold grid place-items-center transition-colors shadow z-10"
                         >
                           <X className="size-3.5" strokeWidth={2.5} />
                         </button>
@@ -417,6 +434,20 @@ export default function PitchesPage() {
 
       <Toast message={toast} onClose={() => setToast(null)} />
       {confirmDialog}
+
+      <ImageLightbox
+        photo={
+          lightboxIndex !== null && selected?.photos?.[lightboxIndex]
+            ? {
+                src: mediaSrc(selected.photos[lightboxIndex]),
+                title: `${selected.name} (${toArabicDigits(lightboxIndex + 1)} من ${toArabicDigits(selected.photos.length)})`,
+              }
+            : null
+        }
+        onClose={() => setLightboxIndex(null)}
+        onNext={lightboxIndex !== null && selected?.photos && lightboxIndex < selected.photos.length - 1 ? () => setLightboxIndex(lightboxIndex + 1) : undefined}
+        onPrev={lightboxIndex !== null && lightboxIndex > 0 ? () => setLightboxIndex(lightboxIndex - 1) : undefined}
+      />
     </Page>
   );
 }

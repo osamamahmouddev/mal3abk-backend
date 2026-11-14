@@ -5,10 +5,11 @@ import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { QRCodeSVG } from "qrcode.react";
 import { Eye, EyeOff, X } from "lucide-react";
-import { Page, Toast, card, chip, inputClass, muted, redShadow } from "@/components/ui";
+import { Page, Toast, card, chip, inputClass, muted, redShadow, toArabicDigits } from "@/components/ui";
 import { useVenue } from "@/components/Providers";
 import { AddAreaInline } from "@/components/AddAreaInline";
 import { PaymentMethods } from "@/components/PaymentMethods";
+import { ImageLightbox } from "@/components/ImageLightbox";
 import { api, unwrap } from "@/lib/api";
 import { useReference } from "@/lib/reference";
 import { mediaIdOf, mediaSrc, uploadImage } from "@/lib/upload";
@@ -66,6 +67,7 @@ function VenueInfo({ onMessage }: { onMessage: (message: string) => void }) {
   const { venue } = useVenue();
   const { facilities, governorates } = useReference();
   const fileInput = useRef<HTMLInputElement>(null);
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const [form, setForm] = useState({ name: "", phoneNumber: "", address: "", description: "", city: "", area: "", facilities: [] as string[] });
 
   useEffect(() => {
@@ -227,17 +229,32 @@ function VenueInfo({ onMessage }: { onMessage: (message: string) => void }) {
           <h2 className="text-base font-bold">صور المكان / المنشأة العامة</h2>
           <span className={`text-xs ${muted}`}>صور المدخل، الاستراحة، والمرافق العامة. صور أرضيات الملاعب بتترفع من صفحة الملاعب لكل ملعب بشكل منفصل.</span>
         </div>
-        <div className="grid grid-cols-2 gap-2">
-          {venue.photos.map((photo) => {
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+          {venue.photos.map((photo, idx) => {
             return (
-              <div key={photo} className="relative">
+              <div
+                key={photo}
+                className="relative group rounded-xl overflow-hidden aspect-[4/3] bg-slate-100 border border-slate-200 cursor-pointer shadow-2xs hover:ring-2 hover:ring-emerald-500 transition-all"
+                onClick={() => setLightboxIndex(idx)}
+              >
                 {/* eslint-disable-next-line @next/next/no-img-element -- signed media from our API, already re-encoded as WebP */}
-                <img src={mediaSrc(photo)} alt="صورة المنشأة" className="w-full h-24 object-cover rounded-xl" />
+                <img
+                  src={mediaSrc(photo)}
+                  alt={`صورة المنشأة ${toArabicDigits(idx + 1)}`}
+                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+                />
+                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-xs font-semibold gap-1 pointer-events-none">
+                  <Eye className="size-4" />
+                  <span>معاينة</span>
+                </div>
                 <button
                   type="button"
                   aria-label="مسح الصورة"
-                  onClick={() => removePhoto.mutate(photo)}
-                  className="absolute top-1.5 left-1.5 w-7 h-7 rounded-full bg-white/90 text-[#A8261C] text-xs font-bold grid place-items-center"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    removePhoto.mutate(photo);
+                  }}
+                  className="absolute top-1.5 left-1.5 w-7 h-7 rounded-full bg-white/90 hover:bg-[#A8261C] text-[#A8261C] hover:text-white text-xs font-bold grid place-items-center transition-colors shadow z-10"
                 >
                   <X className="size-3.5" strokeWidth={2.5} />
                 </button>
@@ -261,6 +278,20 @@ function VenueInfo({ onMessage }: { onMessage: (message: string) => void }) {
         </button>
         <span className={`text-xs ${muted}`}>JPG أو PNG أو WebP، لحد ٨ ميجا. بنشيل بيانات الموقع من الصورة أوتوماتيك.</span>
       </section>
+
+      <ImageLightbox
+        photo={
+          lightboxIndex !== null && venue.photos[lightboxIndex]
+            ? {
+                src: mediaSrc(venue.photos[lightboxIndex]),
+                title: `صورة المنشأة (${toArabicDigits(lightboxIndex + 1)} من ${toArabicDigits(venue.photos.length)})`,
+              }
+            : null
+        }
+        onClose={() => setLightboxIndex(null)}
+        onNext={lightboxIndex !== null && lightboxIndex < venue.photos.length - 1 ? () => setLightboxIndex(lightboxIndex + 1) : undefined}
+        onPrev={lightboxIndex !== null && lightboxIndex > 0 ? () => setLightboxIndex(lightboxIndex - 1) : undefined}
+      />
     </div>
   );
 }
