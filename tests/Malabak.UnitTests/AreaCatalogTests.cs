@@ -58,6 +58,69 @@ public sealed class AreaCatalogTests
         (await service.RemoveAsync(added.Id)).Error.Type.Should().Be(ErrorType.NotFound);
     }
 
+    [Fact]
+    public async Task DeactivatingAnArea_HidesItFromPublicCatalogAsync()
+    {
+        await using var db = NewDb();
+        var service = new AreaCatalogService(db, new Clock());
+
+        var adminAreas = await service.ListAdminAreasAsync("cairo");
+        var maadi = adminAreas.First(a => a.NameAr == "المعادي");
+
+        // Deactivate Maadi
+        var res = await service.SetActiveAsync(maadi.Id, false);
+        res.IsSuccess.Should().BeTrue();
+
+        var cairo = (await service.GovernoratesAsync()).Single(g => g.Code == "cairo");
+        cairo.Areas.Should().NotContain(a => a.NameAr == "المعادي", "deactivated area is hidden from public catalog");
+
+        // Reactivate Maadi
+        await service.SetActiveAsync(maadi.Id, true);
+        var cairoReactivated = (await service.GovernoratesAsync()).Single(g => g.Code == "cairo");
+        cairoReactivated.Areas.Should().Contain(a => a.NameAr == "المعادي", "reactivated area reappears");
+    }
+
+    [Fact]
+    public async Task FocusingAnArea_PutsItFirstAndSetsIsFocusAsync()
+    {
+        await using var db = NewDb();
+        var service = new AreaCatalogService(db, new Clock());
+
+        var adminAreas = await service.ListAdminAreasAsync("cairo");
+        var helwan = adminAreas.First(a => a.NameAr == "حلوان");
+
+        // Set Helwan as focus zone
+        var res = await service.SetFocusAsync(helwan.Id, true);
+        res.IsSuccess.Should().BeTrue();
+
+        var cairo = (await service.GovernoratesAsync()).Single(g => g.Code == "cairo");
+        cairo.Areas[0].NameAr.Should().Be("حلوان", "focus areas appear first");
+        cairo.Areas[0].IsFocus.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task AdminFilters_FilterByGovernorateSearchAndStatusAsync()
+    {
+        await using var db = NewDb();
+        var service = new AreaCatalogService(db, new Clock());
+
+        var cairoOnly = await service.ListAdminAreasAsync("cairo");
+        cairoOnly.Should().OnlyContain(a => a.GovernorateCode == "cairo");
+
+        var searchResult = await service.ListAdminAreasAsync(null, "نصر");
+        searchResult.Should().Contain(a => a.NameAr == "مدينة نصر");
+
+        // Toggle one inactive
+        var target = cairoOnly[0];
+        await service.SetActiveAsync(target.Id, false);
+
+        var inactiveList = await service.ListAdminAreasAsync(status: "inactive");
+        inactiveList.Should().Contain(a => a.Id == target.Id);
+
+        var activeList = await service.ListAdminAreasAsync(status: "active");
+        activeList.Should().NotContain(a => a.Id == target.Id);
+    }
+
     private static VenuesDbContext NewDb() => new(new DbContextOptionsBuilder<VenuesDbContext>().UseInMemoryDatabase(Guid.NewGuid().ToString()).Options);
 
     private sealed class Clock : IClock

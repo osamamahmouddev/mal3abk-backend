@@ -1,8 +1,8 @@
 namespace Malabak.Modules.Venues.Domain;
 
 /// <summary>
-/// An area (district) added on top of the built-in catalog, by an admin or by a venue owner who works in a place the
-/// catalog does not list. It joins its governorate's area list in the reference data for everyone.
+/// An area (district or city) within an Egyptian governorate. Standard areas are seeded from the reference catalog;
+/// custom areas can be added by admins or venue owners. Admins can pause an area (IsActive) or set it as an operational focus zone (IsFocus).
 /// </summary>
 public sealed class CustomArea
 {
@@ -14,21 +14,63 @@ public sealed class CustomArea
 
     public Guid Id { get; private set; }
     public string GovernorateCode { get; private set; } = string.Empty;
+    public string Code { get; private set; } = string.Empty;
     public string NameAr { get; private set; } = string.Empty;
     public string NameEn { get; private set; } = string.Empty;
-    public Guid AddedByUserId { get; private set; }
+    public bool IsActive { get; private set; } = true;
+    public bool IsFocus { get; private set; }
+    public bool IsCustom { get; private set; }
+    public int DisplayOrder { get; private set; }
+    public Guid? AddedByUserId { get; private set; }
     public DateTime CreatedAtUtc { get; private set; }
 
-    /// <summary>A stable code derived from the id, in the same shape as the built-in area codes.</summary>
-    public string Code => $"custom_{Id:N}"[..15];
+    public static CustomArea CreateStandard(
+        string governorateCode,
+        string code,
+        string nameAr,
+        string nameEn,
+        int displayOrder,
+        DateTime nowUtc) => new()
+        {
+            Id = Guid.NewGuid(),
+            GovernorateCode = governorateCode.ToLowerInvariant().Trim(),
+            Code = code.ToLowerInvariant().Trim(),
+            NameAr = nameAr.Trim(),
+            NameEn = string.IsNullOrWhiteSpace(nameEn) ? nameAr.Trim() : nameEn.Trim(),
+            IsActive = true,
+            IsFocus = false,
+            IsCustom = false,
+            DisplayOrder = displayOrder,
+            AddedByUserId = null,
+            CreatedAtUtc = nowUtc
+        };
 
-    public static CustomArea Create(string governorateCode, string nameAr, string? nameEn, Guid addedByUserId, DateTime nowUtc) => new()
+    public static CustomArea Create(
+        string governorateCode,
+        string nameAr,
+        string? nameEn,
+        Guid? addedByUserId,
+        DateTime nowUtc,
+        bool isFocus = false)
     {
-        Id = Guid.NewGuid(),
-        GovernorateCode = governorateCode,
-        NameAr = nameAr,
-        NameEn = string.IsNullOrWhiteSpace(nameEn) ? nameAr : nameEn,
-        AddedByUserId = addedByUserId,
-        CreatedAtUtc = nowUtc
-    };
+        var id = Guid.NewGuid();
+        return new()
+        {
+            Id = id,
+            GovernorateCode = governorateCode.ToLowerInvariant().Trim(),
+            Code = $"custom_{id:N}"[..15],
+            NameAr = nameAr.Trim(),
+            NameEn = string.IsNullOrWhiteSpace(nameEn) ? nameAr.Trim() : nameEn.Trim(),
+            IsActive = true,
+            IsFocus = isFocus,
+            IsCustom = true,
+            DisplayOrder = 999,
+            AddedByUserId = addedByUserId,
+            CreatedAtUtc = nowUtc
+        };
+    }
+
+    public void SetActive(bool isActive) => IsActive = isActive;
+
+    public void SetFocus(bool isFocus) => IsFocus = isFocus;
 }

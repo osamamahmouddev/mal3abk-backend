@@ -732,8 +732,31 @@
         "tags": [
           "Admin Areas"
         ],
-        "summary": "Areas added on top of the built-in catalog",
+        "summary": "List all areas across governorates with status, focus and filters",
         "operationId": "AdminListAreas",
+        "parameters": [
+          {
+            "name": "governorate",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "OK",
@@ -920,12 +943,222 @@
         }
       }
     },
+    "/api/v1/admin/areas/{areaId}/status": {
+      "put": {
+        "tags": [
+          "Admin Areas"
+        ],
+        "summary": "Activate or pause an area",
+        "operationId": "AdminSetAreaStatus",
+        "parameters": [
+          {
+            "name": "areaId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetAreaStatusApiRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request (Validation failure, invalid inputs)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized (Missing or expired JWT access token)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (Insufficient role or permissions)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict (Concurrent update or duplicate idempotency in flight)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity (Business rule violation or payload mismatch)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests (Rate limit exceeded, check Retry-After header)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/areas/{areaId}/focus": {
+      "put": {
+        "tags": [
+          "Admin Areas"
+        ],
+        "summary": "Set or unset area operational focus zone",
+        "operationId": "AdminSetAreaFocus",
+        "parameters": [
+          {
+            "name": "areaId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetAreaFocusApiRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request (Validation failure, invalid inputs)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized (Missing or expired JWT access token)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (Insufficient role or permissions)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict (Concurrent update or duplicate idempotency in flight)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity (Business rule violation or payload mismatch)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests (Rate limit exceeded, check Retry-After header)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/admin/areas/{areaId}": {
       "delete": {
         "tags": [
           "Admin Areas"
         ],
-        "summary": "Remove an added area (venues already under it keep their text)",
+        "summary": "Remove an area",
         "operationId": "AdminRemoveArea",
         "parameters": [
           {
@@ -32742,6 +32975,10 @@
           "nameEn": {
             "type": "string",
             "nullable": true
+          },
+          "isFocus": {
+            "type": "boolean",
+            "nullable": true
           }
         },
         "additionalProperties": false
@@ -35186,6 +35423,9 @@
           "createdAtUtc",
           "governorateCode",
           "id",
+          "isActive",
+          "isCustom",
+          "isFocus",
           "nameAr",
           "nameEn"
         ],
@@ -35206,6 +35446,15 @@
           },
           "nameEn": {
             "type": "string"
+          },
+          "isActive": {
+            "type": "boolean"
+          },
+          "isFocus": {
+            "type": "boolean"
+          },
+          "isCustom": {
+            "type": "boolean"
           },
           "createdAtUtc": {
             "type": "string",
@@ -36630,6 +36879,7 @@
       "LocalizedItem": {
         "required": [
           "code",
+          "isFocus",
           "nameAr",
           "nameEn"
         ],
@@ -36643,6 +36893,9 @@
           },
           "nameEn": {
             "type": "string"
+          },
+          "isFocus": {
+            "type": "boolean"
           }
         },
         "additionalProperties": false
@@ -40094,6 +40347,30 @@
             "format": "date-time"
           },
           "isCurrent": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "SetAreaFocusApiRequest": {
+        "required": [
+          "isFocus"
+        ],
+        "type": "object",
+        "properties": {
+          "isFocus": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "SetAreaStatusApiRequest": {
+        "required": [
+          "isActive"
+        ],
+        "type": "object",
+        "properties": {
+          "isActive": {
             "type": "boolean"
           }
         },

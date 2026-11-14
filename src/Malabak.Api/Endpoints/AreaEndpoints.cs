@@ -8,7 +8,7 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace Malabak.Api.Endpoints;
 
-/// <summary>Areas on top of the built-in catalog: admins manage the list, venue owners can add one for their place.</summary>
+/// <summary>Areas across Egyptian governorates: admins manage the catalog, status and focus zones; venue owners can submit missing ones.</summary>
 public static class AreaEndpoints
 {
     public static void MapAreaEndpoints(this IEndpointRouteBuilder app, ApiVersionSet apiVersionSet)
@@ -17,7 +17,7 @@ public static class AreaEndpoints
 
         v1.MapPost("/venues/areas", async ([FromBody] AddAreaApiRequest request, ClaimsPrincipal user, AreaCatalogService service, CancellationToken ct) =>
             {
-                var result = await service.AddAsync(request.GovernorateCode, request.NameAr, request.NameEn, user.GetUserId()!.Value, ct);
+                var result = await service.AddAsync(request.GovernorateCode, request.NameAr, request.NameEn, request.IsFocus ?? false, user.GetUserId()!.Value, ct);
                 return result.IsSuccess ? Results.Created($"/api/v1/reference/governorates", result.Value) : AdminResults.Problem(result.Error);
             })
             .RequireAuthorization(Permissions.VenuesManage)
@@ -29,27 +29,51 @@ public static class AreaEndpoints
         var admin = v1.MapGroup("/admin/areas").RequireAuthorization(Permissions.AdminSettingsManage)
             .AddEndpointFilter<AdminIpAllowlistFilter>().WithTags("Admin Areas");
 
-        admin.MapGet("", async (HttpContext http, AreaCatalogService service, CancellationToken ct) =>
+        admin.MapGet("", async (
+            [FromQuery] string? governorate,
+            [FromQuery] string? search,
+            [FromQuery] string? status,
+            HttpContext http,
+            AreaCatalogService service,
+            CancellationToken ct) =>
             {
                 AdminResults.NoStore(http);
-                return Results.Ok(await service.ListAsync(ct));
+                return Results.Ok(await service.ListAdminAreasAsync(governorate, search, status, ct));
             })
             .Produces<IReadOnlyList<CustomAreaDto>>()
-            .WithName("AdminListAreas").WithSummary("Areas added on top of the built-in catalog");
+            .WithName("AdminListAreas").WithSummary("List all areas across governorates with status, focus and filters");
 
         admin.MapPost("", async ([FromBody] AddAreaApiRequest request, ClaimsPrincipal user, AreaCatalogService service, CancellationToken ct) =>
             {
-                var result = await service.AddAsync(request.GovernorateCode, request.NameAr, request.NameEn, user.GetUserId()!.Value, ct);
+                var result = await service.AddAsync(request.GovernorateCode, request.NameAr, request.NameEn, request.IsFocus ?? false, user.GetUserId()!.Value, ct);
                 return result.IsSuccess ? Results.Created($"/api/v1/admin/areas/{result.Value.Id}", result.Value) : AdminResults.Problem(result.Error);
             })
             .Produces<CustomAreaDto>(StatusCodes.Status201Created).ProducesProblem(StatusCodes.Status400BadRequest).ProducesProblem(StatusCodes.Status409Conflict)
             .WithName("AdminAddArea").WithSummary("Add an area to a governorate");
 
+        admin.MapPut("/{areaId:guid}/status", async (Guid areaId, [FromBody] SetAreaStatusApiRequest request, AreaCatalogService service, CancellationToken ct) =>
+            {
+                var result = await service.SetActiveAsync(areaId, request.IsActive, ct);
+                return result.IsSuccess ? Results.NoContent() : AdminResults.Problem(result.Error);
+            })
+            .Produces(StatusCodes.Status204NoContent).ProducesProblem(StatusCodes.Status404NotFound)
+            .WithName("AdminSetAreaStatus").WithSummary("Activate or pause an area");
+
+        admin.MapPut("/{areaId:guid}/focus", async (Guid areaId, [FromBody] SetAreaFocusApiRequest request, AreaCatalogService service, CancellationToken ct) =>
+            {
+                var result = await service.SetFocusAsync(areaId, request.IsFocus, ct);
+                return result.IsSuccess ? Results.NoContent() : AdminResults.Problem(result.Error);
+            })
+            .Produces(StatusCodes.Status204NoContent).ProducesProblem(StatusCodes.Status404NotFound)
+            .WithName("AdminSetAreaFocus").WithSummary("Set or unset area operational focus zone");
+
         admin.MapDelete("/{areaId:guid}", async (Guid areaId, AreaCatalogService service, CancellationToken ct) =>
                 AdminResults.From(await service.RemoveAsync(areaId, ct)))
             .Produces(StatusCodes.Status204NoContent).ProducesProblem(StatusCodes.Status404NotFound)
-            .WithName("AdminRemoveArea").WithSummary("Remove an added area (venues already under it keep their text)");
+            .WithName("AdminRemoveArea").WithSummary("Remove an area");
     }
 }
 
-public sealed record AddAreaApiRequest(string? GovernorateCode, string? NameAr, string? NameEn);
+public sealed record AddAreaApiRequest(string? GovernorateCode, string? NameAr, string? NameEn, bool? IsFocus = false);
+public sealed record SetAreaStatusApiRequest(bool IsActive);
+public sealed record SetAreaFocusApiRequest(bool IsFocus);
