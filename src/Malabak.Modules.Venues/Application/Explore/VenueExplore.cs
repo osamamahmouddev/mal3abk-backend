@@ -233,7 +233,7 @@ public sealed partial class VenueExplore
 
             if (pitches.Count == 0
                 || (query.Bounds is null && distance > radius)
-                || !wantedFacilities.IsSubsetOf(c.Facilities.Select(f => f.ToLowerInvariant()))
+                || !wantedFacilities.IsSubsetOf(c.Facilities.Select(FacilityCode))
                 || (query.MaxPrice is { } max && (fromPrice is null || fromPrice > max)))
             {
                 continue;
@@ -548,10 +548,7 @@ public sealed partial class VenueExplore
     }
 
     private static string FacilityCode(string value) =>
-        (EgyptReferenceData.Facilities.FirstOrDefault(f =>
-            string.Equals(f.Code, value.Trim(), StringComparison.OrdinalIgnoreCase)
-            || string.Equals(f.NameEn, value.Trim(), StringComparison.OrdinalIgnoreCase)
-            || string.Equals(f.NameAr, value.Trim(), StringComparison.Ordinal))?.Code ?? value.Trim()).ToLowerInvariant();
+        (EgyptReferenceData.FindFacility(value)?.Code ?? value.Trim()).ToLowerInvariant();
 
     [GeneratedRegex("^(\\d+)v\\d+$", RegexOptions.IgnoreCase, matchTimeoutMilliseconds: 100)]
     private static partial Regex PitchTypeRegex();

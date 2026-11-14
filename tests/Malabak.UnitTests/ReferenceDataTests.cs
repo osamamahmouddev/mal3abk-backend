@@ -25,14 +25,14 @@ public sealed class ReferenceDataTests
     }
 
     [Fact]
-    public void Areas_CuratedGovernoratesRequireListedArea_OthersAcceptAnyName()
+    public void Areas_AcceptListedNamesAndTypedOnes_ButNotBlank()
     {
         var cairo = EgyptReferenceData.FindGovernorate("cairo")!;
         var luxor = EgyptReferenceData.FindGovernorate("luxor")!;
 
         EgyptReferenceData.IsValidArea(cairo, "مدينة نصر").Should().BeTrue();
         EgyptReferenceData.IsValidArea(cairo, "Nasr City").Should().BeTrue();
-        EgyptReferenceData.IsValidArea(cairo, "Atlantis").Should().BeFalse();
+        EgyptReferenceData.IsValidArea(cairo, "التجمع الخامس").Should().BeTrue("a district missing from the list can be typed");
         EgyptReferenceData.IsValidArea(luxor, "Karnak").Should().BeTrue();
         EgyptReferenceData.IsValidArea(luxor, " ").Should().BeFalse();
         EgyptReferenceData.FindGovernorate("Narnia").Should().BeNull();

@@ -171,8 +171,7 @@ public sealed class VenueDetailsQuery
     private static string PitchType(int playersPerTeam) => $"{playersPerTeam}v{playersPerTeam}";
 
     private static LocalizedItem LocalizeFacility(string code) =>
-        EgyptReferenceData.Facilities.FirstOrDefault(f => string.Equals(f.Code, code, StringComparison.OrdinalIgnoreCase))
-        ?? new LocalizedItem(code, code, code);
+        EgyptReferenceData.FindFacility(code) ?? new LocalizedItem(code, code, code);
 
     private static LocalizedItem LocalizeSurface(string code) =>
         EgyptReferenceData.Surfaces.FirstOrDefault(s => string.Equals(s.Code, code, StringComparison.OrdinalIgnoreCase))
