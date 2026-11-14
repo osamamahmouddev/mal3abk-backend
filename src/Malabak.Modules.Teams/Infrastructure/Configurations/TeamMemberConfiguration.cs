@@ -35,6 +35,10 @@ public sealed class TeamMemberConfiguration : IEntityTypeConfiguration<TeamMembe
             .HasDefaultValue(true)
             .IsRequired();
 
+        builder.Property(m => m.RejoinBlocked)
+            .HasDefaultValue(false)
+            .IsRequired();
+
         builder.Property(m => m.RowVersion)
             .IsRowVersion();
 

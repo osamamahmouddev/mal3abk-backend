@@ -52,7 +52,9 @@ public sealed class TeamConfiguration : IEntityTypeConfiguration<Team>
             .HasMaxLength(12)
             .IsRequired();
 
-        builder.HasIndex(t => t.InviteCode);
+        // Unique so a code can only ever lead to one team (disbanded teams keep theirs). Generation retries on a clash.
+        builder.HasIndex(t => t.InviteCode)
+            .IsUnique();
 
         builder.Property(t => t.InviteCodeExpiresAtUtc);
 

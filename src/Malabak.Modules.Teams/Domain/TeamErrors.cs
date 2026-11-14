@@ -28,4 +28,7 @@ public static class TeamErrors
     public static readonly Error DuplicateJoinRequest = Error.Conflict("Team.DuplicateJoinRequest", "You already have a pending join request for this team.");
     public static readonly Error JoinRequestNotFound = Error.NotFound("Team.JoinRequestNotFound", "The join request was not found.");
     public static readonly Error JoinRequestAlreadyHandled = Error.Conflict("Team.JoinRequestAlreadyHandled", "This join request has already been reviewed.");
+    public static readonly Error RemovedFromTeam = Error.Forbidden("Team.RemovedFromTeam", "A team leader removed you from this team. Ask them to invite you again or send a join request.");
+    public static readonly Error InvalidRole = Error.Validation("Team.InvalidRole", "Only ViceCaptain (2) or Member (3) can be assigned. Use captaincy transfer to change the captain.");
+    public static readonly Error InviteCodeUnavailable = Error.Conflict("Team.InviteCodeUnavailable", "Could not generate a unique invite code. Please try again.");
 }

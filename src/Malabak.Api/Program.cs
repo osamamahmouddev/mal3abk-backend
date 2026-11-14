@@ -131,16 +131,11 @@ builder.Services.AddRateLimiter(options =>
     options.AddPolicy(MediaEndpoints.UploadRateLimitPolicy, http => RateLimitPartition.GetSlidingWindowLimiter(
         http.User.FindFirst("sub")?.Value ?? http.Connection.RemoteIpAddress?.ToString() ?? "unknown",
         _ => new SlidingWindowRateLimiterOptions { PermitLimit = 30, Window = TimeSpan.FromHours(1), SegmentsPerWindow = 6, QueueLimit = 0 }));
+    // Numbers come from Security:RateLimiter; the partition is per signed-in user, else per IP (see the partitioner).
+    var globalLimit = builder.Configuration.GetSection(Malabak.Api.Infrastructure.Configuration.RateLimiterOptions.SectionName)
+        .Get<Malabak.Api.Infrastructure.Configuration.RateLimiterOptions>() ?? new();
     options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(context =>
-        RateLimitPartition.GetFixedWindowLimiter(
-            partitionKey: context.Connection.RemoteIpAddress?.ToString() ?? "anonymous",
-            factory: _ => new FixedWindowRateLimiterOptions
-            {
-                AutoReplenishment = true,
-                PermitLimit = 100,
-                QueueLimit = 10,
-                Window = TimeSpan.FromMinutes(1)
-            }));
+        Malabak.Api.Infrastructure.Security.GlobalRateLimitPartitioner.GetPartition(context, globalLimit));
 });
 
 // 8. Security Infrastructure (Headers, CORS, Cloudflare, Distributed Rate Limiter)
@@ -391,8 +386,9 @@ if (app.Environment.IsDevelopment() || app.Environment.IsStaging() || app.Enviro
 
 app.UseMalabakSecurity();
 app.UseMiddleware<Malabak.Api.Infrastructure.Platform.MaintenanceModeMiddleware>();
-app.UseRateLimiter();
+// Authentication first so the rate limiter can bucket signed-in callers by user instead of by (shared) IP.
 app.UseAuthentication();
+app.UseRateLimiter();
 app.UseMiddleware<Malabak.Api.Infrastructure.Authorization.ImpersonationRestrictionMiddleware>();
 app.UseAuthorization();
 app.UseMalabakIdempotency();

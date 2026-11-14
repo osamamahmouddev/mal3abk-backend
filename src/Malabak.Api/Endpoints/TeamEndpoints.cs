@@ -13,6 +13,7 @@ using Malabak.Modules.Teams.Application.Teams.JoinRequests.RequestToJoinTeam;
 using Malabak.Modules.Teams.Application.Teams.Members.LeaveTeam;
 using Malabak.Modules.Teams.Application.Teams.Members.RemoveTeamMember;
 using Malabak.Modules.Teams.Application.Teams.Members.TransferCaptaincy;
+using Malabak.Modules.Teams.Application.Teams.Members.UpdateMemberRole;
 using Malabak.Modules.Teams.Application.Teams.Queries.DiscoverTeams;
 using Malabak.Modules.Teams.Application.Teams.Queries.GetMyTeams;
 using Malabak.Modules.Teams.Application.Teams.Queries.GetTeamById;
@@ -99,7 +100,10 @@ public static class TeamEndpoints
                 request.Governorate,
                 request.District,
                 request.LogoUrl,
-                request.CoverUrl);
+                request.CoverUrl,
+                request.IsPublic,
+                request.IsRecruiting,
+                request.IsOpenForChallenges);
 
             var result = await handler.HandleAsync(command, ct);
             return ToResult(result, StatusCodes.Status201Created, result.IsSuccess ? $"/api/v1/teams/{result.Value.Id}" : null);
@@ -169,6 +173,23 @@ public static class TeamEndpoints
         })
         .WithName("TransferTeamCaptaincy")
         .WithSummary("Transfer team captaincy to an active team member (Captain only)");
+
+        // 5b. Appoint a vice-captain or set one back to member
+        teams.MapPut("/{id:guid}/members/{memberPlayerId:guid}/role", async (
+            Guid id,
+            Guid memberPlayerId,
+            ClaimsPrincipal user,
+            [FromBody] UpdateMemberRoleApiRequest request,
+            ICommandHandler<UpdateMemberRoleCommand, Result> handler,
+            CancellationToken ct) =>
+        {
+            var captainId = user.GetUserId()!.Value;
+            var command = new UpdateMemberRoleCommand(id, memberPlayerId, (TeamRole)request.Role, captainId);
+            var result = await handler.HandleAsync(command, ct);
+            return ToResult(result, StatusCodes.Status204NoContent);
+        })
+        .WithName("UpdateTeamMemberRole")
+        .WithSummary("Set an active member's role to ViceCaptain (2) or Member (3) (Captain only)");
 
         // 6. Get team by ID
         teams.MapGet("/{id:guid}", async (
@@ -287,7 +308,7 @@ public static class TeamEndpoints
             return ToResult(result, StatusCodes.Status204NoContent);
         })
         .WithName("LeaveTeam")
-        .WithSummary("Leave team (members only; captain must transfer captaincy first)");
+        .WithSummary("Leave team. A captain must transfer captaincy first, unless they are the only member: then the team is closed");
 
         // 6i. Update team settings (visibility, recruiting, challenges)
         teams.MapPut("/{id:guid}/settings", async (
@@ -507,13 +528,19 @@ public static class TeamEndpoints
         string Governorate,
         string? District,
         string? LogoUrl,
-        string? CoverUrl);
+        string? CoverUrl,
+        bool? IsPublic = null,
+        bool? IsRecruiting = null,
+        bool? IsOpenForChallenges = null);
 
     public sealed record CreateInvitationApiRequest(int? ValidityDays, Guid? InvitedPlayerId = null);
 
     public sealed record AcceptTeamInvitationApiRequest(string InviteCode);
 
     public sealed record TransferCaptaincyApiRequest(Guid NewCaptainPlayerId);
+
+    /// <summary>2 = ViceCaptain, 3 = Member.</summary>
+    public sealed record UpdateMemberRoleApiRequest(int Role);
 
     public sealed record RequestToJoinTeamApiRequest(string? Message);
 }

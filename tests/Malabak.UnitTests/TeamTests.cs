@@ -708,15 +708,15 @@ public sealed class TeamTests
         var team = Team.Create(Guid.NewGuid(), "Leave Squad", "leave-squad", "Cairo", "Cairo", captainId, "LVE001", _clock.UtcNow).Value;
         team.JoinWithInviteCode("LVE001", memberId, _clock.UtcNow);
 
+        // Captain attempts to leave while another member is still there
+        var captainLeave = team.LeaveTeam(captainId, _clock.UtcNow);
+        captainLeave.IsSuccess.Should().BeFalse();
+        captainLeave.Error.Should().Be(TeamErrors.SelfRemovalMustTransferCaptaincy);
+
         // Member leaves
         var memberLeave = team.LeaveTeam(memberId, _clock.UtcNow);
         memberLeave.IsSuccess.Should().BeTrue();
         team.Members.First(m => m.PlayerId == memberId).IsActive.Should().BeFalse();
-
-        // Captain attempts to leave
-        var captainLeave = team.LeaveTeam(captainId, _clock.UtcNow);
-        captainLeave.IsSuccess.Should().BeFalse();
-        captainLeave.Error.Should().Be(TeamErrors.SelfRemovalMustTransferCaptaincy);
     }
 
     [Fact]

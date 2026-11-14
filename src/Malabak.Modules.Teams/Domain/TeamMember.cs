@@ -12,6 +12,12 @@ public sealed class TeamMember : Entity<Guid>
     public DateTime JoinedAtUtc { get; private set; }
     public bool IsActive { get; private set; }
 
+    /// <summary>
+    /// Set when a captain or vice-captain removed this player. The team's shared invite code then no longer lets them
+    /// back in; a leader lifts it by inviting them again or approving a join request from them.
+    /// </summary>
+    public bool RejoinBlocked { get; private set; }
+
     private TeamMember()
     {
     }
@@ -44,15 +50,29 @@ public sealed class TeamMember : Entity<Guid>
         SetUpdatedAt(updatedAtUtc);
     }
 
-    internal void Deactivate(DateTime deletedAtUtc)
+    internal void Deactivate(DateTime deletedAtUtc, bool blockRejoin = false)
     {
         IsActive = false;
+        RejoinBlocked = blockRejoin;
         SoftDelete(deletedAtUtc);
+    }
+
+    /// <summary>A leader invited the player again, so the shared code works for them once more.</summary>
+    internal void AllowRejoin(DateTime updatedAtUtc)
+    {
+        if (!RejoinBlocked)
+        {
+            return;
+        }
+
+        RejoinBlocked = false;
+        SetUpdatedAt(updatedAtUtc);
     }
 
     internal void Reactivate(TeamRole role, DateTime joinedAtUtc)
     {
         IsActive = true;
+        RejoinBlocked = false;
         Role = role;
         JoinedAtUtc = joinedAtUtc;
         Restore();
