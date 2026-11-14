@@ -7,6 +7,7 @@ import { KV, Page, PageHeader, Pill, ReasonModal, type ReasonRequest, SearchBox,
 import { Drawer, Pager, QueryState, Section, Select, Table, fmtDateTime, useNotice } from "@/components/admin";
 import { api, unwrap } from "@/lib/api";
 import { useStepUp } from "@/lib/stepup";
+import { CalendarDays, ChevronLeft, LayoutGrid, NotebookPen, Smartphone, Table2 } from "lucide-react";
 
 type Row = Schemas["AdminBookingListItem"];
 
@@ -65,21 +66,23 @@ export default function BookingsPage() {
         <div className="inline-flex rounded-xl bg-slate-100 p-1 border border-slate-200">
           <button
             type="button"
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
               viewMode === "cards" ? "bg-white text-slate-900 shadow-xs" : "text-[#5B6475] hover:text-slate-900"
             }`}
             onClick={() => setViewMode("cards")}
           >
-            🗂️ بطاقات
+            <LayoutGrid className="size-3.5" />
+            بطاقات
           </button>
           <button
             type="button"
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
               viewMode === "table" ? "bg-white text-slate-900 shadow-xs" : "text-[#5B6475] hover:text-slate-900"
             }`}
             onClick={() => setViewMode("table")}
           >
-            📊 جدول
+            <Table2 className="size-3.5" />
+            جدول
           </button>
         </div>
       </div>
@@ -130,15 +133,16 @@ export default function BookingsPage() {
                           <Pill tone={TONE[r.status] ?? "neutral"}>
                             {STATUS_MAP[r.status] ?? r.status}
                           </Pill>
-                          <span className="text-[11px] px-2 py-0.5 rounded-md font-semibold bg-slate-100 text-slate-600">
-                            {r.isManual ? "📝 يدوي" : "📱 أونلاين"}
+                          <span className="text-[11px] px-2 py-0.5 rounded-md font-semibold bg-slate-100 text-slate-600 inline-flex items-center gap-1">
+                            {r.isManual ? <NotebookPen className="size-3" /> : <Smartphone className="size-3" />}
+                            {r.isManual ? "يدوي" : "أونلاين"}
                           </span>
                         </div>
                       </div>
 
                       {/* Center: Timing badge */}
                       <div className="flex items-center gap-3 p-3 rounded-xl bg-[#F6F8FB] border border-[#E9EDF5]">
-                        <span className="text-xl">📅</span>
+                        <span className="grid place-items-center size-9 rounded-lg bg-white border border-[#E9EDF5] text-slate-600 shrink-0"><CalendarDays className="size-[18px]" /></span>
                         <div className="flex flex-col">
                           <span className="text-xs text-[#5B6475]">تاريخ وميعاد الحجز</span>
                           <span className="text-sm font-bold text-slate-800">{fmtDateTime(r.startUtc)}</span>
@@ -160,7 +164,7 @@ export default function BookingsPage() {
 
                         <div className="flex items-center justify-between text-xs text-brand-red font-bold pt-2 border-t border-dashed border-[#EEF0F5]">
                           <span>عرض تفاصيل الحجز والإلغاء</span>
-                          <span className="text-base font-normal">←</span>
+                          <ChevronLeft className="size-4" />
                         </div>
                       </div>
                     </div>

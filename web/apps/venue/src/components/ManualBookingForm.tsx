@@ -1,12 +1,13 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import React, { useEffect, useMemo, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { z } from "zod";
-import { inputClass, muted, primaryBtn, secondaryBtn } from "@/components/ui";
+import { inputClass, muted, primaryBtn, secondaryBtn, toArabicDigits } from "@/components/ui";
 import { useVenue } from "@/components/Providers";
 import { api, unwrap } from "@/lib/api";
-import { cairoDayStartUtc, cairoToday, money } from "@/lib/booking-format";
+import { addDays, cairoDay, cairoDayStartUtc, cairoTime, cairoToday, money } from "@/lib/booking-format";
+import { CalendarDays, Check, ChevronLeft, ChevronRight, Clock, Lock, RefreshCw, TriangleAlert } from "lucide-react";
 
 export interface ManualBookingDefaults {
   pitchId?: string;
@@ -16,6 +17,18 @@ export interface ManualBookingDefaults {
 }
 
 const DURATIONS = [60, 90, 120] as const;
+
+/** Grid hours: 08:00 to 02:00 next day (matches venue calendar operation window). */
+const FIRST_HOUR = 8;
+const LAST_HOUR = 26;
+const HOURS = Array.from({ length: LAST_HOUR - FIRST_HOUR }, (_, i) => FIRST_HOUR + i);
+
+const hourLabel = (h: number) => {
+  const norm = h % 24;
+  const h12 = norm % 12 === 0 ? 12 : norm % 12;
+  const period = norm < 12 ? "ص" : "م";
+  return `${toArabicDigits(h12)}:00 ${period}`;
+};
 
 /** What the customer has paid so far; the numbers are the API's `paymentStatus` values. */
 const PAYMENT = {
@@ -65,10 +78,12 @@ export function ManualBookingForm({
   defaults,
   onDone,
   onCancel,
+  showSchedule = false,
 }: {
   defaults?: ManualBookingDefaults;
   onDone: (message: string) => void;
   onCancel?: () => void;
+  showSchedule?: boolean;
 }) {
   const queryClient = useQueryClient();
   const { venue, venueId } = useVenue();
@@ -90,6 +105,44 @@ export function ManualBookingForm({
   const startUtc = new Date(new Date(cairoDayStartUtc(date)).getTime() + (h * 60 + m) * 60_000).toISOString();
   const endUtc = new Date(new Date(startUtc).getTime() + duration * 60_000).toISOString();
 
+  // Fetch all calendar slots for this venue & date range
+  const calendarQuery = useQuery({
+    queryKey: ["manual-booking-calendar", venueId, date, pitchId],
+    enabled: !!venueId && !!pitchId && !!date,
+    refetchInterval: 30_000,
+    queryFn: () =>
+      unwrap(
+        api.GET("/api/v1/venue-manager/venues/{venueId}/calendar", {
+          params: {
+            path: { venueId: venueId! },
+            query: {
+              rangeStartUtc: cairoDayStartUtc(date),
+              rangeEndUtc: cairoDayStartUtc(addDays(date, 2)),
+              pitchId: pitchId || undefined,
+            },
+          },
+        }),
+      ),
+  });
+
+  const slots = useMemo(
+    () => (calendarQuery.data ?? []).filter((s) => !pitchId || s.pitchId === pitchId),
+    [calendarQuery.data, pitchId],
+  );
+
+  const reqStartMs = new Date(startUtc).getTime();
+  const reqEndMs = new Date(endUtc).getTime();
+
+  // Check if currently selected time window overlaps any booked/blocked slot
+  const conflictSlot = useMemo(() => {
+    return slots.find((s) => {
+      if (pitchId && s.pitchId !== pitchId) return false;
+      const sStartMs = new Date(s.startUtc).getTime();
+      const sEndMs = new Date(s.endUtc).getTime();
+      return reqStartMs < sEndMs && reqEndMs > sStartMs;
+    });
+  }, [slots, pitchId, reqStartMs, reqEndMs]);
+
   // Suggest the price from the venue's rules whenever the slot changes (the staff can still edit it).
   useEffect(() => {
     if (!venueId || !pitchId) return;
@@ -110,7 +163,7 @@ export function ManualBookingForm({
     mutationFn: (body: { pitchId: string; startUtc: string; endUtc: string; price: number; customerName: string; customerPhone: string; notes?: string; paymentStatus: Payment; depositAmount: number | null }) =>
       unwrap(api.POST("/api/v1/venue-manager/venues/{venueId}/bookings/manual", { params: { path: { venueId: venueId! } }, body: { ...body, currency: "EGP", notes: body.notes || null } })),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ predicate: (q) => ["calendar", "dashboard"].includes(String(q.queryKey[0])) || String(q.queryKey[0]).startsWith("booking") });
+      await queryClient.invalidateQueries({ predicate: (q) => ["calendar", "dashboard", "manual-booking-calendar"].includes(String(q.queryKey[0])) || String(q.queryKey[0]).startsWith("booking") });
       const name = customerName.trim();
       onDone(
         payment === PAYMENT.awaiting
@@ -126,6 +179,16 @@ export function ManualBookingForm({
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
     setServerError(null);
+
+    if (conflictSlot) {
+      setErrors({
+        time: conflictSlot.status === "Blocked"
+          ? `هذا الميعاد محظور وغير متاح (${conflictSlot.reason || "محظور"})`
+          : `هذا الميعاد محجوز مسبقاً (${conflictSlot.customerName || "حجز قائم"})`,
+      });
+      return;
+    }
+
     const parsed = schema.safeParse({ pitchId, customerName, customerPhone, price: price === "" ? undefined : Number(price), notes: notes || undefined });
     const found: Record<string, string> = parsed.success ? {} : Object.fromEntries(parsed.error.issues.map((i) => [String(i.path[0]), i.message]));
     const problem = depositError(payment, price === "" ? undefined : Number(price), deposit);
@@ -150,8 +213,8 @@ export function ManualBookingForm({
     </label>
   );
 
-  return (
-    <form onSubmit={submit} noValidate className="flex flex-col gap-3">
+  const formElement = (
+    <form onSubmit={submit} noValidate className="flex flex-col gap-3.5">
       <div className="grid gap-3 sm:grid-cols-2">
         {field(
           "pitchId",
@@ -175,7 +238,7 @@ export function ManualBookingForm({
                 type="button"
                 aria-pressed={duration === d}
                 onClick={() => setDuration(d)}
-                className={`flex-1 min-h-[44px] rounded-xl border text-sm ${duration === d ? "bg-navy-900 text-white border-navy-900 font-bold" : "bg-white border-[#C9CFD9]"}`}
+                className={`flex-1 min-h-[44px] rounded-xl border text-sm ${duration === d ? "bg-navy-900 text-white border-navy-900 font-bold shadow-xs" : "bg-white border-[#C9CFD9] hover:bg-slate-50"}`}
               >
                 {d === 60 ? "ساعة" : d === 90 ? "ساعة ونص" : "ساعتين"}
               </button>
@@ -215,7 +278,7 @@ export function ManualBookingForm({
                 type="button"
                 aria-pressed={payment === option.value}
                 onClick={() => setPayment(option.value)}
-                className={`flex-1 min-w-[120px] min-h-[44px] rounded-xl border text-sm ${payment === option.value ? "bg-navy-900 text-white border-navy-900 font-bold" : "bg-white border-[#C9CFD9]"}`}
+                className={`flex-1 min-w-[120px] min-h-[44px] rounded-xl border text-sm ${payment === option.value ? "bg-navy-900 text-white border-navy-900 font-bold shadow-xs" : "bg-white border-[#C9CFD9] hover:bg-slate-50"}`}
               >
                 {option.label}
               </button>
@@ -231,6 +294,7 @@ export function ManualBookingForm({
           )}
         {field("notes", "ملاحظة (اختياري)", <input id="notes" value={notes} maxLength={500} onChange={(e) => setNotes(e.target.value)} className={inputClass} />)}
       </div>
+
       <p className={`text-[13px] ${muted}`}>
         {payment === PAYMENT.full && <>الحجز اليدوي بيتأكد على طول{price ? ` (${money(Number(price))})` : ""}. </>}
         {payment === PAYMENT.deposit && price && Number(deposit) > 0 && Number(deposit) < Number(price) && (
@@ -238,14 +302,43 @@ export function ManualBookingForm({
         )}
         لو الميعاد اتحجز من التطبيق في نفس اللحظة هيظهرلك تنبيه.
       </p>
+
+      {/* Overlap & Double-booking Alert */}
+      {conflictSlot && (
+        <div role="alert" className="p-3.5 rounded-xl bg-[#FDECEA] border border-[#F5C2C7] text-[#842029] text-xs flex items-start gap-2.5 animate-in fade-in duration-150">
+          <TriangleAlert className="size-5 shrink-0 text-[#A8261C] mt-0.5" />
+          <div className="flex flex-col gap-0.5">
+            <strong className="font-bold text-[13px] text-[#A8261C]">الميعاد المحدد غير متاح للحجز!</strong>
+            <span>
+              الوقت المختار ({cairoTime(startUtc)} – {cairoTime(endUtc)}) يتداخل مع{" "}
+              {conflictSlot.status === "Blocked"
+                ? `فترة مغلقة أو محظورة (${conflictSlot.reason || "محظور للصيانة"})`
+                : `حجز العميل ${conflictSlot.customerName || "حجز مؤكد"} (${cairoTime(conflictSlot.startUtc)} – ${cairoTime(conflictSlot.endUtc)})`}.
+              برجاء اختيار وقت آخر متاح من الجدول.
+            </span>
+          </div>
+        </div>
+      )}
+
       {serverError && (
         <p role="alert" className="text-sm bg-[#FDECEA] text-[#A8261C] rounded-xl px-3 py-2">
           {serverError}
         </p>
       )}
+
       <div className="flex gap-2">
-        <button type="submit" disabled={create.isPending} className={`${primaryBtn} disabled:opacity-60`}>
-          {create.isPending ? "بيتسجل…" : payment === PAYMENT.awaiting ? "احجز الميعاد" : "تأكيد الحجز"}
+        <button
+          type="submit"
+          disabled={create.isPending || !!conflictSlot}
+          className={`${primaryBtn} disabled:opacity-50 disabled:cursor-not-allowed`}
+        >
+          {conflictSlot
+            ? "الوقت غير متاح (محجوز مسبقاً)"
+            : create.isPending
+              ? "بيتسجل…"
+              : payment === PAYMENT.awaiting
+                ? "احجز الميعاد"
+                : "تأكيد الحجز"}
         </button>
         {onCancel && (
           <button type="button" onClick={onCancel} className={secondaryBtn}>
@@ -254,5 +347,276 @@ export function ManualBookingForm({
         )}
       </div>
     </form>
+  );
+
+  if (!showSchedule) {
+    return formElement;
+  }
+
+  // Selected Pitch info
+  const currentPitch = pitches.find((p) => p.id === pitchId);
+
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+      {/* Left Column: Booking Form */}
+      <div className="lg:col-span-5 xl:col-span-5 bg-white rounded-[20px] p-5 shadow-sm border border-slate-200">
+        <div className="flex items-center justify-between pb-3 mb-4 border-b border-slate-100">
+          <h2 className="text-base font-extrabold text-slate-900 flex items-center gap-2">
+            <span className="size-2 rounded-full bg-emerald-600" />
+            بيانات الحجز
+          </h2>
+          <span className="text-xs text-slate-500 font-medium">خطوة واحدة للتأكيد</span>
+        </div>
+        {formElement}
+      </div>
+
+      {/* Right Column: Live Interactive Day Schedule */}
+      <div className="lg:col-span-7 xl:col-span-7 bg-white rounded-[20px] p-5 shadow-sm border border-slate-200 flex flex-col gap-4">
+        {/* Header & Date Controls */}
+        <div className="flex flex-col gap-3 pb-3 border-b border-slate-100">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <div className="size-9 rounded-xl bg-emerald-50 text-emerald-800 flex items-center justify-center font-bold">
+                <CalendarDays className="size-5" />
+              </div>
+              <div>
+                <h2 className="text-base font-extrabold text-slate-900">جدول الحجوزات والمواعيد</h2>
+                <p className="text-xs text-slate-500">اضغط على أي وقت متاح لاختياره تلقائياً للنموذج</p>
+              </div>
+            </div>
+
+            {/* Pitch Pills */}
+            {pitches.length > 1 && (
+              <div className="flex flex-wrap gap-1">
+                {pitches.map((p) => (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => setPitchId(p.id)}
+                    className={`px-2.5 py-1 text-xs rounded-lg font-bold transition-all ${
+                      pitchId === p.id
+                        ? "bg-navy-900 text-white shadow-xs"
+                        : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                    }`}
+                  >
+                    {p.name}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Date Navigator Bar */}
+          <div className="flex flex-wrap items-center justify-between gap-2 p-2.5 rounded-xl bg-slate-50 border border-slate-200">
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setDate(cairoToday())}
+                className={`px-2.5 py-1 text-xs font-bold rounded-lg transition-all ${
+                  date === cairoToday()
+                    ? "bg-emerald-700 text-white shadow-2xs"
+                    : "bg-white border border-slate-300 text-slate-700 hover:bg-slate-100"
+                }`}
+              >
+                اليوم
+              </button>
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  title="اليوم السابق"
+                  onClick={() => setDate(addDays(date, -1))}
+                  className="p-1 rounded-lg border border-slate-300 bg-white text-slate-600 hover:bg-slate-100"
+                >
+                  <ChevronRight className="size-4" />
+                </button>
+                <span className="text-xs font-bold text-slate-900 px-2 min-w-[130px] text-center">
+                  {cairoDay(cairoDayStartUtc(date))}
+                </span>
+                <button
+                  type="button"
+                  title="اليوم التالي"
+                  onClick={() => setDate(addDays(date, 1))}
+                  className="p-1 rounded-lg border border-slate-300 bg-white text-slate-600 hover:bg-slate-100"
+                >
+                  <ChevronLeft className="size-4" />
+                </button>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 text-xs">
+              <span className="font-mono text-slate-600 bg-white px-2 py-0.5 rounded border border-slate-200" dir="ltr">
+                {date}
+              </span>
+              {currentPitch && (
+                <span className="font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                  {currentPitch.name}
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* Color Legend */}
+          <div className="flex flex-wrap items-center gap-3 text-xs pt-1 text-slate-600">
+            <span className="flex items-center gap-1.5 font-medium">
+              <span className="size-3 rounded-full bg-emerald-500 border border-emerald-600" />
+              متاح (اضغط لاختياره)
+            </span>
+            <span className="flex items-center gap-1.5 font-medium">
+              <span className="size-3 rounded-full bg-navy-900" />
+              محجوز ومؤكد
+            </span>
+            <span className="flex items-center gap-1.5 font-medium">
+              <span className="size-3 rounded-full bg-amber-400 border border-amber-500" />
+              قيد المراجعة / العربون
+            </span>
+            <span className="flex items-center gap-1.5 font-medium">
+              <span className="size-3 rounded-full bg-slate-400 border border-slate-500" />
+              محظور ومغلق
+            </span>
+          </div>
+        </div>
+
+        {/* Slots Timeline */}
+        <div className="flex flex-col gap-2 max-h-[580px] overflow-y-auto pr-1">
+          {calendarQuery.isLoading ? (
+            <div className="p-8 text-center text-sm text-slate-500 flex items-center justify-center gap-2">
+              <RefreshCw className="size-4 animate-spin text-emerald-600" />
+              <span>جاري تحميل مواعيد اليوم…</span>
+            </div>
+          ) : (
+            HOURS.map((hourVal) => {
+              const hourMinutes = hourVal * 60;
+              const slotTimeStr = toHhmm(hourMinutes);
+              const slotStartMs = new Date(cairoDayStartUtc(date)).getTime() + hourMinutes * 60_000;
+              const slotEndMs = slotStartMs + 60 * 60_000;
+
+              // Find if any booking or blocked slot overlaps this specific hour
+              const overlapping = slots.filter((s) => {
+                const sStart = new Date(s.startUtc).getTime();
+                const sEnd = new Date(s.endUtc).getTime();
+                return sStart < slotEndMs && sEnd > slotStartMs;
+              });
+
+              // Is this slot currently requested by the form?
+              const isSelectedByForm = slotStartMs < reqEndMs && slotEndMs > reqStartMs;
+              const isStartingHour = slotTimeStr === time;
+
+              if (overlapping.length > 0) {
+                const first = overlapping[0];
+                const isBlocked = first.status === "Blocked";
+                const isPending = first.status === "PendingDeposit" || first.status === "ProofSubmitted" || first.status === "UnderReview";
+
+                return (
+                  <div
+                    key={hourVal}
+                    className={`p-3 rounded-xl border flex items-center justify-between gap-3 text-xs transition-all ${
+                      isSelectedByForm
+                        ? "border-red-400 bg-red-50/60 ring-2 ring-red-400"
+                        : isBlocked
+                          ? "bg-[repeating-linear-gradient(135deg,#F1F3F7_0_6px,#E8ECF2_6px_12px)] border-slate-300 text-slate-700"
+                          : isPending
+                            ? "bg-amber-50 border-amber-300 text-amber-900"
+                            : "bg-slate-50 border-slate-300 text-slate-900"
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <span className="font-mono font-bold text-slate-600 bg-white px-2 py-1 rounded border border-slate-200 shrink-0">
+                        {hourLabel(hourVal)}
+                      </span>
+                      <div className="flex flex-col min-w-0">
+                        <div className="flex items-center gap-1.5 font-bold truncate">
+                          {isBlocked ? (
+                            <>
+                              <Lock className="size-3.5 text-slate-500 shrink-0" />
+                              <span className="text-slate-800">{first.reason || "فترة محظورة ومغلقة"}</span>
+                            </>
+                          ) : (
+                            <>
+                              <span className="truncate">{first.customerName || "حجز مسجل"}</span>
+                              {first.bookingReference && (
+                                <span className="font-mono text-[10px] text-slate-500 bg-white px-1.5 py-0.2 rounded border border-slate-200">
+                                  #{first.bookingReference}
+                                </span>
+                              )}
+                            </>
+                          )}
+                        </div>
+                        <span className="text-[11px] text-slate-500 mt-0.5">
+                          {cairoTime(first.startUtc)} – {cairoTime(first.endUtc)}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 shrink-0">
+                      {isSelectedByForm && (
+                        <span className="text-[11px] font-bold text-red-600 bg-white px-2 py-0.5 rounded border border-red-200">
+                          يتعارض مع اختيارك!
+                        </span>
+                      )}
+                      <span
+                        className={`font-bold px-2.5 py-1 rounded-lg text-[11px] ${
+                          isBlocked
+                            ? "bg-slate-200 text-slate-700"
+                            : isPending
+                              ? "bg-amber-200 text-amber-900"
+                              : "bg-navy-900 text-white"
+                        }`}
+                      >
+                        {isBlocked ? "محظور" : isPending ? "بانتظار العربون" : "محجوز"}
+                      </span>
+                    </div>
+                  </div>
+                );
+              }
+
+              // Slot is FREE / AVAILABLE
+              return (
+                <button
+                  key={hourVal}
+                  type="button"
+                  onClick={() => setTime(slotTimeStr)}
+                  className={`p-3 rounded-xl border flex items-center justify-between gap-3 text-xs text-right transition-all group ${
+                    isStartingHour
+                      ? "bg-emerald-50 border-emerald-600 ring-2 ring-emerald-600 text-emerald-950 font-bold shadow-xs"
+                      : isSelectedByForm
+                        ? "bg-emerald-50/60 border-emerald-400 text-emerald-900"
+                        : "bg-white border-slate-200 hover:border-emerald-500 hover:bg-emerald-50/30 text-slate-800"
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5">
+                    <span
+                      className={`font-mono px-2 py-1 rounded border shrink-0 transition-colors ${
+                        isStartingHour
+                          ? "bg-emerald-700 text-white border-emerald-700 font-bold"
+                          : "bg-slate-100 text-slate-700 border-slate-200 group-hover:bg-white"
+                      }`}
+                    >
+                      {hourLabel(hourVal)}
+                    </span>
+                    <span className="font-semibold text-emerald-800 flex items-center gap-1.5">
+                      <span className="size-2 rounded-full bg-emerald-500 shrink-0" />
+                      متاح للحجز ({hourLabel(hourVal)} إلى {hourLabel(hourVal + 1)})
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    {isStartingHour ? (
+                      <span className="bg-emerald-700 text-white text-[11px] font-bold px-2 py-0.5 rounded-md flex items-center gap-1">
+                        <Check className="size-3" />
+                        الميعاد المختار حالياً
+                      </span>
+                    ) : (
+                      <span className="text-[11px] text-slate-400 group-hover:text-emerald-700 font-medium transition-colors">
+                        اضغط للاختيار ‹
+                      </span>
+                    )}
+                  </div>
+                </button>
+              );
+            })
+          )}
+        </div>
+      </div>
+    </div>
   );
 }

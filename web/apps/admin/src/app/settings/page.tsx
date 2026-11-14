@@ -6,6 +6,7 @@ import type { Schemas } from "@malabak/api-client";
 import { Page, PageHeader, Pill, ReasonModal, type ReasonRequest, Switch, Tabs, btnSmall, card, muted } from "@/components/ui";
 import { QueryState, TextInput, fmtDateTime, useNotice } from "@/components/admin";
 import { api, unwrap } from "@/lib/api";
+import { Check, Wrench } from "lucide-react";
 
 type Tab = "settings" | "flags" | "sessions";
 
@@ -70,8 +71,8 @@ function Settings() {
       {isMaintenanceOn && (
         <div className="bg-red-50 border-2 border-red-300 text-red-950 p-4 sm:p-5 rounded-2xl flex flex-wrap items-center justify-between gap-4 shadow-sm">
           <div className="flex items-center gap-3.5">
-            <div className="w-12 h-12 rounded-xl bg-red-100 flex items-center justify-center text-2xl shrink-0">
-              🛠️
+            <div className="w-12 h-12 rounded-xl bg-red-100 text-red-700 flex items-center justify-center shrink-0">
+              <Wrench className="size-6" />
             </div>
             <div>
               <strong className="text-base font-black text-red-900 block">
@@ -94,7 +95,8 @@ function Settings() {
               })
             }
           >
-            ✓ إلغاء وضع الصيانة وإعادة المنصة للعمل
+            <Check className="size-4" />
+            إلغاء وضع الصيانة وإعادة المنصة للعمل
           </button>
         </div>
       )}

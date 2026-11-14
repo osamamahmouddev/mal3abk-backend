@@ -21,7 +21,8 @@ public sealed record AdminVenueListItem(
     string ApprovalStatus,
     bool IsPublished,
     int Pitches,
-    DateTime CreatedAtUtc);
+    DateTime CreatedAtUtc,
+    IReadOnlyList<string>? Photos = null);
 
 public sealed record AdminVenuePage(IReadOnlyList<AdminVenueListItem> Items, int Page, int PageSize, int Total);
 
@@ -49,7 +50,8 @@ public sealed record AdminVenueDetail(
     IReadOnlyList<AdminPitchItem> Pitches,
     VenueBookingStats Last30Days,
     IReadOnlyList<AdminVenueEventItem> History,
-    DateTime CreatedAtUtc);
+    DateTime CreatedAtUtc,
+    IReadOnlyList<string>? Photos = null);
 
 public static class AdminVenueErrors
 {
@@ -144,6 +146,7 @@ public sealed class AdminVenueService
                 v.ApprovalStatus,
                 v.IsPublished,
                 v.CreatedAtUtc,
+                v.Photos,
                 Pitches = _dbContext.Pitches.Count(p => p.VenueId == v.Id && !p.IsDeleted)
             })
             .ToListAsync(cancellationToken);
@@ -181,7 +184,8 @@ public sealed class AdminVenueService
                 v.ApprovalStatus.ToString(),
                 v.IsPublished,
                 v.Pitches,
-                v.CreatedAtUtc);
+                v.CreatedAtUtc,
+                v.Photos.ToList());
         }).ToList();
 
         return Result.Success(new AdminVenuePage(items, search.Page, search.PageSize, total));
@@ -218,7 +222,8 @@ public sealed class AdminVenueService
             venue.Id, venue.Name, venue.Slug, venue.Address, venue.City, venue.Area, venue.PhoneNumber, venue.OwnerId,
             ownerName, ownerSummary?.MaskedPhone, sub?.PlanName, sub?.Status, venue.ApprovalStatus.ToString(), venue.IsPublished, venue.AdminNote, staff, pitches, stats,
             history.Select(e => new AdminVenueEventItem(e.Action.ToString(), e.FromStatus.ToString(), e.ToStatus.ToString(), e.ActorUserId, e.Message, e.CreatedAtUtc)).ToList(),
-            venue.CreatedAtUtc));
+            venue.CreatedAtUtc,
+            venue.Photos.ToList()));
     }
 
     public async Task<Result<AdminVenueDetail>> SetAdminNoteAsync(Guid venueId, string? note, Guid adminId, CancellationToken cancellationToken = default)

@@ -103,7 +103,7 @@ function Reports({ notice }: { notice: Notice }) {
         emptyTitle="لا توجد بلاغات مسجلة"
         emptyDescription="ممتاز! لا توجد بلاغات ضد الفرق بالحالة المحددة حالياً."
         emptyIcon="check"
-        emptyBadge="السلوك الرياضي منضبط ✨"
+        emptyBadge="السلوك الرياضي منضبط"
       >
         {(data) => (
           <div className="flex flex-col gap-3">
@@ -215,7 +215,7 @@ function Results({ notice }: { notice: Notice }) {
         emptyTitle="لا توجد نتائج متنازع عليها"
         emptyDescription="جميع نتائج المباريات معتمدة ومقبولة من الفرق دون اعتراضات معلقة."
         emptyIcon="shield"
-        emptyBadge="كل النتائج مستقرة ✨"
+        emptyBadge="كل النتائج مستقرة"
       >
         {(data) => (
           <div className="flex flex-col gap-3">

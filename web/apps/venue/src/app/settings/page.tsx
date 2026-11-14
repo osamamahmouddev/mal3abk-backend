@@ -4,7 +4,7 @@ import React, { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { QRCodeSVG } from "qrcode.react";
-import { Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff, X } from "lucide-react";
 import { Page, Toast, card, chip, inputClass, muted, redShadow } from "@/components/ui";
 import { useVenue } from "@/components/Providers";
 import { AddAreaInline } from "@/components/AddAreaInline";
@@ -237,9 +237,9 @@ function VenueInfo({ onMessage }: { onMessage: (message: string) => void }) {
                   type="button"
                   aria-label="مسح الصورة"
                   onClick={() => removePhoto.mutate(photo)}
-                  className="absolute top-1.5 left-1.5 w-7 h-7 rounded-full bg-white/90 text-[#A8261C] text-xs font-bold"
+                  className="absolute top-1.5 left-1.5 w-7 h-7 rounded-full bg-white/90 text-[#A8261C] text-xs font-bold grid place-items-center"
                 >
-                  ✕
+                  <X className="size-3.5" strokeWidth={2.5} />
                 </button>
               </div>
             );

@@ -11,13 +11,14 @@ import { ManualBookingForm, type ManualBookingDefaults } from "@/components/Manu
 import { api, unwrap } from "@/lib/api";
 import { addDays, cairoDayStartUtc, cairoTime, cairoToday } from "@/lib/booking-format";
 import { P } from "@/lib/permissions";
+import { X } from "lucide-react";
 
 type View = "day" | "week" | "month";
 type Slot = Schemas["CalendarSlotDto"];
 type Kind = "ok" | "rev" | "wait" | "blk";
 
 const KIND: Record<Kind, { label: string; tone: Tone; box: string }> = {
-  ok: { label: "✓ مؤكد", tone: "ok", box: "bg-navy-900 text-white border border-navy-900" },
+  ok: { label: "مؤكد", tone: "ok", box: "bg-navy-900 text-white border border-navy-900" },
   rev: { label: "قيد المراجعة", tone: "warn", box: "bg-[#FEF3D6] text-[#6B4400] border-2 border-[#D9A21B]" },
   wait: { label: "بانتظار العربون", tone: "wait", box: "bg-white text-slate-900 border-2 border-dashed border-[#8A94AA]" },
   blk: { label: "محظور", tone: "block", box: "bg-[repeating-linear-gradient(135deg,#DCE0E8_0_5px,#EEF0F5_5px_10px)] text-[#3B4352] border border-[#C9CFD9]" },
@@ -586,7 +587,7 @@ function Dialog({ title, onClose, wide = false, children }: { title: string; onC
             aria-label="إغلاق"
             className="min-w-[36px] min-h-[36px] rounded-[10px] bg-surface hover:bg-slate-200 active:scale-95 transition-all cursor-pointer flex items-center justify-center"
           >
-            ✕
+            <X className="size-4" />
           </button>
         </div>
         {children}

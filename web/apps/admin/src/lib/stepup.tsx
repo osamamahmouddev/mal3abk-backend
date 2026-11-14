@@ -4,6 +4,7 @@ import React, { createContext, useCallback, useContext, useRef, useState } from 
 import { problemMessage } from "@malabak/api-client";
 import { btnOutline, btnPrimary, inputClass, muted } from "@/components/ui";
 import { api } from "@/lib/api";
+import { TriangleAlert } from "lucide-react";
 
 /** Scope the API requires for destructive admin actions (suspensions, role changes, dispute decisions…). */
 export const ADMIN_DESTRUCTIVE = "admin_destructive";
@@ -103,7 +104,7 @@ export function StepUpProvider({ children }: { children: React.ReactNode }) {
             />
             {error && (
               <div role="alert" className="rounded-xl px-3 py-2 bg-[#FDECEA] text-xs font-semibold text-[#A8261C] flex items-center gap-1.5 animate-fade-in">
-                <span>⚠️</span>
+                <TriangleAlert className="size-3.5 shrink-0" />
                 <span>{error}</span>
               </div>
             )}

@@ -2,6 +2,7 @@
 
 import React, { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { X } from "lucide-react";
 
 export const toArabicDigits = (v: number | string) => String(v).replace(/[0-9]/g, (d) => "٠١٢٣٤٥٦٧٨٩"[Number(d)]);
 
@@ -23,11 +24,11 @@ export const btnOutline =
 export const btnDanger =
   "min-h-[44px] px-4 rounded-xl border border-[#F3C4BF] bg-white text-[#A8261C] hover:bg-red-50/50 hover:border-red-300 active:scale-[0.98] text-sm font-bold transition-all duration-150 ease-out inline-flex items-center justify-center cursor-pointer disabled:cursor-not-allowed disabled:active:scale-100";
 export const btnSmall =
-  "min-h-[34px] px-3 rounded-[9px] border border-[#C9CFD9] bg-white text-ink text-xs font-semibold hover:bg-slate-50 active:scale-[0.98] transition-all duration-150 ease-out cursor-pointer disabled:cursor-not-allowed disabled:active:scale-100";
+  "min-h-[34px] px-3 rounded-[9px] inline-flex items-center justify-center gap-1.5 border border-[#C9CFD9] bg-white text-ink text-xs font-semibold hover:bg-slate-50 active:scale-[0.98] transition-all duration-150 ease-out cursor-pointer disabled:cursor-not-allowed disabled:active:scale-100";
 
 /** Selectable chip (filters, segmented choices). */
 export const chip = (on: boolean, size = "min-h-[38px] px-3.5 rounded-[10px] text-[13px]") =>
-  `${size} font-semibold border transition-all duration-150 ease-out active:scale-[0.97] cursor-pointer ${
+  `${size} inline-flex items-center justify-center gap-1.5 font-semibold border transition-all duration-150 ease-out active:scale-[0.97] cursor-pointer ${
     on ? "bg-ink text-white border-ink shadow-xs" : "bg-white text-slate-900 border-[#DCE0E8] hover:bg-slate-50 hover:border-slate-300"
   }`;
 
@@ -186,7 +187,7 @@ export function Toast({ message, onClose }: { message: string | null; onClose: (
         aria-label="إغلاق"
         className="min-w-[32px] min-h-[32px] rounded-lg bg-white/[0.12] flex items-center justify-center transition hover:bg-white/[0.2] active:scale-95 cursor-pointer"
       >
-        ✕
+        <X className="size-4" />
       </button>
     </div>
   );

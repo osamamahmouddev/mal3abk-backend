@@ -8,6 +8,7 @@ import { card, muted } from "@/components/ui";
 import { PaymentMethodForm } from "@/components/PaymentMethodForm";
 import { api, unwrap } from "@/lib/api";
 import { METHOD_LABELS } from "@/lib/venue-format";
+import { X } from "lucide-react";
 
 export function PaymentMethods({ venueId, onMessage }: { venueId: string; onMessage: (message: string) => void }) {
   const [revealed, setRevealed] = useState<Record<string, string>>({});
@@ -67,9 +68,9 @@ export function PaymentMethods({ venueId, onMessage }: { venueId: string; onMess
             aria-label="مسح طريقة الدفع"
             disabled={remove.isPending}
             onClick={() => confirm({ title: "تمسح طريقة الدفع دي؟", message: "العملاء مش هيشوفوها تاني في تعليمات الدفع.", confirmLabel: "مسح", destructive: true }, () => remove.mutate(m.id))}
-            className="min-w-[38px] min-h-[38px] rounded-[10px] border border-[#F3C4BF] bg-white text-[#A8261C]"
+            className="min-w-[38px] min-h-[38px] rounded-[10px] border border-[#F3C4BF] bg-white text-[#A8261C] grid place-items-center"
           >
-            ✕
+            <X className="size-4" />
           </button>
         </div>
       ))}

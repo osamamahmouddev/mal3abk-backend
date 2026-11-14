@@ -68,7 +68,7 @@ function AcceptInvitation() {
     <AuthCard title="دعوة للانضمام لفريق الملعب" subtitle="لما تقبل هتشوف الملعب في اللوحة بالصلاحيات اللي صاحب الملعب اختارها.">
       {done ? (
         <>
-          <FormSuccess>✓ انضميت لفريق الملعب.</FormSuccess>
+          <FormSuccess>انضميت لفريق الملعب.</FormSuccess>
           <a href="/venue/overview" className={`${authPrimary} flex items-center justify-center no-underline`}>
             افتح اللوحة
           </a>

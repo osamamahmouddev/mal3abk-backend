@@ -7,8 +7,27 @@ import { KV, Page, PageHeader, Pill, ReasonModal, type ReasonRequest, SearchBox,
 import { Drawer, Field, Pager, QueryState, Section, Select, Table, TextInput, fmtDate, fmtDateTime, num, useNotice } from "@/components/admin";
 import { api, unwrap } from "@/lib/api";
 import { useStepUp } from "@/lib/stepup";
+import { Camera, ChevronLeft, Eye, Image as ImageIcon, LayoutGrid, MapPin, Package, Smartphone, Table2, X } from "lucide-react";
+import { Pitch, SoccerBall } from "@/components/icons";
 
 type Row = Schemas["AdminVenueListItem"];
+
+const TURF_LABELS: Record<string, string> = {
+  ArtificialTurf: "نجيل صناعي",
+  NaturalGrass: "نجيل طبيعي",
+  Hybrid: "نجيل هجين",
+  Tartan: "ترتان / مطاطي",
+  HardCourt: "أسمنتي / صلب",
+  Parquet: "باركيه صالات",
+  Sand: "رملي / شاطئي",
+};
+
+function mediaSrc(path: string) {
+  if (!path) return "";
+  if (/^https?:\/\//i.test(path)) return path;
+  if (path.startsWith("/admin/bff")) return path;
+  return `/admin/bff${path.startsWith("/") ? "" : "/"}${path}`;
+}
 
 const STATUSES: [string, string][] = [
   ["", "كل حالات الاعتماد"],
@@ -104,21 +123,23 @@ export default function VenuesPage() {
         <div className="inline-flex rounded-xl bg-slate-100 p-1 border border-slate-200">
           <button
             type="button"
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
               viewMode === "cards" ? "bg-white text-slate-900 shadow-xs" : "text-[#5B6475] hover:text-slate-900"
             }`}
             onClick={() => setViewMode("cards")}
           >
-            🗂️ بطاقات الملاعب
+            <LayoutGrid className="size-3.5" />
+            بطاقات الملاعب
           </button>
           <button
             type="button"
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
               viewMode === "table" ? "bg-white text-slate-900 shadow-xs" : "text-[#5B6475] hover:text-slate-900"
             }`}
             onClick={() => setViewMode("table")}
           >
-            📊 جدول
+            <Table2 className="size-3.5" />
+            جدول
           </button>
         </div>
       </div>
@@ -154,41 +175,83 @@ export default function VenuesPage() {
                     const planName = r.planName || "بدون باقة";
                     const subLabel = SUB_STATUS_LABEL[subStatus] ?? subStatus;
                     const subTone = SUB_STATUS_TONE[subStatus] ?? "neutral";
+                    const photos = r.photos ?? [];
+                    const hasPhotos = photos.length > 0;
 
                     return (
                       <div
                         key={r.id}
-                        className={`${card} rounded-[20px] p-5 flex flex-col justify-between gap-4 border border-[#E2E6EF] hover:border-slate-400 hover:shadow-md transition-all`}
+                        className={`${card} rounded-[20px] p-4 flex flex-col justify-between gap-3.5 border border-[#E2E6EF] hover:border-slate-400 hover:shadow-md transition-all`}
                       >
-                        {/* Top: Venue Header & Statuses */}
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="flex items-center gap-3 min-w-0">
-                            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-emerald-600 to-teal-800 text-white flex items-center justify-center font-bold text-xl shrink-0 shadow-sm">
-                              🏟️
+                        {/* Venue Cover Image or Placeholder Banner */}
+                        <div
+                          className="relative h-44 w-full rounded-2xl overflow-hidden bg-slate-100 cursor-pointer group border border-slate-200 shrink-0"
+                          onClick={() => setSelected(r.id)}
+                        >
+                          {hasPhotos ? (
+                            <>
+                              <img
+                                src={mediaSrc(photos[0])}
+                                alt={r.name}
+                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                              />
+                              <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/15 to-black/35" />
+                            </>
+                          ) : (
+                            <div className="w-full h-full bg-gradient-to-br from-emerald-800 via-teal-900 to-slate-900 flex flex-col items-center justify-center gap-1.5 text-white/70 group-hover:text-white transition-colors">
+                              <Pitch className="size-10 text-emerald-400/80" strokeWidth={1.5} />
+                              <span className="text-[11px] font-semibold text-emerald-200/80">لم يتم رفع صور للنادي</span>
                             </div>
-                            <div className="min-w-0 flex flex-col">
-                              <h3 className="font-extrabold text-slate-900 text-base truncate" title={r.name}>
-                                {r.name}
-                              </h3>
-                              <div className="flex items-center gap-1.5 text-xs text-[#5B6475] mt-0.5">
-                                <span>📍</span>
-                                <span className="font-semibold text-slate-700">{r.city}</span>
-                                {r.area && <span>· {r.area}</span>}
-                              </div>
-                            </div>
-                          </div>
+                          )}
 
-                          <div className="shrink-0 flex flex-col items-end gap-1.5">
-                            <Pill tone={TONE[r.approvalStatus] ?? "neutral"} className="text-xs font-bold px-2.5 py-0.5">
+                          {/* Top Badges */}
+                          <div className="absolute top-2.5 right-2.5 flex items-center gap-1.5 z-10">
+                            <Pill tone={TONE[r.approvalStatus] ?? "neutral"} className="text-xs font-bold px-2.5 py-0.5 shadow-sm">
                               {STATUS_MAP[r.approvalStatus] ?? r.approvalStatus}
                             </Pill>
                             <span
-                              className={`text-[11px] font-semibold px-2 py-0.5 rounded-md ${
-                                r.isPublished ? "bg-emerald-50 text-emerald-800 border border-emerald-200" : "bg-slate-100 text-slate-600"
+                              className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-md shadow-sm ${
+                                r.isPublished ? "bg-emerald-600 text-white" : "bg-slate-900/85 text-slate-200"
                               }`}
                             >
-                              {r.isPublished ? "🟢 منشور للجمهور" : "⚪ مسودة"}
+                              <span className={`size-1.5 rounded-full ${r.isPublished ? "bg-emerald-300" : "bg-slate-400"}`} />
+                              {r.isPublished ? "منشور" : "مسودة"}
                             </span>
+                          </div>
+
+                          {/* Bottom Badges on Image */}
+                          <div className="absolute bottom-2.5 inset-x-2.5 flex items-end justify-between z-10">
+                            <div className="text-white drop-shadow-md">
+                              <span className="text-xs font-bold flex items-center gap-1.5 bg-black/55 backdrop-blur-xs px-2.5 py-1 rounded-lg">
+                                <SoccerBall className="size-3.5 text-emerald-400" />
+                                {num(r.pitches)} ملاعب فرعية
+                              </span>
+                            </div>
+
+                            {hasPhotos && (
+                              <span className="bg-black/60 backdrop-blur-xs text-white text-[11px] font-medium px-2 py-1 rounded-lg flex items-center gap-1 shadow-sm">
+                                <Camera className="size-3 text-emerald-400" />
+                                {toArabicDigits(photos.length)} {photos.length === 1 ? "صورة" : "صور"}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Venue Title & Location */}
+                        <div className="flex items-start justify-between gap-2 px-1">
+                          <div className="min-w-0 flex flex-col">
+                            <h3
+                              className="font-extrabold text-slate-900 text-base truncate cursor-pointer hover:text-emerald-700 transition"
+                              title={r.name}
+                              onClick={() => setSelected(r.id)}
+                            >
+                              {r.name}
+                            </h3>
+                            <div className="flex items-center gap-1.5 text-xs text-[#5B6475] mt-0.5">
+                              <MapPin className="size-3.5 shrink-0 text-slate-400" />
+                              <span className="font-semibold text-slate-700">{r.city}</span>
+                              {r.area && <span>· {r.area}</span>}
+                            </div>
                           </div>
                         </div>
 
@@ -198,8 +261,9 @@ export default function VenuesPage() {
                           <div className="flex items-center justify-between border-b border-[#E8ECF2] pb-2">
                             <div className="flex items-center gap-2">
                               <span className="text-xs text-[#5B6475]">باقة الاشتراك:</span>
-                              <span className="font-extrabold text-slate-900 text-xs bg-white px-2.5 py-1 rounded-lg border border-[#E2E6EF] shadow-2xs">
-                                📦 {planName}
+                              <span className="inline-flex items-center gap-1 font-extrabold text-slate-900 text-xs bg-white px-2.5 py-1 rounded-lg border border-[#E2E6EF] shadow-2xs">
+                                <Package className="size-3.5 text-slate-500" />
+                                {planName}
                               </span>
                             </div>
                             <Pill tone={subTone} className="text-[11px]">
@@ -216,8 +280,9 @@ export default function VenuesPage() {
                             {r.ownerPhone && (
                               <div className="text-left">
                                 <span className="text-[#5B6475] block text-[11px]">رقم التواصل:</span>
-                                <span dir="ltr" className="font-mono text-slate-800 bg-white px-2 py-0.5 rounded border border-slate-200 mt-0.5 inline-block font-medium">
-                                  📱 {r.ownerPhone}
+                                <span dir="ltr" className="font-mono text-slate-800 bg-white px-2 py-0.5 rounded border border-slate-200 mt-0.5 inline-flex items-center gap-1 font-medium">
+                                  <Smartphone className="size-3 text-slate-400" />
+                                  {r.ownerPhone}
                                 </span>
                               </div>
                             )}
@@ -227,7 +292,8 @@ export default function VenuesPage() {
                         {/* Details Row: Pitches & Creation Date */}
                         <div className="flex items-center justify-between text-xs px-1 text-slate-600">
                           <span className="flex items-center gap-1.5 font-bold text-slate-800 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200">
-                            <span>⚽ الملاعب الفرعية:</span>
+                            <SoccerBall className="size-3.5 text-emerald-700" strokeWidth={1.75} />
+                            <span>الملاعب الفرعية:</span>
                             <span className="font-extrabold text-emerald-900">{num(r.pitches)}</span>
                           </span>
                           <span className="text-[11px] text-[#5B6475]">
@@ -246,7 +312,7 @@ export default function VenuesPage() {
                             className={`${btnPrimary} min-h-[36px] text-xs px-4`}
                             onClick={() => setSelected(r.id)}
                           >
-                            معاينة وإدارة الملعب ↗
+                            معاينة وإدارة الملعب<ChevronLeft className="size-3.5 inline-block align-[-3px] ms-1" />
                           </button>
                         </div>
                       </div>
@@ -272,8 +338,9 @@ export default function VenuesPage() {
                     cell: (r) => (
                       <div className="flex flex-col">
                         <strong className="text-slate-900 text-sm">{r.name}</strong>
-                        <span className="text-xs text-[#5B6475]">
-                          📍 {r.city}، {r.area}
+                        <span className="text-xs text-[#5B6475] inline-flex items-center gap-1">
+                          <MapPin className="size-3 shrink-0" />
+                          {r.city}، {r.area}
                         </span>
                       </div>
                     ),
@@ -284,8 +351,9 @@ export default function VenuesPage() {
                       <div className="flex flex-col">
                         <span className="font-bold text-slate-800 text-xs">{r.ownerName || "مالك مسجل"}</span>
                         {r.ownerPhone && (
-                          <span dir="ltr" className="text-xs text-[#5B6475] font-mono">
-                            📱 {r.ownerPhone}
+                          <span dir="ltr" className="text-xs text-[#5B6475] font-mono inline-flex items-center gap-1">
+                            <Smartphone className="size-3 text-slate-400" />
+                            {r.ownerPhone}
                           </span>
                         )}
                       </div>
@@ -313,8 +381,9 @@ export default function VenuesPage() {
                   {
                     title: "الملاعب الفرعية",
                     cell: (r) => (
-                      <span className="font-bold text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200 text-xs">
-                        ⚽ {num(r.pitches)}
+                      <span className="inline-flex items-center gap-1 font-bold text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200 text-xs">
+                        <SoccerBall className="size-3.5" strokeWidth={1.75} />
+                        {num(r.pitches)}
                       </span>
                     ),
                   },
@@ -325,8 +394,9 @@ export default function VenuesPage() {
                   {
                     title: "النشر",
                     cell: (r) => (
-                      <span className={`text-xs font-semibold ${r.isPublished ? "text-emerald-700" : "text-slate-500"}`}>
-                        {r.isPublished ? "🟢 منشور" : "⚪ مسودة"}
+                      <span className={`inline-flex items-center gap-1.5 text-xs font-semibold ${r.isPublished ? "text-emerald-700" : "text-slate-500"}`}>
+                        {r.isPublished ? <span className="size-1.5 rounded-full bg-emerald-500" /> : <span className="size-1.5 rounded-full bg-slate-400" />}
+                        {r.isPublished ? "منشور" : "مسودة"}
                       </span>
                     ),
                   },
@@ -342,7 +412,7 @@ export default function VenuesPage() {
                           setSelected(r.id);
                         }}
                       >
-                        معاينة ↗
+                        معاينة<ChevronLeft className="size-3.5 inline-block align-[-3px] ms-1" />
                       </button>
                     ),
                   },
@@ -366,6 +436,7 @@ function VenueDrawer({ venueId, onClose }: { venueId: string | null; onClose: ()
   const [reason, setReason] = useState<ReasonRequest | null>(null);
   const [note, setNote] = useState<string | null>(null);
   const [newOwner, setNewOwner] = useState("");
+  const [lightboxPhoto, setLightboxPhoto] = useState<{ src: string; title: string } | null>(null);
 
   const usersQuery = useQuery({
     queryKey: ["admin-users-candidates-select"],
@@ -438,7 +509,7 @@ function VenueDrawer({ venueId, onClose }: { venueId: string | null; onClose: ()
                 <div className="flex items-start justify-between gap-2">
                   <div>
                     <h3 className="text-lg font-extrabold text-slate-900">{v.name}</h3>
-                    <span className="text-xs text-[#5B6475]">📍 {v.city}، {v.area} · {v.address}</span>
+                    <span className="text-xs text-[#5B6475] flex items-center gap-1"><MapPin className="size-3.5 shrink-0" /> {v.city}، {v.area} · {v.address}</span>
                   </div>
                   <Pill tone={TONE[v.approvalStatus] ?? "neutral"}>
                     {STATUS_MAP[v.approvalStatus] ?? v.approvalStatus}
@@ -452,7 +523,12 @@ function VenueDrawer({ venueId, onClose }: { venueId: string | null; onClose: ()
                   </KV>
                   <KV k="صاحب الملعب">{v.ownerName ?? "مالك مسجل"}</KV>
                   <KV k="هاتف الملعب/التواصل"><span dir="ltr">{v.phoneNumber || v.ownerPhone || "—"}</span></KV>
-                  <KV k="حالة النشر">{v.isPublished ? "🟢 منشور للجمهور" : "⚪ مسودة"}</KV>
+                  <KV k="حالة النشر">
+                    <span className="inline-flex items-center gap-1.5">
+                      {v.isPublished ? <span className="size-1.5 rounded-full bg-emerald-500" /> : <span className="size-1.5 rounded-full bg-slate-400" />}
+                      {v.isPublished ? "منشور للجمهور" : "مسودة"}
+                    </span>
+                  </KV>
                   <KV k="عدد الموظفين">{num(v.staffCount)}</KV>
                   <KV k="تاريخ التسجيل">{fmtDate(v.createdAtUtc)}</KV>
                 </div>
@@ -475,21 +551,94 @@ function VenueDrawer({ venueId, onClose }: { venueId: string | null; onClose: ()
                 </button>
               </div>
 
-              {/* Pitches List */}
-              <Section title={`الملاعب الفرعية (${num(v.pitches.length)})`}>
-                <div className="grid grid-cols-1 gap-2">
-                  {v.pitches.map((p) => (
-                    <div key={p.id} className="flex items-center justify-between text-xs p-3 bg-slate-50 rounded-xl border border-slate-200">
-                      <div className="flex items-center gap-2">
-                        <span className="text-base">⚽</span>
-                        <div className="flex flex-col">
-                          <strong className="text-slate-900 text-sm">{p.name}</strong>
-                          <span className={muted}>نوع النجيل: {p.turfType} · السعة: {num(p.capacity)} لاعب</span>
+              {/* Club Photo Gallery */}
+              <Section title={`معرض صور النادي (${num((v.photos ?? []).length)})`}>
+                {(v.photos ?? []).length === 0 ? (
+                  <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 text-center text-xs text-slate-500">
+                    لم يقم النادي برفع صور للمنشأة حتى الآن.
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                    {v.photos!.map((photo, i) => (
+                      <div
+                        key={photo}
+                        className="relative aspect-video rounded-xl overflow-hidden border border-slate-200 group cursor-pointer bg-slate-100 hover:ring-2 hover:ring-emerald-500 transition-all shadow-2xs"
+                        onClick={() => setLightboxPhoto({ src: mediaSrc(photo), title: `${v.name} - صورة عامة ${toArabicDigits(i + 1)}` })}
+                      >
+                        <img
+                          src={mediaSrc(photo)}
+                          alt={`صورة ${v.name}`}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+                        />
+                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-xs font-semibold gap-1">
+                          <Eye className="size-4" />
+                          <span>تكبير</span>
                         </div>
                       </div>
-                      <Pill tone={p.isActive ? "ok" : "neutral"}>{p.isActive ? "شغال" : "معطّل"}</Pill>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
+                )}
+              </Section>
+
+              {/* Pitches List & Their Photos */}
+              <Section title={`الملاعب الفرعية (${num(v.pitches.length)})`}>
+                <div className="flex flex-col gap-3">
+                  {v.pitches.map((p) => {
+                    const pitchPhotos = p.photos ?? [];
+                    return (
+                      <div key={p.id} className="rounded-xl border border-slate-200 bg-slate-50 p-3.5 flex flex-col gap-3">
+                        {/* Pitch Header */}
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2.5">
+                            <span className="grid place-items-center size-9 rounded-xl bg-emerald-100 text-emerald-800 shrink-0">
+                              <SoccerBall className="size-5" strokeWidth={1.75} />
+                            </span>
+                            <div>
+                              <strong className="text-slate-900 text-sm block">{p.name}</strong>
+                              <span className="text-xs text-slate-500 flex items-center gap-1.5 mt-0.5">
+                                <span className="font-semibold text-slate-700">{TURF_LABELS[p.turfType] ?? p.turfType}</span>
+                                <span>·</span>
+                                <span>السعة: {num(p.capacity)} لاعب</span>
+                              </span>
+                            </div>
+                          </div>
+                          <Pill tone={p.isActive ? "ok" : "neutral"}>{p.isActive ? "شغال" : "معطّل"}</Pill>
+                        </div>
+
+                        {/* Pitch Photos */}
+                        {pitchPhotos.length > 0 ? (
+                          <div className="flex flex-col gap-1.5 pt-2 border-t border-slate-200/80">
+                            <span className="text-[11px] font-bold text-slate-600 flex items-center gap-1">
+                              <Camera className="size-3 text-slate-400" />
+                              صور الملعب ({toArabicDigits(pitchPhotos.length)} صور):
+                            </span>
+                            <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                              {pitchPhotos.map((photo, i) => (
+                                <div
+                                  key={photo}
+                                  className="relative aspect-video rounded-lg overflow-hidden border border-slate-200 group cursor-pointer bg-white hover:ring-2 hover:ring-emerald-500 transition-all shadow-2xs"
+                                  onClick={() => setLightboxPhoto({ src: mediaSrc(photo), title: `${p.name} - صورة ${toArabicDigits(i + 1)}` })}
+                                >
+                                  <img
+                                    src={mediaSrc(photo)}
+                                    alt={`صورة ${p.name}`}
+                                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+                                  />
+                                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-[11px] font-semibold gap-0.5">
+                                    <Eye className="size-3.5" />
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="text-[11px] text-slate-400 italic pt-1 border-t border-slate-200/60">
+                            لا توجد صور مرفوعة لهذا الملعب الفرعي
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               </Section>
 
@@ -546,6 +695,36 @@ function VenueDrawer({ venueId, onClose }: { venueId: string | null; onClose: ()
         }}
       </QueryState>
       <ReasonModal request={reason} onClose={() => setReason(null)} />
+
+      {lightboxPhoto && (
+        <div
+          className="fixed inset-0 z-50 bg-black/85 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-200"
+          onClick={() => setLightboxPhoto(null)}
+        >
+          <div
+            className="relative max-w-4xl w-full bg-slate-900 rounded-2xl overflow-hidden shadow-2xl flex flex-col border border-slate-700"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-4 py-3 bg-slate-950 text-white border-b border-slate-800">
+              <span className="text-sm font-bold truncate">{lightboxPhoto.title}</span>
+              <button
+                type="button"
+                onClick={() => setLightboxPhoto(null)}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition"
+              >
+                <X className="size-5" />
+              </button>
+            </div>
+            <div className="p-3 flex items-center justify-center bg-black/40 overflow-auto max-h-[calc(90vh-60px)]">
+              <img
+                src={lightboxPhoto.src}
+                alt={lightboxPhoto.title}
+                className="max-h-[75vh] w-auto max-w-full object-contain rounded-lg shadow-lg"
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </Drawer>
   );
 }

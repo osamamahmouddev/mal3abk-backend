@@ -7,6 +7,7 @@ import { Badge, Page, Toast, card, formatEGP, inputClass, muted, primaryBtn, sec
 import { api, unwrap } from "@/lib/api";
 import { uploadImage } from "@/lib/upload";
 import { InvoiceModal } from "@/components/invoice-modal";
+import { Check, Lightbulb, MessageSquare, ReceiptText } from "lucide-react";
 
 type Plan = Schemas["PlanDto"];
 
@@ -148,7 +149,7 @@ export default function SubscriptionPage() {
               <span>طلب ترقية إلى باقة {pendingReq.planName} ({pendingReq.cycle === "Annual" ? "سنوي" : "شهري"}) قيد المراجعة</span>
             </div>
             {pendingReq.isPaymentReported ? (
-              <Badge tone="ok">تم سداد الرسوم 🧾</Badge>
+              <Badge tone="ok">تم سداد الرسوم</Badge>
             ) : (
               <Badge tone="warn">في انتظار السداد والتأكيد</Badge>
             )}
@@ -160,15 +161,16 @@ export default function SubscriptionPage() {
           {pendingReq.adminReply ? (
             <div className="bg-white/90 border border-amber-200 rounded-xl p-3.5 flex flex-col gap-1.5 shadow-xs">
               <strong className="text-navy-900 text-xs font-bold uppercase tracking-wider flex items-center gap-1.5">
-                <span>💬</span> تعليمات السداد من الإدارة:
+                <MessageSquare className="size-3.5" /> تعليمات السداد من الإدارة:
               </strong>
               <p className="whitespace-pre-line text-[#1F2A37] font-semibold text-sm leading-relaxed">
                 {pendingReq.adminReply}
               </p>
             </div>
           ) : (
-            <span className="text-xs text-[#B45309]">
-              💡 هيوصلك إشعار وتعليمات الدفع (إنستاباي / محفظة فودافون كاش) هنا في الإشعارات بمجرد مراجعة الإدارة، وتقدر كمان تحوّل وترفق الإيصال هنا فوراً.
+            <span className="text-xs text-[#B45309] flex items-start gap-1.5">
+              <Lightbulb className="size-3.5 shrink-0 mt-0.5" />
+              هيوصلك إشعار وتعليمات الدفع (إنستاباي / محفظة فودافون كاش) هنا في الإشعارات بمجرد مراجعة الإدارة، وتقدر كمان تحوّل وترفق الإيصال هنا فوراً.
             </span>
           )}
 
@@ -176,7 +178,7 @@ export default function SubscriptionPage() {
             <div className="mt-1 bg-[#F0FDF4] border border-[#BBF7D0] rounded-xl p-4 flex flex-col gap-3 shadow-xs">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
-                  <span className="w-5 h-5 rounded-full bg-emerald-600 text-white flex items-center justify-center text-xs font-bold">✓</span>
+                  <span className="w-5 h-5 rounded-full bg-emerald-600 text-white flex items-center justify-center shrink-0"><Check className="size-3.5" strokeWidth={3} /></span>
                   <span className="font-bold text-[#166534] text-sm sm:text-base">تم إرسال إيصال السداد، والطلب قيد المراجعة لتفعيل الباقة فورياً</span>
                 </div>
                 <button
@@ -211,7 +213,7 @@ export default function SubscriptionPage() {
                     rel="noreferrer"
                     className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold transition shadow-xs"
                   >
-                    <span>🧾</span>
+                    <ReceiptText className="size-4 shrink-0" />
                     <span>عرض صورة إيصال التحويل</span>
                   </a>
                 </div>
@@ -221,7 +223,7 @@ export default function SubscriptionPage() {
             <div className="mt-1 bg-white rounded-xl p-4 sm:p-5 border border-amber-300 shadow-sm flex flex-col gap-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2 font-bold text-gray-900 text-sm sm:text-base">
-                  <span>🧾</span>
+                  <ReceiptText className="size-4 shrink-0" />
                   <span>تأكيد التحويل وإرسال صورة الإيصال</span>
                 </div>
                 {isEditingProof && (
@@ -256,7 +258,7 @@ export default function SubscriptionPage() {
                     )}
                     {receiptMediaId && !isUploadingReceipt && (
                       <span className="text-xs text-emerald-700 font-semibold flex items-center gap-1">
-                        <span>✓</span> تم اختيار صورة الإيصال {receiptFileName ? `(${receiptFileName})` : ""}
+                        <Check className="size-3.5" strokeWidth={2.5} /> تم اختيار صورة الإيصال {receiptFileName ? `(${receiptFileName})` : ""}
                       </span>
                     )}
                   </div>
@@ -432,8 +434,8 @@ export default function SubscriptionPage() {
                       )}
                       {p.features.map((f) => (
                         <li key={f} className="flex items-center gap-2">
-                          <span aria-hidden="true" className="w-5 h-5 shrink-0 rounded-full bg-[#E7F6EC] text-[#1F7A3E] text-xs font-bold flex items-center justify-center">
-                            ✓
+                          <span aria-hidden="true" className="w-5 h-5 shrink-0 rounded-full bg-[#E7F6EC] text-[#1F7A3E] flex items-center justify-center">
+                            <Check className="size-3.5" strokeWidth={3} />
                           </span>
                           {FEATURE_NAMES[f] ?? f}
                         </li>
@@ -469,7 +471,7 @@ export default function SubscriptionPage() {
       <section className={`${card} rounded-[18px] p-5 flex flex-col gap-3`}>
         <div className="flex items-center justify-between">
           <h2 className="text-base font-bold text-navy-900 flex items-center gap-2">
-            <span>🧾</span>
+            <ReceiptText className="size-4 shrink-0" />
             <span>فواتير الاشتراكات</span>
           </h2>
           {data && data.invoices.length > 0 && (
@@ -496,7 +498,7 @@ export default function SubscriptionPage() {
                 {inv.status === "Void" ? (
                   <Badge tone="bad">ملغاة</Badge>
                 ) : (
-                  <Badge tone="ok">مسددة بالكامل ✓</Badge>
+                  <Badge tone="ok">مسددة بالكامل</Badge>
                 )}
               </div>
               <span className={`text-xs ${muted}`}>
@@ -511,10 +513,10 @@ export default function SubscriptionPage() {
               <div className="flex items-center gap-1.5">
                 <button
                   type="button"
-                  className={`${primaryBtn} min-h-[36px] px-3.5 text-xs bg-[#071832] hover:bg-slate-800`}
+                  className={`${primaryBtn} min-h-[36px] px-3.5 text-xs bg-[#071832] hover:bg-slate-800 gap-1.5`}
                   onClick={() => setViewInvoice(inv)}
                 >
-                  <span>🧾</span>
+                  <ReceiptText className="size-4 shrink-0" />
                   <span>عرض الفاتورة</span>
                 </button>
                 <button

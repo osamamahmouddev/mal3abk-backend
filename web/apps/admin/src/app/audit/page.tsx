@@ -6,6 +6,8 @@ import type { Schemas } from "@malabak/api-client";
 import { Page, PageHeader, Pill, btnOutline, btnSmall, card, muted } from "@/components/ui";
 import { Drawer, Field, Pager, QueryState, Select, Table, TextInput, fmtDateTime } from "@/components/admin";
 import { api, unwrap } from "@/lib/api";
+import { ArrowLeftRight, Ban, Banknote, CalendarDays, ChevronLeft, CircleCheck, CircleHelp, CirclePlay, CirclePlus, CircleStop, CircleX, ClipboardList, CreditCard, Eye, FileText, Flag, Globe, Info, KeyRound, LifeBuoy, Lock, LockOpen, LogOut, type LucideIcon, Mail, MailPlus, MessageSquare, NotebookPen, Package, Pencil, ReceiptText, RefreshCw, Scale, Search, Settings, ShieldCheck, Star, Target, Ticket, TriangleAlert, User, VenetianMask, Zap } from "lucide-react";
+import { Pitch, SoccerBall } from "@/components/icons";
 
 type Row = Schemas["AuditLogDto"];
 const PAGE_SIZE = 50;
@@ -14,82 +16,90 @@ interface ActionMeta {
   title: string;
   category: string;
   tone: "ok" | "warn" | "bad" | "neutral" | "navy";
-  icon: string;
+  icon: LucideIcon | typeof Pitch;
 }
+
+const TONE_ICON: Record<ActionMeta["tone"], string> = {
+  ok: "bg-emerald-50 text-emerald-700",
+  warn: "bg-amber-50 text-amber-700",
+  bad: "bg-red-50 text-red-700",
+  neutral: "bg-slate-100 text-slate-600",
+  navy: "bg-blue-50 text-blue-800",
+};
 
 const ACTION_MAP: Record<string, ActionMeta> = {
   // الاشتراكات وتجديد الباقات
-  "subscription.payment_recorded": { title: "تسجيل دفعة اشتراك", category: "اشتراكات", tone: "ok", icon: "💳" },
-  "subscription.assigned": { title: "إسناد باقة لمالك", category: "اشتراكات", tone: "ok", icon: "📦" },
-  "subscription.plan_changed": { title: "تغيير باقة المالك", category: "اشتراكات", tone: "navy", icon: "🔄" },
-  "subscription.suspended": { title: "إيقاف اشتراك مالك", category: "اشتراكات", tone: "bad", icon: "⏹️" },
-  "subscription.reactivated": { title: "إعادة تنشيط اشتراك", category: "اشتراكات", tone: "ok", icon: "▶️" },
-  "subscription.cancelled": { title: "إلغاء اشتراك مالك", category: "اشتراكات", tone: "bad", icon: "🚫" },
-  "subscription.invoice_voided": { title: "إلغاء فاتورة", category: "اشتراكات", tone: "bad", icon: "🧾" },
-  "subscription.plan_created": { title: "إنشاء باقة جديدة", category: "اشتراكات", tone: "ok", icon: "➕" },
-  "subscription.plan_made_default": { title: "تعيين باقة افتراضية", category: "اشتراكات", tone: "navy", icon: "⭐" },
-  "subscription.plan_status_changed": { title: "تغيير حالة باقة", category: "اشتراكات", tone: "warn", icon: "🔄" },
-  "subscription.plan_updated": { title: "تعديل بيانات باقة", category: "اشتراكات", tone: "navy", icon: "✏️" },
+  "subscription.payment_recorded": { title: "تسجيل دفعة اشتراك", category: "اشتراكات", tone: "ok", icon: CreditCard },
+  "subscription.assigned": { title: "إسناد باقة لمالك", category: "اشتراكات", tone: "ok", icon: Package },
+  "subscription.plan_changed": { title: "تغيير باقة المالك", category: "اشتراكات", tone: "navy", icon: RefreshCw },
+  "subscription.suspended": { title: "إيقاف اشتراك مالك", category: "اشتراكات", tone: "bad", icon: CircleStop },
+  "subscription.reactivated": { title: "إعادة تنشيط اشتراك", category: "اشتراكات", tone: "ok", icon: CirclePlay },
+  "subscription.cancelled": { title: "إلغاء اشتراك مالك", category: "اشتراكات", tone: "bad", icon: Ban },
+  "subscription.invoice_voided": { title: "إلغاء فاتورة", category: "اشتراكات", tone: "bad", icon: ReceiptText },
+  "subscription.plan_created": { title: "إنشاء باقة جديدة", category: "اشتراكات", tone: "ok", icon: CirclePlus },
+  "subscription.plan_made_default": { title: "تعيين باقة افتراضية", category: "اشتراكات", tone: "navy", icon: Star },
+  "subscription.plan_status_changed": { title: "تغيير حالة باقة", category: "اشتراكات", tone: "warn", icon: RefreshCw },
+  "subscription.plan_updated": { title: "تعديل بيانات باقة", category: "اشتراكات", tone: "navy", icon: Pencil },
 
   // طلبات الباقات
-  "subscription_request.approved": { title: "الموافقة على طلب باقة", category: "طلبات باقات", tone: "ok", icon: "✅" },
-  "subscription_request.replied": { title: "الرد على طلب باقة", category: "طلبات باقات", tone: "navy", icon: "💬" },
-  "subscription_request.reported_payment": { title: "إرفاق إيصال دفع لباقة", category: "طلبات باقات", tone: "navy", icon: "🧾" },
-  "subscription_request.rejected": { title: "رفض طلب باقة", category: "طلبات باقات", tone: "bad", icon: "❌" },
+  "subscription_request.approved": { title: "الموافقة على طلب باقة", category: "طلبات باقات", tone: "ok", icon: CircleCheck },
+  "subscription_request.replied": { title: "الرد على طلب باقة", category: "طلبات باقات", tone: "navy", icon: MessageSquare },
+  "subscription_request.reported_payment": { title: "إرفاق إيصال دفع لباقة", category: "طلبات باقات", tone: "navy", icon: ReceiptText },
+  "subscription_request.rejected": { title: "رفض طلب باقة", category: "طلبات باقات", tone: "bad", icon: CircleX },
 
   // الملاعب والاعتمادات
-  "Venue.Approval.Approve": { title: "اعتماد وقبول ملعب", category: "ملاعب", tone: "ok", icon: "🏟️" },
-  "Venue.Approval.Reject": { title: "رفض طلب اعتماد ملعب", category: "ملاعب", tone: "bad", icon: "❌" },
-  "Venue.Approval.RequestInfo": { title: "طلب استكمال بيانات ملعب", category: "ملاعب", tone: "warn", icon: "ℹ️" },
-  "Venue.SubmittedForApproval": { title: "تقديم ملعب للاعتماد", category: "ملاعب", tone: "navy", icon: "📩" },
-  "admin.venue.info_requested": { title: "طلب معلومات من مالك الملعب", category: "ملاعب", tone: "warn", icon: "❓" },
-  "admin.venue.note_updated": { title: "تحديث ملاحظة إدارية لملعب", category: "ملاعب", tone: "navy", icon: "📝" },
-  "admin.venue.ownership_transferred": { title: "نقل ملكية ملعب لمالك جديد", category: "ملاعب", tone: "warn", icon: "🔀" },
-  "PriceRuleCreated": { title: "إنشاء قاعدة تسعير", category: "ملاعب", tone: "ok", icon: "💵" },
-  "PriceRuleUpdated": { title: "تحديث قاعدة تسعير", category: "ملاعب", tone: "navy", icon: "💵" },
-  "BookingPolicy.VersionCreated": { title: "تحديث سياسة حجز وإلغاء", category: "ملاعب", tone: "navy", icon: "📋" },
-  "PaymentMethod.Created": { title: "إضافة وسيلة دفع لملعب", category: "ملاعب", tone: "ok", icon: "💳" },
-  "PaymentMethod.DetailsRevealedToPlayer": { title: "كشف بيانات الدفع للاعب", category: "ملاعب", tone: "navy", icon: "👁️" },
-  "Staff.Invited": { title: "إرسال دعوة موظف ملعب", category: "ملاعب", tone: "navy", icon: "✉️" },
+  "Venue.Approval.Approve": { title: "اعتماد وقبول ملعب", category: "ملاعب", tone: "ok", icon: Pitch },
+  "Venue.Approval.Reject": { title: "رفض طلب اعتماد ملعب", category: "ملاعب", tone: "bad", icon: CircleX },
+  "Venue.Approval.RequestInfo": { title: "طلب استكمال بيانات ملعب", category: "ملاعب", tone: "warn", icon: Info },
+  "Venue.SubmittedForApproval": { title: "تقديم ملعب للاعتماد", category: "ملاعب", tone: "navy", icon: MailPlus },
+  "admin.venue.info_requested": { title: "طلب معلومات من مالك الملعب", category: "ملاعب", tone: "warn", icon: CircleHelp },
+  "admin.venue.note_updated": { title: "تحديث ملاحظة إدارية لملعب", category: "ملاعب", tone: "navy", icon: NotebookPen },
+  "admin.venue.ownership_transferred": { title: "نقل ملكية ملعب لمالك جديد", category: "ملاعب", tone: "warn", icon: ArrowLeftRight },
+  "PriceRuleCreated": { title: "إنشاء قاعدة تسعير", category: "ملاعب", tone: "ok", icon: Banknote },
+  "PriceRuleUpdated": { title: "تحديث قاعدة تسعير", category: "ملاعب", tone: "navy", icon: Banknote },
+  "BookingPolicy.VersionCreated": { title: "تحديث سياسة حجز وإلغاء", category: "ملاعب", tone: "navy", icon: ClipboardList },
+  "PaymentMethod.Created": { title: "إضافة وسيلة دفع لملعب", category: "ملاعب", tone: "ok", icon: CreditCard },
+  "PaymentMethod.DetailsRevealedToPlayer": { title: "كشف بيانات الدفع للاعب", category: "ملاعب", tone: "navy", icon: Eye },
+  "Staff.Invited": { title: "إرسال دعوة موظف ملعب", category: "ملاعب", tone: "navy", icon: Mail },
 
   // حسابات الإدارة والمستخدمين
-  "admin.account.created": { title: "إنشاء حساب موظف جديد", category: "حسابات", tone: "ok", icon: "👤" },
-  "admin.account.disabled": { title: "تعطيل حساب موظف", category: "حسابات", tone: "bad", icon: "🔒" },
-  "admin.account.enabled": { title: "تفعيل حساب موظف", category: "حسابات", tone: "ok", icon: "🔓" },
-  "admin.account.roles_replaced": { title: "تعديل صلاحيات موظف", category: "حسابات", tone: "warn", icon: "🛡️" },
-  "admin.user.viewed": { title: "معاينة ملف مستخدم", category: "مستخدمين", tone: "neutral", icon: "👁️" },
-  "admin.user.suspended": { title: "إيقاف حساب مستخدم", category: "مستخدمين", tone: "bad", icon: "🚫" },
-  "admin.user.reactivated": { title: "إعادة تنشيط حساب مستخدم", category: "مستخدمين", tone: "ok", icon: "✅" },
-  "admin.user.sessions_revoked": { title: "تسجيل خروج من كل الأجهزة", category: "مستخدمين", tone: "warn", icon: "🚪" },
-  "admin.impersonation.code_issued": { title: "إصدار رمز دخول نيابة عن مستخدم", category: "حسابات", tone: "warn", icon: "🔑" },
-  "admin.impersonation.started": { title: "بدء جلسة دخول نيابة عن مستخدم", category: "حسابات", tone: "warn", icon: "🎭" },
+  "admin.account.created": { title: "إنشاء حساب موظف جديد", category: "حسابات", tone: "ok", icon: User },
+  "admin.account.disabled": { title: "تعطيل حساب موظف", category: "حسابات", tone: "bad", icon: Lock },
+  "admin.account.enabled": { title: "تفعيل حساب موظف", category: "حسابات", tone: "ok", icon: LockOpen },
+  "admin.account.roles_replaced": { title: "تعديل صلاحيات موظف", category: "حسابات", tone: "warn", icon: ShieldCheck },
+  "admin.user.viewed": { title: "معاينة ملف مستخدم", category: "مستخدمين", tone: "neutral", icon: Eye },
+  "admin.user.suspended": { title: "إيقاف حساب مستخدم", category: "مستخدمين", tone: "bad", icon: Ban },
+  "admin.user.reactivated": { title: "إعادة تنشيط حساب مستخدم", category: "مستخدمين", tone: "ok", icon: CircleCheck },
+  "admin.user.sessions_revoked": { title: "تسجيل خروج من كل الأجهزة", category: "مستخدمين", tone: "warn", icon: LogOut },
+  "admin.impersonation.code_issued": { title: "إصدار رمز دخول نيابة عن مستخدم", category: "حسابات", tone: "warn", icon: KeyRound },
+  "admin.impersonation.started": { title: "بدء جلسة دخول نيابة عن مستخدم", category: "حسابات", tone: "warn", icon: VenetianMask },
 
   // المنصة والحجوزات والدعم
-  "platform.setting_changed": { title: "تعديل في إعدادات المنصة", category: "إعدادات", tone: "warn", icon: "⚙️" },
-  "platform.flag_changed": { title: "تعديل في خصائص المنصة", category: "إعدادات", tone: "warn", icon: "🚩" },
-  "admin.booking.force_cancelled": { title: "إلغاء حجز إدارياً", category: "حجوزات", tone: "bad", icon: "🚫" },
-  "admin.dispute.resolved": { title: "حل نزاع إيصال دفع", category: "نزاعات", tone: "ok", icon: "⚖️" },
-  "dispute.opened": { title: "فتح نزاع إيصال دفع", category: "نزاعات", tone: "warn", icon: "⚠️" },
-  "support.ticket.closed": { title: "إغلاق تذكرة دعم فني", category: "دعم", tone: "neutral", icon: "🔒" },
-  "admin.match.result_corrected": { title: "تصحيح نتيجة مباراة", category: "مباريات", tone: "warn", icon: "⚽" },
+  "platform.setting_changed": { title: "تعديل في إعدادات المنصة", category: "إعدادات", tone: "warn", icon: Settings },
+  "platform.flag_changed": { title: "تعديل في خصائص المنصة", category: "إعدادات", tone: "warn", icon: Flag },
+  "admin.booking.force_cancelled": { title: "إلغاء حجز إدارياً", category: "حجوزات", tone: "bad", icon: Ban },
+  "admin.dispute.resolved": { title: "حل نزاع إيصال دفع", category: "نزاعات", tone: "ok", icon: Scale },
+  "dispute.opened": { title: "فتح نزاع إيصال دفع", category: "نزاعات", tone: "warn", icon: TriangleAlert },
+  "support.ticket.closed": { title: "إغلاق تذكرة دعم فني", category: "دعم", tone: "neutral", icon: Lock },
+  "admin.match.result_corrected": { title: "تصحيح نتيجة مباراة", category: "مباريات", tone: "warn", icon: SoccerBall },
 };
 
-const ENTITY_LABELS: Record<string, { label: string; icon: string }> = {
-  Venue: { label: "ملعب", icon: "🏟️" },
-  Subscription: { label: "اشتراك", icon: "💳" },
-  SubscriptionRequest: { label: "طلب باقة", icon: "📩" },
-  SubscriptionPlan: { label: "باقة اشتراك", icon: "📦" },
-  User: { label: "مستخدم/موظف", icon: "👤" },
-  Booking: { label: "حجز", icon: "🎟️" },
-  PlatformSetting: { label: "إعداد منصة", icon: "⚙️" },
-  SupportTicket: { label: "تذكرة دعم", icon: "🎫" },
-  PriceRule: { label: "قاعدة تسعير", icon: "💵" },
-  PaymentDispute: { label: "نزاع دفع", icon: "⚖️" },
-  VenuePolicy: { label: "سياسة حجز", icon: "📋" },
-  VenuePaymentMethod: { label: "وسيلة دفع", icon: "💳" },
-  VenueStaffInvitation: { label: "دعوة موظف", icon: "✉️" },
-  Invoice: { label: "فاتورة", icon: "🧾" },
-  FeatureFlag: { label: "ميزة تجريبية", icon: "🚩" },
+const ENTITY_LABELS: Record<string, { label: string; icon: ActionMeta["icon"] }> = {
+  Venue: { label: "ملعب", icon: Pitch },
+  Subscription: { label: "اشتراك", icon: CreditCard },
+  SubscriptionRequest: { label: "طلب باقة", icon: MailPlus },
+  SubscriptionPlan: { label: "باقة اشتراك", icon: Package },
+  User: { label: "مستخدم/موظف", icon: User },
+  Booking: { label: "حجز", icon: Ticket },
+  PlatformSetting: { label: "إعداد منصة", icon: Settings },
+  SupportTicket: { label: "تذكرة دعم", icon: LifeBuoy },
+  PriceRule: { label: "قاعدة تسعير", icon: Banknote },
+  PaymentDispute: { label: "نزاع دفع", icon: Scale },
+  VenuePolicy: { label: "سياسة حجز", icon: ClipboardList },
+  VenuePaymentMethod: { label: "وسيلة دفع", icon: CreditCard },
+  VenueStaffInvitation: { label: "دعوة موظف", icon: Mail },
+  Invoice: { label: "فاتورة", icon: ReceiptText },
+  FeatureFlag: { label: "ميزة تجريبية", icon: Flag },
 };
 
 const ACTOR_LABELS: Record<string, { label: string; tone: "navy" | "ok" | "neutral" }> = {
@@ -100,36 +110,36 @@ const ACTOR_LABELS: Record<string, { label: string; tone: "navy" | "ok" | "neutr
 
 const ACTION_FILTER_OPTIONS: [string, string][] = [
   ["", "كل العمليات والإجراءات"],
-  ["subscription", "💳 الاشتراكات وتجديد الباقات"],
-  ["subscription_request", "📩 طلبات ترقية الباقات"],
-  ["Venue.Approval", "🏟️ اعتمادات الملاعب وموافقاتها"],
-  ["Venue", "🏟️ عمليات الملاعب وتحديثاتها"],
-  ["admin.account", "👤 حسابات الموظفين والصلاحيات"],
-  ["admin.user", "👥 إدارة المستخدمين والعملاء"],
-  ["platform", "⚙️ إعدادات المنصة وسياساتها"],
-  ["admin.booking", "🎟️ إدارة الحجوزات والإلغاء"],
-  ["dispute", "⚖️ نزاعات إيصالات الدفع"],
-  ["support", "🎫 تذاكر الدعم الفني"],
+  ["subscription", "الاشتراكات وتجديد الباقات"],
+  ["subscription_request", "طلبات ترقية الباقات"],
+  ["Venue.Approval", "اعتمادات الملاعب وموافقاتها"],
+  ["Venue", "عمليات الملاعب وتحديثاتها"],
+  ["admin.account", "حسابات الموظفين والصلاحيات"],
+  ["admin.user", "إدارة المستخدمين والعملاء"],
+  ["platform", "إعدادات المنصة وسياساتها"],
+  ["admin.booking", "إدارة الحجوزات والإلغاء"],
+  ["dispute", "نزاعات إيصالات الدفع"],
+  ["support", "تذاكر الدعم الفني"],
 ];
 
 const ENTITY_FILTER_OPTIONS: [string, string][] = [
   ["", "كل أنواع الكيانات"],
-  ["Venue", "🏟️ الملاعب"],
-  ["Subscription", "💳 الاشتراكات"],
-  ["SubscriptionRequest", "📩 طلبات الترقية"],
-  ["SubscriptionPlan", "📦 باقات الاشتراك"],
-  ["User", "👤 المستخدمين والموظفين"],
-  ["Booking", "🎟️ الحجوزات"],
-  ["PlatformSetting", "⚙️ إعدادات المنصة"],
-  ["SupportTicket", "🎫 تذاكر الدعم"],
-  ["PriceRule", "💵 قواعد التسعير"],
-  ["PaymentDispute", "⚖️ نزاعات الدفع"],
+  ["Venue", "الملاعب"],
+  ["Subscription", "الاشتراكات"],
+  ["SubscriptionRequest", "طلبات الترقية"],
+  ["SubscriptionPlan", "باقات الاشتراك"],
+  ["User", "المستخدمين والموظفين"],
+  ["Booking", "الحجوزات"],
+  ["PlatformSetting", "إعدادات المنصة"],
+  ["SupportTicket", "تذاكر الدعم"],
+  ["PriceRule", "قواعد التسعير"],
+  ["PaymentDispute", "نزاعات الدفع"],
 ];
 
 const ACTOR_FILTER_OPTIONS: [string, string][] = [
   ["", "كل المنفّذين"],
-  ["Admin", "👑 مسؤولي النظام (Admin)"],
-  ["User", "👤 المستخدمين (User)"],
+  ["Admin", "مسؤولي النظام (Admin)"],
+  ["User", "المستخدمين (User)"],
 ];
 
 export default function AuditPage() {
@@ -320,11 +330,13 @@ export default function AuditPage() {
                         title: r.action,
                         category: "عام",
                         tone: "neutral" as const,
-                        icon: "⚡",
+                        icon: Zap,
                       };
                       return (
                         <div className="flex items-center gap-2.5">
-                          <span className="text-base shrink-0">{meta.icon}</span>
+                          <span className={`grid place-items-center size-8 rounded-lg shrink-0 ${TONE_ICON[meta.tone]}`}>
+                            <meta.icon className="size-4" />
+                          </span>
                           <div className="flex flex-col min-w-0">
                             <span className="font-bold text-slate-900 text-[13px]">{meta.title}</span>
                             <span dir="ltr" className="text-[10px] font-mono text-slate-600 truncate">
@@ -338,10 +350,10 @@ export default function AuditPage() {
                   {
                     title: "الكيان المتأثر",
                     cell: (r) => {
-                      const entity = ENTITY_LABELS[r.entityType] || { label: r.entityType, icon: "📄" };
+                      const entity = ENTITY_LABELS[r.entityType] || { label: r.entityType, icon: FileText };
                       return (
                         <div className="flex items-center gap-1.5 whitespace-nowrap">
-                          <span className="text-sm">{entity.icon}</span>
+                          <entity.icon className="size-3.5 text-slate-500" />
                           <span className="font-bold text-slate-800 text-xs">{entity.label}</span>
                           <span dir="ltr" className="text-[10px] font-mono text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
                             {r.entityId.slice(0, 8)}
@@ -387,7 +399,7 @@ export default function AuditPage() {
                           setSelected(r);
                         }}
                       >
-                        معاينة ↗
+                        معاينة<ChevronLeft className="size-3.5 inline-block align-[-3px] ms-1" />
                       </button>
                     ),
                   },
@@ -409,15 +421,17 @@ export default function AuditPage() {
                 title: selected.action,
                 category: "عام",
                 tone: "neutral" as const,
-                icon: "⚡",
+                icon: Zap,
               };
-              const entity = ENTITY_LABELS[selected.entityType] || { label: selected.entityType, icon: "📄" };
+              const entity = ENTITY_LABELS[selected.entityType] || { label: selected.entityType, icon: FileText };
               const actor = ACTOR_LABELS[selected.actorType] || { label: selected.actorType, tone: "neutral" as const };
 
               return (
                 <div className={`${card} rounded-2xl p-4 flex flex-col gap-3 border border-slate-200`}>
                   <div className="flex items-center gap-3">
-                    <span className="text-3xl p-2 bg-slate-100 rounded-xl">{meta.icon}</span>
+                    <span className={`grid place-items-center size-12 rounded-xl shrink-0 ${TONE_ICON[meta.tone]}`}>
+                      <meta.icon className="size-6" />
+                    </span>
                     <div className="flex flex-col">
                       <h3 className="font-extrabold text-base text-slate-900">{meta.title}</h3>
                       <code dir="ltr" className="text-[11px] text-slate-600 font-mono">
@@ -428,21 +442,21 @@ export default function AuditPage() {
 
                   <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-100 text-xs">
                     <div>
-                      <span className="text-[#5B6475] block">📅 التوقيت:</span>
+                      <span className="text-[#5B6475] flex items-center gap-1"><CalendarDays className="size-3" /> التوقيت:</span>
                       <span className="font-bold text-slate-800">{fmtDateTime(selected.occurredAtUtc)}</span>
                     </div>
                     <div>
-                      <span className="text-[#5B6475] block">🌐 عنوان IP:</span>
+                      <span className="text-[#5B6475] flex items-center gap-1"><Globe className="size-3" /> عنوان IP:</span>
                       <span dir="ltr" className="font-mono text-slate-800">{selected.ipAddress || "—"}</span>
                     </div>
                     <div>
-                      <span className="text-[#5B6475] block">👤 جهة التنفيذ:</span>
+                      <span className="text-[#5B6475] flex items-center gap-1"><User className="size-3" /> جهة التنفيذ:</span>
                       <Pill tone={actor.tone} className="mt-0.5 text-[11px]">{actor.label}</Pill>
                     </div>
                     <div>
-                      <span className="text-[#5B6475] block">🎯 الكيان المتأثر:</span>
+                      <span className="text-[#5B6475] flex items-center gap-1"><Target className="size-3" /> الكيان المتأثر:</span>
                       <span className="font-bold text-slate-800 flex items-center gap-1 mt-0.5">
-                        {entity.icon} {entity.label}
+                        <entity.icon className="size-3.5 text-slate-500" /> {entity.label}
                       </span>
                     </div>
                   </div>
@@ -458,7 +472,7 @@ export default function AuditPage() {
 
                   {selected.impersonatorId && (
                     <div className="text-xs p-2 bg-amber-50 rounded-xl border border-amber-200 text-amber-900">
-                      ⚠️ تمت هذه العملية عبر جلسة تقمص هوية (Impersonation) بواسطة المشرف:
+                      <TriangleAlert className="size-3.5 inline-block align-[-2px] me-1" />تمت هذه العملية عبر جلسة تقمص هوية (Impersonation) بواسطة المشرف:
                       <code dir="ltr" className="font-mono font-bold block mt-1">{selected.impersonatorId}</code>
                     </div>
                   )}
@@ -489,7 +503,8 @@ export default function AuditPage() {
                   setSelected(null);
                 }}
               >
-                🔍 عرض جميع العمليات الخاصة بهذا الكيان فقط
+                <Search className="size-3.5 me-1.5" />
+                عرض جميع العمليات الخاصة بهذا الكيان فقط
               </button>
             </div>
           </div>

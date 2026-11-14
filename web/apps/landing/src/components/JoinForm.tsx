@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import { useLandingState } from "./LandingState";
+import { Check } from "lucide-react";
 
 const toArabicDigits = (v: string) => v.replace(/[0-9]/g, (d) => "٠١٢٣٤٥٦٧٨٩"[Number(d)]);
 
@@ -98,7 +99,7 @@ export function JoinForm() {
       ) : (
         <div role="status" className="join-done">
           <span className="join-done-check" aria-hidden="true">
-            ✓
+            <Check size={24} strokeWidth={3} />
           </span>
           <span className="join-done-copy">
             <b>{isVenue ? "تمام، فريقنا هيكلمك" : "اتسجلت!"}</b>

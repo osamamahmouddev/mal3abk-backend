@@ -33978,6 +33978,13 @@
           "createdAtUtc": {
             "type": "string",
             "format": "date-time"
+          },
+          "photos": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
           }
         },
         "additionalProperties": false
@@ -34076,6 +34083,13 @@
           "createdAtUtc": {
             "type": "string",
             "format": "date-time"
+          },
+          "photos": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
           }
         },
         "additionalProperties": false

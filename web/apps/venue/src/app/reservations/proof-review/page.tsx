@@ -13,6 +13,7 @@ import { BOOKING_STATUS, cairoDateTime, money, timeLeft } from "@/lib/booking-fo
 import { P } from "@/lib/permissions";
 import { useVenueRealtime } from "@/lib/realtime";
 import { mediaSrc } from "@/lib/upload";
+import { FileText, X } from "lucide-react";
 
 type Item = Schemas["VenueBookingItemDto"];
 type Proof = Schemas["VenueProofItemDto"];
@@ -103,7 +104,7 @@ function ProofReview() {
             </Link>
           )}
           <button type="button" onClick={() => setNotice(null)} aria-label="إغلاق التنبيه">
-            ✕
+            <X className="size-4" />
           </button>
         </div>
       )}
@@ -122,7 +123,7 @@ function ProofReview() {
           </div>
           {queue.isLoading && <p className={`p-6 text-sm text-center ${muted}`}>جاري التحميل…</p>}
           {queue.isError && <p className="p-6 text-sm text-center text-[#A8261C]">{(queue.error as Error).message}</p>}
-          {!queue.isLoading && items.length === 0 && <p className={`p-8 text-sm text-center ${muted}`}>مفيش إيصالات محتاجة مراجعة دلوقتي. 👌</p>}
+          {!queue.isLoading && items.length === 0 && <p className={`p-8 text-sm text-center ${muted}`}>مفيش إيصالات محتاجة مراجعة دلوقتي.</p>}
           {items.map((q) => {
             const on = q.id === current?.id;
             return (
@@ -357,7 +358,7 @@ function ReceiptViewer({ proof }: { proof: Proof }) {
         {isPdf ? (
           // Frames are denied site-wide (X-Frame-Options), so PDFs open in the browser's own viewer instead.
           <a href={src} target="_blank" rel="noopener noreferrer" className="w-full h-full flex flex-col items-center justify-center gap-2 text-navy-900">
-            <span className="text-4xl" aria-hidden="true">📄</span>
+            <FileText className="size-10" strokeWidth={1.5} />
             <span className="text-sm font-bold underline">فتح إيصال PDF</span>
             <span className={`text-xs ${muted}`}>{proof.originalFileName}</span>
           </a>

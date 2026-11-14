@@ -9,7 +9,7 @@ export const BOOKING_STATUS: Record<BookingStatus, { key: string; label: string;
   2: { key: "PendingDeposit", label: "بانتظار العربون", tone: "wait" },
   3: { key: "ProofSubmitted", label: "إيصال مرفوع", tone: "warn" },
   4: { key: "UnderReview", label: "قيد المراجعة", tone: "warn" },
-  5: { key: "Confirmed", label: "✓ مؤكد", tone: "ok" },
+  5: { key: "Confirmed", label: "مؤكد", tone: "ok" },
   6: { key: "Rejected", label: "مرفوض", tone: "bad" },
   7: { key: "Expired", label: "انتهت المهلة", tone: "block" },
   8: { key: "Cancelled", label: "ملغي", tone: "block" },

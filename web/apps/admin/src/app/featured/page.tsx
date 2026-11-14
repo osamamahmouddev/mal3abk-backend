@@ -6,6 +6,7 @@ import type { Schemas } from "@malabak/api-client";
 import { Page, PageHeader, Pill, btnPrimary, btnSmall, card, muted } from "@/components/ui";
 import { Field, QueryState, Select, Table, TextInput, fmtDateTime, num, useNotice } from "@/components/admin";
 import { api, unwrap } from "@/lib/api";
+import { TriangleAlert } from "lucide-react";
 
 type Row = Schemas["FeaturedPlacementDto"];
 const SLOTS: [string, string][] = [
@@ -76,7 +77,7 @@ export default function FeaturedPage() {
     ["", "— اختر الملعب —"],
     ...((venuesQuery.data?.items ?? []).map((v) => [
       v.id,
-      v.isPublished ? `${v.name} (منشور ✓)` : `${v.name} (غير منشور ✕)`,
+      v.isPublished ? `${v.name} (منشور)` : `${v.name} (غير منشور)`,
     ] as [string, string])),
   ];
 
@@ -136,7 +137,7 @@ export default function FeaturedPage() {
           
           <div className="flex items-center gap-2">
             <Pill tone={flagOn("venues.featured") ? "ok" : "neutral"}>
-              الاستكشاف: {flagOn("venues.featured") ? "مفعل ✓" : "معطل ✕"}
+              الاستكشاف: {flagOn("venues.featured") ? "مفعل" : "معطل"}
             </Pill>
             <button
               type="button"
@@ -155,7 +156,7 @@ export default function FeaturedPage() {
 
           <div className="flex items-center gap-2">
             <Pill tone={flagOn("home.sponsored") ? "ok" : "neutral"}>
-              الرئيسية: {flagOn("home.sponsored") ? "مفعل ✓" : "معطل ✕"}
+              الرئيسية: {flagOn("home.sponsored") ? "مفعل" : "معطل"}
             </Pill>
             <button
               type="button"
@@ -211,7 +212,7 @@ export default function FeaturedPage() {
 
         {selectedVenue && !selectedVenue.isPublished && (
           <div className="md:col-span-3 bg-amber-50 border border-amber-200 text-amber-900 px-4 py-3 rounded-xl text-xs flex items-center gap-2">
-            <span className="text-base">⚠️</span>
+            <TriangleAlert className="size-4 shrink-0 text-amber-600" />
             <span>
               الملعب المحدد <strong>({selectedVenue.name})</strong> معتمد لكنه <strong>غير منشور حالياً</strong>.
               لا يمكن جدولة إعلانات إلا للملاعب المنشورة التي يمكن للاعبين حجزها.
@@ -280,7 +281,7 @@ export default function FeaturedPage() {
                 title: "الفترة",
                 cell: (p) => (
                   <span className="text-xs font-mono text-gray-600" dir="ltr">
-                    {fmtDateTime(p.startsAtUtc)} → {fmtDateTime(p.endsAtUtc)}
+                    {fmtDateTime(p.startsAtUtc)} إلى {fmtDateTime(p.endsAtUtc)}
                   </span>
                 ),
               },
@@ -292,7 +293,7 @@ export default function FeaturedPage() {
                 title: "الحالة",
                 cell: (p) => (
                   <Pill tone={p.isCancelled ? "bad" : p.isLive ? "ok" : "neutral"}>
-                    {p.isCancelled ? "ملغي" : p.isLive ? "معروض حالياً ✓" : "مجدول"}
+                    {p.isCancelled ? "ملغي" : p.isLive ? "معروض حالياً" : "مجدول"}
                   </Pill>
                 ),
               },

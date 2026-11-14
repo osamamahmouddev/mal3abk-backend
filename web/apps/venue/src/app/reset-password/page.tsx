@@ -33,7 +33,7 @@ function ResetPassword() {
   if (done) {
     return (
       <AuthCard title="كلمة السر اتغيرت">
-        <FormSuccess>✓ سجّل دخول بكلمة السر الجديدة. كل الأجهزة التانية اتسجّل خروجها.</FormSuccess>
+        <FormSuccess>سجّل دخول بكلمة السر الجديدة. كل الأجهزة التانية اتسجّل خروجها.</FormSuccess>
         <Link href="/login" className={`${authPrimary} flex items-center justify-center no-underline`}>
           تسجيل الدخول
         </Link>

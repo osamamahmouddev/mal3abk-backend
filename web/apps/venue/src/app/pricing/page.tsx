@@ -10,6 +10,8 @@ import { api, unwrap } from "@/lib/api";
 import { cairoDayStartUtc, cairoToday, addDays, money } from "@/lib/booking-format";
 import { P } from "@/lib/permissions";
 import { DAY_NAMES, DAY_ORDER, formatTime, toApiTime } from "@/lib/venue-format";
+import { Banknote, CalendarDays, ChevronDown, Clock, Hourglass, Lightbulb, Percent, Settings, Tag, X } from "lucide-react";
+import { Pitch } from "@/components/icons";
 
 type Rule = Schemas["PriceRuleDto"];
 type Request = Schemas["PriceRuleApiRequest"];
@@ -149,7 +151,7 @@ function describeWhen(r: Rule): string {
   const parts: string[] = [];
   if (r.days?.length) parts.push(r.days.map((d) => DAY_NAMES[DAY_KEYS.indexOf(d as (typeof DAY_KEYS)[number])]).join("، "));
   if (r.startTime && r.endTime) parts.push(`${formatTime(r.startTime)} – ${formatTime(r.endTime)}`);
-  if (r.startDate && r.endDate) parts.push(`${r.startDate} → ${r.endDate}`);
+  if (r.startDate && r.endDate) parts.push(`${r.startDate} إلى ${r.endDate}`);
   if (r.minDurationMinutes) parts.push(`لحجز ${toArabicDigits(r.minDurationMinutes / 60)} ساعة أو أكتر`);
   if (r.kind === "Holiday") parts.push("الإجازات الرسمية");
   return parts.join(" · ") || "كل الأوقات";
@@ -229,8 +231,8 @@ export default function PricingPage() {
               onClick={() => setDraft(emptyDiscountDraft())}
               className="min-h-[42px] px-4 rounded-xl bg-[#16A34A] hover:bg-[#15803D] active:scale-95 text-white font-bold text-sm shadow-xs transition-all flex items-center gap-1.5 cursor-pointer"
             >
-              <span>🏷️</span>
-              <span>+ إضافة خصم / عرض مؤقت</span>
+              <Tag className="size-4" />
+              <span>إضافة خصم / عرض مؤقت</span>
             </button>
             <button
               type="button"
@@ -258,7 +260,7 @@ export default function PricingPage() {
           <section className={`${card} rounded-[18px] p-5 flex flex-col gap-3 border-emerald-100 bg-gradient-to-b from-[#F7FCF9] to-white`} aria-labelledby="discounts-title">
             <div className="flex flex-wrap items-center justify-between gap-2 border-b border-emerald-100 pb-3">
               <div className="flex items-center gap-2">
-                <span className="text-xl">🏷️</span>
+                <span className="grid place-items-center size-9 rounded-lg bg-emerald-100 text-emerald-700"><Tag className="size-[18px]" /></span>
                 <h2 id="discounts-title" className="text-base font-bold text-emerald-950">
                   العروض والخصومات الترويجية
                 </h2>
@@ -294,10 +296,10 @@ export default function PricingPage() {
                           <Badge tone={status.tone}>{status.label}</Badge>
                         </div>
                         <div className={`text-xs ${muted} flex flex-wrap gap-x-3 gap-y-1`}>
-                          <span>🏟️ {pitchName(r.pitchId)}</span>
-                          <span>📅 {r.startDate && r.endDate ? `${r.startDate} حتى ${r.endDate}` : r.startDate ? `من ${r.startDate}` : r.endDate ? `حتى ${r.endDate}` : "مستمر بدون تاريخ انتهاء"}</span>
-                          {r.startTime && r.endTime && <span>⏰ {formatTime(r.startTime)} – {formatTime(r.endTime)}</span>}
-                          {r.minDurationMinutes && <span>⏳ حجز {toArabicDigits(r.minDurationMinutes / 60)} س+</span>}
+                          <span className="inline-flex items-center gap-1"><Pitch className="size-3.5 shrink-0" /> {pitchName(r.pitchId)}</span>
+                          <span className="inline-flex items-center gap-1"><CalendarDays className="size-3.5 shrink-0" /> {r.startDate && r.endDate ? `${r.startDate} حتى ${r.endDate}` : r.startDate ? `من ${r.startDate}` : r.endDate ? `حتى ${r.endDate}` : "مستمر بدون تاريخ انتهاء"}</span>
+                          {r.startTime && r.endTime && <span className="inline-flex items-center gap-1"><Clock className="size-3.5 shrink-0" /> {formatTime(r.startTime)} – {formatTime(r.endTime)}</span>}
+                          {r.minDurationMinutes && <span className="inline-flex items-center gap-1"><Hourglass className="size-3.5 shrink-0" /> حجز {toArabicDigits(r.minDurationMinutes / 60)} س+</span>}
                         </div>
                       </div>
                       <div className="text-emerald-800 font-bold text-sm bg-emerald-50 border border-emerald-200 px-3 py-1 rounded-lg">
@@ -343,8 +345,8 @@ export default function PricingPage() {
             ) : (
               <div className="p-4 bg-white/70 border border-dashed border-emerald-200 rounded-xl flex flex-wrap items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center text-xl shrink-0">
-                    💡
+                  <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center shrink-0 text-emerald-700">
+                    <Lightbulb className="size-5" />
                   </div>
                   <div>
                     <h3 className="text-sm font-bold text-emerald-950">هل ترغب في تنشيط الحجوزات؟ أضف خصماً مؤقتاً</h3>
@@ -476,7 +478,7 @@ function RuleEditor({
         <div className="flex items-center justify-between gap-2 border-b border-gray-100 pb-3">
           <div>
             <h2 id="rule-title" className="text-[20px] font-bold text-navy-950 flex items-center gap-2">
-              {isDiscount ? <span>🏷️ {draft.id ? "تعديل عرض الخصم" : "إضافة خصم ترويجي على الساعة"}</span> : (draft.id ? "تعديل قاعدة سعر" : "قاعدة سعر جديدة")}
+              {isDiscount ? <span className="inline-flex items-center gap-2"><Tag className="size-5 text-emerald-700" /> {draft.id ? "تعديل عرض الخصم" : "إضافة خصم ترويجي على الساعة"}</span> : (draft.id ? "تعديل قاعدة سعر" : "قاعدة سعر جديدة")}
             </h2>
             <p className={`text-[13px] ${muted} mt-0.5`}>
               {isDiscount
@@ -490,7 +492,7 @@ function RuleEditor({
             className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-600 flex items-center justify-center transition-colors cursor-pointer"
             aria-label="إغلاق"
           >
-            ✕
+            <X className="size-4" />
           </button>
         </div>
 
@@ -504,7 +506,8 @@ function RuleEditor({
                 onClick={() => onChange(k === "Discount" ? emptyDiscountDraft() : emptyDraft(k))}
                 className={chip(draft.kind === k, "min-h-[36px] px-3 rounded-[10px] text-[13px]")}
               >
-                {k === "Discount" ? "🏷️ خصم وعرض مؤقت" : KINDS[k].label}
+                {k === "Discount" && <Tag className="size-3.5" />}
+                {k === "Discount" ? "خصم وعرض مؤقت" : KINDS[k].label}
               </button>
             ))}
           </div>
@@ -526,7 +529,7 @@ function RuleEditor({
                       : "bg-[#F8FAFC] text-navy-800 border-gray-200 hover:bg-gray-100"
                   }`}
                 >
-                  <span>٪</span>
+                  <Percent className="size-4" />
                   <span>نسبة مئوية (مثلاً خصم ٢٠٪)</span>
                 </button>
                 <button
@@ -538,7 +541,7 @@ function RuleEditor({
                       : "bg-[#F8FAFC] text-navy-800 border-gray-200 hover:bg-gray-100"
                   }`}
                 >
-                  <span>💵</span>
+                  <Banknote className="size-4" />
                   <span>مبلغ خصم ثابت (ج.م)</span>
                 </button>
               </div>
@@ -590,7 +593,7 @@ function RuleEditor({
             <div className="flex flex-col gap-2 p-3.5 bg-emerald-50/50 border border-emerald-200/70 rounded-xl">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-emerald-950 flex items-center gap-1.5">
-                  <span>📅</span>
+                  <CalendarDays className="size-3.5 shrink-0" />
                   <span>مدة سريان الخصم (الفترة الزمنية)</span>
                 </span>
                 <span className="text-[11px] text-emerald-800">اختيار سريع:</span>
@@ -651,8 +654,8 @@ function RuleEditor({
             {/* خيارات متقدمة إضافية للخصم */}
             <details className="group border border-gray-200 rounded-xl p-3 bg-gray-50/50">
               <summary className="text-xs font-bold text-gray-700 cursor-pointer flex items-center justify-between">
-                <span>⚙️ شروط إضافية اختيارية (ساعات معينة، أيام محددة، حد أدنى للحجز)</span>
-                <span className="text-gray-400 group-open:rotate-180 transition-transform text-xs">▼</span>
+                <span className="inline-flex items-center gap-1.5"><Settings className="size-3.5" /> شروط إضافية اختيارية (ساعات معينة، أيام محددة، حد أدنى للحجز)</span>
+                <ChevronDown className="size-4 text-gray-400 group-open:rotate-180 transition-transform" />
               </summary>
               <div className="flex flex-col gap-3 pt-3 mt-2 border-t border-gray-200">
                 <div className="grid grid-cols-2 gap-2">

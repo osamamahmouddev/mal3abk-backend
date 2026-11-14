@@ -4,7 +4,7 @@ import React, { Suspense, useState, useTransition } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { Eye, EyeOff } from "lucide-react";
+import { Check, CircleCheck, Eye, EyeOff } from "lucide-react";
 import { muted, redShadow } from "@/components/ui";
 import { forgotPassword, login } from "@/app/auth-actions";
 
@@ -102,9 +102,14 @@ function LoginView() {
         <div className="flex flex-col gap-[18px] max-w-[460px]">
           <h1 className="text-[28px] leading-[40px] sm:text-[38px] sm:leading-[54px] font-bold">كل حجوزات ملعبك في مكان واحد.</h1>
           <div className="hidden sm:flex flex-col gap-3 text-base text-[#D5DBE7]">
-            <span>✓ تقويم واحد لكل الملاعب، من غير تعارض</span>
-            <span>✓ مراجعة إيصالات العربون من اللوحة</span>
-            <span>✓ تقارير الإشغال والإيراد أول بأول</span>
+            {["تقويم واحد لكل الملاعب، من غير تعارض", "مراجعة إيصالات العربون من اللوحة", "تقارير الإشغال والإيراد أول بأول"].map((t) => (
+              <span key={t} className="flex items-center gap-2.5">
+                <span className="grid place-items-center size-5 rounded-full bg-brand-gold/20 text-brand-gold shrink-0">
+                  <Check className="size-3.5" strokeWidth={3} />
+                </span>
+                {t}
+              </span>
+            ))}
           </div>
         </div>
         <span className="text-[13px] text-[#AEB7CA]">محتاج مساعدة؟ كلّم فريق ملعبك على ٠١٠٠٠٠٠٠٠٠٠</span>
@@ -223,8 +228,9 @@ function LoginView() {
                 className={`${fieldClass} border border-[#C9CFD9] text-right`}
               />
               {sent && (
-                <div role="status" className="bg-[#E5F5EB] text-[#155C33] rounded-xl px-3.5 py-2.5 text-[13px] font-semibold">
-                  ✓ لو الإيميل مسجّل عندنا، هيوصلك لينك تغيير كلمة السر.
+                <div role="status" className="bg-[#E5F5EB] text-[#155C33] rounded-xl px-3.5 py-2.5 text-[13px] font-semibold flex items-start gap-2">
+                  <CircleCheck className="size-4 shrink-0 mt-0.5" />
+                  لو الإيميل مسجّل عندنا، هيوصلك لينك تغيير كلمة السر.
                 </div>
               )}
               {err && (

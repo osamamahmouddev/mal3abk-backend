@@ -9,6 +9,7 @@ import { useVenue } from "@/components/Providers";
 import { api, unwrap } from "@/lib/api";
 import { APPROVAL_LABELS } from "@/lib/venue-format";
 import { BOOKING_STATUS, DEPOSIT_STATE, cairoDateTime, cairoTime, money, percent, timeLeft } from "@/lib/booking-format";
+import { CircleX, Hourglass, NotebookPen, TriangleAlert } from "lucide-react";
 
 type Dashboard = Schemas["VenueDashboardDto"];
 type Row = Schemas["DashboardBooking"];
@@ -48,7 +49,7 @@ export default function OverviewPage() {
           {venue.approvalStatus === "NeedsInfo" && (
             <div role="status" className="bg-[#FEF3D6] border border-[#F5D485] text-[#7A4D00] rounded-[16px] p-4 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-xs animate-fadeIn">
               <div className="flex items-start gap-3 flex-1 min-w-0">
-                <span className="w-10 h-10 rounded-full bg-[#F5D485]/60 flex items-center justify-center shrink-0 text-xl">⚠️</span>
+                <span className="w-10 h-10 rounded-full bg-[#F5D485]/60 flex items-center justify-center shrink-0"><TriangleAlert className="size-5" /></span>
                 <div className="flex flex-col gap-1.5 flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-bold text-[15px] text-[#7A4D00]">مطلوب استكمال بيانات من إدارة ملعبك</span>
@@ -77,7 +78,7 @@ export default function OverviewPage() {
           {venue.approvalStatus === "Rejected" && (
             <div role="status" className="bg-[#FDECEA] border border-[#F5C2BD] text-[#A8261C] rounded-[16px] p-4 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-xs animate-fadeIn">
               <div className="flex items-start gap-3 flex-1 min-w-0">
-                <span className="w-10 h-10 rounded-full bg-[#F5C2BD]/60 flex items-center justify-center shrink-0 text-xl">✕</span>
+                <span className="w-10 h-10 rounded-full bg-[#F5C2BD]/60 flex items-center justify-center shrink-0"><CircleX className="size-5" /></span>
                 <div className="flex flex-col gap-1.5 flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-bold text-[15px] text-[#A8261C]">لم تتم الموافقة على انضمام الملعب</span>
@@ -105,7 +106,7 @@ export default function OverviewPage() {
 
           {venue.approvalStatus === "Submitted" && (
             <div role="status" className="bg-[#FEF3D6] border border-[#F5D485] text-[#7A4D00] rounded-[16px] p-4 flex items-center gap-3 shadow-xs animate-fadeIn">
-              <span className="w-10 h-10 rounded-full bg-[#F5D485]/60 flex items-center justify-center shrink-0 text-xl">⏳</span>
+              <span className="w-10 h-10 rounded-full bg-[#F5D485]/60 flex items-center justify-center shrink-0"><Hourglass className="size-5" /></span>
               <div className="flex flex-col gap-0.5">
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="font-bold text-[15px]">طلب انضمام الملعب قيد المراجعة</span>
@@ -119,7 +120,7 @@ export default function OverviewPage() {
           {venue.approvalStatus !== "NeedsInfo" && venue.approvalStatus !== "Rejected" && venue.approvalStatus !== "Submitted" && (
             <div role="status" className="bg-slate-100 border border-slate-200 text-slate-800 rounded-[16px] p-4 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-xs animate-fadeIn">
               <div className="flex items-center gap-3">
-                <span className="w-10 h-10 rounded-full bg-slate-200 flex items-center justify-center shrink-0 text-xl">📝</span>
+                <span className="w-10 h-10 rounded-full bg-slate-200 flex items-center justify-center shrink-0 text-slate-600"><NotebookPen className="size-5" /></span>
                 <div className="flex flex-col gap-0.5">
                   <span className="font-bold text-[15px]">بيانات الملعب مسودة غير مكتملة</span>
                   <p className="text-sm text-slate-600 leading-relaxed">الملعب لسه مش ظاهر للاعبين. كمّل باقي بيانات الملعب والصور وابعته للمراجعة.</p>

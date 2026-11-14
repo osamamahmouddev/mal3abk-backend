@@ -5649,6 +5649,7 @@ export interface components {
             history: components["schemas"]["AdminVenueEventItem"][];
             /** Format: date-time */
             createdAtUtc: string;
+            photos?: string[] | null;
         };
         AdminVenueEventItem: {
             action: string;
@@ -5678,6 +5679,7 @@ export interface components {
             pitches: number;
             /** Format: date-time */
             createdAtUtc: string;
+            photos?: string[] | null;
         };
         AdminVenuePage: {
             items: components["schemas"]["AdminVenueListItem"][];

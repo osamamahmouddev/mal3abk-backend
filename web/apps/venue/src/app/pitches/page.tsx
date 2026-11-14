@@ -11,6 +11,7 @@ import { api, unwrap } from "@/lib/api";
 import { useReference } from "@/lib/reference";
 import { APPROVAL_LABELS, CAPACITIES } from "@/lib/venue-format";
 import { mediaIdOf, mediaSrc, uploadImage } from "@/lib/upload";
+import { X } from "lucide-react";
 
 type Pitch = Schemas["PitchDto"];
 
@@ -362,9 +363,9 @@ export default function PitchesPage() {
                           type="button"
                           aria-label="مسح الصورة"
                           onClick={() => selected && removePhoto.mutate({ pitchId: selected.id, photo })}
-                          className="absolute top-1 left-1 w-7 h-7 rounded-full bg-white/90 text-[#A8261C] text-xs font-bold"
+                          className="absolute top-1 left-1 w-7 h-7 rounded-full bg-white/90 text-[#A8261C] text-xs font-bold grid place-items-center"
                         >
-                          ✕
+                          <X className="size-3.5" strokeWidth={2.5} />
                         </button>
                       </div>
                     );

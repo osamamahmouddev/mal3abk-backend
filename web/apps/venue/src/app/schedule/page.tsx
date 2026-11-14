@@ -7,6 +7,7 @@ import { Badge, Page, Switch, Toast, card, chip, inputClass, muted, redShadow, t
 import { useVenue } from "@/components/Providers";
 import { api, unwrap } from "@/lib/api";
 import { DAY_NAMES, DAY_ORDER, DEFAULT_WEEK, formatTime, toApiTime, type DayHours } from "@/lib/venue-format";
+import { X } from "lucide-react";
 
 type Tab = "week" | "closures" | "rules";
 type Affected = Schemas["UpcomingBookingRef"][];
@@ -425,9 +426,9 @@ function Closures({
               aria-label={`شيل ${x.reason}`}
               disabled={remove.isPending}
               onClick={() => remove.mutate(x.id)}
-              className="min-w-[40px] min-h-[40px] rounded-[10px] border border-[#F3C4BF] bg-white text-[#A8261C]"
+              className="min-w-[40px] min-h-[40px] rounded-[10px] border border-[#F3C4BF] bg-white text-[#A8261C] grid place-items-center"
             >
-              ✕
+              <X className="size-4" />
             </button>
           </div>
         ))}

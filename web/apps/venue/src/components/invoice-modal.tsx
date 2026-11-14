@@ -4,6 +4,8 @@ import React from "react";
 import type { Schemas } from "@malabak/api-client";
 import { formatEGP, toArabicDigits, primaryBtn, secondaryBtn } from "@/components/ui";
 import { openFile } from "@/lib/api";
+import { Check, Download, Printer, ReceiptText, X } from "lucide-react";
+import { Pitch } from "@/components/icons";
 
 interface InvoiceModalProps {
   invoice: Schemas["InvoiceDto"] | null;
@@ -42,7 +44,7 @@ export function InvoiceModal({ invoice, onClose }: InvoiceModalProps) {
         {/* Top Control Bar (Hidden on Print) */}
         <div className="no-print bg-[#071832] text-white px-6 py-4 flex items-center justify-between border-b border-[#1E293B]">
           <div className="flex items-center gap-3">
-            <span className="text-xl">🧾</span>
+            <span className="grid place-items-center size-9 rounded-lg bg-white/10"><ReceiptText className="size-5" /></span>
             <div>
               <h2 id="venue-invoice-modal-title" className="text-sm font-bold text-white">
                 فاتورة اشتراك ضريبية رسمية
@@ -58,23 +60,25 @@ export function InvoiceModal({ invoice, onClose }: InvoiceModalProps) {
               onClick={handlePrint}
               className={`${primaryBtn} min-h-[36px] px-3.5 text-xs bg-emerald-600 hover:bg-emerald-700 font-bold`}
             >
-              <span>🖨️</span>
+              <Printer className="size-3.5" />
               <span>طباعة / حفظ كـ PDF</span>
             </button>
             <button
               type="button"
               onClick={() => openFile(downloadUrl).catch(() => alert("تعذر تحميل ملف PDF"))}
-              className={`${secondaryBtn} min-h-[36px] px-3 text-xs bg-white/10 hover:bg-white/20 text-white border-white/20`}
+              className={`${secondaryBtn} min-h-[36px] px-3 text-xs bg-white/10 hover:bg-white/20 text-white border-white/20 gap-1.5`}
             >
-              📥 تحميل PDF
+              <Download className="size-3.5" />
+              تحميل PDF
             </button>
             <button
               type="button"
               onClick={onClose}
-              className="text-gray-400 hover:text-white p-1 text-lg font-bold cursor-pointer transition-colors"
+              className="text-gray-400 hover:text-white p-1 rounded-md hover:bg-white/10 cursor-pointer transition-colors"
               title="إغلاق"
+              aria-label="إغلاق"
             >
-              ✕
+              <X className="size-5" />
             </button>
           </div>
         </div>
@@ -120,8 +124,9 @@ export function InvoiceModal({ invoice, onClose }: InvoiceModalProps) {
                     ملغاة {invoice.voidReason ? `(${invoice.voidReason})` : ""}
                   </span>
                 ) : (
-                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
-                    ✓ مسددة بالكامل
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                    <Check className="size-3.5" strokeWidth={2.5} />
+                    مسددة بالكامل
                   </span>
                 )}
               </div>
@@ -136,7 +141,7 @@ export function InvoiceModal({ invoice, onClose }: InvoiceModalProps) {
             <div className="grid sm:grid-cols-2 gap-4">
               <div className="flex flex-col gap-1">
                 <div className="flex items-center gap-2">
-                  <span className="text-2xl" aria-hidden="true">🏟️</span>
+                  <span className="grid place-items-center size-10 rounded-xl bg-[#071832] text-white shrink-0"><Pitch className="size-5" /></span>
                   <div>
                     <h3 className="text-lg font-black text-[#071832] leading-tight">
                       {venueLabel}
@@ -194,7 +199,7 @@ export function InvoiceModal({ invoice, onClose }: InvoiceModalProps) {
                     {cycleLabel}
                   </td>
                   <td className="py-4 px-4 text-center text-gray-600 font-mono" dir="ltr">
-                    {fmtDate(invoice.periodStartUtc)} → {fmtDate(invoice.periodEndUtc)}
+                    {fmtDate(invoice.periodStartUtc)} إلى {fmtDate(invoice.periodEndUtc)}
                   </td>
                   <td className="py-4 px-4 text-left font-bold text-sm text-[#071832]">
                     {formatEGP(invoice.amount)} ج.م
@@ -211,7 +216,7 @@ export function InvoiceModal({ invoice, onClose }: InvoiceModalProps) {
               <div className="w-20 h-20 rounded-full border-4 border-emerald-600/60 p-1 flex items-center justify-center text-center rotate-[-12deg] bg-emerald-50/50 shadow-xs">
                 <div className="w-full h-full rounded-full border-2 border-dashed border-emerald-600 flex flex-col items-center justify-center p-1">
                   <span className="text-[9px] font-black text-emerald-800 leading-none">منصة ملعبك</span>
-                  <span className="text-[12px] font-black text-emerald-700 my-0.5">معتمد ✓</span>
+                  <span className="text-[12px] font-black text-emerald-700 my-0.5">معتمد</span>
                   <span className="text-[8px] font-bold text-emerald-800 leading-none">PAID</span>
                 </div>
               </div>
@@ -265,9 +270,10 @@ export function InvoiceModal({ invoice, onClose }: InvoiceModalProps) {
             <button
               type="button"
               onClick={handlePrint}
-              className={`${primaryBtn} bg-emerald-600 hover:bg-emerald-700`}
+              className={`${primaryBtn} bg-emerald-600 hover:bg-emerald-700 gap-2`}
             >
-              🖨️ طباعة الفاتورة / حفظ كـ PDF
+              <Printer className="size-4" />
+              طباعة الفاتورة / حفظ كـ PDF
             </button>
           </div>
         </div>

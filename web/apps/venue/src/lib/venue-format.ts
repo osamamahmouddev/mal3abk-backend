@@ -46,7 +46,7 @@ export const APPROVAL_LABELS: Record<string, { label: string; tone: string }> = 
   Draft: { label: "مسودة", tone: "bg-[#EEF0F5] text-[#3B4352]" },
   Submitted: { label: "تحت المراجعة", tone: "bg-[#FEF3D6] text-[#7A4D00]" },
   NeedsInfo: { label: "مطلوب بيانات", tone: "bg-[#FEF3D6] text-[#7A4D00]" },
-  Approved: { label: "✓ معتمد من ملعبك", tone: "bg-[#E5F5EB] text-[#1B6E3E]" },
+  Approved: { label: "معتمد من ملعبك", tone: "bg-[#E5F5EB] text-[#1B6E3E]" },
   Rejected: { label: "مرفوض", tone: "bg-[#FDECEA] text-[#A8261C]" },
   Suspended: { label: "موقوف", tone: "bg-[#FDECEA] text-[#A8261C]" },
 };

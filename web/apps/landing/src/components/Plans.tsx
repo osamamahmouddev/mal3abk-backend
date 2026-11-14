@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import { useLandingState } from "./LandingState";
+import { Check } from "lucide-react";
 
 const PLANS: { name: string; audience: string; monthlyPrice: number; annualPrice: number; items: string[]; hot: boolean }[] = [
   {
@@ -80,12 +81,15 @@ export function Plans() {
             </span>
             {p.items.map((item) => (
               <div key={item} className="li">
-                <span aria-hidden="true">✓</span>
+                <span aria-hidden="true">
+                  <Check size={16} strokeWidth={2.75} />
+                </span>
                 <span>{item}</span>
               </div>
             ))}
             <a href="#join" className="plan-cta" onClick={() => choosePlan(p.name)}>
-              {plan === p.name ? `✓ اخترت ${p.name}` : "ابدأ تجربة مجانية"}
+              {plan === p.name && <Check size={18} strokeWidth={2.75} aria-hidden="true" />}
+              {plan === p.name ? `اخترت ${p.name}` : "ابدأ تجربة مجانية"}
             </a>
           </div>
         ))}

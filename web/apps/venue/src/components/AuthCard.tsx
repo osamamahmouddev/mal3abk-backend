@@ -1,6 +1,7 @@
 import React from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { CircleCheck } from "lucide-react";
 
 export const authField =
   "w-full min-h-[48px] rounded-xl px-3.5 text-[15px] text-slate-900 border border-[#C9CFD9] transition-all duration-150 ease-out focus:outline-none focus:ring-2 focus:ring-navy-900 focus:shadow-[0_0_0_3px_rgba(15,27,61,0.1)]";
@@ -42,8 +43,9 @@ export function FormError({ message }: { message: string | null }) {
 
 export function FormSuccess({ children }: { children: React.ReactNode }) {
   return (
-    <div role="status" className="bg-[#E5F5EB] text-[#155C33] rounded-xl px-3.5 py-2.5 text-[13px] font-semibold leading-[20px]">
-      {children}
+    <div role="status" className="bg-[#E5F5EB] text-[#155C33] rounded-xl px-3.5 py-2.5 text-[13px] font-semibold leading-[20px] flex items-start gap-2">
+      <CircleCheck className="size-4 shrink-0 mt-0.5" />
+      <span>{children}</span>
     </div>
   );
 }

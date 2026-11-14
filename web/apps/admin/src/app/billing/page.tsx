@@ -7,6 +7,8 @@ import { KV, Page, PageHeader, Pill, ReasonModal, type ReasonRequest, Tabs, btnD
 import { Drawer, Field, QueryState, Section, Select, Table, TextInput, fmtDate, fmtDateTime, useNotice } from "@/components/admin";
 import { api, openFile, unwrap } from "@/lib/api";
 import { InvoiceModal } from "@/components/invoice-modal";
+import { CalendarDays, ChevronLeft, CreditCard, ExternalLink, Eye, Hourglass, LayoutGrid, Package, ReceiptText, RefreshCw, Smartphone, Table2, User, X } from "lucide-react";
+import { Pitch, SoccerBall } from "@/components/icons";
 
 type Tab = "subscriptions" | "requests" | "invoices";
 const STATUS_TONE: Record<string, "ok" | "warn" | "bad" | "neutral"> = { Active: "ok", Trial: "warn", Grace: "warn", Expired: "bad", Suspended: "bad", Cancelled: "neutral" };
@@ -246,21 +248,23 @@ function Subscriptions() {
           <div className="inline-flex rounded-xl bg-slate-100 p-1 border border-slate-200">
             <button
               type="button"
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
                 viewMode === "cards" ? "bg-white text-slate-900 shadow-xs" : "text-[#5B6475] hover:text-slate-900"
               }`}
               onClick={() => setViewMode("cards")}
             >
-              🗂️ بطاقات
+              <LayoutGrid className="size-3.5" />
+              بطاقات
             </button>
             <button
               type="button"
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
                 viewMode === "table" ? "bg-white text-slate-900 shadow-xs" : "text-[#5B6475] hover:text-slate-900"
               }`}
               onClick={() => setViewMode("table")}
             >
-              📊 جدول
+              <Table2 className="size-3.5" />
+              جدول
             </button>
           </div>
 
@@ -322,7 +326,8 @@ function Subscriptions() {
                             <div className="flex flex-wrap items-center gap-1.5 text-xs text-[#5B6475] mt-1">
                               {s.ownerPhone && (
                                 <span dir="ltr" className="font-medium text-slate-800 bg-[#F4F6F9] px-2 py-0.5 rounded-md flex items-center gap-1">
-                                  📱 {s.ownerPhone}
+                                  <Smartphone className="size-3 text-[#8A93A3]" />
+                                  {s.ownerPhone}
                                 </span>
                               )}
                               {s.ownerEmail && <span className="truncate text-slate-600">{s.ownerEmail}</span>}
@@ -359,16 +364,16 @@ function Subscriptions() {
 
                         <div className="grid grid-cols-2 gap-2 text-xs pt-2 border-t border-[#E8ECF2]">
                           <div>
-                            <span className="text-[#5B6475] block text-[11px]">📅 تاريخ الاشتراك</span>
+                            <span className="text-[#5B6475] flex items-center gap-1 text-[11px]"><CalendarDays className="size-3" /> تاريخ الاشتراك</span>
                             <span className="font-bold text-slate-800 mt-0.5 block">{fmtDate(s.startedAtUtc)}</span>
                           </div>
                           <div>
-                            <span className="text-[#5B6475] block text-[11px]">🔄 تاريخ التجديد</span>
+                            <span className="text-[#5B6475] flex items-center gap-1 text-[11px]"><RefreshCw className="size-3" /> تاريخ التجديد</span>
                             <span className="font-bold text-slate-800 mt-0.5 block">{fmtDate(s.currentPeriodEndUtc)}</span>
                           </div>
                           {s.graceEndsAtUtc && (
-                            <div className="col-span-2 pt-1 text-[11px] text-amber-700 bg-amber-50 p-1.5 rounded border border-amber-200">
-                              ⏳ فترة السماح تنتهي في: <b>{fmtDate(s.graceEndsAtUtc)}</b>
+                            <div className="col-span-2 pt-1 text-[11px] text-amber-700 bg-amber-50 p-1.5 rounded border border-amber-200 flex items-center gap-1">
+                              <Hourglass className="size-3 shrink-0" /> فترة السماح تنتهي في: <b>{fmtDate(s.graceEndsAtUtc)}</b>
                             </div>
                           )}
                         </div>
@@ -377,7 +382,7 @@ function Subscriptions() {
                       {/* Venues Section */}
                       <div className="flex flex-col gap-1.5">
                         <div className="flex items-center justify-between text-xs text-[#5B6475] font-semibold">
-                          <span>🏟️ الملاعب المشتركة ({toArabicDigits(s.venues?.length ?? 0)}):</span>
+                          <span className="flex items-center gap-1.5"><Pitch className="size-3.5" /> الملاعب المشتركة ({toArabicDigits(s.venues?.length ?? 0)}):</span>
                         </div>
                         <div className="flex flex-wrap gap-1.5 min-h-[30px]">
                           {(s.venues?.length ?? 0) > 0 ? (
@@ -386,7 +391,7 @@ function Subscriptions() {
                                 key={v.id}
                                 className="inline-flex items-center gap-1.5 bg-white border border-[#DCE2ED] text-slate-800 px-2.5 py-1 rounded-lg text-xs font-semibold shadow-2xs"
                               >
-                                <span className="text-emerald-700">⚽</span>
+                                <SoccerBall className="size-3.5 text-emerald-700" strokeWidth={1.75} />
                                 <span>{v.name}</span>
                                 {v.city && <span className="text-[11px] text-[#5B6475]">({v.city})</span>}
                               </span>
@@ -405,7 +410,8 @@ function Subscriptions() {
                             className={`${btnSmall} bg-slate-900 text-white hover:bg-slate-800 border-none font-bold`}
                             onClick={() => setRenewTarget({ ownerId: s.ownerId, ownerName: s.ownerName, planName: s.planName, cycle: s.cycle })}
                           >
-                            💳 تجديد / سداد
+                            <CreditCard className="size-3.5" />
+                            تجديد / سداد
                           </button>
 
                           {s.status !== "Suspended" && s.status !== "Cancelled" && (
@@ -448,7 +454,7 @@ function Subscriptions() {
                           className={`${btnSmall} text-slate-700 hover:bg-slate-100 font-medium`}
                           onClick={() => setOwner(s.ownerId)}
                         >
-                          التفاصيل والفواتير ↗
+                          التفاصيل والفواتير<ChevronLeft className="size-3.5 inline-block align-[-3px] ms-1" />
                         </button>
                       </div>
                     </div>
@@ -486,8 +492,9 @@ function Subscriptions() {
                     <div className="flex flex-wrap gap-1 max-w-xs">
                       {(s.venues?.length ?? 0) > 0 ? (
                         s.venues.map((v) => (
-                          <span key={v.id} className="text-xs bg-slate-100 text-slate-800 px-2 py-0.5 rounded border border-slate-200">
-                            ⚽ {v.name}
+                          <span key={v.id} className="text-xs bg-slate-100 text-slate-800 px-2 py-0.5 rounded border border-slate-200 inline-flex items-center gap-1">
+                            <SoccerBall className="size-3 text-emerald-700" strokeWidth={1.75} />
+                            {v.name}
                           </span>
                         ))
                       ) : (
@@ -703,7 +710,7 @@ function AssignDrawer({ onClose }: { onClose: () => void }) {
   const ownerOptions: [string, string][] = [
     ["", "— اختر المالك أو الملعب —"],
     ...ownersMap.map((o) => {
-      const venueLabel = o.venues.length > 0 ? `🏟️ ${o.venues.join("، ")}` : "بدون ملاعب مسجلة";
+      const venueLabel = o.venues.length > 0 ? o.venues.join("، ") : "بدون ملاعب مسجلة";
       const contact = o.phone || o.email || "";
       const text = `${o.name} — ${venueLabel}${contact ? ` (${contact})` : ""}`;
       return [o.id, text] as [string, string];
@@ -725,18 +732,18 @@ function AssignDrawer({ onClose }: { onClose: () => void }) {
       {selectedOwner && (
         <div className="p-3.5 bg-blue-50/70 border border-blue-200/80 rounded-xl flex flex-col gap-2 text-xs animate-fade-in -mt-2">
           <div className="flex items-center justify-between border-b border-blue-100 pb-1.5">
-            <span className="font-bold text-navy-950 text-sm">👤 {selectedOwner.name}</span>
+            <span className="font-bold text-navy-950 text-sm flex items-center gap-1.5"><User className="size-4 text-gray-500" /> {selectedOwner.name}</span>
             <span className="text-gray-500 font-mono text-[11px]">{selectedOwner.phone || selectedOwner.email}</span>
           </div>
           <div className="flex items-start gap-1.5 text-navy-900">
-            <span className="font-semibold text-gray-600 shrink-0">🏟️ الملاعب التابعة:</span>
+            <span className="font-semibold text-gray-600 shrink-0 flex items-center gap-1"><Pitch className="size-3.5" /> الملاعب التابعة:</span>
             <span className="font-bold text-emerald-800">
               {selectedOwner.venues.length > 0 ? selectedOwner.venues.join("، ") : "لا توجد ملاعب مسجلة باسمه بعد"}
             </span>
           </div>
           {selectedOwner.currentPlan && (
             <div className="flex items-center gap-1.5 text-navy-800">
-              <span className="font-semibold text-gray-600 shrink-0">📦 الاشتراك الحالي:</span>
+              <span className="font-semibold text-gray-600 shrink-0 flex items-center gap-1"><Package className="size-3.5" /> الاشتراك الحالي:</span>
               <span className="font-bold text-blue-700 bg-blue-100 px-2 py-0.5 rounded-md">
                 {selectedOwner.currentPlan}
               </span>
@@ -952,7 +959,7 @@ function SubscriptionRequests() {
         emptyTitle="لا توجد طلبات تغيير باقات"
         emptyDescription="رائع! تمت مراجعة ومعالجة جميع طلبات ترقية أو تجديد الباقات المقدمة من الملاك."
         emptyIcon="check"
-        emptyBadge="كل الطلبات منتهية ✨"
+        emptyBadge="كل الطلبات منتهية"
       >
         {(list) => (
           <Table<Schemas["SubscriptionRequestDto"]>
@@ -997,7 +1004,7 @@ function SubscriptionRequests() {
                     {r.isPaymentReported ? (
                       <>
                         <div className="flex items-center gap-1.5">
-                          <Pill tone="ok">تم التحويل 🧾</Pill>
+                          <Pill tone="ok">تم التحويل</Pill>
                         </div>
                         {r.transferNotes && (
                           <span className="text-[11px] text-gray-700 leading-tight">
@@ -1015,7 +1022,7 @@ function SubscriptionRequests() {
                             onClick={() => setViewReceipt(r)}
                             className="text-xs text-blue-600 hover:text-blue-800 underline font-semibold flex items-center gap-1 w-fit cursor-pointer mt-0.5"
                           >
-                            <span>👁️</span>
+                            <Eye className="size-3.5" />
                             <span>معاينة الإيصال</span>
                           </button>
                         )}
@@ -1122,7 +1129,7 @@ function SubscriptionRequests() {
           <div className="bg-white rounded-2xl max-w-2xl w-full p-6 shadow-2xl flex flex-col gap-4 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between border-b pb-3">
               <div className="flex items-center gap-2">
-                <span className="text-xl">🧾</span>
+                <span className="grid place-items-center size-9 rounded-lg bg-slate-100 text-slate-700"><ReceiptText className="size-5" /></span>
                 <div>
                   <h3 className="text-base font-bold text-navy-900">إيصال تحويل الاشتراك</h3>
                   <span className="text-xs text-gray-500">
@@ -1132,10 +1139,11 @@ function SubscriptionRequests() {
               </div>
               <button
                 type="button"
-                className="text-gray-400 hover:text-gray-600 text-lg p-1 font-bold cursor-pointer"
+                className="text-gray-400 hover:text-gray-600 p-1 rounded-md hover:bg-gray-100 cursor-pointer"
                 onClick={() => setViewReceipt(null)}
+                aria-label="إغلاق"
               >
-                ✕
+                <X className="size-5" />
               </button>
             </div>
 
@@ -1171,7 +1179,7 @@ function SubscriptionRequests() {
                   rel="noreferrer"
                   className="text-xs text-blue-600 hover:text-blue-800 underline font-semibold mt-1"
                 >
-                  فتح الصورة بالحجم الكامل في نافذة جديدة ↗
+                  فتح الصورة بالحجم الكامل في نافذة جديدة<ExternalLink className="size-3.5 inline-block align-[-3px] ms-1" />
                 </a>
               </div>
             ) : (
@@ -1196,7 +1204,7 @@ function SubscriptionRequests() {
                     setViewReceipt(null);
                   }}
                 >
-                  {approve.isPending ? "جاري التفعيل..." : "الموافقة وتفعيل الباقة فوراً ✓"}
+                  {approve.isPending ? "جاري التفعيل..." : "الموافقة وتفعيل الباقة فوراً"}
                 </button>
               )}
             </div>
@@ -1254,7 +1262,7 @@ function Invoices() {
                 cell: (i) => (
                   <div className="flex flex-col">
                     <span className="font-bold text-[#071832] flex items-center gap-1.5">
-                      <span>🏟️</span>
+                      <Pitch className="size-4 text-slate-500" />
                       <span>{i.venueName || "نادي وملعب رياضي"}</span>
                     </span>
                     {i.ownerName && (
@@ -1289,7 +1297,7 @@ function Invoices() {
                       onClick={() => setViewInvoice(i)}
                       title="عرض الفاتورة الرسمية بالعربي وطباعتها"
                     >
-                      <span>🧾</span>
+                      <ReceiptText className="size-3.5" />
                       <span>عرض الفاتورة</span>
                     </button>
                     <button

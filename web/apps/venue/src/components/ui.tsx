@@ -1,6 +1,7 @@
 "use client";
 
 import React, { memo, useEffect, useRef } from "react";
+import { X } from "lucide-react";
 
 /**
  * Format string or number with Arabic-Indic digits: 123 -> ١٢٣
@@ -36,7 +37,7 @@ export const chip: (isActive: boolean, extraClasses?: string) => string = (
   isActive: boolean,
   extraClasses: string = "min-h-[42px] px-3.5 rounded-xl text-sm"
 ): string =>
-  `${extraClasses} font-semibold border transition-all duration-150 ease-out active:scale-[0.97] cursor-pointer ${
+  `${extraClasses} inline-flex items-center justify-center gap-1.5 font-semibold border transition-all duration-150 ease-out active:scale-[0.97] cursor-pointer ${
     isActive
       ? "bg-navy-900 text-white border-navy-900 shadow-xs"
       : "bg-white text-slate-900 border-[#DCE0E8] hover:bg-slate-50 hover:border-slate-300"
@@ -138,7 +139,7 @@ export const Toast: React.FC<ToastProps> = memo(({ message, handleClose, onClose
         aria-label="إغلاق"
         className="min-w-[32px] min-h-[32px] rounded-lg bg-white/[0.12] flex items-center justify-center transition hover:bg-white/[0.2] active:scale-95 cursor-pointer"
       >
-        ✕
+        <X className="size-4" />
       </button>
     </div>
   );

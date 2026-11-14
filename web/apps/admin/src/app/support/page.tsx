@@ -6,6 +6,8 @@ import type { Schemas } from "@malabak/api-client";
 import { KV, Page, PageHeader, Pill, ReasonModal, type ReasonRequest, SearchBox, btnOutline, btnPrimary, btnSmall, card, inputClass, muted } from "@/components/ui";
 import { Drawer, Pager, QueryState, Select, Table, fmtDateTime, useNotice } from "@/components/admin";
 import { api, unwrap } from "@/lib/api";
+import { ChevronLeft, LayoutGrid, Table2 } from "lucide-react";
+import { Pitch, SoccerBall } from "@/components/icons";
 
 type Row = Schemas["TicketSummaryDto"];
 const PAGE_SIZE = 25;
@@ -60,21 +62,23 @@ export default function SupportPage() {
         <div className="inline-flex rounded-xl bg-slate-100 p-1 border border-slate-200">
           <button
             type="button"
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
               viewMode === "cards" ? "bg-white text-slate-900 shadow-xs" : "text-[#5B6475] hover:text-slate-900"
             }`}
             onClick={() => setViewMode("cards")}
           >
-            🗂️ بطاقات
+            <LayoutGrid className="size-3.5" />
+            بطاقات
           </button>
           <button
             type="button"
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
               viewMode === "table" ? "bg-white text-slate-900 shadow-xs" : "text-[#5B6475] hover:text-slate-900"
             }`}
             onClick={() => setViewMode("table")}
           >
-            📊 جدول
+            <Table2 className="size-3.5" />
+            جدول
           </button>
         </div>
       </div>
@@ -85,7 +89,7 @@ export default function SupportPage() {
         emptyTitle="صندوق تذاكر الدعم فارغ"
         emptyDescription={q || status || category || mine !== "all" ? "لا توجد تذاكر تطابق معايير البحث أو الفلتر المحدد. يمكنك مسح البحث أو تغيير الفلاتر." : "رائع! لا توجد أي تذاكر دعم فني مفتوحة أو تتطلب التدخل حالياً."}
         emptyIcon={q || status || category ? "search" : "inbox"}
-        emptyBadge="كل شيء هادئ ✨"
+        emptyBadge="كل شيء هادئ"
         emptyAction={
           q || status || category || mine !== "all"
             ? {
@@ -144,7 +148,10 @@ export default function SupportPage() {
                         </div>
                         <div className="flex items-center justify-between">
                           <span className={muted}>نوع مقدم الطلب</span>
-                          <span className="font-medium text-slate-800">{t.requesterKind === "Venue" ? "🏟️ صاحب ملعب" : "⚽ لاعب"}</span>
+                          <span className="font-medium text-slate-800 inline-flex items-center gap-1">
+                            {t.requesterKind === "Venue" ? <Pitch className="size-3.5 text-slate-500" /> : <SoccerBall className="size-3.5 text-slate-500" />}
+                            {t.requesterKind === "Venue" ? "صاحب ملعب" : "لاعب"}
+                          </span>
                         </div>
                         <div className="flex items-center justify-between">
                           <span className={muted}>آخر نشاط</span>
@@ -156,7 +163,7 @@ export default function SupportPage() {
                       <div className="flex items-center justify-between text-xs pt-2 border-t border-[#F0F2F6]">
                         <span className={muted}>{t.assigneeId ? "مُسندة لمشرف" : "غير مسندة"}</span>
                         <span className="text-brand-red font-bold flex items-center gap-1">
-                          متابعة التذكرة <span className="text-sm">←</span>
+                          متابعة التذكرة <ChevronLeft className="size-3.5" />
                         </span>
                       </div>
                     </div>

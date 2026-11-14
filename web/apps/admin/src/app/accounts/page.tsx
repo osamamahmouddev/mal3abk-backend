@@ -7,6 +7,7 @@ import { Page, PageHeader, Pill, ReasonModal, type ReasonRequest, btnDanger, btn
 import { Drawer, Field, QueryState, Section, Table, TextInput, fmtDate, useNotice } from "@/components/admin";
 import { api, unwrap } from "@/lib/api";
 import { useStepUp } from "@/lib/stepup";
+import { Check } from "lucide-react";
 
 type Account = Schemas["AdminAccountDto"];
 
@@ -208,7 +209,7 @@ export default function AccountsPage() {
                           const info = PERMISSION_LABELS[p];
                           return (
                             <div key={p} className="flex items-start gap-2 py-1 border-b border-[#F5F7FA] last:border-0">
-                              <span className="text-emerald-600 text-xs mt-0.5 font-bold">✓</span>
+                              <Check className="size-3.5 text-emerald-600 mt-0.5 shrink-0" strokeWidth={2.5} />
                               <div className="flex flex-col gap-0.5">
                                 <span className="text-[12.5px] font-semibold text-slate-800">
                                   {info?.label ?? p}

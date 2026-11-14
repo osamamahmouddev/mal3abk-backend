@@ -7,6 +7,7 @@ import { Badge, Page, Toast, card, chip, muted, redShadow } from "@/components/u
 import { useVenue } from "@/components/Providers";
 import { P } from "@/lib/permissions";
 import { api, unwrap } from "@/lib/api";
+import { Check, Mail } from "lucide-react";
 
 type Member = Schemas["StaffMemberDto"];
 
@@ -174,7 +175,7 @@ export default function StaffPage() {
           ))}
           {invitations.map((inv) => (
             <div key={inv.invitationId} className="flex flex-wrap items-center gap-3 py-3.5 border-b border-[#EEF0F5] last:border-b-0">
-              <span className="w-11 h-11 rounded-full shrink-0 flex items-center justify-center text-[17px] font-bold bg-[#EEF0F5] text-[#3B4352]">✉</span>
+              <span className="w-11 h-11 rounded-full shrink-0 flex items-center justify-center bg-[#EEF0F5] text-[#3B4352]"><Mail className="size-5" /></span>
               <span className="flex-[1_1_180px] min-w-0 flex flex-col gap-0.5">
                 <span dir="ltr" className="text-right text-[15px] font-bold">
                   {inv.email ?? inv.phoneNumber}
@@ -263,7 +264,7 @@ export default function StaffPage() {
                     </th>
                     {vals.map((v, i) => (
                       <td key={i} className={`px-1 py-2 text-center ${v ? "text-[#1B6E3E] font-bold" : "text-[#A8261C]"}`}>
-                        {v ? "✓" : "—"}
+                        {v ? <Check className="size-4 mx-auto" strokeWidth={2.5} aria-label="مسموح" /> : "—"}
                       </td>
                     ))}
                   </tr>

@@ -7,6 +7,7 @@ import { KV, Page, PageHeader, Pill, ReasonModal, type ReasonRequest, SearchBox,
 import { Drawer, Pager, QueryState, Section, Select, Table, fmtDate, fmtDateTime, num, useNotice } from "@/components/admin";
 import { api, unwrap } from "@/lib/api";
 import { useStepUp } from "@/lib/stepup";
+import { ChevronLeft, LayoutGrid, ShieldCheck, Table2 } from "lucide-react";
 
 type Row = Schemas["AdminUserListItem"];
 
@@ -64,21 +65,23 @@ export default function UsersPage() {
         <div className="inline-flex rounded-xl bg-slate-100 p-1 border border-slate-200">
           <button
             type="button"
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
               viewMode === "cards" ? "bg-white text-slate-900 shadow-xs" : "text-[#5B6475] hover:text-slate-900"
             }`}
             onClick={() => setViewMode("cards")}
           >
-            🗂️ بطاقات
+            <LayoutGrid className="size-3.5" />
+            بطاقات
           </button>
           <button
             type="button"
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
               viewMode === "table" ? "bg-white text-slate-900 shadow-xs" : "text-[#5B6475] hover:text-slate-900"
             }`}
             onClick={() => setViewMode("table")}
           >
-            📊 جدول
+            <Table2 className="size-3.5" />
+            جدول
           </button>
         </div>
       </div>
@@ -151,7 +154,7 @@ export default function UsersPage() {
                       <div className="flex items-center justify-between text-xs pt-2 border-t border-[#F0F2F6]">
                         <span className={muted}>انضم: {fmtDate(r.createdAtUtc)}</span>
                         <span className="text-brand-red font-bold flex items-center gap-1">
-                          عرض الملف <span className="text-sm">←</span>
+                          عرض الملف <ChevronLeft className="size-3.5" />
                         </span>
                       </div>
                     </div>
@@ -259,7 +262,8 @@ function UserDrawer({ userId, onClose }: { userId: string | null; onClose: () =>
               {u.status === "Active" && (
                 u.roles.some((r) => ["Admin", "SuperAdmin", "SupportAgent", "Finance", "Staff"].includes(r)) ? (
                   <span className="text-xs text-[#5B6475] py-2 px-3 bg-slate-100 rounded-xl border border-slate-200 flex items-center gap-1 font-medium">
-                    🛡️ حساب إداري (الدخول للمساعدة مخصص للعملاء فقط)
+                    <ShieldCheck className="size-3.5 shrink-0" />
+                    حساب إداري (الدخول للمساعدة مخصص للعملاء فقط)
                   </span>
                 ) : (
                   <button

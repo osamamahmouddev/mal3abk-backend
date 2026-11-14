@@ -4,6 +4,7 @@ import { FAQ_ITEMS } from "@/components/faqItems";
 import { JoinForm } from "@/components/JoinForm";
 import { LandingStateProvider } from "@/components/LandingState";
 import { Plans } from "@/components/Plans";
+import { Check, Star, X } from "lucide-react";
 
 const toArabicDigits = (v: string | number) => String(v).replace(/[0-9]/g, (d) => "٠١٢٣٤٥٦٧٨٩"[Number(d)]);
 
@@ -227,7 +228,9 @@ export default function LandingPage() {
                   <b>قبل</b>
                   {BEFORE.map((b) => (
                     <div key={b} className="li">
-                      <span aria-hidden="true">✕</span>
+                      <span aria-hidden="true">
+                        <X size={16} strokeWidth={2.75} />
+                      </span>
                       <span>{b}</span>
                     </div>
                   ))}
@@ -236,7 +239,9 @@ export default function LandingPage() {
                   <b>مع ملعبك</b>
                   {AFTER.map((b) => (
                     <div key={b} className="li">
-                      <span aria-hidden="true">✓</span>
+                      <span aria-hidden="true">
+                        <Check size={16} strokeWidth={2.75} />
+                      </span>
                       <span>{b}</span>
                     </div>
                   ))}
@@ -499,14 +504,17 @@ function PhoneMockup() {
           <b style={{ fontSize: 13, marginTop: 4 }}>ملاعب قريبة منك</b>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
             {[
-              ["ملاعب الرواد", "★ ٤٫٦ · ١٫٢ كم"],
-              ["ستاد الشباب", "★ ٤٫٩ · ٣ كم"],
+              ["ملاعب الرواد", "٤٫٦ · ١٫٢ كم"],
+              ["ستاد الشباب", "٤٫٩ · ٣ كم"],
             ].map(([n, m]) => (
               <div key={n} style={{ background: "#FFFFFF", borderRadius: 14, overflow: "hidden" }}>
                 <div className="pitch" style={{ height: 64 }} />
                 <div style={{ padding: "7px 8px", display: "flex", flexDirection: "column", gap: 1 }}>
                   <b style={{ fontSize: 11 }}>{n}</b>
-                  <span style={{ fontSize: 10, color: "#5B6475" }}>{m}</span>
+                  <span style={{ fontSize: 10, color: "#5B6475", display: "flex", alignItems: "center", gap: 3 }}>
+                    <Star size={10} fill="#F5B301" color="#F5B301" aria-hidden="true" />
+                    {m}
+                  </span>
                 </div>
               </div>
             ))}

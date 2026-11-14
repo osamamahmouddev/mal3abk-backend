@@ -4,6 +4,7 @@ import React from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api, unwrap } from "@/lib/api";
 import { logout } from "@/app/auth-actions";
+import { RefreshCw, Wrench } from "lucide-react";
 
 /**
  * Holds the signed-in screens back until the API has accepted the session once.
@@ -35,8 +36,8 @@ export const SessionGate: React.FC<{ children: React.ReactNode }> = ({ children 
       return (
         <main className="min-h-screen w-full flex items-center justify-center p-6 bg-[#F8FAFC]" dir="rtl">
           <div role="alert" className="max-w-md w-full rounded-3xl bg-white border border-[#E2E8F0] p-8 text-center flex flex-col items-center gap-4 shadow-xl">
-            <div className="w-16 h-16 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center text-3xl shadow-xs">
-              🛠️
+            <div className="w-16 h-16 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center shadow-xs">
+              <Wrench className="size-8" strokeWidth={1.75} />
             </div>
             <h1 className="text-xl font-black text-navy-900">المنصة في وضع الصيانة</h1>
             <p className="text-sm text-gray-600 leading-relaxed">
@@ -46,9 +47,10 @@ export const SessionGate: React.FC<{ children: React.ReactNode }> = ({ children 
               <button
                 type="button"
                 onClick={() => session.refetch()}
-                className="min-h-[44px] px-6 rounded-xl bg-navy-900 hover:bg-slate-800 text-white text-sm font-bold cursor-pointer transition-all duration-150"
+                className="min-h-[44px] px-6 rounded-xl bg-navy-900 hover:bg-slate-800 text-white text-sm font-bold cursor-pointer transition-all duration-150 inline-flex items-center gap-2"
               >
-                🔄 إعادة المحاولة الآن
+                <RefreshCw className="size-4" />
+                إعادة المحاولة الآن
               </button>
             </div>
           </div>

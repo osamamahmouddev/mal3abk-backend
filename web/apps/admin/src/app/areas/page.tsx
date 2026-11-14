@@ -6,6 +6,7 @@ import type { Schemas } from "@malabak/api-client";
 import { Page, PageHeader, Pill, btnOutline, btnPrimary, btnSmall, card, chip, muted, redShadow } from "@/components/ui";
 import { Field, QueryState, Select, Table, TextInput, fmtDate, num, useNotice } from "@/components/admin";
 import { api, unwrap } from "@/lib/api";
+import { Star } from "lucide-react";
 
 type Row = Schemas["CustomAreaDto"];
 type StatusFilter = "all" | "active" | "focus" | "inactive" | "custom";
@@ -172,7 +173,7 @@ export default function AreasPage() {
           <strong className="text-2xl font-black text-emerald-700">{num(stats.active)}</strong>
         </div>
         <div className={`${card} rounded-[18px] p-4 flex flex-col gap-1 border-r-4 border-r-amber-500`}>
-          <span className={`text-xs font-semibold text-amber-800`}>مناطق التركيز ⭐</span>
+          <span className="text-xs font-semibold text-amber-800 flex items-center gap-1">مناطق التركيز <Star className="size-3.5 fill-amber-400 text-amber-500" /></span>
           <strong className="text-2xl font-black text-amber-700">{num(stats.focus)}</strong>
         </div>
         <div className={`${card} rounded-[18px] p-4 flex flex-col gap-1 border-r-4 border-r-rose-400`}>
@@ -206,7 +207,8 @@ export default function AreasPage() {
                   onChange={(e) => setIsFocus(e.target.checked)}
                   className="w-4 h-4 rounded text-brand-red focus:ring-brand-red"
                 />
-                <span>تعيين فوراً كنطاق تركيز وتشغيل مستهدف ⭐</span>
+                <span>تعيين فوراً كنطاق تركيز وتشغيل مستهدف</span>
+                <Star className="size-3.5 fill-amber-400 text-amber-500" />
               </label>
               <div className="flex items-center gap-2">
                 <button type="button" className={btnOutline} onClick={() => setShowAddForm(false)}>
@@ -250,7 +252,8 @@ export default function AreasPage() {
             نشطة
           </button>
           <button type="button" className={chip(statusFilter === "focus")} onClick={() => setStatusFilter("focus")}>
-            مناطق التركيز ⭐
+            <Star className="size-3.5 fill-amber-400 text-amber-500" />
+            مناطق التركيز
           </button>
           <button type="button" className={chip(statusFilter === "inactive")} onClick={() => setStatusFilter("inactive")}>
             موقوفة
@@ -336,7 +339,8 @@ export default function AreasPage() {
                         : "border border-slate-200 text-slate-500 hover:border-amber-400 hover:text-amber-800 hover:bg-amber-50"
                     }`}
                   >
-                    <span>{a.isFocus ? "⭐ منطقة تركيز" : "☆ عادي"}</span>
+                    <Star className={`size-3.5 ${a.isFocus ? "fill-amber-400 text-amber-500" : ""}`} />
+                    <span>{a.isFocus ? "منطقة تركيز" : "عادي"}</span>
                   </button>
                 ),
               },

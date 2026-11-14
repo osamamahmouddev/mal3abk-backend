@@ -14,6 +14,7 @@ import { CAPACITIES, DAY_ORDER, DAY_NAMES, DEFAULT_WEEK, METHOD_LABELS, toApiTim
 import { AddAreaInline } from "@/components/AddAreaInline";
 import { PaymentMethodForm } from "@/components/PaymentMethodForm";
 import { mediaIdOf, mediaSrc, uploadImage } from "@/lib/upload";
+import { Check, CircleCheck, CircleX, TriangleAlert, X } from "lucide-react";
 
 const pitchPattern =
   "radial-gradient(closest-side circle at 50% 50%, transparent 0 32%, rgba(255,255,255,0.55) 32% 36%, transparent 36%), linear-gradient(90deg, transparent calc(50% - 1px), rgba(255,255,255,0.55) calc(50% - 1px) calc(50% + 1px), transparent calc(50% + 1px)), repeating-linear-gradient(90deg, #2E8B55 0 12.5%, #287D4C 12.5% 25%)";
@@ -189,7 +190,7 @@ export default function SetupPage() {
                     done ? "bg-[#1B6E3E] text-white" : cur ? "bg-navy-900 text-white" : "bg-[#EEF0F5] text-[#3B4352]"
                   }`}
                 >
-                  {done ? "✓" : toArabicDigits(n)}
+                  {done ? <Check className="size-4" strokeWidth={3} /> : toArabicDigits(n)}
                 </span>
                 <span className="flex-1 text-right flex flex-col">
                   <span className="text-sm font-bold">{label}</span>
@@ -203,7 +204,7 @@ export default function SetupPage() {
         <main className={`flex-[999_1_560px] min-w-0 ${card} rounded-[20px] p-5 sm:p-7 flex flex-col gap-5`}>
           {approvalStatus === "NeedsInfo" && lastAdminNote && (
             <div className="bg-[#FEF3D6] border border-[#F5D485] text-[#7A4D00] rounded-[16px] p-4 flex items-start gap-3 shadow-xs animate-fadeIn">
-              <span className="w-8 h-8 rounded-full bg-[#F5D485]/60 flex items-center justify-center shrink-0 text-base">⚠️</span>
+              <span className="w-8 h-8 rounded-full bg-[#F5D485]/60 flex items-center justify-center shrink-0"><TriangleAlert className="size-4" /></span>
               <div className="flex flex-col gap-1 flex-1 min-w-0">
                 <span className="font-bold text-[15px]">طلب استكمال بيانات من إدارة ملعبك:</span>
                 <p className="text-sm font-semibold text-[#5C3A00] leading-relaxed bg-white/80 p-3 rounded-xl border border-[#F5D485]/50">
@@ -215,7 +216,7 @@ export default function SetupPage() {
           )}
           {approvalStatus === "Rejected" && lastAdminNote && (
             <div className="bg-[#FDECEA] border border-[#F5C2BD] text-[#A8261C] rounded-[16px] p-4 flex items-start gap-3 shadow-xs animate-fadeIn">
-              <span className="w-8 h-8 rounded-full bg-[#F5C2BD]/60 flex items-center justify-center shrink-0 text-base">✕</span>
+              <span className="w-8 h-8 rounded-full bg-[#F5C2BD]/60 flex items-center justify-center shrink-0"><CircleX className="size-4" /></span>
               <div className="flex flex-col gap-1 flex-1 min-w-0">
                 <span className="font-bold text-[15px]">سبب عدم الموافقة على الملعب:</span>
                 <p className="text-sm font-semibold text-[#781B13] leading-relaxed bg-white/80 p-3 rounded-xl border border-[#F5C2BD]/50">
@@ -307,7 +308,7 @@ export default function SetupPage() {
                         }
                         className={setupChip(on)}
                       >
-                        {on ? "✓ " : ""}
+                        {on && <Check className="size-3.5" strokeWidth={2.5} />}
                         {f.nameAr}
                       </button>
                     );
@@ -334,7 +335,7 @@ export default function SetupPage() {
                         onClick={() => removeVenuePhoto(photo, idx)}
                         className="absolute top-1 left-1 w-6 h-6 rounded-full bg-black/60 hover:bg-[#A8261C] text-white text-xs font-bold flex items-center justify-center transition-colors shadow"
                       >
-                        ✕
+                        <X className="size-3.5" strokeWidth={2.5} />
                       </button>
                     </div>
                   ))}
@@ -559,7 +560,7 @@ function PitchesStep({ venueId }: { venueId: string }) {
                 onClick={() => remove.mutate(p.id)}
                 className="min-w-[40px] min-h-[40px] rounded-[10px] border border-[#F3C4BF] bg-white text-[#A8261C] hover:bg-[#FDECEA] transition-colors flex items-center justify-center"
               >
-                ✕
+                <X className="size-4" />
               </button>
             </div>
 
@@ -581,7 +582,7 @@ function PitchesStep({ venueId }: { venueId: string }) {
                       onClick={() => removePitchPhoto.mutate({ pitchId: p.id, photo })}
                       className="absolute top-1 left-1 w-6 h-6 rounded-full bg-black/60 hover:bg-[#A8261C] text-white text-xs font-bold flex items-center justify-center transition-colors shadow"
                     >
-                      ✕
+                      <X className="size-3.5" strokeWidth={2.5} />
                     </button>
                   </div>
                 ))}
@@ -654,7 +655,7 @@ function PitchesStep({ venueId }: { venueId: string }) {
                   onClick={() => setDraftPhotos((list) => list.filter((_, i) => i !== idx))}
                   className="absolute top-1 left-1 w-6 h-6 rounded-full bg-black/60 hover:bg-[#A8261C] text-white text-xs font-bold flex items-center justify-center transition-colors shadow"
                 >
-                  ✕
+                  <X className="size-3.5" strokeWidth={2.5} />
                 </button>
               </div>
             ))}
@@ -873,10 +874,11 @@ function SubmitStep({ venueId }: { venueId: string }) {
         </>
       ) : (
         <>
-          <div role="status" className="bg-[#E5F5EB] text-[#155C33] rounded-[14px] px-4 py-3.5 text-sm leading-[22px] font-semibold">
+          <div role="status" className="bg-[#E5F5EB] text-[#155C33] rounded-[14px] px-4 py-3.5 text-sm leading-[22px] font-semibold flex items-start gap-2">
+            <CircleCheck className="size-5 shrink-0 mt-px" />
             {status === "Approved"
-              ? "✓ الملعب اتوافق عليه."
-              : "✓ اتبعت للمراجعة. تقدر تستخدم اللوحة دلوقتي وتجهّز الحجوزات، والملعب هيظهر للاعبين بعد الموافقة."}
+              ? "الملعب اتوافق عليه."
+              : "اتبعت للمراجعة. تقدر تستخدم اللوحة دلوقتي وتجهّز الحجوزات، والملعب هيظهر للاعبين بعد الموافقة."}
           </div>
           <Link href="/overview" className="min-h-[50px] rounded-[14px] bg-navy-900 text-white text-[15px] font-bold flex items-center justify-center">
             افتح لوحة الملعب

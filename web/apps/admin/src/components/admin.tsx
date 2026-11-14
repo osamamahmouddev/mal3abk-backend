@@ -14,6 +14,7 @@ import {
   type EmptyStateIcon,
   type EmptyStateProps,
 } from "@/components/ui";
+import { ChevronLeft } from "lucide-react";
 
 export { EmptyState, type EmptyStateIcon, type EmptyStateProps };
 
@@ -77,9 +78,9 @@ export function QueryState<T>({
       if (text.includes("بحث") || text.includes("فلتر")) {
         inferredIcon = "search";
         inferredDesc = inferredDesc ?? "لم نتمكن من العثور على أي نتائج مطابقة لمعايير البحث الحالية. يمكنك تعديل الكلمات أو إعادة ضبط الفلاتر.";
-      } else if (text.includes("🎉") || text.includes("مستنية") || text.includes("مراجعة") || text.includes("نزاعات")) {
+      } else if (text.includes("مستنية") || text.includes("مراجعة") || text.includes("نزاعات")) {
         inferredIcon = "check";
-        inferredBadge = inferredBadge ?? "مكتمل بالكامل ✨";
+        inferredBadge = inferredBadge ?? "مكتمل بالكامل";
         inferredDesc = inferredDesc ?? "كل شيء تحت السيطرة! لا توجد طلبات أو عناصر تحتاج لاتخاذ إجراء حالياً.";
       } else if (text.includes("ملاعب")) {
         inferredIcon = "stadium";
@@ -216,7 +217,7 @@ export function Table<T>({
               {onSelect && (
                 <div className="flex items-center justify-between text-xs text-brand-red font-semibold pt-2 border-t border-dashed border-[#EEF0F5]">
                   <span>عرض التفاصيل</span>
-                  <span className="text-sm">←</span>
+                  <ChevronLeft className="size-3.5" />
                 </div>
               )}
             </div>

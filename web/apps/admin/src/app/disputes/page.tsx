@@ -7,6 +7,7 @@ import { KV, Page, PageHeader, Pill, btnOutline, btnPrimary, btnSmall, card, inp
 import { Drawer, Pager, QueryState, Section, Select, Table, fmtDateTime, useNotice } from "@/components/admin";
 import { api, unwrap } from "@/lib/api";
 import { useStepUp } from "@/lib/stepup";
+import { ChevronLeft, LayoutGrid, Table2 } from "lucide-react";
 
 type Row = Schemas["DisputeDto"];
 
@@ -64,21 +65,23 @@ export default function DisputesPage() {
         <div className="inline-flex rounded-xl bg-slate-100 p-1 border border-slate-200">
           <button
             type="button"
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
               viewMode === "cards" ? "bg-white text-slate-900 shadow-xs" : "text-[#5B6475] hover:text-slate-900"
             }`}
             onClick={() => setViewMode("cards")}
           >
-            🗂️ بطاقات
+            <LayoutGrid className="size-3.5" />
+            بطاقات
           </button>
           <button
             type="button"
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
               viewMode === "table" ? "bg-white text-slate-900 shadow-xs" : "text-[#5B6475] hover:text-slate-900"
             }`}
             onClick={() => setViewMode("table")}
           >
-            📊 جدول
+            <Table2 className="size-3.5" />
+            جدول
           </button>
         </div>
       </div>
@@ -89,7 +92,7 @@ export default function DisputesPage() {
         emptyTitle="لا توجد أي نزاعات معلقة"
         emptyDescription={status ? "لا توجد نزاعات بالحالة المحددة حالياً. يمكنك تغيير الفلتر لعرض البقية." : "ممتاز! لا توجد أي نزاعات إيصالات أو مدفوعات معلقة بين الملاعب واللاعبين حالياً."}
         emptyIcon="shield"
-        emptyBadge="السجل سليم 🛡️"
+        emptyBadge="السجل سليم"
         emptyAction={
           status
             ? {
@@ -150,7 +153,7 @@ export default function DisputesPage() {
                       <div className="flex items-center justify-between text-xs pt-2 border-t border-[#F0F2F6]">
                         <span className={muted}>تاريخ الفتح: {fmtDateTime(r.createdAtUtc)}</span>
                         <span className="text-brand-red font-bold flex items-center gap-1">
-                          الفصل في النزاع <span className="text-sm">←</span>
+                          الفصل في النزاع <ChevronLeft className="size-3.5" />
                         </span>
                       </div>
                     </div>

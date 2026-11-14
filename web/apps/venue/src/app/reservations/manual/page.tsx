@@ -23,7 +23,7 @@ function ManualBooking() {
   const start = params.get("start");
 
   return (
-    <Page className="gap-4 max-w-[760px]">
+    <Page className="gap-5 max-w-[1440px] w-full">
       <div className="flex flex-col gap-0.5">
         <span className={`text-[13px] ${muted}`}>
           <Link href="/reservations" className="hover:text-brand-red">
@@ -31,25 +31,26 @@ function ManualBooking() {
           </Link>{" "}
           ‹ حجز يدوي
         </span>
-        <h1 className="text-[26px] font-bold">حجز يدوي</h1>
-        <span className={`text-[13px] ${muted}`}>للحجوزات بالتليفون أو في الملعب. بيظهر في التقويم ويقفل الميعاد على التطبيق فوراً.</span>
+        <h1 className="text-[26px] font-bold text-slate-900">حجز يدوي ومراجعة الجدول</h1>
+        <span className={`text-[13px] ${muted}`}>
+          للحجوزات بالتليفون أو في الملعب. يعرض جدول الحجوزات والمواعيد لليوم المختار لمنع التعارض والحجز المزدوج فوراً.
+        </span>
       </div>
       {venueId && !can(P.bookingsApprove) ? (
         <p role="note" className="bg-[#FEF3D6] text-[#7A4D00] rounded-xl px-4 py-3 text-sm">
           دورك في الملعب ده مايسمحش بتسجيل حجوزات يدوي.
         </p>
       ) : (
-        <section className={`${card} rounded-[18px] p-5`}>
-          <ManualBookingForm
-            defaults={{
-              pitchId: params.get("pitch") ?? undefined,
-              date: params.get("date") ?? undefined,
-              startMinutes: start && /^\d+$/.test(start) ? Number(start) : undefined,
-            }}
-            onDone={() => router.push("/reservations?created=1")}
-            onCancel={() => router.back()}
-          />
-        </section>
+        <ManualBookingForm
+          showSchedule
+          defaults={{
+            pitchId: params.get("pitch") ?? undefined,
+            date: params.get("date") ?? undefined,
+            startMinutes: start && /^\d+$/.test(start) ? Number(start) : undefined,
+          }}
+          onDone={() => router.push("/reservations?created=1")}
+          onCancel={() => router.back()}
+        />
       )}
     </Page>
   );

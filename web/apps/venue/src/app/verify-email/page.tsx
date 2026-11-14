@@ -29,7 +29,7 @@ function VerifyEmail() {
   return (
     <AuthCard title="تأكيد الإيميل">
       {state === "working" && <span className="text-sm text-[#5B6475]">جاري التأكيد…</span>}
-      {state === "done" && <FormSuccess>✓ الإيميل اتأكد. تقدر تسجّل دخول دلوقتي.</FormSuccess>}
+      {state === "done" && <FormSuccess>الإيميل اتأكد. تقدر تسجّل دخول دلوقتي.</FormSuccess>}
       <FormError message={error} />
       {state !== "working" && (
         <Link href="/login" className={`${authPrimary} flex items-center justify-center no-underline`}>

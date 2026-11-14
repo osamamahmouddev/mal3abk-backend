@@ -11,6 +11,7 @@ import { BOOKING_STATUS, type BookingStatus, addDays, cairoDateTime, cairoDaySta
 import { downloadCsv } from "@/lib/csv";
 import { P } from "@/lib/permissions";
 import { ReasonDialog } from "@/components/ReasonDialog";
+import { X } from "lucide-react";
 
 type Item = Schemas["VenueBookingItemDto"];
 type Tab = "pending" | "ok" | "closed" | "all";
@@ -491,8 +492,8 @@ function BookingDrawer({
     <aside ref={panelRef} aria-label="تفاصيل الحجز" className={`scroll-mt-20 flex-[1_1_320px] min-w-0 ${card} rounded-[18px] p-5 flex flex-col gap-3.5 animate-scale-in shadow-xl`}>
       <div className="flex justify-between items-center">
         <h2 className="text-lg font-bold">{b?.customerName || "تفاصيل الحجز"}</h2>
-        <button type="button" onClick={onClose} aria-label="إغلاق" className="min-w-[36px] min-h-[36px] rounded-[10px] bg-surface text-navy-900">
-          ✕
+        <button type="button" onClick={onClose} aria-label="إغلاق" className="min-w-[36px] min-h-[36px] rounded-[10px] bg-surface text-navy-900 grid place-items-center">
+          <X className="size-4" />
         </button>
       </div>
       {detail.isLoading && <span className={`text-sm ${muted}`}>جاري التحميل…</span>}
