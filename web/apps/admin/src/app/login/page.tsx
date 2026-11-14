@@ -22,6 +22,7 @@ function AdminLogin() {
   const [step, setStep] = useState<Step>("creds");
   const [email, setEmail] = useState("");
   const [pass, setPass] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [credErr, setCredErr] = useState<string | null>(null);
   const [code, setCode] = useState("");
   const [useRecovery, setUseRecovery] = useState(false);
@@ -157,17 +158,39 @@ function AdminLogin() {
               <label htmlFor="ap" className="text-[13px] font-semibold">
                 كلمة السر
               </label>
-              <input
-                id="ap"
-                type="password"
-                autoComplete="current-password"
-                value={pass}
-                onChange={(e) => {
-                  setPass(e.target.value);
-                  setCredErr(null);
-                }}
-                className={inputClass}
-              />
+              <div className="relative">
+                <input
+                  id="ap"
+                  type={showPassword ? "text" : "password"}
+                  autoComplete="current-password"
+                  value={pass}
+                  onChange={(e) => {
+                    setPass(e.target.value);
+                    setCredErr(null);
+                  }}
+                  className={`${inputClass} pl-11`}
+                />
+                <button
+                  type="button"
+                  aria-label={showPassword ? "إخفاء كلمة السر" : "إظهار كلمة السر"}
+                  onClick={() => setShowPassword((s) => !s)}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-[#7B8494] hover:text-navy-900 transition-colors p-1 flex items-center justify-center"
+                >
+                  {showPassword ? (
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                      <path d="M10.733 5.076a10.744 10.744 0 0 1 11.205 6.575 1 1 0 0 1 0 .696 10.747 10.747 0 0 1-1.444 2.49" />
+                      <path d="M14.084 14.158a3 3 0 0 1-4.242-4.242" />
+                      <path d="M17.479 17.499A10.75 10.75 0 0 1 2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 4.18-5.148" />
+                      <line x1="2" x2="22" y1="2" y2="22" />
+                    </svg>
+                  ) : (
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                      <path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0" />
+                      <circle cx="12" cy="12" r="3" />
+                    </svg>
+                  )}
+                </button>
+              </div>
             </div>
             {credErr && (
               <div role="alert" className="bg-[#FDECEA] text-[#A8261C] rounded-xl px-3 py-2.5 text-[13px]">
