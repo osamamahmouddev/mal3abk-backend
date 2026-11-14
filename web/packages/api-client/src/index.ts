@@ -18,6 +18,16 @@ export function createApiClient(options: ClientOptions): ApiClient {
 }
 
 const ARABIC_PROBLEM_MESSAGES: Record<string, string> = {
+  "Bff.ApiUnavailable": "تعذر الاتصال بالخادم، يُرجى التأكد من تشغيل السيرفر والمحاولة مرة أخرى.",
+  "Identity.StepUpFailed": "كود التحقق غير صحيح أو انتهت صلاحيته، يُرجى التأكد من الكود والمحاولة مجدداً.",
+  "Identity.InvalidTotpCode": "كود التحقق (TOTP) غير صحيح، تأكد من الوقت في تطبيق التحقق.",
+  "Identity.LoginThrottled": "محاولات كثيرة خاطئة، يُرجى الانتظار قليلاً والمحاولة مجدداً.",
+  "Identity.OtpRateLimitExceeded": "تجاوزت الحد المسموح لإرسال الأكواد، انتظر دقيقة ثم حاول ثانية.",
+  "Identity.LastActiveAdmin": "لا يمكن حذف أو تعطيل آخر مسؤول نشط في النظام.",
+  "Identity.AccountSuspended": "هذا الحساب معطّل حالياً.",
+  "Identity.TwoFactorRequired": "يلزم تفعيل التحقق بخطوتين لهذا الحساب.",
+  "Identity.InvalidCredentials": "البريد الإلكتروني أو كلمة المرور غير صحيحة.",
+  "Identity.UserLockedOut": "تم قفل الحساب مؤقتاً لكثرة المحاولات الخاطئة.",
   "Pricing.NoBasePrice": "لم يتم تحديد سعر أساسي لهذا الملعب بعد.",
   "Pricing.CurrencyMismatch": "كل قواعد الأسعار يجب أن تكون بنفس العملة.",
   "PriceRule.Overlap": "يوجد تعارض مع قاعدة سعر أخرى نشطة في نفس الوقت والميعاد.",

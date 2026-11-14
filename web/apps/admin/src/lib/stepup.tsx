@@ -51,7 +51,7 @@ export function StepUpProvider({ children }: { children: React.ReactNode }) {
 
   const submit = async () => {
     if (!pending || !/^\d{6}$/.test(code.trim())) {
-      setError("اكتب الكود المكوّن من ٦ أرقام من تطبيق التحقق.");
+      setError("يرجى إدخال الرمز المكوّن من 6 أرقام من تطبيق المصادقة.");
       return;
     }
     setBusy(true);
@@ -60,7 +60,7 @@ export function StepUpProvider({ children }: { children: React.ReactNode }) {
     });
     setBusy(false);
     if (!response.ok || !data) {
-      setError(problemMessage(problem) || "الكود غلط، جرّب تاني.");
+      setError(problemMessage(problem) || "رمز التحقق غير صحيح، يرجى التأكد والمحاولة مجدداً.");
       return;
     }
     cached.current = { token: data.stepUpToken, at: Date.now() };
@@ -69,7 +69,7 @@ export function StepUpProvider({ children }: { children: React.ReactNode }) {
   };
 
   const cancel = () => {
-    pending?.reject(new Error("اتلغى التأكيد."));
+    pending?.reject(new Error("تم إلغاء عملية التأكيد."));
     setPending(null);
   };
 
@@ -77,34 +77,41 @@ export function StepUpProvider({ children }: { children: React.ReactNode }) {
     <StepUpContext.Provider value={run}>
       {children}
       {pending && (
-        <div className="fixed inset-0 z-[60] bg-[rgba(10,19,48,0.5)] flex items-center justify-center p-4">
-          <div role="dialog" aria-modal="true" aria-labelledby="stepup-title" className="bg-white rounded-[20px] p-6 w-full max-w-[420px] flex flex-col gap-3">
-            <h2 id="stepup-title" className="text-[19px] font-bold">
-              تأكيد الهوية
+        <div className="fixed inset-0 z-[60] bg-[rgba(10,19,48,0.5)] backdrop-blur-xs flex items-center justify-center p-4">
+          <div role="dialog" aria-modal="true" aria-labelledby="stepup-title" className="bg-white rounded-[22px] p-6 w-full max-w-[420px] flex flex-col gap-3 shadow-2xl animate-modal-in border border-[#E5E9F0]">
+            <h2 id="stepup-title" className="text-[19px] font-bold text-slate-900">
+              تأكيد الهوية الأمنية
             </h2>
-            <p className={`text-sm ${muted} leading-[1.7]`}>الإجراء ده حساس. اكتب الكود الحالي من تطبيق التحقق عشان نكمّل.</p>
+            <p className={`text-sm ${muted} leading-[1.7]`}>
+              هذا الإجراء يتطلب مصادقة أمنية مشددة. يرجى إدخال رمز التحقق (TOTP) الحالي المكون من 6 أرقام من تطبيق المصادقة لديك.
+            </p>
             <input
               autoFocus
               inputMode="numeric"
               autoComplete="one-time-code"
               maxLength={6}
               value={code}
-              onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
+              onChange={(e) => {
+                setCode(e.target.value.replace(/\D/g, ""));
+                setError(null);
+              }}
               onKeyDown={(e) => e.key === "Enter" && submit()}
               aria-label="كود التحقق"
               aria-invalid={!!error}
-              className={`${inputClass} text-center tracking-[0.4em] font-inter`}
+              placeholder="••••••"
+              className={`${inputClass} text-center tracking-[0.4em] font-mono text-lg font-bold`}
             />
             {error && (
-              <span role="alert" className="text-xs text-[#A8261C]">
-                {error}
-              </span>
+              <div role="alert" className="rounded-xl px-3 py-2 bg-[#FDECEA] text-xs font-semibold text-[#A8261C] flex items-center gap-1.5 animate-fade-in">
+                <span>⚠️</span>
+                <span>{error}</span>
+              </div>
             )}
-            <div className="flex gap-2 justify-end">
+            <div className="flex gap-2 justify-end pt-2 border-t border-[#EEF2F6]">
               <button type="button" onClick={cancel} className={btnOutline}>
-                رجوع
+                إلغاء
               </button>
-              <button type="button" onClick={submit} disabled={busy} className={btnPrimary}>
+              <button type="button" onClick={submit} disabled={busy || code.trim().length !== 6} className={btnPrimary}>
                 {busy ? "جاري التحقق…" : "تأكيد"}
               </button>
             </div>
