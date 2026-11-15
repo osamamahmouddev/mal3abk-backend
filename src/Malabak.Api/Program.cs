@@ -284,9 +284,36 @@ builder.Services.AddBookingModule();
 builder.Services.AddTeamsModule();
 builder.Services.AddMatchesModule();
 var fcmSection = builder.Configuration.GetSection("Push:Fcm");
-builder.Services.AddNotificationsModule(string.IsNullOrWhiteSpace(fcmSection["PrivateKeyPem"])
-    ? null
-    : new FcmOptions(fcmSection["ProjectId"]!, fcmSection["ClientEmail"]!, fcmSection["PrivateKeyPem"]!));
+FcmOptions? fcmOptions = null;
+if (!string.IsNullOrWhiteSpace(fcmSection["PrivateKeyPem"]))
+{
+    fcmOptions = new FcmOptions(fcmSection["ProjectId"]!, fcmSection["ClientEmail"]!, fcmSection["PrivateKeyPem"]!);
+}
+else
+{
+    var keyFilePath = fcmSection["KeyFilePath"]
+        ?? Environment.GetEnvironmentVariable("GOOGLE_APPLICATION_CREDENTIALS");
+    if (!string.IsNullOrWhiteSpace(keyFilePath) && File.Exists(keyFilePath))
+    {
+        try
+        {
+            using var doc = System.Text.Json.JsonDocument.Parse(await File.ReadAllTextAsync(keyFilePath));
+            var root = doc.RootElement;
+            var projectId = root.TryGetProperty("project_id", out var p) ? p.GetString() : null;
+            var clientEmail = root.TryGetProperty("client_email", out var e) ? e.GetString() : null;
+            var privateKey = root.TryGetProperty("private_key", out var k) ? k.GetString() : null;
+            if (!string.IsNullOrWhiteSpace(projectId) && !string.IsNullOrWhiteSpace(clientEmail) && !string.IsNullOrWhiteSpace(privateKey))
+            {
+                fcmOptions = new FcmOptions(projectId, clientEmail, privateKey);
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "Failed to load Firebase service account from {KeyFilePath}", keyFilePath);
+        }
+    }
+}
+builder.Services.AddNotificationsModule(fcmOptions);
 builder.Services.AddHostedService<NotificationDispatchService>();
 
 var app = builder.Build();
