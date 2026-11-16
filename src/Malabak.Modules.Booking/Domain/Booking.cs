@@ -260,14 +260,51 @@ public sealed class Booking : Entity<Guid>
 
     public Result Confirm(string actorUserId, DateTime nowUtc)
     {
-        if (Status != BookingStatus.ProofSubmitted && Status != BookingStatus.UnderReview)
+        if (Status != BookingStatus.ProofSubmitted && Status != BookingStatus.UnderReview && !(IsManualBooking && Status == BookingStatus.PendingDeposit))
         {
             return Result.Failure(BookingErrors.InvalidTransition);
         }
 
         ConfirmedAtUtc = nowUtc;
         HoldExpiresAtUtc = null; // Clear hold expiry upon confirmation
-        TransitionTo(BookingStatus.Confirmed, "Payment verified and booking confirmed by venue staff", actorUserId, nowUtc);
+        var reason = IsManualBooking && Status == BookingStatus.PendingDeposit
+            ? "Deposit collected and booking confirmed by venue staff"
+            : "Payment verified and booking confirmed by venue staff";
+        TransitionTo(BookingStatus.Confirmed, reason, actorUserId, nowUtc);
+        RaiseDomainEvent(new BookingConfirmedDomainEvent(Id, VenueId, PitchId, PlayerId, BookingReference, StartUtc, EndUtc, actorUserId, nowUtc));
+        return Result.Success();
+    }
+
+    public Result ConfirmManualDeposit(string actorUserId, DateTime nowUtc, decimal? collectedDeposit = null, string? notes = null)
+    {
+        if (!IsManualBooking)
+        {
+            return Result.Failure(Error.Validation("Booking.NotManual", "Only manual bookings can be confirmed with manual deposit."));
+        }
+
+        if (Status != BookingStatus.PendingDeposit)
+        {
+            return Result.Failure(BookingErrors.InvalidTransition);
+        }
+
+        if (collectedDeposit.HasValue && collectedDeposit.Value > 0)
+        {
+            if (collectedDeposit.Value > TotalPrice.Amount)
+            {
+                return Result.Failure(Error.Validation("Booking.InvalidDeposit", "Deposit cannot exceed total price."));
+            }
+            DepositAmount = new Money(collectedDeposit.Value, TotalPrice.Currency);
+            VenuePayAmount = new Money(Math.Max(0m, TotalPrice.Amount - collectedDeposit.Value), TotalPrice.Currency);
+        }
+
+        if (!string.IsNullOrWhiteSpace(notes))
+        {
+            Notes = string.IsNullOrWhiteSpace(Notes) ? notes.Trim() : $"{Notes}\n{notes.Trim()}";
+        }
+
+        ConfirmedAtUtc = nowUtc;
+        HoldExpiresAtUtc = null;
+        TransitionTo(BookingStatus.Confirmed, "Manual deposit received and booking confirmed by venue staff", actorUserId, nowUtc);
         RaiseDomainEvent(new BookingConfirmedDomainEvent(Id, VenueId, PitchId, PlayerId, BookingReference, StartUtc, EndUtc, actorUserId, nowUtc));
         return Result.Success();
     }

@@ -457,6 +457,34 @@ public static class BookingEndpoints
         .WithName("CreateManualBooking")
         .WithSummary("Create a manual phone/walk-in reservation under GiST protection. paymentStatus: 0 fully paid (default, confirmed), 1 deposit paid (confirmed; depositAmount = amount received), 2 awaiting deposit (slot held; depositAmount = deposit expected).");
 
+        // Confirm Manual Booking Deposit
+        venueManager.MapPost("/bookings/{id:guid}/confirm-deposit", async (
+            Guid venueId,
+            Guid id,
+            ClaimsPrincipal user,
+            [FromBody] ConfirmManualBookingApiRequest? request,
+            HttpContext httpContext,
+            ICommandHandler<ConfirmManualBookingCommand, Result> handler,
+            CancellationToken ct) =>
+        {
+            var actorUserId = user.GetUserId()!.Value;
+            var command = new ConfirmManualBookingCommand(
+                venueId,
+                id,
+                actorUserId,
+                request?.CollectedDeposit,
+                request?.Notes);
+
+            var result = await handler.HandleAsync(command, ct);
+            return result.ToHttpResult(
+                httpContext: httpContext,
+                onSuccess: () => Results.Ok(new { message = "Manual deposit confirmed and booking marked as Confirmed", bookingId = id }));
+        })
+        .RequireVenuePermission(Permissions.BookingsApprove)
+        .RequireDistributedRateLimiting("booking-confirm-deposit", permitLimit: 30, windowSeconds: 60)
+        .WithName("ConfirmManualBookingDeposit")
+        .WithSummary("Confirm deposit receipt for a manual phone/walk-in booking and mark it as confirmed.");
+
         // Staff cancellation (TASK-502): reason required, full deposit refund owed.
         venueManager.MapPost("/bookings/{id:guid}/cancel", async (
             Guid venueId,
@@ -547,6 +575,10 @@ public static class BookingEndpoints
     public sealed record NoShowApiRequest(string? Reason = null);
 
     public sealed record VenueCancelApiRequest(string Reason);
+
+    public sealed record ConfirmManualBookingApiRequest(
+        decimal? CollectedDeposit = null,
+        string? Notes = null);
 
     public sealed record RecordRefundApiRequest(decimal Amount, string? Notes = null);
 }

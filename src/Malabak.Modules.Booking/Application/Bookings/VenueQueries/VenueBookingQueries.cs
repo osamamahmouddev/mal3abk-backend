@@ -50,7 +50,8 @@ public sealed record VenueBookingDetailDto(
     decimal VenueNetAmount = 0m,
     decimal OnlinePaidAmount = 0m,
     decimal VenuePayAmount = 0m,
-    bool IsCommissionPaid = false);
+    bool IsCommissionPaid = false,
+    bool IsManual = false);
 
 /// <summary>A payment proof as venue staff review it. The storage key is internal and never exposed; the image is fetched through <see cref="DownloadUrl"/>, a short-lived signed link the API adds.</summary>
 public sealed record VenueProofItemDto(
@@ -314,7 +315,8 @@ public sealed class VenueBookingQueriesHandler :
             booking.VenueNetAmount.Amount,
             booking.OnlinePaidAmount.Amount,
             booking.VenuePayAmount.Amount,
-            booking.IsCommissionPaid);
+            booking.IsCommissionPaid,
+            booking.IsManualBooking);
 
         return Result.Success(dto);
     }

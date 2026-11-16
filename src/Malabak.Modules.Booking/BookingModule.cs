@@ -52,6 +52,7 @@ public static class BookingModule
         services.AddScoped<IQueryHandler<GetCancelPreviewQuery, Result<CancelPreviewResponse>>, GetCancelPreviewHandler>();
         services.AddScoped<IQueryHandler<GetBookingPaymentMethodsQuery, Result<IReadOnlyList<BookingPaymentMethodDto>>>, GetBookingPaymentMethodsHandler>();
         services.AddScoped<ICommandHandler<CreateManualBookingCommand, Result<ManualBookingResponse>>, CreateManualBookingHandler>();
+        services.AddScoped<ICommandHandler<ConfirmManualBookingCommand, Result>, ConfirmManualBookingHandler>();
         services.AddScoped<ICommandHandler<RecordManualRefundCommand, Result>, RecordManualRefundHandler>();
         services.AddScoped<ICommandHandler<MarkNoShowCommand, Result>, MarkNoShowHandler>();
 

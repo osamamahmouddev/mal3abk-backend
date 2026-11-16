@@ -11,7 +11,7 @@ import { BOOKING_STATUS, type BookingStatus, addDays, cairoDateTime, cairoDaySta
 import { downloadCsv } from "@/lib/csv";
 import { P } from "@/lib/permissions";
 import { ReasonDialog } from "@/components/ReasonDialog";
-import { X } from "lucide-react";
+import { CheckCircle2, X } from "lucide-react";
 
 type Item = Schemas["VenueBookingItemDto"];
 type Tab = "pending" | "ok" | "closed" | "all";
@@ -152,6 +152,22 @@ export default function ReservationsPage() {
   const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const pitchName = (id: string) => venue?.pitches.find((p) => p.id === id)?.name ?? "ملعب";
   const refresh = () => queryClient.invalidateQueries({ predicate: (query) => String(query.queryKey[0]).startsWith("booking") || query.queryKey[0] === "dashboard" });
+
+  const [confirmingBooking, setConfirmingBooking] = useState<Item | null>(null);
+
+  const confirmDepositRow = useMutation({
+    mutationFn: (bookingId: string) =>
+      unwrap((api.POST as any)("/api/v1/venue-manager/venues/{venueId}/bookings/{id}/confirm-deposit", {
+        params: { path: { venueId: venueId!, id: bookingId } },
+        body: {},
+      })),
+    onSuccess: async () => {
+      setConfirmingBooking(null);
+      await refresh();
+      setToast("تم تأكيد استلام العربون وتثبيت الحجز بنجاح.");
+    },
+    onError: (e: Error) => setToast(e.message),
+  });
 
   const exportList = () => {
     downloadCsv(
@@ -316,7 +332,14 @@ export default function ReservationsPage() {
                   <span dir="ltr">{b.reference}</span>
                   <span>{depositText(b)}</span>
                 </div>
-                <RowActions b={b} canReview={can(P.proofsReview)} onDetails={() => setSelId(b.id)} compact={false} />
+                <RowActions
+                  b={b}
+                  canReview={can(P.proofsReview)}
+                  canApprove={can(P.bookingsApprove)}
+                  onDetails={() => setSelId(b.id)}
+                  onConfirmDeposit={() => setConfirmingBooking(b)}
+                  compact={false}
+                />
               </li>
             ))}
           </ul>
@@ -360,7 +383,14 @@ export default function ReservationsPage() {
                       <Badge tone={BOOKING_STATUS[b.status].tone}>{BOOKING_STATUS[b.status].label}</Badge>
                     </td>
                     <td className="px-[18px] py-2 whitespace-nowrap">
-                      <RowActions b={b} canReview={can(P.proofsReview)} onDetails={() => setSelId(b.id)} compact />
+                      <RowActions
+                        b={b}
+                        canReview={can(P.proofsReview)}
+                        canApprove={can(P.bookingsApprove)}
+                        onDetails={() => setSelId(b.id)}
+                        onConfirmDeposit={() => setConfirmingBooking(b)}
+                        compact
+                      />
                     </td>
                   </tr>
                 ))}
@@ -418,15 +448,94 @@ export default function ReservationsPage() {
         )}
       </div>
 
+      {confirmingBooking && (
+        <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-navy-950/60 backdrop-blur-xs animate-fade-in">
+          <div className="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl flex flex-col gap-4 animate-scale-in">
+            <div className="flex items-center gap-3">
+              <span className="size-10 rounded-xl bg-emerald-50 text-emerald-600 grid place-items-center shrink-0">
+                <CheckCircle2 className="size-6" />
+              </span>
+              <div className="flex flex-col">
+                <h3 className="text-base font-bold text-slate-900">تأكيد استلام العربون</h3>
+                <span className="text-xs text-slate-500">حجز يدوي #{confirmingBooking.reference}</span>
+              </div>
+            </div>
+
+            <div className="bg-slate-50 rounded-xl p-3.5 flex flex-col gap-2 text-sm border border-slate-100">
+              <div className="flex justify-between">
+                <span className={muted}>العميل</span>
+                <span className="font-semibold text-slate-900">{confirmingBooking.customerName || "—"}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className={muted}>مبلغ العربون المستلم</span>
+                <span className="font-bold text-emerald-700">{money(confirmingBooking.depositAmount, confirmingBooking.currency)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className={muted}>السعر الإجمالي</span>
+                <span className="font-semibold text-slate-900">{money(confirmingBooking.totalPrice, confirmingBooking.currency)}</span>
+              </div>
+            </div>
+
+            <p className="text-xs text-slate-600 leading-relaxed">
+              بتأكيد استلام العربون، ستتحول حالة الحجز فوراً إلى <strong>مؤكد</strong> وسيتم تثبيت الحجز في جدول الملعب.
+            </p>
+
+            <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setConfirmingBooking(null)}
+                disabled={confirmDepositRow.isPending}
+                className="px-4 py-2.5 rounded-xl border border-slate-200 text-slate-700 text-sm font-semibold hover:bg-slate-50"
+              >
+                إلغاء
+              </button>
+              <button
+                type="button"
+                onClick={() => confirmDepositRow.mutate(confirmingBooking.id)}
+                disabled={confirmDepositRow.isPending}
+                className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold shadow-xs flex items-center gap-1.5"
+              >
+                <CheckCircle2 className="size-4" />
+                {confirmDepositRow.isPending ? "جاري التأكيد…" : "تأكيد واستلام العربون"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <Toast message={toast} onClose={() => setToast(null)} />
     </Page>
   );
 }
 
-function RowActions({ b, canReview, onDetails, compact }: { b: Item; canReview: boolean; onDetails: () => void; compact: boolean }) {
+function RowActions({
+  b,
+  canReview,
+  canApprove,
+  onDetails,
+  onConfirmDeposit,
+  compact,
+}: {
+  b: Item;
+  canReview: boolean;
+  canApprove: boolean;
+  onDetails: () => void;
+  onConfirmDeposit: () => void;
+  compact: boolean;
+}) {
   const size = compact ? "min-h-[34px] px-3 rounded-[9px] text-xs" : "min-h-[40px] px-3.5 rounded-[10px] text-[13px]";
   return (
     <div className="flex flex-wrap gap-1.5">
+      {b.isManual && b.status === 2 && canApprove && (
+        <button
+          type="button"
+          onClick={onConfirmDeposit}
+          className={`${size} bg-emerald-600 hover:bg-emerald-700 text-white font-bold inline-flex items-center gap-1.5 transition-colors`}
+        >
+          <CheckCircle2 className="size-3.5" />
+          تأكيد العربون
+        </button>
+      )}
       {canReview && (b.status === 3 || b.status === 4) && (
         <Link href={`/reservations/proof-review?booking=${b.id}`} className={`${size} bg-navy-900 text-white font-bold inline-flex items-center`}>
           مراجعة الإيصال
@@ -459,11 +568,25 @@ function BookingDrawer({
   const { can } = useVenue();
   const [cancelOpen, setCancelOpen] = useState(false);
   const [noShowOpen, setNoShowOpen] = useState(false);
+  const [confirmDepositOpen, setConfirmDepositOpen] = useState(false);
   const path = { venueId, id: bookingId };
 
   const detail = useQuery({
     queryKey: ["booking", venueId, bookingId],
     queryFn: () => unwrap(api.GET("/api/v1/venue-manager/venues/{venueId}/bookings/{id}", { params: { path } })),
+  });
+
+  const confirmDeposit = useMutation({
+    mutationFn: () =>
+      unwrap((api.POST as any)("/api/v1/venue-manager/venues/{venueId}/bookings/{id}/confirm-deposit", {
+        params: { path },
+        body: {},
+      })),
+    onSuccess: async () => {
+      setConfirmDepositOpen(false);
+      await onChanged("تم تأكيد استلام العربون وتثبيت الحجز بنجاح.");
+    },
+    onError: (e: Error) => onError(e.message),
   });
 
   const cancel = useMutation({
@@ -534,6 +657,17 @@ function BookingDrawer({
           <Link href="/customers" className="text-[13px] font-semibold text-navy-900 underline hover:text-brand-red">
             ملف العميل وسجل حجوزاته
           </Link>
+          {Boolean((b as any).isManual) && b.status === 2 && can(P.bookingsApprove) && (
+            <button
+              type="button"
+              disabled={confirmDeposit.isPending}
+              onClick={() => setConfirmDepositOpen(true)}
+              className="min-h-[44px] rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold flex items-center justify-center gap-2 shadow-xs transition-colors"
+            >
+              <CheckCircle2 className="size-4" />
+              تأكيد استلام العربون
+            </button>
+          )}
           {(b.status === 3 || b.status === 4) && can(P.proofsReview) && (
             <Link href={`/reservations/proof-review?booking=${b.id}`} className="min-h-[44px] rounded-xl bg-navy-900 text-white text-sm font-bold flex items-center justify-center">
               مراجعة الإيصال
@@ -573,6 +707,60 @@ function BookingDrawer({
           onConfirm={(reason) => noShow.mutate(reason)}
           onClose={() => setNoShowOpen(false)}
         />
+      )}
+      {confirmDepositOpen && b && (
+        <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-navy-950/60 backdrop-blur-xs animate-fade-in">
+          <div className="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl flex flex-col gap-4 animate-scale-in">
+            <div className="flex items-center gap-3">
+              <span className="size-10 rounded-xl bg-emerald-50 text-emerald-600 grid place-items-center shrink-0">
+                <CheckCircle2 className="size-6" />
+              </span>
+              <div className="flex flex-col">
+                <h3 className="text-base font-bold text-slate-900">تأكيد استلام العربون</h3>
+                <span className="text-xs text-slate-500">حجز يدوي #{b.reference}</span>
+              </div>
+            </div>
+
+            <div className="bg-slate-50 rounded-xl p-3.5 flex flex-col gap-2 text-sm border border-slate-100">
+              <div className="flex justify-between">
+                <span className={muted}>العميل</span>
+                <span className="font-semibold text-slate-900">{b.customerName || "—"}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className={muted}>مبلغ العربون المستلم</span>
+                <span className="font-bold text-emerald-700">{money(b.depositAmount, b.currency)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className={muted}>السعر الإجمالي</span>
+                <span className="font-semibold text-slate-900">{money(b.totalPrice, b.currency)}</span>
+              </div>
+            </div>
+
+            <p className="text-xs text-slate-600 leading-relaxed">
+              بتأكيد استلام العربون، ستتحول حالة الحجز فوراً إلى <strong>مؤكد</strong> وسيتم تثبيت الحجز بالملعب.
+            </p>
+
+            <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setConfirmDepositOpen(false)}
+                disabled={confirmDeposit.isPending}
+                className="px-4 py-2.5 rounded-xl border border-slate-200 text-slate-700 text-sm font-semibold hover:bg-slate-50"
+              >
+                إلغاء
+              </button>
+              <button
+                type="button"
+                onClick={() => confirmDeposit.mutate()}
+                disabled={confirmDeposit.isPending}
+                className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold shadow-xs flex items-center gap-1.5"
+              >
+                <CheckCircle2 className="size-4" />
+                {confirmDeposit.isPending ? "جاري التأكيد…" : "تأكيد واستلام العربون"}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </aside>
   );

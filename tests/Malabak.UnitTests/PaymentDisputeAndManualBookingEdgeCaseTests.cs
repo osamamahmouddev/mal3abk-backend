@@ -255,6 +255,86 @@ public sealed class PaymentDisputeAndManualBookingEdgeCaseTests
         dispute!.Status.Should().Be(DisputeStatus.Open);
     }
 
+    [Fact]
+    public async Task ConfirmManualBooking_WhenPendingDeposit_TransitionsToConfirmed_AndClearsHoldAsync()
+    {
+        await using var db = CreateDbContext();
+        var clock = new FakeClock(_nowUtc);
+
+        var booking = Booking.CreateManual(
+            Guid.NewGuid(),
+            "MLB-MANUAL01",
+            _venueId,
+            _pitchId,
+            _staffUserId,
+            "Ahmed Mostafa",
+            "01012345678",
+            _nowUtc.AddHours(2),
+            _nowUtc.AddHours(3),
+            Money.Create(500m, "EGP").Value,
+            Money.Create(100m, "EGP").Value,
+            confirmedImmediately: false,
+            holdExpiresAtUtc: _nowUtc.AddHours(1),
+            nowUtc: _nowUtc).Value;
+
+        db.Bookings.Add(booking);
+        await db.SaveChangesAsync();
+
+        booking.Status.Should().Be(BookingStatus.PendingDeposit);
+        booking.HoldExpiresAtUtc.Should().NotBeNull();
+
+        var handler = new ConfirmManualBookingHandler(
+            db,
+            clock,
+            new NoOpRealtimeBroadcaster(),
+            new NoOpAvailabilityInvalidator(),
+            NullLogger<ConfirmManualBookingHandler>.Instance);
+
+        var result = await handler.HandleAsync(new ConfirmManualBookingCommand(
+            _venueId,
+            booking.Id,
+            _staffUserId,
+            CollectedDeposit: 100m,
+            Notes: "Received via cash at venue"));
+
+        result.IsSuccess.Should().BeTrue();
+
+        var updated = await db.Bookings.FindAsync(booking.Id);
+        updated.Should().NotBeNull();
+        updated!.Status.Should().Be(BookingStatus.Confirmed);
+        updated.HoldExpiresAtUtc.Should().BeNull();
+        updated.ConfirmedAtUtc.Should().Be(_nowUtc);
+        updated.DepositAmount.Amount.Should().Be(100m);
+        updated.VenuePayAmount.Amount.Should().Be(400m);
+        updated.Notes.Should().Contain("Received via cash at venue");
+    }
+
+    [Fact]
+    public async Task ConfirmManualBooking_WhenNonManual_RejectsWithNotManualErrorAsync()
+    {
+        await using var db = CreateDbContext();
+        var clock = new FakeClock(_nowUtc);
+
+        var booking = CreateBooking(db, BookingStatus.PendingDeposit);
+        db.Bookings.Add(booking);
+        await db.SaveChangesAsync();
+
+        var handler = new ConfirmManualBookingHandler(
+            db,
+            clock,
+            new NoOpRealtimeBroadcaster(),
+            new NoOpAvailabilityInvalidator(),
+            NullLogger<ConfirmManualBookingHandler>.Instance);
+
+        var result = await handler.HandleAsync(new ConfirmManualBookingCommand(
+            _venueId,
+            booking.Id,
+            _staffUserId));
+
+        result.IsFailure.Should().BeTrue();
+        result.Error.Code.Should().Be("Booking.NotManual");
+    }
+
     // =========================================================================
     // Stubs
     // =========================================================================
