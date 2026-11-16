@@ -291,14 +291,18 @@ builder.Services.AddTeamsModule();
 builder.Services.AddMatchesModule();
 var fcmSection = builder.Configuration.GetSection("Push:Fcm");
 FcmOptions? fcmOptions = null;
+string? fcmLoadError = null;
 if (!string.IsNullOrWhiteSpace(fcmSection["PrivateKeyPem"]))
 {
     fcmOptions = new FcmOptions(fcmSection["ProjectId"]!, fcmSection["ClientEmail"]!, fcmSection["PrivateKeyPem"]!);
 }
 else
 {
-    var keyFilePath = fcmSection["KeyFilePath"]
-        ?? Environment.GetEnvironmentVariable("GOOGLE_APPLICATION_CREDENTIALS");
+    // appsettings.json ships an empty KeyFilePath, so an empty value must fall through to the environment.
+    var configuredKeyPath = fcmSection["KeyFilePath"];
+    var keyFilePath = ExpandHomeDirectory(string.IsNullOrWhiteSpace(configuredKeyPath)
+        ? Environment.GetEnvironmentVariable("GOOGLE_APPLICATION_CREDENTIALS")
+        : configuredKeyPath);
     if (!string.IsNullOrWhiteSpace(keyFilePath) && File.Exists(keyFilePath))
     {
         try
@@ -315,14 +319,30 @@ else
         }
         catch (Exception ex)
         {
-            Log.Warning(ex, "Failed to load Firebase service account from {KeyFilePath}", keyFilePath);
+            // Serilog is not running yet here; the outcome is logged once the app is built.
+            fcmLoadError = ex.GetType().Name;
         }
     }
 }
+
 builder.Services.AddNotificationsModule(fcmOptions);
 builder.Services.AddHostedService<NotificationDispatchService>();
 
 var app = builder.Build();
+
+// One line at startup says whether pushes can leave this host; the key itself is never logged.
+if (fcmOptions is not null)
+{
+    app.Logger.LogInformation("Push notifications are on through FCM for project {FirebaseProjectId}", fcmOptions.ProjectId);
+}
+else if (fcmLoadError is not null)
+{
+    app.Logger.LogWarning("Push notifications are off: the Firebase service account file could not be read ({Error})", fcmLoadError);
+}
+else
+{
+    app.Logger.LogWarning("Push notifications are off: no Firebase service account configured (Push:Fcm)");
+}
 
 // Applies pending EF Core migrations for every module, then exits. Run as the deploy's release step
 // (fly.toml release_command) so schema changes land once, before new instances start.
@@ -564,4 +584,16 @@ await app.RunAsync();
 public partial class Program
 {
     protected Program() { }
+
+    /// <summary>Turns a leading "~" into the user's home folder, so one local path works on Linux, macOS and Windows.</summary>
+    public static string? ExpandHomeDirectory(string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path) || !path.StartsWith('~'))
+        {
+            return path;
+        }
+
+        var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        return Path.Join(home, path[1..].TrimStart('/', '\\'));
+    }
 }
