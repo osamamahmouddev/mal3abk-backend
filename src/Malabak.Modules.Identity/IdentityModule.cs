@@ -5,6 +5,7 @@ using Malabak.Modules.Identity.Application.Authentication.LogoutAll;
 using Malabak.Modules.Identity.Application.Authentication.RefreshToken;
 using Malabak.Modules.Identity.Application.Authentication.SendOtp;
 using Malabak.Modules.Identity.Application.Authentication.VerifyOtp;
+using Malabak.Modules.Identity.Application.Authentication.FirebaseAuth;
 using Malabak.Modules.Identity.Application.Authorization;
 using Malabak.Modules.Identity.Application.Common;
 using Malabak.Modules.Identity.Application.PasswordAuth;
@@ -122,6 +123,26 @@ public static class IdentityModule
         services.AddScoped<ICommandHandler<RefreshTokenCommand, Result<RefreshTokenResponse>>, RefreshTokenHandler>();
         services.AddScoped<ICommandHandler<LogoutCommand, Result>, LogoutHandler>();
         services.AddScoped<ICommandHandler<LogoutAllCommand, Result>, LogoutAllHandler>();
+
+        // Firebase Authentication (Phone Auth)
+        services.Configure<FirebaseOptions>(options =>
+        {
+            var section = configuration.GetSection(FirebaseOptions.SectionName);
+            if (!string.IsNullOrWhiteSpace(section["ProjectId"]))
+            {
+                options.ProjectId = section["ProjectId"]!;
+            }
+            else
+            {
+                var fcmProject = configuration["Push:Fcm:ProjectId"];
+                if (!string.IsNullOrWhiteSpace(fcmProject))
+                {
+                    options.ProjectId = fcmProject;
+                }
+            }
+        });
+        services.AddSingleton<IFirebaseAuthService, FirebaseAuthService>();
+        services.AddScoped<ICommandHandler<FirebaseAuthCommand, Result<VerifyOtpResponse>>, FirebaseAuthHandler>();
 
         // Command Handlers - Phone Change State Machine
         services.AddScoped<ICommandHandler<StartPhoneChangeCommand, Result<StartPhoneChangeResponse>>, StartPhoneChangeHandler>();

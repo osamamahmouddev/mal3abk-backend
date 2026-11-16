@@ -66,6 +66,34 @@ public sealed class BookingDbContext : BaseDbContext, IBookingDbContext
                 money.Property(m => m.Currency).HasMaxLength(3).HasColumnName("deposit_currency").IsRequired();
             });
 
+            builder.OwnsOne(b => b.PlatformCommission, money =>
+            {
+                money.Property(m => m.Amount).HasPrecision(18, 2).HasColumnName("platform_commission_amount").IsRequired();
+                money.Property(m => m.Currency).HasMaxLength(3).HasColumnName("platform_commission_currency").IsRequired();
+            });
+
+            builder.OwnsOne(b => b.VenueNetAmount, money =>
+            {
+                money.Property(m => m.Amount).HasPrecision(18, 2).HasColumnName("venue_net_amount").IsRequired();
+                money.Property(m => m.Currency).HasMaxLength(3).HasColumnName("venue_net_currency").IsRequired();
+            });
+
+            builder.OwnsOne(b => b.OnlinePaidAmount, money =>
+            {
+                money.Property(m => m.Amount).HasPrecision(18, 2).HasColumnName("online_paid_amount").IsRequired();
+                money.Property(m => m.Currency).HasMaxLength(3).HasColumnName("online_paid_currency").IsRequired();
+            });
+
+            builder.OwnsOne(b => b.VenuePayAmount, money =>
+            {
+                money.Property(m => m.Amount).HasPrecision(18, 2).HasColumnName("venue_pay_amount").IsRequired();
+                money.Property(m => m.Currency).HasMaxLength(3).HasColumnName("venue_pay_currency").IsRequired();
+            });
+
+            builder.Property(b => b.IsCommissionPaid).IsRequired().HasDefaultValue(false);
+            builder.Property(b => b.PaymobOrderId).HasMaxLength(100);
+            builder.Property(b => b.PaymobTransactionId).HasMaxLength(100);
+
             builder.HasMany(b => b.History)
                 .WithOne()
                 .HasForeignKey(h => h.BookingId)

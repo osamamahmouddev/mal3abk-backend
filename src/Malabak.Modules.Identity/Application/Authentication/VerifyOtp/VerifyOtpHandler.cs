@@ -57,15 +57,18 @@ public sealed class VerifyOtpHandler : ICommandHandler<VerifyOtpCommand, Result<
         var normalizedPhone = normalizeResult.Value;
 
         // 2. Verify code using constant-time comparison in OTP store with 5-attempt limit
+        // Reviewer test account bypass for App Store / Google Play review verification (+201000000999 with code 123456)
+        var isReviewer = (normalizedPhone == "+201000000999" || normalizedPhone == "01000000999") && command.Code == "123456";
+
         // In Development/Testing, allow fixed bypass codes (123456 / 111111) for local mobile emulator testing.
-        var isDevBypass = _environment != null &&
+        var isDevBypass = (_environment != null &&
                           IdentityEnvironment.AllowsDevelopmentShortcuts(_environment) &&
-                          (command.Code == "123456" || command.Code == "111111");
+                          (command.Code == "123456" || command.Code == "111111")) || isReviewer;
 
         OtpVerificationResult verificationResult;
         if (isDevBypass)
         {
-            _logger.LogWarning("Bypassing OTP verification in Development mode for phone {MaskedPhone}", PhoneNumberMasker.Mask(normalizedPhone));
+            _logger.LogWarning("Bypassing OTP verification for authorized test/dev account: {MaskedPhone}", PhoneNumberMasker.Mask(normalizedPhone));
             verificationResult = new OtpVerificationResult(true, 5);
         }
         else

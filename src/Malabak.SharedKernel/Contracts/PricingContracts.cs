@@ -1,5 +1,13 @@
 namespace Malabak.SharedKernel.Contracts;
 
+public enum CommissionType
+{
+    PlatformDefault = 0,
+    PerHourFixed = 1,
+    Percentage = 2,
+    Exempt = 3
+}
+
 public sealed record PriceLineSnapshot(DateTime StartUtc, DateTime EndUtc, decimal HourlyRate, decimal Amount, IReadOnlyList<string> AppliedRules);
 
 /// <summary>
@@ -20,7 +28,17 @@ public sealed record PriceQuoteSnapshot(
     decimal Deposit,
     string DepositType,
     IReadOnlyList<PriceLineSnapshot> Lines,
-    DateTime QuotedAtUtc);
+    DateTime QuotedAtUtc,
+    decimal NetPitchPrice = 0m,
+    decimal PlatformCommission = 0m,
+    decimal OnlineDepositAmount = 0m,
+    decimal VenuePayAmount = 0m)
+{
+    public decimal NetPitchPrice { get; init; } = NetPitchPrice != 0m ? NetPitchPrice : Subtotal - Discount;
+    public decimal PlatformCommission { get; init; } = PlatformCommission;
+    public decimal OnlineDepositAmount { get; init; } = OnlineDepositAmount != 0m ? OnlineDepositAmount : Deposit;
+    public decimal VenuePayAmount { get; init; } = VenuePayAmount != 0m ? VenuePayAmount : (Total - Deposit);
+}
 
 /// <summary>Venues-module contract: the only place prices are calculated. Clients never send prices.</summary>
 public interface IPriceQuoteProvider

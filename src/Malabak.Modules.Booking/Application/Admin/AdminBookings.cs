@@ -2,8 +2,10 @@ using Malabak.Modules.Booking.Application.Abstractions;
 using Malabak.Modules.Booking.Application.Bookings.CancelBooking;
 using Malabak.Modules.Booking.Domain;
 using Malabak.SharedKernel;
+using Malabak.SharedKernel.Authorization;
 using Malabak.SharedKernel.Contracts;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace Malabak.Modules.Booking.Application.Admin;
 
@@ -12,7 +14,8 @@ public sealed record AdminBookingSearch(
 
 public sealed record AdminBookingListItem(
     Guid Id, string Reference, Guid VenueId, Guid PitchId, Guid PlayerId, string Status, DateTime StartUtc, DateTime EndUtc,
-    decimal TotalPrice, decimal DepositAmount, string Currency, bool IsManual, DateTime CreatedAtUtc);
+    decimal TotalPrice, decimal DepositAmount, string Currency, bool IsManual, DateTime CreatedAtUtc,
+    decimal PlatformCommission = 0m, decimal VenueNetAmount = 0m, decimal OnlinePaidAmount = 0m, decimal VenuePayAmount = 0m, bool IsCommissionPaid = false);
 
 public sealed record AdminBookingPage(IReadOnlyList<AdminBookingListItem> Items, int Page, int PageSize, int Total);
 
@@ -39,6 +42,32 @@ public sealed record AdminBookingDetail(
     IReadOnlyList<AdminProofItem> Proofs,
     IReadOnlyList<AdminRefundItem> Refunds);
 
+public sealed record AdminDepositReviewItem(
+    Guid BookingId,
+    string Reference,
+    Guid VenueId,
+    Guid PitchId,
+    Guid PlayerId,
+    decimal TotalPrice,
+    decimal DepositAmount,
+    string Currency,
+    string Status,
+    DateTime? HoldExpiresAtUtc,
+    DateTime CreatedAtUtc,
+    Guid? LatestProofId,
+    Guid? MediaId,
+    string? OriginalFileName,
+    string? ContentType,
+    long? FileSizeBytes,
+    DateTime? ProofUploadedAtUtc,
+    string? RejectionReason);
+
+public sealed record AdminDepositReviewPage(
+    IReadOnlyList<AdminDepositReviewItem> Items,
+    int Page,
+    int PageSize,
+    int Total);
+
 public static class AdminBookingErrors
 {
     public static readonly Error InvalidFilter = Error.Validation("AdminBookings.InvalidFilter", "Invalid booking search filter.");
@@ -46,7 +75,7 @@ public static class AdminBookingErrors
 
 /// <summary>
 /// Cross-venue booking monitoring for platform staff (TASK-703): search, full detail with status, payment, proof and refund
-/// history, and an audited force-cancel that follows the venue-cancellation rules (full deposit refund owed to the player).
+/// history, centralized deposit review, and an audited force-cancel that follows the venue-cancellation rules.
 /// </summary>
 public sealed class AdminBookingService
 {
@@ -56,12 +85,33 @@ public sealed class AdminBookingService
     private readonly IBookingDbContext _dbContext;
     private readonly ICommandHandler<VenueCancelBookingCommand, Result> _cancel;
     private readonly IAuditLog _audit;
+    private readonly IClock _clock;
+    private readonly IBookingRealtimeBroadcaster? _broadcaster;
+    private readonly IAvailabilityInvalidator? _availabilityInvalidator;
+    private readonly IVenueDirectory? _venues;
+    private readonly INotificationPublisher? _notificationPublisher;
+    private readonly ILogger<AdminBookingService>? _logger;
 
-    public AdminBookingService(IBookingDbContext dbContext, ICommandHandler<VenueCancelBookingCommand, Result> cancel, IAuditLog audit)
+    public AdminBookingService(
+        IBookingDbContext dbContext,
+        ICommandHandler<VenueCancelBookingCommand, Result> cancel,
+        IAuditLog audit,
+        IClock? clock = null,
+        IBookingRealtimeBroadcaster? broadcaster = null,
+        IAvailabilityInvalidator? availabilityInvalidator = null,
+        IVenueDirectory? venues = null,
+        INotificationPublisher? notificationPublisher = null,
+        ILogger<AdminBookingService>? logger = null)
     {
         _dbContext = dbContext;
         _cancel = cancel;
         _audit = audit;
+        _clock = clock ?? new SystemClock();
+        _broadcaster = broadcaster;
+        _availabilityInvalidator = availabilityInvalidator;
+        _venues = venues;
+        _notificationPublisher = notificationPublisher;
+        _logger = logger;
     }
 
     public async Task<Result<AdminBookingPage>> SearchAsync(AdminBookingSearch search, CancellationToken cancellationToken = default)
@@ -73,7 +123,6 @@ public sealed class AdminBookingService
             {
                 return Result.Failure<AdminBookingPage>(AdminBookingErrors.InvalidFilter);
             }
-
             status = parsed;
         }
 
@@ -89,61 +138,71 @@ public sealed class AdminBookingService
             var reference = search.Reference.Trim().ToUpperInvariant();
             query = query.Where(b => b.BookingReference.Contains(reference));
         }
-
-        if (search.VenueId is { } venueId)
+        if (search.VenueId.HasValue)
         {
-            query = query.Where(b => b.VenueId == venueId);
+            query = query.Where(b => b.VenueId == search.VenueId.Value);
         }
-
-        if (search.PlayerId is { } playerId)
+        if (search.PlayerId.HasValue)
         {
-            query = query.Where(b => b.PlayerId == playerId);
+            query = query.Where(b => b.PlayerId == search.PlayerId.Value);
         }
-
-        if (status is { } s)
+        if (status.HasValue)
         {
-            query = query.Where(b => b.Status == s);
+            query = query.Where(b => b.Status == status.Value);
         }
-
-        if (search.FromUtc is { } fromUtc)
+        if (search.FromUtc.HasValue)
         {
-            query = query.Where(b => b.StartUtc >= fromUtc);
+            query = query.Where(b => b.StartUtc >= search.FromUtc.Value);
         }
-
-        if (search.ToUtc is { } toUtc)
+        if (search.ToUtc.HasValue)
         {
-            query = query.Where(b => b.StartUtc < toUtc);
+            query = query.Where(b => b.StartUtc <= search.ToUtc.Value);
         }
 
         var total = await query.CountAsync(cancellationToken);
-        var rows = await query.OrderByDescending(b => b.StartUtc)
-            .Skip((search.Page - 1) * search.PageSize).Take(search.PageSize)
+        var page = search.Page < 1 ? 1 : search.Page;
+        var pageSize = search.PageSize is < 1 or > MaxPageSize ? 25 : search.PageSize;
+
+        var rows = await query
+            .OrderByDescending(b => b.StartUtc)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
             .ToListAsync(cancellationToken);
-        return Result.Success(new AdminBookingPage(rows.Select(ToItem).ToList(), search.Page, search.PageSize, total));
+
+        return Result.Success(new AdminBookingPage(rows.Select(ToItem).ToList(), page, pageSize, total));
     }
 
     public async Task<Result<AdminBookingDetail>> GetAsync(Guid bookingId, CancellationToken cancellationToken = default)
     {
-        var booking = await _dbContext.Bookings.AsNoTracking().FirstOrDefaultAsync(b => b.Id == bookingId && !b.IsDeleted, cancellationToken);
+        var booking = await _dbContext.Bookings.AsNoTracking()
+            .Include(b => b.Proofs)
+            .Include(b => b.Refunds)
+            .FirstOrDefaultAsync(b => b.Id == bookingId && !b.IsDeleted, cancellationToken);
         if (booking is null)
         {
             return Result.Failure<AdminBookingDetail>(BookingErrors.NotFound);
         }
 
-        var history = await _dbContext.StatusHistories.AsNoTracking().Where(h => h.BookingId == bookingId)
-            .OrderBy(h => h.ChangedAtUtc).ToListAsync(cancellationToken);
-        var proofs = await _dbContext.PaymentProofs.AsNoTracking().Where(p => p.BookingId == bookingId)
-            .OrderBy(p => p.UploadedAtUtc).ToListAsync(cancellationToken);
-        var refunds = await _dbContext.BookingRefunds.AsNoTracking().Where(r => r.BookingId == bookingId)
-            .OrderBy(r => r.CreatedAtUtc).ToListAsync(cancellationToken);
+        var history = await _dbContext.StatusHistories.AsNoTracking()
+            .Where(h => h.BookingId == bookingId)
+            .OrderBy(h => h.ChangedAtUtc)
+            .ToListAsync(cancellationToken);
 
         return Result.Success(new AdminBookingDetail(
-            ToItem(booking), booking.CancellationReason, booking.RejectionReason, booking.HoldExpiresAtUtc, booking.ConfirmedAtUtc, booking.CancelledAtUtc,
-            booking.CustomerName, booking.Notes, booking.PolicySnapshot,
-            history.Select(h => new AdminBookingHistoryItem(h.FromStatus.ToString(), h.ToStatus.ToString(), h.Reason, h.ChangedByUserId, h.ChangedAtUtc)).ToList(),
-            proofs.Select(p => new AdminProofItem(p.Id, p.ContentType, p.FileSizeBytes, p.UploadedAtUtc, p.IsScanClean, p.IsApproved, p.RejectionReason,
-                p.ReviewedAtUtc, p.ReviewedByUserId, p.IsArchived)).ToList(),
-            refunds.Select(r => new AdminRefundItem(r.Id, r.Status.ToString(), r.ExpectedRefundAmount, r.ActualRefundAmount, r.Currency, r.Reason, r.RecordedAtUtc)).ToList()));
+            ToItem(booking),
+            booking.CancellationReason,
+            booking.RejectionReason,
+            booking.HoldExpiresAtUtc,
+            booking.ConfirmedAtUtc,
+            booking.CancelledAtUtc,
+            booking.CustomerName,
+            booking.Notes,
+            booking.PolicySnapshot,
+            history.Select(h => new AdminBookingHistoryItem(h.FromStatus.ToString(), h.ToStatus.ToString(), h.Reason, h.ChangedBy, h.ChangedAtUtc)).ToList(),
+            booking.Proofs.OrderByDescending(p => p.UploadedAtUtc).Select(p => new AdminProofItem(
+                p.Id, p.ContentType, p.FileSizeBytes, p.UploadedAtUtc, p.IsScanClean, p.IsApproved, p.RejectionReason, p.ReviewedAtUtc, p.ReviewedByUserId, p.IsArchived)).ToList(),
+            booking.Refunds.OrderByDescending(r => r.RecordedAtUtc).Select(r => new AdminRefundItem(
+                r.Id, r.Status.ToString(), r.ExpectedRefundAmount, r.ActualRefundAmount, r.Currency, r.Reason, r.RecordedAtUtc)).ToList()));
     }
 
     /// <summary>Admin intervention: cancels regardless of the player deadline, owes the full deposit back and is audited.</summary>
@@ -173,7 +232,188 @@ public sealed class AdminBookingService
         return await GetAsync(bookingId, cancellationToken);
     }
 
+    /// <summary>Returns bookings awaiting central platform deposit proof verification.</summary>
+    public async Task<Result<AdminDepositReviewPage>> GetPendingDepositReviewsAsync(
+        int page = 1, int pageSize = 25, CancellationToken cancellationToken = default)
+    {
+        var p = page < 1 ? 1 : page;
+        var ps = pageSize is < 1 or > MaxPageSize ? 25 : pageSize;
+
+        var query = _dbContext.Bookings.AsNoTracking()
+            .Include(b => b.Proofs)
+            .Where(b => !b.IsDeleted && (b.Status == BookingStatus.ProofSubmitted || b.Status == BookingStatus.UnderReview));
+
+        var total = await query.CountAsync(cancellationToken);
+
+        var rows = await query
+            .OrderBy(b => b.CreatedAtUtc)
+            .Skip((p - 1) * ps)
+            .Take(ps)
+            .ToListAsync(cancellationToken);
+
+        var items = rows.Select(b =>
+        {
+            var latestProof = b.Proofs.OrderByDescending(pr => pr.UploadedAtUtc).FirstOrDefault();
+            return new AdminDepositReviewItem(
+                b.Id,
+                b.BookingReference,
+                b.VenueId,
+                b.PitchId,
+                b.PlayerId,
+                b.TotalPrice.Amount,
+                b.DepositAmount.Amount,
+                b.TotalPrice.Currency,
+                b.Status.ToString(),
+                b.HoldExpiresAtUtc,
+                b.CreatedAtUtc,
+                latestProof?.Id,
+                latestProof?.MediaId,
+                latestProof?.OriginalFileName,
+                latestProof?.ContentType,
+                latestProof?.FileSizeBytes,
+                latestProof?.UploadedAtUtc,
+                b.RejectionReason);
+        }).ToList();
+
+        return Result.Success(new AdminDepositReviewPage(items, p, ps, total));
+    }
+
+    /// <summary>Admin decision on a submitted deposit proof: confirms booking or rejects with reason.</summary>
+    public async Task<Result> ReviewDepositAsync(
+        Guid bookingId, bool approved, string? rejectionReason, Guid adminUserId, CancellationToken cancellationToken = default)
+    {
+        var nowUtc = _clock.UtcNow;
+        var actor = adminUserId.ToString("D");
+
+        var booking = await _dbContext.Bookings
+            .Include(b => b.Proofs)
+            .Include(b => b.History)
+            .FirstOrDefaultAsync(b => b.Id == bookingId && !b.IsDeleted, cancellationToken);
+
+        if (booking is null)
+        {
+            return Result.Failure(BookingErrors.NotFound);
+        }
+
+        var reason = rejectionReason?.Trim();
+        if (!approved)
+        {
+            if (string.IsNullOrWhiteSpace(reason))
+            {
+                return Result.Failure(BookingErrors.RejectionReasonRequired);
+            }
+
+            if (reason.Length > 500)
+            {
+                return Result.Failure(Error.Validation("Booking.RejectionReasonTooLong", "The rejection reason cannot exceed 500 characters."));
+            }
+        }
+
+        var decision = approved
+            ? booking.Confirm(actor, nowUtc)
+            : booking.Reject(reason!, actor, nowUtc);
+
+        if (decision.IsFailure)
+        {
+            return decision;
+        }
+
+        var latestProof = booking.Proofs.OrderByDescending(p => p.UploadedAtUtc).FirstOrDefault();
+        latestProof?.Review(approved, approved ? null : reason, actor, nowUtc);
+
+        try
+        {
+            await _dbContext.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            return Result.Failure(Error.Conflict("Booking.ConcurrentUpdate", "The booking was changed by another request. Please reload and try again."));
+        }
+
+        await _audit.RecordAsync(new AuditEntry(
+            approved ? "admin.booking.deposit_approved" : "admin.booking.deposit_rejected",
+            "Booking",
+            bookingId.ToString("D"),
+            adminUserId,
+            AuditActorType.Admin,
+            Before: new { Status = BookingStatus.ProofSubmitted.ToString() },
+            After: new { Status = booking.Status.ToString(), Reason = reason },
+            Reason: reason), cancellationToken);
+
+        if (approved && _availabilityInvalidator is not null)
+        {
+            await _availabilityInvalidator.InvalidatePitchAsync(booking.PitchId, cancellationToken);
+        }
+
+        if (approved && _broadcaster is not null)
+        {
+            await _broadcaster.BroadcastSlotStatusChangedAsync(
+                booking.VenueId, booking.PitchId, booking.StartUtc, booking.EndUtc, "Confirmed", cancellationToken);
+        }
+
+        if (_broadcaster is not null)
+        {
+            await _broadcaster.BroadcastBookingUpdatedAsync(
+                booking.PlayerId, booking.VenueId, booking.Id, booking.BookingReference,
+                booking.Status.ToString(), nowUtc, cancellationToken);
+        }
+
+        if (_notificationPublisher is not null && _venues is not null)
+        {
+            try
+            {
+                var names = await _venues.GetVenueNamesAsync([booking.VenueId], cancellationToken);
+                var venueName = names.GetValueOrDefault(booking.VenueId, string.Empty);
+
+                var notification = approved
+                    ? BookingNotifications.Confirmed(booking, venueName, _clock)
+                    : BookingNotifications.Rejected(booking, venueName, reason ?? string.Empty, _clock);
+
+                await _notificationPublisher.PublishAsync(notification, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                _logger?.LogError(ex, "Failed to publish notification for booking {BookingId}", booking.Id);
+            }
+        }
+
+        return Result.Success();
+    }
+
+    /// <summary>Marks a booking as UnderReview when viewed by admin staff.</summary>
+    public async Task<Result> MarkUnderReviewAsync(Guid bookingId, Guid adminUserId, CancellationToken cancellationToken = default)
+    {
+        var nowUtc = _clock.UtcNow;
+        var actor = adminUserId.ToString("D");
+
+        var booking = await _dbContext.Bookings
+            .FirstOrDefaultAsync(b => b.Id == bookingId && !b.IsDeleted, cancellationToken);
+
+        if (booking is null)
+        {
+            return Result.Failure(BookingErrors.NotFound);
+        }
+
+        if (booking.Status == BookingStatus.ProofSubmitted)
+        {
+            var marked = booking.MarkUnderReview(actor, nowUtc);
+            if (marked.IsSuccess)
+            {
+                await _dbContext.SaveChangesAsync(cancellationToken);
+                if (_broadcaster is not null)
+                {
+                    await _broadcaster.BroadcastBookingUpdatedAsync(
+                        booking.PlayerId, booking.VenueId, booking.Id, booking.BookingReference,
+                        BookingStatus.UnderReview.ToString(), nowUtc, cancellationToken);
+                }
+            }
+        }
+
+        return Result.Success();
+    }
+
     private static AdminBookingListItem ToItem(Domain.Booking b) =>
         new(b.Id, b.BookingReference, b.VenueId, b.PitchId, b.PlayerId, b.Status.ToString(), b.StartUtc, b.EndUtc,
-            b.TotalPrice.Amount, b.DepositAmount.Amount, b.TotalPrice.Currency, b.IsManualBooking, b.CreatedAtUtc);
+            b.TotalPrice.Amount, b.DepositAmount.Amount, b.TotalPrice.Currency, b.IsManualBooking, b.CreatedAtUtc,
+            b.PlatformCommission.Amount, b.VenueNetAmount.Amount, b.OnlinePaidAmount.Amount, b.VenuePayAmount.Amount, b.IsCommissionPaid);
 }

@@ -1,4 +1,5 @@
 using Malabak.SharedKernel;
+using Malabak.SharedKernel.Contracts;
 
 namespace Malabak.Modules.Venues.Domain;
 
@@ -28,6 +29,10 @@ public sealed class Venue : Entity<Guid>
     public double? Longitude { get; private set; }
     public string PhoneNumber { get; private set; } = string.Empty;
     public VenueApprovalStatus ApprovalStatus { get; private set; }
+
+    public bool CustomCommissionEnabled { get; private set; }
+    public CommissionType CommissionType { get; private set; } = CommissionType.PlatformDefault;
+    public decimal? CommissionRate { get; private set; }
 
     /// <summary>Denormalized from <see cref="ApprovalStatus"/> for the search index (approved AND published).</summary>
     public bool IsApproved { get; private set; }
@@ -344,6 +349,32 @@ public sealed class Venue : Entity<Guid>
         }
 
         return removed;
+    }
+
+    public void SetCommission(bool customCommissionEnabled, CommissionType commissionType, decimal? commissionRate, DateTime nowUtc)
+    {
+        if (customCommissionEnabled && commissionType != CommissionType.Exempt)
+        {
+            if (commissionRate is null or < 0)
+            {
+                throw new ArgumentException("Commission rate must be non-negative when custom commission is enabled.", nameof(commissionRate));
+            }
+
+            if (commissionType == CommissionType.Percentage && commissionRate > 100)
+            {
+                throw new ArgumentException("Percentage commission rate cannot exceed 100%.", nameof(commissionRate));
+            }
+
+            if (commissionType == CommissionType.PerHourFixed && commissionRate > 100_000)
+            {
+                throw new ArgumentException("Hourly commission rate cannot exceed 100,000.", nameof(commissionRate));
+            }
+        }
+
+        CustomCommissionEnabled = customCommissionEnabled;
+        CommissionType = customCommissionEnabled ? commissionType : CommissionType.PlatformDefault;
+        CommissionRate = customCommissionEnabled ? commissionRate : null;
+        UpdatedAtUtc = nowUtc;
     }
 
     public void MarkDeleted(DateTime nowUtc)

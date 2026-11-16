@@ -4,6 +4,7 @@ using Malabak.Modules.Venues.Infrastructure;
 using Malabak.SharedKernel;
 using Malabak.SharedKernel.Contracts;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace Malabak.Modules.Venues.Application.Pricing;
 
@@ -15,11 +16,19 @@ public sealed class PricingService : IPriceQuoteProvider
 {
     private readonly VenuesDbContext _dbContext;
     private readonly IClock _clock;
+    private readonly IPlatformSettings? _platformSettings;
+    private readonly ILogger<PricingService>? _logger;
 
-    public PricingService(VenuesDbContext dbContext, IClock clock)
+    public PricingService(
+        VenuesDbContext dbContext,
+        IClock clock,
+        IPlatformSettings? platformSettings = null,
+        ILogger<PricingService>? logger = null)
     {
         _dbContext = dbContext;
         _clock = clock;
+        _platformSettings = platformSettings;
+        _logger = logger;
     }
 
     public async Task<Result<PriceQuoteSnapshot>> QuoteAsync(Guid pitchId, DateTime startUtc, DateTime endUtc, CancellationToken cancellationToken = default)
@@ -33,9 +42,45 @@ public sealed class PricingService : IPriceQuoteProvider
             return Result.Failure<PriceQuoteSnapshot>(VenueAccessErrors.PitchNotFound);
         }
 
+        var venueCommission = await _dbContext.Venues.AsNoTracking()
+            .Where(v => v.Id == venueId.Value)
+            .Select(v => new { v.CustomCommissionEnabled, v.CommissionType, v.CommissionRate })
+            .FirstOrDefaultAsync(cancellationToken);
+
+        var defaultHourlyCommission = 0m;
+        if (_platformSettings is not null)
+        {
+            try
+            {
+                defaultHourlyCommission = await _platformSettings.GetDecimalAsync(PlatformSettingKeys.DefaultHourlyCommission, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                _logger?.LogWarning(ex, "Failed to retrieve default hourly commission from platform settings. Falling back to 0.");
+                defaultHourlyCommission = 0m;
+            }
+        }
+
         var rules = await LoadRulesAsync(venueId.Value, cancellationToken);
         var deposit = await LoadDepositAsync(venueId.Value, cancellationToken);
-        var quote = PricingCalculator.Quote(pitchId, rules, startUtc, endUtc, deposit, _clock.CairoTimeZone);
+        var commissionType = venueCommission?.CustomCommissionEnabled == true
+            ? venueCommission.CommissionType
+            : CommissionType.PlatformDefault;
+        var commissionRate = venueCommission?.CustomCommissionEnabled == true
+            ? venueCommission.CommissionRate
+            : null;
+
+        var quote = PricingCalculator.Quote(
+            pitchId,
+            rules,
+            startUtc,
+            endUtc,
+            deposit,
+            _clock.CairoTimeZone,
+            commissionType,
+            commissionRate,
+            defaultHourlyCommission);
+
         return quote.IsFailure ? Result.Failure<PriceQuoteSnapshot>(quote.Error) : Result.Success(ToSnapshot(venueId.Value, quote.Value));
     }
 
@@ -55,5 +100,9 @@ public sealed class PricingService : IPriceQuoteProvider
         venueId, quote.PitchId, quote.StartUtc, quote.EndUtc, quote.DurationMinutes, quote.Currency, quote.Subtotal, quote.Discount,
         quote.DiscountRule, quote.Total, quote.Deposit, quote.DepositType.ToString(),
         quote.Lines.Select(l => new PriceLineSnapshot(l.StartUtc, l.EndUtc, l.HourlyRate, l.Amount, l.AppliedRules)).ToList(),
-        _clock.UtcNow);
+        _clock.UtcNow,
+        quote.NetPitchPrice,
+        quote.PlatformCommission,
+        quote.OnlineDepositAmount,
+        quote.VenuePayAmount);
 }

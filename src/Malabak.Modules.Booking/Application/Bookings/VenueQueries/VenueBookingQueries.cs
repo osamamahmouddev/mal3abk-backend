@@ -20,7 +20,12 @@ public sealed record VenueBookingItemDto(
     string? CustomerName,
     string? CustomerPhone,
     DateTime CreatedAtUtc,
-    bool IsManual = false);
+    bool IsManual = false,
+    decimal PlatformCommission = 0m,
+    decimal VenueNetAmount = 0m,
+    decimal OnlinePaidAmount = 0m,
+    decimal VenuePayAmount = 0m,
+    bool IsCommissionPaid = false);
 
 public sealed record VenueBookingDetailDto(
     Guid Id,
@@ -40,7 +45,12 @@ public sealed record VenueBookingDetailDto(
     string? Notes,
     IReadOnlyList<VenueProofItemDto> Proofs,
     IReadOnlyList<PlayerStatusHistoryDto> StatusHistory,
-    DateTime CreatedAtUtc);
+    DateTime CreatedAtUtc,
+    decimal PlatformCommission = 0m,
+    decimal VenueNetAmount = 0m,
+    decimal OnlinePaidAmount = 0m,
+    decimal VenuePayAmount = 0m,
+    bool IsCommissionPaid = false);
 
 /// <summary>A payment proof as venue staff review it. The storage key is internal and never exposed; the image is fetched through <see cref="DownloadUrl"/>, a short-lived signed link the API adds.</summary>
 public sealed record VenueProofItemDto(
@@ -196,7 +206,12 @@ public sealed class VenueBookingQueriesHandler :
                     b.CustomerName,
                     b.CustomerPhone,
                     b.CreatedAtUtc,
-                    b.IsManualBooking),
+                    b.IsManualBooking,
+                    b.PlatformCommission.Amount,
+                    b.VenueNetAmount.Amount,
+                    b.OnlinePaidAmount.Amount,
+                    b.VenuePayAmount.Amount,
+                    b.IsCommissionPaid),
                 b.PlayerId))
             .ToListAsync(cancellationToken);
 
@@ -226,7 +241,12 @@ public sealed class VenueBookingQueriesHandler :
                     b.CustomerName,
                     b.CustomerPhone,
                     b.CreatedAtUtc,
-                    b.IsManualBooking),
+                    b.IsManualBooking,
+                    b.PlatformCommission.Amount,
+                    b.VenueNetAmount.Amount,
+                    b.OnlinePaidAmount.Amount,
+                    b.VenuePayAmount.Amount,
+                    b.IsCommissionPaid),
                 b.PlayerId))
             .ToListAsync(cancellationToken);
 
@@ -289,7 +309,12 @@ public sealed class VenueBookingQueriesHandler :
             booking.Notes,
             proofs,
             history,
-            booking.CreatedAtUtc);
+            booking.CreatedAtUtc,
+            booking.PlatformCommission.Amount,
+            booking.VenueNetAmount.Amount,
+            booking.OnlinePaidAmount.Amount,
+            booking.VenuePayAmount.Amount,
+            booking.IsCommissionPaid);
 
         return Result.Success(dto);
     }

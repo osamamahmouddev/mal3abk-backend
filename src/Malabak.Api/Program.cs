@@ -250,6 +250,12 @@ builder.Services.AddDbContext<Malabak.Modules.Support.Infrastructure.SupportDbCo
         npgsql.MigrationsHistoryTable("__EFMigrationsHistory", Malabak.Modules.Support.Infrastructure.SupportDbContext.Schema)));
 builder.Services.AddSupportModule();
 
+builder.Services.AddDbContext<Malabak.Modules.Payments.Infrastructure.PaymentsDbContext>(options =>
+    options.UseNpgsql(postgresConnectionString, npgsql =>
+        npgsql.MigrationsHistoryTable("__EFMigrationsHistory", Malabak.Modules.Payments.PaymentsModule.Schema)));
+builder.Services.AddHttpClient<Malabak.Modules.Payments.Infrastructure.Paymob.IPaymobClient, Malabak.Modules.Payments.Infrastructure.Paymob.PaymobClient>();
+Malabak.Modules.Payments.PaymentsModule.AddPaymentsModule(builder.Services, builder.Configuration);
+
 // Cloudflare Access (TASK-720): internal tools only through Zero Trust, verified by the signed assertion.
 builder.Services.Configure<Malabak.Api.Infrastructure.Security.CloudflareAccessOptions>(
     builder.Configuration.GetSection(Malabak.Api.Infrastructure.Security.CloudflareAccessOptions.SectionName));
@@ -533,6 +539,7 @@ app.MapPlayerVenueListEndpoints(apiVersionSet);
 app.MapPrivacyEndpoints(apiVersionSet);
 app.MapRealtimeEndpoints(apiVersionSet);
 app.MapBookingEndpoints(apiVersionSet);
+app.MapPaymentEndpoints(apiVersionSet);
 app.MapTeamEndpoints(apiVersionSet);
 app.MapChallengeEndpoints(apiVersionSet);
 app.MapMatchEndpoints(apiVersionSet);

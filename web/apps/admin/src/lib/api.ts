@@ -34,3 +34,18 @@ export async function openFile(path: string) {
   window.open(url, "_blank", "noopener");
   setTimeout(() => URL.revokeObjectURL(url), 60_000);
 }
+
+/** Downloads a binary response (e.g. CSV export) directly to the user's filesystem. */
+export async function downloadFile(path: string, filename: string) {
+  const response = await fetch(`/admin/bff${path}`, { credentials: "same-origin" });
+  if (!response.ok) throw new ApiError("تعذّر تحميل الملف.", response.status);
+  const blob = await response.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 60_000);
+}

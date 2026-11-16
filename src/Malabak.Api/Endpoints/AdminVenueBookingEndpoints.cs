@@ -94,9 +94,45 @@ public static class AdminVenueBookingEndpoints
             .RequireStepUp(StepUpScopes.AdminDestructive)
             .Produces<AdminBookingDetail>().ProducesProblem(StatusCodes.Status400BadRequest).ProducesProblem(StatusCodes.Status409Conflict)
             .WithName("AdminForceCancelBooking").WithSummary("Cancel any active booking with a reason; the full deposit is owed back to the player");
+
+        bookings.MapGet("/deposit-reviews", async ([FromQuery] int? page, [FromQuery] int? pageSize,
+                HttpContext http, AdminBookingService service, CancellationToken ct) =>
+            {
+                AdminResults.NoStore(http);
+                return AdminResults.From(await service.GetPendingDepositReviewsAsync(page ?? 1, pageSize ?? 25, ct));
+            })
+            .Produces<AdminDepositReviewPage>()
+            .WithName("AdminGetPendingDepositReviews")
+            .WithSummary("List bookings awaiting platform deposit proof review (ProofSubmitted or UnderReview)");
+
+        bookings.MapPost("/{bookingId:guid}/review-deposit", async (Guid bookingId, [FromBody] AdminReviewDepositApiRequest request,
+                ClaimsPrincipal user, AdminBookingService service, CancellationToken ct) =>
+            {
+                var result = await service.ReviewDepositAsync(bookingId, request.Approved, request.RejectionReason, user.GetUserId()!.Value, ct);
+                return AdminResults.From(result);
+            })
+            .Produces(StatusCodes.Status204NoContent)
+            .ProducesProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status409Conflict)
+            .WithName("AdminReviewDeposit")
+            .WithSummary("Approve or reject a submitted booking deposit proof");
+
+        bookings.MapPost("/{bookingId:guid}/mark-under-review", async (Guid bookingId,
+                ClaimsPrincipal user, AdminBookingService service, CancellationToken ct) =>
+            {
+                var result = await service.MarkUnderReviewAsync(bookingId, user.GetUserId()!.Value, ct);
+                return AdminResults.From(result);
+            })
+            .Produces(StatusCodes.Status204NoContent)
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .WithName("AdminMarkBookingUnderReview")
+            .WithSummary("Mark a booking deposit proof as under review by admin staff");
     }
 }
 
 public sealed record AdminNoteApiRequest(string? Note);
 
 public sealed record TransferOwnershipApiRequest(Guid NewOwnerId, string? Reason);
+
+public sealed record AdminReviewDepositApiRequest(bool Approved, string? RejectionReason = null);

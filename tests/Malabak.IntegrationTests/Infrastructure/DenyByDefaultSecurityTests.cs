@@ -33,6 +33,7 @@ public sealed class DenyByDefaultSecurityTests : IClassFixture<WebApplicationFac
         // Authentication & Session Bootstrap (SECURITY.md §4)
         "/api/v{version:apiVersion}/auth/otp/send",
         "/api/v{version:apiVersion}/auth/otp/verify",
+        "/api/v{version:apiVersion}/auth/firebase",
         "/api/v{version:apiVersion}/auth/refresh",
         "/api/v{version:apiVersion}/auth/login",
         "/api/v{version:apiVersion}/auth/logout",
@@ -72,6 +73,7 @@ public sealed class DenyByDefaultSecurityTests : IClassFixture<WebApplicationFac
         // Webhooks (Authenticated via signature verification)
         "/api/v{version:apiVersion}/webhooks/email/bounce",
         "/api/v{version:apiVersion}/webhooks/sms/twilio/{account}",
+        "/api/v{version:apiVersion}/payments/paymob/webhook",
 
         // Test Endpoints (Development harness)
         "/api/v{version:apiVersion}/test/client-ip",

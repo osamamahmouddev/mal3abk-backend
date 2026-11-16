@@ -353,3 +353,79 @@ public sealed class AdminVenueService
         return await GetAsync(venueId, cancellationToken);
     }
 }
+
+public sealed record UpdateVenueCommissionCommand(
+    Guid VenueId,
+    bool CustomCommissionEnabled,
+    CommissionType CommissionType,
+    decimal? CommissionRate,
+    Guid ActorUserId) : ICommand<Result<VenueCommissionDto>>;
+
+public sealed record VenueCommissionDto(
+    Guid VenueId,
+    bool CustomCommissionEnabled,
+    string CommissionType,
+    decimal? CommissionRate);
+
+public sealed class UpdateVenueCommissionHandler : ICommandHandler<UpdateVenueCommissionCommand, Result<VenueCommissionDto>>
+{
+    private readonly VenuesDbContext _dbContext;
+    private readonly IClock _clock;
+    private readonly IAuditLog _audit;
+
+    public UpdateVenueCommissionHandler(VenuesDbContext dbContext, IClock clock, IAuditLog audit)
+    {
+        _dbContext = dbContext;
+        _clock = clock;
+        _audit = audit;
+    }
+
+    public async Task<Result<VenueCommissionDto>> HandleAsync(UpdateVenueCommissionCommand command, CancellationToken cancellationToken = default)
+    {
+        var venue = await _dbContext.Venues.FirstOrDefaultAsync(v => v.Id == command.VenueId && !v.IsDeleted, cancellationToken);
+        if (venue is null)
+        {
+            return Result.Failure<VenueCommissionDto>(AdminVenueErrors.NotFound);
+        }
+
+        var before = new
+        {
+            venue.CustomCommissionEnabled,
+            CommissionType = venue.CommissionType.ToString(),
+            venue.CommissionRate
+        };
+
+        var now = _clock.UtcNow;
+        try
+        {
+            venue.SetCommission(command.CustomCommissionEnabled, command.CommissionType, command.CommissionRate, now);
+        }
+        catch (ArgumentException ex)
+        {
+            return Result.Failure<VenueCommissionDto>(Error.Validation("Venue.InvalidCommission", ex.Message));
+        }
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        await _audit.RecordAsync(new AuditEntry(
+            "admin.venue.commission_updated",
+            nameof(Venue),
+            venue.Id.ToString("D"),
+            command.ActorUserId,
+            AuditActorType.Admin,
+            Before: before,
+            After: new
+            {
+                venue.CustomCommissionEnabled,
+                CommissionType = venue.CommissionType.ToString(),
+                venue.CommissionRate
+            },
+            Reason: "Admin updated venue commission configuration"), cancellationToken);
+
+        return Result.Success(new VenueCommissionDto(
+            venue.Id,
+            venue.CustomCommissionEnabled,
+            venue.CommissionType.ToString(),
+            venue.CommissionRate));
+    }
+}

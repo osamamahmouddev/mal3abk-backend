@@ -88,8 +88,12 @@ public sealed class DataSeederIntegrationTests
         venueOwner.Should().NotBeNull();
         venueOwner!.Roles.Should().Contain(UserRole.VenueOwner);
 
+        var reviewer = await identityDb.Users.FirstOrDefaultAsync(u => u.PhoneNumber == "+201000000999");
+        reviewer.Should().NotBeNull();
+        reviewer!.FullName.Should().Be("أحمد مراجع");
+
         // Assert - Demo Venue & Pitches
-        var venue = await venuesDb.Venues.FirstOrDefaultAsync(v => v.Slug == "al-ahly-club-nasr-city");
+        var venue = await venuesDb.Venues.FirstOrDefaultAsync(v => v.Slug == "al-abtal-sports-complex");
         venue.Should().NotBeNull();
         venue!.City.Should().Be("Cairo");
 

@@ -19,6 +19,13 @@ public sealed class Booking : Entity<Guid>
     public DateTime EndUtc { get; private set; }
     public Money TotalPrice { get; private set; } = default!;
     public Money DepositAmount { get; private set; } = default!;
+    public Money PlatformCommission { get; private set; } = default!;
+    public Money VenueNetAmount { get; private set; } = default!;
+    public Money OnlinePaidAmount { get; private set; } = default!;
+    public Money VenuePayAmount { get; private set; } = default!;
+    public bool IsCommissionPaid { get; private set; }
+    public string? PaymobOrderId { get; private set; }
+    public string? PaymobTransactionId { get; private set; }
     public BookingStatus Status { get; private set; }
     public DateTime? HoldExpiresAtUtc { get; private set; }
     public DateTime? ConfirmedAtUtc { get; private set; }
@@ -75,6 +82,18 @@ public sealed class Booking : Entity<Guid>
             return Result.Failure<Booking>(Error.Validation("Booking.InvalidDeposit", "Deposit amount cannot be negative or exceed total price."));
         }
 
+        var commission = priceSnapshot is not null && priceSnapshot.PlatformCommission > 0
+            ? new Money(priceSnapshot.PlatformCommission, totalPrice.Currency)
+            : new Money(0m, totalPrice.Currency);
+
+        var venueNet = priceSnapshot is not null && priceSnapshot.NetPitchPrice > 0
+            ? new Money(priceSnapshot.NetPitchPrice, totalPrice.Currency)
+            : new Money(Math.Max(0m, totalPrice.Amount - commission.Amount), totalPrice.Currency);
+
+        var venuePay = priceSnapshot is not null && priceSnapshot.VenuePayAmount > 0
+            ? new Money(priceSnapshot.VenuePayAmount, totalPrice.Currency)
+            : new Money(venueNet.Amount, venueNet.Currency);
+
         var booking = new Booking
         {
             Id = id,
@@ -86,6 +105,11 @@ public sealed class Booking : Entity<Guid>
             EndUtc = endUtc,
             TotalPrice = totalPrice,
             DepositAmount = depositAmount,
+            PlatformCommission = commission,
+            VenueNetAmount = venueNet,
+            OnlinePaidAmount = new Money(0m, totalPrice.Currency),
+            VenuePayAmount = venuePay,
+            IsCommissionPaid = false,
             Status = BookingStatus.PendingDeposit,
             HoldExpiresAtUtc = holdExpiresAtUtc,
             PriceSnapshotJson = priceSnapshot is null ? null : JsonSerializer.Serialize(priceSnapshot),
@@ -145,6 +169,11 @@ public sealed class Booking : Entity<Guid>
             EndUtc = endUtc,
             TotalPrice = totalPrice,
             DepositAmount = depositAmount,
+            PlatformCommission = new Money(0m, totalPrice.Currency),
+            VenueNetAmount = new Money(totalPrice.Amount, totalPrice.Currency),
+            OnlinePaidAmount = new Money(0m, totalPrice.Currency),
+            VenuePayAmount = new Money(Math.Max(0m, totalPrice.Amount - depositAmount.Amount), totalPrice.Currency),
+            IsCommissionPaid = false,
             Status = targetStatus,
             HoldExpiresAtUtc = confirmedImmediately ? null : holdExpiresAtUtc,
             ConfirmedAtUtc = confirmedImmediately ? nowUtc : null,
@@ -198,6 +227,34 @@ public sealed class Booking : Entity<Guid>
 
         TransitionTo(BookingStatus.UnderReview, "Venue staff opened proof for review", actorUserId, nowUtc);
         RaiseDomainEvent(new BookingUnderReviewDomainEvent(Id, VenueId, BookingReference, actorUserId, nowUtc));
+        return Result.Success();
+    }
+
+    public Result ConfirmOnlinePayment(string paymobOrderId, string paymobTransactionId, Money paidAmount, DateTime nowUtc, string actorUserId = "Paymob")
+    {
+        if (IsCommissionPaid && Status == BookingStatus.Confirmed)
+        {
+            return Result.Success();
+        }
+
+        if (Status != BookingStatus.PendingDeposit && Status != BookingStatus.ProofSubmitted && Status != BookingStatus.UnderReview)
+        {
+            return Result.Failure(BookingErrors.InvalidTransition);
+        }
+
+        if (PlatformCommission.Amount > 0 && paidAmount.Amount < PlatformCommission.Amount)
+        {
+            return Result.Failure(Error.Validation("Booking.InsufficientPayment", "Paid amount is less than the required commission."));
+        }
+
+        PaymobOrderId = paymobOrderId;
+        PaymobTransactionId = paymobTransactionId;
+        IsCommissionPaid = true;
+        OnlinePaidAmount = new Money(paidAmount.Amount, paidAmount.Currency);
+        ConfirmedAtUtc = nowUtc;
+        HoldExpiresAtUtc = null;
+        TransitionTo(BookingStatus.Confirmed, "Commission paid online via Paymob", actorUserId, nowUtc);
+        RaiseDomainEvent(new BookingConfirmedDomainEvent(Id, VenueId, PitchId, PlayerId, BookingReference, StartUtc, EndUtc, actorUserId, nowUtc));
         return Result.Success();
     }
 

@@ -128,6 +128,7 @@ public static class WaitlistEndpoints
 
             return Results.Ok(result.Value);
         })
+        .Produces<WaitlistPagedResult>()
         .WithName("GetAdminWaitlist")
         .WithSummary("View or export the landing page waitlist entries");
     }

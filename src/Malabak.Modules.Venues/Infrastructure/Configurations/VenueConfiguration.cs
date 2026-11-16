@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Malabak.Modules.Venues.Domain;
+using Malabak.SharedKernel.Contracts;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
@@ -72,6 +73,19 @@ public sealed class VenueConfiguration : IEntityTypeConfiguration<Venue>
             .HasMaxLength(20)
             .IsRequired()
             .HasDefaultValue(VenueApprovalStatus.Draft);
+
+        builder.Property(v => v.CustomCommissionEnabled)
+            .IsRequired()
+            .HasDefaultValue(false);
+
+        builder.Property(v => v.CommissionType)
+            .HasConversion<string>()
+            .HasMaxLength(20)
+            .IsRequired()
+            .HasDefaultValue(CommissionType.PlatformDefault);
+
+        builder.Property(v => v.CommissionRate)
+            .HasPrecision(18, 2);
 
         builder.Ignore(v => v.IsSearchable);
         builder.Property(v => v.AdminNote).HasMaxLength(Venue.MaxAdminNoteLength);

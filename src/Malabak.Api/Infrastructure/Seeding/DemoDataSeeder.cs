@@ -2,6 +2,8 @@ using Malabak.Modules.Booking.Domain;
 using Malabak.Modules.Booking.Infrastructure;
 using Malabak.Modules.Identity.Domain;
 using Malabak.Modules.Identity.Infrastructure;
+using Malabak.Modules.Teams.Domain;
+using Malabak.Modules.Teams.Infrastructure;
 using Malabak.Modules.Venues.Application.PaymentMethods;
 using Malabak.Modules.Venues.Domain;
 using Malabak.Modules.Venues.Infrastructure;
@@ -42,6 +44,7 @@ public sealed class DemoDataSeeder : IDataSeeder
     private readonly IdentityDbContext _identityDbContext;
     private readonly VenuesDbContext _venuesDbContext;
     private readonly BookingDbContext? _bookingDbContext;
+    private readonly TeamsDbContext? _teamsDbContext;
     private readonly IFieldCipher? _fieldCipher;
     private readonly ILogger<DemoDataSeeder> _logger;
 
@@ -51,7 +54,8 @@ public sealed class DemoDataSeeder : IDataSeeder
         VenuesDbContext venuesDbContext,
         ILogger<DemoDataSeeder> logger,
         BookingDbContext? bookingDbContext = null,
-        IFieldCipher? fieldCipher = null)
+        IFieldCipher? fieldCipher = null,
+        TeamsDbContext? teamsDbContext = null)
     {
         _environment = environment;
         _identityDbContext = identityDbContext;
@@ -59,6 +63,7 @@ public sealed class DemoDataSeeder : IDataSeeder
         _logger = logger;
         _bookingDbContext = bookingDbContext;
         _fieldCipher = fieldCipher;
+        _teamsDbContext = teamsDbContext;
     }
 
     public async Task SeedAsync(CancellationToken cancellationToken = default)
@@ -71,19 +76,24 @@ public sealed class DemoDataSeeder : IDataSeeder
 
         _logger.LogInformation("Starting Fictional Egyptian Demo Data Seeding in {Env}...", _environment.EnvironmentName);
 
-        var (player1, player2, venueOwner) = await SeedDemoUsersAsync(cancellationToken);
-        var (venueAhly, pitchAhly1, pitchAhly2) = await SeedDemoVenuesAndPitchesAsync(venueOwner.Id, cancellationToken);
-        await MakeDemoVenueBookableAsync(venueAhly, pitchAhly2.Id, venueOwner.Id, cancellationToken);
+        var (player1, player2, venueOwner, reviewerUser) = await SeedDemoUsersAsync(cancellationToken);
+        var (venueAbtal, pitchAbtal1, pitchAbtal2) = await SeedDemoVenuesAndPitchesAsync(venueOwner.Id, cancellationToken);
+        await MakeDemoVenueBookableAsync(venueAbtal, pitchAbtal2.Id, venueOwner.Id, cancellationToken);
+
+        if (_teamsDbContext != null)
+        {
+            await SeedDemoTeamsAsync(reviewerUser.Id, player1.Id, player2.Id, cancellationToken);
+        }
 
         if (_bookingDbContext != null)
         {
-            await SeedDemoBookingsAsync(venueAhly.Id, player1.Id, player2.Id, pitchAhly1.Id, pitchAhly2.Id, cancellationToken);
+            await SeedDemoBookingsAsync(venueAbtal.Id, player1.Id, player2.Id, pitchAbtal1.Id, pitchAbtal2.Id, cancellationToken);
         }
 
         _logger.LogInformation("Demo Data Seeding completed successfully.");
     }
 
-    private async Task<(User Player1, User Player2, User VenueOwner)> SeedDemoUsersAsync(CancellationToken cancellationToken)
+    private async Task<(User Player1, User Player2, User VenueOwner, User ReviewerUser)> SeedDemoUsersAsync(CancellationToken cancellationToken)
     {
         var now = DateTime.UtcNow;
 
@@ -93,9 +103,15 @@ public sealed class DemoDataSeeder : IDataSeeder
             player1 = User.CreatePlayer(
                 id: Guid.Parse("11111111-1111-1111-1111-111111111111"),
                 phoneNumber: "+201012345678",
-                fullName: "عمرو زكي (Amr Zaki)",
+                fullName: "عمرو زكي",
                 createdAtUtc: now);
             await _identityDbContext.Users.AddAsync(player1, cancellationToken);
+        }
+        else if (player1.FullName.Contains('('))
+        {
+            var city = !string.IsNullOrWhiteSpace(player1.City) ? player1.City : "Cairo";
+            var area = !string.IsNullOrWhiteSpace(player1.Area) ? player1.Area : "Nasr City";
+            player1.UpdateProfile("عمرو زكي", city, area, player1.Positions, player1.SkillLevel, now);
         }
 
         var player2 = await _identityDbContext.Users.FirstOrDefaultAsync(u => u.PhoneNumber == "+201098765432", cancellationToken);
@@ -104,9 +120,15 @@ public sealed class DemoDataSeeder : IDataSeeder
             player2 = User.CreatePlayer(
                 id: Guid.Parse("22222222-2222-2222-2222-222222222222"),
                 phoneNumber: "+201098765432",
-                fullName: "محمد زيدان (Mohamed Zidan)",
+                fullName: "محمد زيدان",
                 createdAtUtc: now);
             await _identityDbContext.Users.AddAsync(player2, cancellationToken);
+        }
+        else if (player2.FullName.Contains('('))
+        {
+            var city = !string.IsNullOrWhiteSpace(player2.City) ? player2.City : "Cairo";
+            var area = !string.IsNullOrWhiteSpace(player2.Area) ? player2.Area : "Nasr City";
+            player2.UpdateProfile("محمد زيدان", city, area, player2.Positions, player2.SkillLevel, now);
         }
 
         var venueOwner = await _identityDbContext.Users.FirstOrDefaultAsync(u => u.PhoneNumber == "+201100000001", cancellationToken);
@@ -117,30 +139,49 @@ public sealed class DemoDataSeeder : IDataSeeder
                 email: "owner.ahly@malabak.app",
                 phoneNumber: "+201100000001",
                 passwordHash: "AQAAAAIAAYagAAAAEPwd+5...",
-                fullName: "حسن شحاتة (Hassan Shehata)",
+                fullName: "كابتن أحمد محمود",
                 role: UserRole.VenueOwner,
                 createdAtUtc: now);
             await _identityDbContext.Users.AddAsync(venueOwner, cancellationToken);
         }
+        else if (venueOwner.FullName.Contains('(') || venueOwner.FullName.Contains("حسن شحاتة"))
+        {
+            var city = !string.IsNullOrWhiteSpace(venueOwner.City) ? venueOwner.City : "Cairo";
+            var area = !string.IsNullOrWhiteSpace(venueOwner.Area) ? venueOwner.Area : "Nasr City";
+            venueOwner.UpdateProfile("كابتن أحمد محمود", city, area, venueOwner.Positions, venueOwner.SkillLevel, now);
+        }
+
+        // Dedicated App Store / Google Play reviewer account
+        var reviewerPhone = "+201000000999";
+        var reviewerUser = await _identityDbContext.Users.FirstOrDefaultAsync(u => u.PhoneNumber == reviewerPhone, cancellationToken);
+        if (reviewerUser == null)
+        {
+            reviewerUser = User.CreatePlayer(
+                id: Guid.Parse("77777777-7777-7777-7777-777777777777"),
+                phoneNumber: reviewerPhone,
+                fullName: "أحمد مراجع",
+                createdAtUtc: now);
+            await _identityDbContext.Users.AddAsync(reviewerUser, cancellationToken);
+        }
 
         await _identityDbContext.SaveChangesAsync(cancellationToken);
-        return (player1, player2, venueOwner);
+        return (player1, player2, venueOwner, reviewerUser);
     }
 
-    private async Task<(Venue VenueAhly, Pitch Pitch1, Pitch Pitch2)> SeedDemoVenuesAndPitchesAsync(
+    private async Task<(Venue VenueAbtal, Pitch Pitch1, Pitch Pitch2)> SeedDemoVenuesAndPitchesAsync(
         Guid ownerId,
         CancellationToken cancellationToken)
     {
         var now = DateTime.UtcNow;
-        var ahlyVenueId = Guid.Parse("44444444-4444-4444-4444-444444444444");
+        var abtalVenueId = Guid.Parse("44444444-4444-4444-4444-444444444444");
 
-        var venueAhly = await _venuesDbContext.Venues.FirstOrDefaultAsync(v => v.Id == ahlyVenueId, cancellationToken);
-        if (venueAhly == null)
+        var venueAbtal = await _venuesDbContext.Venues.FirstOrDefaultAsync(v => v.Id == abtalVenueId, cancellationToken);
+        if (venueAbtal == null)
         {
-            venueAhly = Venue.Create(
-                id: ahlyVenueId,
-                name: "ملاعب النادي الأهلي - مدينة نصر",
-                slug: "al-ahly-club-nasr-city",
+            venueAbtal = Venue.Create(
+                id: abtalVenueId,
+                name: "مجمع ملاعب الأبطال - القاهرة",
+                slug: "al-abtal-sports-complex",
                 description: "مجمع ملاعب خماسية وسباعية معتمدة بأحدث نجيل صناعي وكشافات ليلية",
                 ownerId: ownerId,
                 address: "شارع أحمد فخري، المنطقة السادسة، مدينة نصر",
@@ -153,8 +194,23 @@ public sealed class DemoDataSeeder : IDataSeeder
                 photos: _venuePhotos,
                 createdAtUtc: now);
 
-            await _venuesDbContext.Venues.AddAsync(venueAhly, cancellationToken);
+            await _venuesDbContext.Venues.AddAsync(venueAbtal, cancellationToken);
             await _venuesDbContext.SaveChangesAsync(cancellationToken);
+        }
+        else if (venueAbtal.Name.Contains("الأهلي"))
+        {
+            venueAbtal.UpdateDetails(
+                name: "مجمع ملاعب الأبطال - القاهرة",
+                description: "مجمع ملاعب خماسية وسباعية معتمدة بأحدث نجيل صناعي وكشافات ليلية",
+                address: "شارع أحمد فخري، المنطقة السادسة، مدينة نصر",
+                city: "Cairo",
+                area: "Nasr City",
+                latitude: 30.0561,
+                longitude: 31.3301,
+                phoneNumber: "+201000000001",
+                facilities: ReferenceDataSeeder.StandardFacilities,
+                photos: _venuePhotos,
+                nowUtc: now);
         }
 
         var pitch1Id = Guid.Parse("55555555-5555-5555-5555-555555555551");
@@ -163,8 +219,8 @@ public sealed class DemoDataSeeder : IDataSeeder
         {
             pitch1 = Pitch.Create(
                 id: pitch1Id,
-                venueId: ahlyVenueId,
-                name: "ملعب التتش الصغير (خماسي)",
+                venueId: abtalVenueId,
+                name: "ملعب الأبطال (خماسي)",
                 turfType: SurfaceType.ArtificialTurfValue,
                 capacity: 5,
                 lengthMeters: 40.0m,
@@ -174,6 +230,17 @@ public sealed class DemoDataSeeder : IDataSeeder
 
             await _venuesDbContext.Pitches.AddAsync(pitch1, cancellationToken);
         }
+        else if (pitch1.Name.Contains("التتش"))
+        {
+            pitch1.Update(
+                name: "ملعب الأبطال (خماسي)",
+                turfType: SurfaceType.ArtificialTurfValue,
+                capacity: 5,
+                lengthMeters: 40.0m,
+                widthMeters: 20.0m,
+                photos: _fiveASidePhotos,
+                nowUtc: now);
+        }
 
         var pitch2Id = Guid.Parse("55555555-5555-5555-5555-555555555552");
         var pitch2 = await _venuesDbContext.Pitches.FirstOrDefaultAsync(p => p.Id == pitch2Id, cancellationToken);
@@ -181,7 +248,7 @@ public sealed class DemoDataSeeder : IDataSeeder
         {
             pitch2 = Pitch.Create(
                 id: pitch2Id,
-                venueId: ahlyVenueId,
+                venueId: abtalVenueId,
                 name: "ملعب النجوم (سباعي)",
                 turfType: SurfaceType.ArtificialTurfValue,
                 capacity: 7,
@@ -193,12 +260,12 @@ public sealed class DemoDataSeeder : IDataSeeder
             await _venuesDbContext.Pitches.AddAsync(pitch2, cancellationToken);
         }
 
-        ReplaceLegacyPhotos(venueAhly.Photos, _venuePhotos, venueAhly.RemovePhoto, venueAhly.AddPhoto, now);
+        ReplaceLegacyPhotos(venueAbtal.Photos, _venuePhotos, venueAbtal.RemovePhoto, venueAbtal.AddPhoto, now);
         ReplaceLegacyPhotos(pitch1.Photos, _fiveASidePhotos, pitch1.RemovePhoto, pitch1.AddPhoto, now);
         ReplaceLegacyPhotos(pitch2.Photos, _sevenASidePhotos, pitch2.RemovePhoto, pitch2.AddPhoto, now);
 
         await _venuesDbContext.SaveChangesAsync(cancellationToken);
-        return (venueAhly, pitch1, pitch2);
+        return (venueAbtal, pitch1, pitch2);
     }
 
     /// <summary>Openly licensed football photos (Unsplash) for the demo venue gallery.</summary>
@@ -247,12 +314,13 @@ public sealed class DemoDataSeeder : IDataSeeder
             await _venuesDbContext.OperatingSchedules.AddRangeAsync(schedules, cancellationToken);
         }
 
-        if (!await _venuesDbContext.PriceRules.AnyAsync(r => r.VenueId == venueId, cancellationToken))
+        var existingRules = await _venuesDbContext.PriceRules.Where(r => r.VenueId == venueId).ToListAsync(cancellationToken);
+        if (existingRules.Count == 0)
         {
             var rules = new[]
             {
-                PriceRule.Create(venueId, new PriceRuleTerms(PriceRuleKind.Base, PriceAdjustment.FixedHourlyRate, null, "السعر الأساسي", 400m, null, null, null, null, null, null, null), now),
-                PriceRule.Create(venueId, new PriceRuleTerms(PriceRuleKind.Base, PriceAdjustment.FixedHourlyRate, largePitchId, "سعر الملعب السباعي", 600m, null, null, null, null, null, null, null), now),
+                PriceRule.Create(venueId, new PriceRuleTerms(PriceRuleKind.Base, PriceAdjustment.FixedHourlyRate, null, "السعر الأساسي", 250m, null, null, null, null, null, null, null), now),
+                PriceRule.Create(venueId, new PriceRuleTerms(PriceRuleKind.Base, PriceAdjustment.FixedHourlyRate, largePitchId, "سعر الملعب السباعي", 400m, null, null, null, null, null, null, null), now),
             };
             foreach (var rule in rules)
             {
@@ -262,6 +330,13 @@ public sealed class DemoDataSeeder : IDataSeeder
                 }
 
                 await _venuesDbContext.PriceRules.AddAsync(rule.Value, cancellationToken);
+            }
+        }
+        else
+        {
+            foreach (var rule in existingRules.Where(r => r.PitchId == null && r.Amount != 250m))
+            {
+                rule.Update(new PriceRuleTerms(rule.Kind, rule.Adjustment, rule.PitchId, rule.Name, 250m, rule.Percent, rule.Days, rule.StartTime, rule.EndTime, rule.StartDate, rule.EndDate, rule.MinDurationMinutes), rule.IsActive, now);
             }
         }
 
@@ -286,20 +361,31 @@ public sealed class DemoDataSeeder : IDataSeeder
         }
 
         // Account details are encrypted at rest, so the payment method needs the field cipher.
-        if (_fieldCipher is not null && !await _venuesDbContext.PaymentMethods.AnyAsync(m => m.VenueId == venueId, cancellationToken))
+        var existingPaymentMethods = await _venuesDbContext.PaymentMethods.Where(m => m.VenueId == venueId).ToListAsync(cancellationToken);
+        if (_fieldCipher is not null && existingPaymentMethods.Count == 0)
         {
             var method = VenuePaymentMethod.Create(
                 Guid.NewGuid(),
                 venueId,
                 PaymentMethodType.MobileWallet,
-                "حسن شحاتة",
+                "كابتن أحمد محمود",
                 "حوّل العربون وارفع صورة الإيصال.",
                 deposit,
                 now);
-            const string walletNumber = "01000000001";
+            const string walletNumber = "01012345678";
             var ciphertext = await _fieldCipher.EncryptAsync(walletNumber, PaymentMethodMapping.EncryptionContext(method.Id), cancellationToken);
             method.SetAccountDetails(ciphertext, walletNumber, now);
             await _venuesDbContext.PaymentMethods.AddAsync(method, cancellationToken);
+        }
+        else if (_fieldCipher is not null && existingPaymentMethods.Count > 0)
+        {
+            foreach (var pm in existingPaymentMethods.Where(p => p.RecipientName.Contains("حسن شحاتة")))
+            {
+                const string walletNumber = "01012345678";
+                var ciphertext = await _fieldCipher.EncryptAsync(walletNumber, PaymentMethodMapping.EncryptionContext(pm.Id), cancellationToken);
+                pm.Update(pm.MethodType, "كابتن أحمد محمود", pm.Instructions, pm.DepositRule, pm.IsActive, now);
+                pm.SetAccountDetails(ciphertext, walletNumber, now);
+            }
         }
 
         if (venue.ApprovalStatus is VenueApprovalStatus.Draft)
@@ -315,6 +401,46 @@ public sealed class DemoDataSeeder : IDataSeeder
         }
 
         await _venuesDbContext.SaveChangesAsync(cancellationToken);
+    }
+
+    private async Task SeedDemoTeamsAsync(
+        Guid reviewerUserId,
+        Guid player1Id,
+        Guid player2Id,
+        CancellationToken cancellationToken)
+    {
+        if (_teamsDbContext == null)
+        {
+            return;
+        }
+
+        var teamId = Guid.Parse("88888888-8888-8888-8888-888888888888");
+        var existingTeam = await _teamsDbContext.Teams.Include(t => t.Members).FirstOrDefaultAsync(t => t.Id == teamId, cancellationToken);
+        if (existingTeam == null)
+        {
+            var now = DateTime.UtcNow;
+            var teamResult = Team.Create(
+                id: teamId,
+                name: "فريق الأبطال",
+                slug: "al-abtal-team",
+                city: "Cairo",
+                governorate: "Cairo",
+                captainId: reviewerUserId,
+                inviteCode: "ABTL01",
+                nowUtc: now,
+                description: "فريق المراجعة التجريبي لمباريات خماسي وسباعي",
+                district: "مدينة نصر");
+
+            if (teamResult.IsSuccess)
+            {
+                var team = teamResult.Value;
+                team.JoinWithInviteCode("ABTL01", player1Id, now);
+                team.JoinWithInviteCode("ABTL01", player2Id, now);
+
+                await _teamsDbContext.Teams.AddAsync(team, cancellationToken);
+                await _teamsDbContext.SaveChangesAsync(cancellationToken);
+            }
+        }
     }
 
     private async Task SeedDemoBookingsAsync(
@@ -335,14 +461,14 @@ public sealed class DemoDataSeeder : IDataSeeder
         {
             var booking1Result = Booking.Create(
                 id: booking1Id,
-                bookingReference: "BK-AHLY-PENDING",
+                bookingReference: "BK-ABTL-PENDING",
                 venueId: venueId,
                 pitchId: pitch1Id,
                 playerId: player1Id,
                 startUtc: now.AddHours(3),
                 endUtc: now.AddHours(4),
-                totalPrice: Money.Create(450.00m, "EGP").Value,
-                depositAmount: Money.Create(150.00m, "EGP").Value,
+                totalPrice: Money.Create(250.00m, "EGP").Value,
+                depositAmount: Money.Create(75.00m, "EGP").Value,
                 holdExpiresAtUtc: now.AddMinutes(15),
                 priceSnapshot: null,
                 policySnapshot: null,
@@ -361,14 +487,14 @@ public sealed class DemoDataSeeder : IDataSeeder
         {
             var booking2Result = Booking.Create(
                 id: booking2Id,
-                bookingReference: "BK-AHLY-CONFIRM",
+                bookingReference: "BK-ABTL-CONFIRM",
                 venueId: venueId,
                 pitchId: pitch2Id,
                 playerId: player2Id,
                 startUtc: now.AddHours(5),
                 endUtc: now.AddHours(6),
-                totalPrice: Money.Create(700.00m, "EGP").Value,
-                depositAmount: Money.Create(200.00m, "EGP").Value,
+                totalPrice: Money.Create(400.00m, "EGP").Value,
+                depositAmount: Money.Create(120.00m, "EGP").Value,
                 holdExpiresAtUtc: now.AddMinutes(15),
                 priceSnapshot: null,
                 policySnapshot: null,
@@ -389,14 +515,14 @@ public sealed class DemoDataSeeder : IDataSeeder
         {
             var booking3Result = Booking.Create(
                 id: booking3Id,
-                bookingReference: "BK-AHLY-CANCEL",
+                bookingReference: "BK-ABTL-CANCEL",
                 venueId: venueId,
                 pitchId: pitch1Id,
                 playerId: player1Id,
                 startUtc: now.AddDays(1),
                 endUtc: now.AddDays(1).AddHours(1),
-                totalPrice: Money.Create(450.00m, "EGP").Value,
-                depositAmount: Money.Create(150.00m, "EGP").Value,
+                totalPrice: Money.Create(250.00m, "EGP").Value,
+                depositAmount: Money.Create(75.00m, "EGP").Value,
                 holdExpiresAtUtc: now.AddMinutes(15),
                 priceSnapshot: null,
                 policySnapshot: null,

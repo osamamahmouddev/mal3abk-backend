@@ -11,7 +11,8 @@ public enum SettingType
 {
     Integer = 0,
     Boolean = 1,
-    Text = 2
+    Text = 2,
+    Decimal = 3
 }
 
 /// <summary>A setting the platform knows: its type, default and allowed range. Unknown keys cannot be stored.</summary>
@@ -33,6 +34,12 @@ public static class PlatformCatalog
         new(PlatformSettingKeys.RankingLossPoints, SettingType.Integer, "0", "نقاط تصنيف الفرق عند الخسارة.", 0, 10),
         new(PlatformSettingKeys.MaintenanceEnabled, SettingType.Boolean, "false", "وضع الصيانة: إيقاف طلبات المستخدمين وعرض رسالة الصيانة في التطبيقات."),
         new(PlatformSettingKeys.MaintenanceMessage, SettingType.Text, "نعمل على تحسين الخدمة وهنرجع قريب.", "نص الرسالة المعروضة للمستخدمين أثناء فترة الصيانة.", MaxLength: 300),
+        new(PlatformSettingKeys.DefaultHourlyCommission, SettingType.Decimal, "50.00", "عمولة المنصة الافتراضية لكل ساعة حجز بالجنيه المصري.", 0, 10000),
+        new(PlatformSettingKeys.PlatformDepositEnabled, SettingType.Boolean, "true", "تفعيل استلام العربون مركزياً على حسابات المنصة بدلاً من حسابات الملعب المباشرة."),
+        new(PlatformSettingKeys.PlatformInstaPayAddress, SettingType.Text, "mal3abk@instapay", "عنوان إنستاباي الرسمي للمنصة لاستلام العربون.", MaxLength: 100),
+        new(PlatformSettingKeys.PlatformVodafoneCashNumber, SettingType.Text, "01000000000", "رقم محفظة فودافون كاش / المحافظ الإلكترونية للمنصة لاستلام العربون.", MaxLength: 20),
+        new(PlatformSettingKeys.PlatformDepositRecipientName, SettingType.Text, "منصة ملعبك", "اسم المستلم المعروض للاعب عند تحويل العربون.", MaxLength: 100),
+        new(PlatformSettingKeys.PlatformDepositInstructions, SettingType.Text, "برجاء كتابة رقم الحجز في خانة الملاحظات أثناء التحويل ورفع صورة الإيصال بعد الدفع مباشرة.", "تعليمات تحويل العربون المعروضة للاعب في التطبيق.", MaxLength: 500),
     ];
 
     public static readonly IReadOnlyList<FlagDefinition> Flags =
@@ -60,6 +67,10 @@ public static class PlatformCatalog
             SettingType.Integer => int.TryParse(raw, NumberStyles.Integer, CultureInfo.InvariantCulture, out var n)
                 && (definition.Min is null || n >= definition.Min) && (definition.Max is null || n <= definition.Max)
                 ? n.ToString(CultureInfo.InvariantCulture)
+                : null,
+            SettingType.Decimal => decimal.TryParse(raw, NumberStyles.Number, CultureInfo.InvariantCulture, out var d)
+                && (definition.Min is null || d >= definition.Min) && (definition.Max is null || d <= definition.Max)
+                ? d.ToString("F2", CultureInfo.InvariantCulture)
                 : null,
             SettingType.Boolean => bool.TryParse(raw, out var b) ? BoolText(b) : null,
             _ => raw.Length > 0 && raw.Length <= (definition.MaxLength ?? 1000) ? raw : null
@@ -163,6 +174,9 @@ public sealed class PlatformService : IPlatformSettings, IFeatureFlags
         await ValueAsync(key, cancellationToken) == "true";
 
     public Task<string> GetStringAsync(string key, CancellationToken cancellationToken = default) => ValueAsync(key, cancellationToken);
+
+    public async Task<decimal> GetDecimalAsync(string key, CancellationToken cancellationToken = default) =>
+        decimal.Parse(await ValueAsync(key, cancellationToken), CultureInfo.InvariantCulture);
 
     public async Task<bool> IsEnabledAsync(string key, CancellationToken cancellationToken = default)
     {

@@ -14,5 +14,9 @@ public sealed record CreateBookingResponse(
     string Currency,
     BookingStatus Status,
     DateTime HoldExpiresAtUtc,
-    string? PaymentInstructions
+    string? PaymentInstructions,
+    decimal PlatformCommission = 0m,
+    decimal VenueNetAmount = 0m,
+    decimal OnlineDepositAmount = 0m,
+    decimal VenuePayAmount = 0m
 );

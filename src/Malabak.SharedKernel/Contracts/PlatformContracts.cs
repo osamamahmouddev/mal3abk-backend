@@ -25,6 +25,8 @@ public interface IPlatformSettings
     Task<bool> GetBoolAsync(string key, CancellationToken cancellationToken = default);
 
     Task<string> GetStringAsync(string key, CancellationToken cancellationToken = default);
+
+    Task<decimal> GetDecimalAsync(string key, CancellationToken cancellationToken = default);
 }
 
 /// <summary>Known platform setting keys.</summary>
@@ -39,4 +41,10 @@ public static class PlatformSettingKeys
     public const string RankingLossPoints = "ranking.loss_points";
     public const string MaintenanceEnabled = "maintenance.enabled";
     public const string MaintenanceMessage = "maintenance.message";
+    public const string DefaultHourlyCommission = "pricing.default_hourly_commission";
+    public const string PlatformDepositEnabled = "platform.deposit.enabled";
+    public const string PlatformInstaPayAddress = "platform.deposit.instapay_address";
+    public const string PlatformVodafoneCashNumber = "platform.deposit.vodafone_cash_number";
+    public const string PlatformDepositRecipientName = "platform.deposit.recipient_name";
+    public const string PlatformDepositInstructions = "platform.deposit.instructions";
 }

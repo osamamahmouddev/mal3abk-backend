@@ -111,7 +111,11 @@ public sealed class CreateBookingHandler : ICommandHandler<CreateBookingCommand,
             booking.TotalPrice.Currency,
             booking.Status,
             holdExpiresAtUtc,
-            paymentInstructions));
+            paymentInstructions,
+            booking.PlatformCommission.Amount,
+            booking.VenueNetAmount.Amount,
+            booking.PlatformCommission.Amount,
+            booking.VenuePayAmount.Amount));
     }
 
     /// <summary>

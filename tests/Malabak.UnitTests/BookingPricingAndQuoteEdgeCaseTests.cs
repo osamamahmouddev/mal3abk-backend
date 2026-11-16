@@ -371,4 +371,87 @@ public sealed class BookingPricingAndQuoteEdgeCaseTests
         var negQuote = PricingCalculator.Quote(_pitchId, [baseRule], start, start.AddMinutes(-30), null, _cairoTz);
         negQuote.IsFailure.Should().BeTrue();
     }
+
+    [Fact]
+    public void Booking_ConfirmOnlinePayment_WhenInsufficientAmount_FailsValidation()
+    {
+        var start = DateTime.UtcNow.AddDays(1);
+        var end = start.AddHours(2);
+        var priceSnapshot = new PriceQuoteSnapshot(
+            _venueId,
+            _pitchId,
+            start,
+            end,
+            120,
+            "EGP",
+            800m,
+            0m,
+            null,
+            860m,
+            60m,
+            "FixedAmount",
+            [],
+            DateTime.UtcNow,
+            NetPitchPrice: 800m,
+            PlatformCommission: 60m,
+            OnlineDepositAmount: 60m,
+            VenuePayAmount: 800m);
+
+        var booking = Booking.Create(
+            Guid.NewGuid(),
+            "MLB-TEST",
+            _venueId,
+            _pitchId,
+            Guid.NewGuid(),
+            start,
+            end,
+            Money.From(860m),
+            Money.From(60m),
+            DateTime.UtcNow.AddMinutes(15),
+            priceSnapshot,
+            null,
+            DateTime.UtcNow,
+            "test-actor").Value;
+
+        // Attempting to confirm with less than the 60 EGP platform commission (e.g. 50 EGP)
+        var result = booking.ConfirmOnlinePayment("order-1", "tx-1", Money.From(50m), DateTime.UtcNow);
+
+        result.IsFailure.Should().BeTrue();
+        result.Error.Code.Should().Be("Booking.InsufficientPayment");
+    }
+
+    [Fact]
+    public void Venue_SetCommission_ExceedingLimits_ThrowsArgumentException()
+    {
+        var venue = Venue.Create(
+            _venueId,
+            "Test Venue",
+            "test-venue",
+            "Description",
+            Guid.NewGuid(),
+            "Address",
+            "City",
+            "Area",
+            null,
+            null,
+            "+201000000000",
+            null,
+            null,
+            DateTime.UtcNow);
+
+        // Percentage cannot exceed 100%
+        var actPercentage = () => venue.SetCommission(true, CommissionType.Percentage, 105m, DateTime.UtcNow);
+        actPercentage.Should().Throw<ArgumentException>()
+            .WithMessage("*Percentage commission rate cannot exceed 100%*");
+
+        // Hourly fixed cannot exceed 100,000 EGP
+        var actHourly = () => venue.SetCommission(true, CommissionType.PerHourFixed, 150_000m, DateTime.UtcNow);
+        actHourly.Should().Throw<ArgumentException>()
+            .WithMessage("*Hourly commission rate cannot exceed 100,000*");
+
+        // Valid rates succeed
+        venue.SetCommission(true, CommissionType.Percentage, 15m, DateTime.UtcNow);
+        venue.CommissionRate.Should().Be(15m);
+        venue.CommissionType.Should().Be(CommissionType.Percentage);
+    }
 }

@@ -32,7 +32,17 @@ public sealed record BookingQuoteDto(
     string ConfirmationNote,
     IReadOnlyList<string> PolicySummary,
     BookingPolicySnapshot? Policy,
-    PriceQuoteSnapshot Breakdown);
+    PriceQuoteSnapshot Breakdown,
+    decimal NetPitchPrice = 0m,
+    decimal PlatformCommission = 0m,
+    decimal OnlineDepositAmount = 0m,
+    decimal VenuePayAmount = 0m)
+{
+    public decimal NetPitchPrice { get; init; } = NetPitchPrice != 0m ? NetPitchPrice : Breakdown.NetPitchPrice;
+    public decimal PlatformCommission { get; init; } = PlatformCommission != 0m ? PlatformCommission : Breakdown.PlatformCommission;
+    public decimal OnlineDepositAmount { get; init; } = OnlineDepositAmount != 0m ? OnlineDepositAmount : Breakdown.OnlineDepositAmount;
+    public decimal VenuePayAmount { get; init; } = VenuePayAmount != 0m ? VenuePayAmount : Breakdown.VenuePayAmount;
+}
 
 public static class QuoteErrors
 {
@@ -105,7 +115,8 @@ public sealed class BookingQuoteService : IBookingQuoteValidator
                 ? "The venue confirms the booking after reviewing your deposit transfer."
                 : string.Create(CultureInfo.InvariantCulture,
                     $"Your slot is held after you start the booking. Upload the deposit proof within {policy.ProofSubmissionWindowMinutes} minutes; the venue reviews it within {policy.ManualReviewWindowMinutes} minutes."),
-            PolicySummary(policy), policy, quote));
+            PolicySummary(policy), policy, quote,
+            quote.NetPitchPrice, quote.PlatformCommission, quote.OnlineDepositAmount, quote.VenuePayAmount));
     }
 
     public async Task<Result<PriceQuoteSnapshot>> ValidateAsync(

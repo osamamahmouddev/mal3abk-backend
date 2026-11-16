@@ -22,7 +22,12 @@ public sealed record PlayerBookingSummaryDto(
     DateTime CreatedAtUtc,
     string? VenueName = null,
     string? PitchName = null,
-    string? VenueCoverPhotoUrl = null);
+    string? VenueCoverPhotoUrl = null,
+    decimal PlatformCommission = 0m,
+    decimal VenueNetAmount = 0m,
+    decimal OnlinePaidAmount = 0m,
+    decimal VenuePayAmount = 0m,
+    bool IsCommissionPaid = false);
 
 public sealed record PlayerBookingDetailDto(
     Guid Id,
@@ -44,7 +49,12 @@ public sealed record PlayerBookingDetailDto(
     IReadOnlyList<PlayerStatusHistoryDto> StatusHistory,
     DateTime CreatedAtUtc,
     string? PitchName = null,
-    string? VenueCoverPhotoUrl = null);
+    string? VenueCoverPhotoUrl = null,
+    decimal PlatformCommission = 0m,
+    decimal VenueNetAmount = 0m,
+    decimal OnlinePaidAmount = 0m,
+    decimal VenuePayAmount = 0m,
+    bool IsCommissionPaid = false);
 
 /// <summary>Where the booking is, for the confirmation screen and directions.</summary>
 public sealed record PlayerVenueDto(string Name, string Address, double? Latitude, double? Longitude);
@@ -148,7 +158,12 @@ public sealed class PlayerBookingQueriesHandler :
                 b.CreatedAtUtc,
                 venueNames.GetValueOrDefault(b.VenueId),
                 pitchNames.GetValueOrDefault(b.PitchId),
-                coverPhotos.GetValueOrDefault(b.VenueId));
+                coverPhotos.GetValueOrDefault(b.VenueId),
+                b.PlatformCommission.Amount,
+                b.VenueNetAmount.Amount,
+                b.OnlinePaidAmount.Amount,
+                b.VenuePayAmount.Amount,
+                b.IsCommissionPaid);
         }).ToList();
 
         return Result.Success(new PagedList<PlayerBookingSummaryDto>(dtos, totalCount, page, pageSize));
@@ -223,7 +238,12 @@ public sealed class PlayerBookingQueriesHandler :
             history,
             booking.CreatedAtUtc,
             pitchNames.GetValueOrDefault(booking.PitchId),
-            coverPhotos.GetValueOrDefault(booking.VenueId));
+            coverPhotos.GetValueOrDefault(booking.VenueId),
+            booking.PlatformCommission.Amount,
+            booking.VenueNetAmount.Amount,
+            booking.OnlinePaidAmount.Amount,
+            booking.VenuePayAmount.Amount,
+            booking.IsCommissionPaid);
 
         return Result.Success(dto);
     }

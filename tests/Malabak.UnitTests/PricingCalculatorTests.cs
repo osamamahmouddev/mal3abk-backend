@@ -1,5 +1,6 @@
 using FluentAssertions;
 using Malabak.Modules.Venues.Domain;
+using Malabak.SharedKernel.Contracts;
 using Xunit;
 
 namespace Malabak.UnitTests;
@@ -184,6 +185,97 @@ public sealed class PricingCalculatorTests
         evening.Overlaps(night).Should().BeTrue();
         evening.Overlaps(morning).Should().BeFalse();
         fridayOnly.Overlaps(saturdayOnly).Should().BeFalse();
+    }
+
+    [Fact]
+    public void Commission_PlatformDefault_CalculatesPerHour()
+    {
+        // 2 hours at 400 EGP base rate = 800 EGP net pitch price. Default commission 30 EGP/hour = 60 EGP.
+        var quote = PricingCalculator.Quote(
+            _pitchId,
+            [Base(400)],
+            Local(5, 16),
+            Local(5, 18),
+            null,
+            _cairo,
+            CommissionType.PlatformDefault,
+            commissionRate: null,
+            defaultHourlyCommission: 30m).Value;
+
+        quote.Subtotal.Should().Be(800m);
+        quote.Discount.Should().Be(0m);
+        quote.NetPitchPrice.Should().Be(800m);
+        quote.PlatformCommission.Should().Be(60m);
+        quote.Total.Should().Be(860m);
+        quote.OnlineDepositAmount.Should().Be(60m);
+        quote.VenuePayAmount.Should().Be(800m);
+    }
+
+    [Fact]
+    public void Commission_PerHourFixed_UsesCustomVenueRate()
+    {
+        // 90 minutes (1.5 hours) at 400 EGP/hour = 600 EGP. Custom commission 40 EGP/hour = 60 EGP.
+        var quote = PricingCalculator.Quote(
+            _pitchId,
+            [Base(400)],
+            Local(5, 16),
+            Local(5, 17, 30),
+            null,
+            _cairo,
+            CommissionType.PerHourFixed,
+            commissionRate: 40m,
+            defaultHourlyCommission: 30m).Value;
+
+        quote.Subtotal.Should().Be(600m);
+        quote.NetPitchPrice.Should().Be(600m);
+        quote.PlatformCommission.Should().Be(60m);
+        quote.Total.Should().Be(660m);
+        quote.OnlineDepositAmount.Should().Be(60m);
+        quote.VenuePayAmount.Should().Be(600m);
+    }
+
+    [Fact]
+    public void Commission_Percentage_CalculatesFromNetPitchPrice()
+    {
+        // 2 hours at 400 EGP = 800 EGP. 50 EGP discount -> Net = 750 EGP. 10% commission = 75 EGP.
+        var fiftyOff = Rule(PriceRuleKind.Discount, PriceAdjustment.FixedAmountOff, amount: 50);
+        var quote = PricingCalculator.Quote(
+            _pitchId,
+            [Base(400), fiftyOff],
+            Local(5, 16),
+            Local(5, 18),
+            null,
+            _cairo,
+            CommissionType.Percentage,
+            commissionRate: 10m,
+            defaultHourlyCommission: 30m).Value;
+
+        quote.Subtotal.Should().Be(800m);
+        quote.Discount.Should().Be(50m);
+        quote.NetPitchPrice.Should().Be(750m);
+        quote.PlatformCommission.Should().Be(75m);
+        quote.Total.Should().Be(825m);
+        quote.OnlineDepositAmount.Should().Be(75m);
+        quote.VenuePayAmount.Should().Be(750m);
+    }
+
+    [Fact]
+    public void Commission_Exempt_ResultsInZeroCommission()
+    {
+        var quote = PricingCalculator.Quote(
+            _pitchId,
+            [Base(400)],
+            Local(5, 16),
+            Local(5, 18),
+            null,
+            _cairo,
+            CommissionType.Exempt,
+            commissionRate: null,
+            defaultHourlyCommission: 50m).Value;
+
+        quote.NetPitchPrice.Should().Be(800m);
+        quote.PlatformCommission.Should().Be(0m);
+        quote.Total.Should().Be(800m);
     }
 
     private PriceQuote Quote(IReadOnlyCollection<PriceRule> rules, DateTime start, DateTime end) =>

@@ -29,7 +29,15 @@ public sealed record BookingsBucket(DateOnly PeriodStart, int Total, int Confirm
 /// <item><c>Pending</c>: full price of bookings still waiting for a deposit or its review; not counted above.</item>
 /// </list>
 /// </summary>
-public sealed record RevenueSplit(string Currency, decimal Booked, decimal DepositsReceived, decimal Outstanding, decimal Recognized, decimal Pending);
+public sealed record RevenueSplit(
+    string Currency,
+    decimal Booked,
+    decimal DepositsReceived,
+    decimal Outstanding,
+    decimal Recognized,
+    decimal Pending,
+    decimal PlatformCommission = 0m,
+    decimal VenueNetRevenue = 0m);
 
 public sealed record RevenueBucket(DateOnly PeriodStart, decimal Booked, decimal Recognized, decimal DepositsReceived);
 
@@ -185,7 +193,9 @@ public sealed class VenueReportService
             accepted.Sum(r => r.Deposit),
             rows.Where(r => r.Status == BookingStatus.Confirmed).Sum(r => r.Total - r.Deposit),
             rows.Where(r => r.Status == BookingStatus.Completed).Sum(r => r.Total) + rows.Where(r => r.Status == BookingStatus.NoShow).Sum(r => r.Deposit),
-            rows.Where(r => _waiting.Contains(r.Status)).Sum(r => r.Total));
+            rows.Where(r => _waiting.Contains(r.Status)).Sum(r => r.Total),
+            accepted.Sum(r => r.PlatformCommission),
+            accepted.Sum(r => r.VenueNetAmount));
     }
 
     public static DateOnly PeriodStart(DateOnly date, ReportGrouping groupBy) => groupBy switch
@@ -205,7 +215,8 @@ public sealed class VenueReportService
             .Where(b => b.VenueId == venueId && !b.IsDeleted && b.Status != BookingStatus.Draft && b.StartUtc >= startUtc && b.StartUtc < endUtc
                 && (pitchId == null || b.PitchId == pitchId))
             .Select(b => new ReportRow(b.Id, b.BookingReference, b.PitchId, b.PlayerId, b.StartUtc, b.EndUtc, b.Status, b.TotalPrice.Amount,
-                b.DepositAmount.Amount, b.TotalPrice.Currency, b.HoldExpiresAtUtc, b.IsManualBooking, b.CustomerName))
+                b.DepositAmount.Amount, b.TotalPrice.Currency, b.HoldExpiresAtUtc, b.IsManualBooking, b.CustomerName,
+                b.PlatformCommission.Amount, b.VenueNetAmount.Amount))
             .ToListAsync(cancellationToken);
     }
 
@@ -271,5 +282,6 @@ public sealed class VenueReportService
 
     public sealed record ReportRow(
         Guid Id, string Reference, Guid PitchId, Guid PlayerId, DateTime StartUtc, DateTime EndUtc, BookingStatus Status, decimal Total,
-        decimal Deposit, string Currency, DateTime? HoldExpiresAtUtc, bool IsManual, string? CustomerName);
+        decimal Deposit, string Currency, DateTime? HoldExpiresAtUtc, bool IsManual, string? CustomerName,
+        decimal PlatformCommission = 0m, decimal VenueNetAmount = 0m);
 }

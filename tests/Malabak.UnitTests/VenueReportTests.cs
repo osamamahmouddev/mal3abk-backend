@@ -31,7 +31,7 @@ public sealed class VenueReportTests
         var report = (await Service(db).GetAsync(_venueId, _from, _to, null, ReportGrouping.Month)).Value;
 
         // Accepted: completed 400/100, confirmed future 500/150, no-show 400/100. Waiting: in review 300. Lapsed hold, cancellation: none.
-        report.Revenue.Should().Be(new RevenueSplit("EGP", Booked: 1300, DepositsReceived: 350, Outstanding: 350, Recognized: 500, Pending: 300));
+        report.Revenue.Should().Be(new RevenueSplit("EGP", Booked: 1300, DepositsReceived: 350, Outstanding: 350, Recognized: 500, Pending: 300, PlatformCommission: 0, VenueNetRevenue: 1300));
         report.RevenueSeries.Should().ContainSingle().Which.Should().Be(new RevenueBucket(_from, 1300, 500, 350));
     }
 

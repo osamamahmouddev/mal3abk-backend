@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Security.Claims;
 using Asp.Versioning.Builder;
+using Malabak.Modules.Identity.Application.Authentication.FirebaseAuth;
 using Malabak.Modules.Identity.Application.Authentication.Logout;
 using Malabak.Modules.Identity.Application.Authentication.LogoutAll;
 using Malabak.Modules.Identity.Application.Authentication.RefreshToken;
@@ -77,9 +78,33 @@ public static class AuthEndpoints
 
             return Results.Ok(result.Value);
         })
+        .Produces<VerifyOtpResponse>()
         .AllowAnonymous()
         .WithName("VerifyOtp")
         .WithSummary("Verify OTP code and authenticate player");
+
+        group.MapPost("/firebase", async (
+            [FromBody] FirebaseAuthRequest request,
+            ICommandHandler<FirebaseAuthCommand, Result<VerifyOtpResponse>> handler,
+            CancellationToken cancellationToken) =>
+        {
+            var command = new FirebaseAuthCommand(request.IdToken, request.FullName, request.RestoreAccount);
+
+            var result = await handler.HandleAsync(command, cancellationToken);
+            if (result.IsFailure)
+            {
+                return Results.Problem(
+                    title: result.Error.Code,
+                    detail: result.Error.Description,
+                    statusCode: StatusCodes.Status400BadRequest);
+            }
+
+            return Results.Ok(result.Value);
+        })
+        .Produces<VerifyOtpResponse>()
+        .AllowAnonymous()
+        .WithName("AuthenticateWithFirebase")
+        .WithSummary("Authenticate or register player using Firebase Phone Auth ID token");
 
         group.MapPost("/refresh", async (
             [FromBody] RefreshTokenRequest request,
@@ -148,6 +173,7 @@ public static class AuthEndpoints
 
     public sealed record SendOtpRequest(string PhoneNumber, string TurnstileToken);
     public sealed record VerifyOtpRequest(string PhoneNumber, string Code, string? FullName = null, bool RestoreAccount = false);
+    public sealed record FirebaseAuthRequest(string IdToken, string? FullName = null, bool RestoreAccount = false);
     public sealed record RefreshTokenRequest(string RefreshToken);
     public sealed record LogoutRequest(string RefreshToken);
 }

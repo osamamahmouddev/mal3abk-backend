@@ -9571,6 +9571,118 @@
         }
       }
     },
+    "/api/v1/admin/venues/{venueId}/commission": {
+      "patch": {
+        "tags": [
+          "Admin Venue Approval"
+        ],
+        "summary": "Configure custom platform commission for a specific venue",
+        "operationId": "UpdateVenueCommission",
+        "parameters": [
+          {
+            "name": "venueId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateVenueCommissionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VenueCommissionDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request (Validation failure, invalid inputs)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized (Missing or expired JWT access token)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (Insufficient role or permissions)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found (Resource does not exist)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict (Concurrent update or duplicate idempotency in flight)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity (Business rule violation or payload mismatch)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests (Rate limit exceeded, check Retry-After header)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/admin/venues": {
       "get": {
         "tags": [
@@ -10517,7 +10629,14 @@
         ],
         "responses": {
           "200": {
-            "description": "OK"
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WaitlistPagedResult"
+                }
+              }
+            }
           },
           "400": {
             "description": "Bad Request (Validation failure, invalid inputs)",
@@ -10705,6 +10824,107 @@
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/VerifyOtpRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VerifyOtpResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request (Validation failure, invalid inputs)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized (Missing or expired JWT access token)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (Insufficient role or permissions)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found (Resource does not exist)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict (Concurrent update or duplicate idempotency in flight)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity (Business rule violation or payload mismatch)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests (Rate limit exceeded, check Retry-After header)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/firebase": {
+      "post": {
+        "tags": [
+          "Authentication"
+        ],
+        "summary": "Authenticate or register player using Firebase Phone Auth ID token",
+        "operationId": "AuthenticateWithFirebase",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FirebaseAuthRequest"
               }
             }
           },
@@ -17922,6 +18142,194 @@
           },
           "required": true
         },
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Bad Request (Validation failure, invalid inputs)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized (Missing or expired JWT access token)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (Insufficient role or permissions)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found (Resource does not exist)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict (Concurrent update or duplicate idempotency in flight)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity (Business rule violation or payload mismatch)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests (Rate limit exceeded, check Retry-After header)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/bookings/{id}/pay-commission": {
+      "post": {
+        "tags": [
+          "Payments"
+        ],
+        "summary": "Creates a Paymob checkout intention for the platform commission / deposit",
+        "operationId": "PayBookingCommission",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PayCommissionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Bad Request (Validation failure, invalid inputs)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized (Missing or expired JWT access token)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (Insufficient role or permissions)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found (Resource does not exist)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict (Concurrent update or duplicate idempotency in flight)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity (Business rule violation or payload mismatch)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests (Rate limit exceeded, check Retry-After header)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/payments/paymob/webhook": {
+      "post": {
+        "tags": [
+          "Payments"
+        ],
+        "summary": "Receives asynchronous payment status notifications from Paymob",
+        "operationId": "PaymobWebhook",
         "responses": {
           "200": {
             "description": "OK"
@@ -33342,14 +33750,19 @@
           "depositAmount",
           "endUtc",
           "id",
+          "isCommissionPaid",
           "isManual",
+          "onlinePaidAmount",
           "pitchId",
+          "platformCommission",
           "playerId",
           "reference",
           "startUtc",
           "status",
           "totalPrice",
-          "venueId"
+          "venueId",
+          "venueNetAmount",
+          "venuePayAmount"
         ],
         "type": "object",
         "properties": {
@@ -33400,6 +33813,25 @@
           "createdAtUtc": {
             "type": "string",
             "format": "date-time"
+          },
+          "platformCommission": {
+            "type": "number",
+            "format": "double"
+          },
+          "venueNetAmount": {
+            "type": "number",
+            "format": "double"
+          },
+          "onlinePaidAmount": {
+            "type": "number",
+            "format": "double"
+          },
+          "venuePayAmount": {
+            "type": "number",
+            "format": "double"
+          },
+          "isCommissionPaid": {
+            "type": "boolean"
           }
         },
         "additionalProperties": false
@@ -35158,6 +35590,16 @@
         },
         "additionalProperties": false
       },
+      "CommissionType": {
+        "enum": [
+          0,
+          1,
+          2,
+          3
+        ],
+        "type": "integer",
+        "format": "int32"
+      },
       "CompleteProfileApiRequest": {
         "required": [
           "area",
@@ -35408,11 +35850,15 @@
           "depositAmount",
           "endUtc",
           "holdExpiresAtUtc",
+          "onlineDepositAmount",
           "pitchId",
+          "platformCommission",
           "startUtc",
           "status",
           "totalPrice",
-          "venueId"
+          "venueId",
+          "venueNetAmount",
+          "venuePayAmount"
         ],
         "type": "object",
         "properties": {
@@ -35460,6 +35906,22 @@
           "paymentInstructions": {
             "type": "string",
             "nullable": true
+          },
+          "platformCommission": {
+            "type": "number",
+            "format": "double"
+          },
+          "venueNetAmount": {
+            "type": "number",
+            "format": "double"
+          },
+          "onlineDepositAmount": {
+            "type": "number",
+            "format": "double"
+          },
+          "venuePayAmount": {
+            "type": "number",
+            "format": "double"
           }
         },
         "additionalProperties": false
@@ -36805,6 +37267,26 @@
         },
         "additionalProperties": false
       },
+      "FirebaseAuthRequest": {
+        "required": [
+          "idToken",
+          "restoreAccount"
+        ],
+        "type": "object",
+        "properties": {
+          "idToken": {
+            "type": "string"
+          },
+          "fullName": {
+            "type": "string",
+            "nullable": true
+          },
+          "restoreAccount": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
       "FlagDto": {
         "required": [
           "description",
@@ -38140,6 +38622,28 @@
         },
         "additionalProperties": false
       },
+      "PayCommissionRequest": {
+        "type": "object",
+        "properties": {
+          "firstName": {
+            "type": "string",
+            "nullable": true
+          },
+          "lastName": {
+            "type": "string",
+            "nullable": true
+          },
+          "phoneNumber": {
+            "type": "string",
+            "nullable": true
+          },
+          "email": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
       "PaymentDto": {
         "required": [
           "amount",
@@ -38908,14 +39412,19 @@
           "depositAmount",
           "endUtc",
           "id",
+          "isCommissionPaid",
+          "onlinePaidAmount",
           "pitchId",
+          "platformCommission",
           "proofs",
           "reference",
           "startUtc",
           "status",
           "statusHistory",
           "totalPrice",
-          "venueId"
+          "venueId",
+          "venueNetAmount",
+          "venuePayAmount"
         ],
         "type": "object",
         "properties": {
@@ -38998,6 +39507,25 @@
           "venueCoverPhotoUrl": {
             "type": "string",
             "nullable": true
+          },
+          "platformCommission": {
+            "type": "number",
+            "format": "double"
+          },
+          "venueNetAmount": {
+            "type": "number",
+            "format": "double"
+          },
+          "onlinePaidAmount": {
+            "type": "number",
+            "format": "double"
+          },
+          "venuePayAmount": {
+            "type": "number",
+            "format": "double"
+          },
+          "isCommissionPaid": {
+            "type": "boolean"
           }
         },
         "additionalProperties": false
@@ -39010,12 +39538,17 @@
           "depositAmount",
           "endUtc",
           "id",
+          "isCommissionPaid",
+          "onlinePaidAmount",
           "pitchId",
+          "platformCommission",
           "reference",
           "startUtc",
           "status",
           "totalPrice",
-          "venueId"
+          "venueId",
+          "venueNetAmount",
+          "venuePayAmount"
         ],
         "type": "object",
         "properties": {
@@ -39079,6 +39612,25 @@
           "venueCoverPhotoUrl": {
             "type": "string",
             "nullable": true
+          },
+          "platformCommission": {
+            "type": "number",
+            "format": "double"
+          },
+          "venueNetAmount": {
+            "type": "number",
+            "format": "double"
+          },
+          "onlinePaidAmount": {
+            "type": "number",
+            "format": "double"
+          },
+          "venuePayAmount": {
+            "type": "number",
+            "format": "double"
+          },
+          "isCommissionPaid": {
+            "type": "boolean"
           }
         },
         "additionalProperties": false
@@ -39346,12 +39898,16 @@
           "durationMinutes",
           "endUtc",
           "lines",
+          "netPitchPrice",
+          "onlineDepositAmount",
           "pitchId",
+          "platformCommission",
           "quotedAtUtc",
           "startUtc",
           "subtotal",
           "total",
-          "venueId"
+          "venueId",
+          "venuePayAmount"
         ],
         "type": "object",
         "properties": {
@@ -39410,6 +39966,22 @@
           "quotedAtUtc": {
             "type": "string",
             "format": "date-time"
+          },
+          "netPitchPrice": {
+            "type": "number",
+            "format": "double"
+          },
+          "platformCommission": {
+            "type": "number",
+            "format": "double"
+          },
+          "onlineDepositAmount": {
+            "type": "number",
+            "format": "double"
+          },
+          "venuePayAmount": {
+            "type": "number",
+            "format": "double"
           }
         },
         "additionalProperties": false
@@ -40205,7 +40777,9 @@
           "depositsReceived",
           "outstanding",
           "pending",
-          "recognized"
+          "platformCommission",
+          "recognized",
+          "venueNetRevenue"
         ],
         "type": "object",
         "properties": {
@@ -40229,6 +40803,14 @@
             "format": "double"
           },
           "pending": {
+            "type": "number",
+            "format": "double"
+          },
+          "platformCommission": {
+            "type": "number",
+            "format": "double"
+          },
+          "venueNetRevenue": {
             "type": "number",
             "format": "double"
           }
@@ -42769,6 +43351,27 @@
         },
         "additionalProperties": false
       },
+      "UpdateVenueCommissionRequest": {
+        "required": [
+          "commissionType",
+          "customCommissionEnabled"
+        ],
+        "type": "object",
+        "properties": {
+          "customCommissionEnabled": {
+            "type": "boolean"
+          },
+          "commissionType": {
+            "$ref": "#/components/schemas/CommissionType"
+          },
+          "commissionRate": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
       "UpdateVenueSchedulesApiRequest": {
         "required": [
           "schedules"
@@ -42963,7 +43566,10 @@
           "depositAmount",
           "endUtc",
           "id",
+          "isCommissionPaid",
+          "onlinePaidAmount",
           "pitchId",
+          "platformCommission",
           "playerId",
           "proofs",
           "reference",
@@ -42971,7 +43577,9 @@
           "status",
           "statusHistory",
           "totalPrice",
-          "venueId"
+          "venueId",
+          "venueNetAmount",
+          "venuePayAmount"
         ],
         "type": "object",
         "properties": {
@@ -43048,6 +43656,25 @@
           "createdAtUtc": {
             "type": "string",
             "format": "date-time"
+          },
+          "platformCommission": {
+            "type": "number",
+            "format": "double"
+          },
+          "venueNetAmount": {
+            "type": "number",
+            "format": "double"
+          },
+          "onlinePaidAmount": {
+            "type": "number",
+            "format": "double"
+          },
+          "venuePayAmount": {
+            "type": "number",
+            "format": "double"
+          },
+          "isCommissionPaid": {
+            "type": "boolean"
           }
         },
         "additionalProperties": false
@@ -43059,12 +43686,17 @@
           "depositAmount",
           "endUtc",
           "id",
+          "isCommissionPaid",
           "isManual",
+          "onlinePaidAmount",
           "pitchId",
+          "platformCommission",
           "reference",
           "startUtc",
           "status",
-          "totalPrice"
+          "totalPrice",
+          "venueNetAmount",
+          "venuePayAmount"
         ],
         "type": "object",
         "properties": {
@@ -43114,6 +43746,25 @@
             "format": "date-time"
           },
           "isManual": {
+            "type": "boolean"
+          },
+          "platformCommission": {
+            "type": "number",
+            "format": "double"
+          },
+          "venueNetAmount": {
+            "type": "number",
+            "format": "double"
+          },
+          "onlinePaidAmount": {
+            "type": "number",
+            "format": "double"
+          },
+          "venuePayAmount": {
+            "type": "number",
+            "format": "double"
+          },
+          "isCommissionPaid": {
             "type": "boolean"
           }
         },
@@ -43255,6 +43906,32 @@
           "viewedAtUtc": {
             "type": "string",
             "format": "date-time",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "VenueCommissionDto": {
+        "required": [
+          "commissionType",
+          "customCommissionEnabled",
+          "venueId"
+        ],
+        "type": "object",
+        "properties": {
+          "venueId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "customCommissionEnabled": {
+            "type": "boolean"
+          },
+          "commissionType": {
+            "type": "string"
+          },
+          "commissionRate": {
+            "type": "number",
+            "format": "double",
             "nullable": true
           }
         },
@@ -43852,6 +44529,79 @@
           "turnstileToken": {
             "type": "string",
             "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "WaitlistAudience": {
+        "enum": [
+          0,
+          1
+        ],
+        "type": "integer",
+        "format": "int32"
+      },
+      "WaitlistDto": {
+        "required": [
+          "audience",
+          "consentRecordedAtUtc",
+          "createdAtUtc",
+          "id",
+          "phone"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "audience": {
+            "$ref": "#/components/schemas/WaitlistAudience"
+          },
+          "chosenPlan": {
+            "type": "string",
+            "nullable": true
+          },
+          "phone": {
+            "type": "string"
+          },
+          "consentRecordedAtUtc": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "createdAtUtc": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "additionalProperties": false
+      },
+      "WaitlistPagedResult": {
+        "required": [
+          "items",
+          "page",
+          "pageSize",
+          "totalCount"
+        ],
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WaitlistDto"
+            }
+          },
+          "totalCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "page": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "pageSize": {
+            "type": "integer",
+            "format": "int32"
           }
         },
         "additionalProperties": false

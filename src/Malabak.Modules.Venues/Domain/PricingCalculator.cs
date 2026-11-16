@@ -1,4 +1,5 @@
 using Malabak.SharedKernel;
+using Malabak.SharedKernel.Contracts;
 using Malabak.SharedKernel.Reference;
 
 namespace Malabak.Modules.Venues.Domain;
@@ -18,7 +19,17 @@ public sealed record PriceQuote(
     decimal Total,
     decimal Deposit,
     DepositType DepositType,
-    IReadOnlyList<PriceLine> Lines);
+    IReadOnlyList<PriceLine> Lines,
+    decimal NetPitchPrice = 0m,
+    decimal PlatformCommission = 0m,
+    decimal OnlineDepositAmount = 0m,
+    decimal VenuePayAmount = 0m)
+{
+    public decimal NetPitchPrice { get; init; } = NetPitchPrice != 0m ? NetPitchPrice : Subtotal - Discount;
+    public decimal PlatformCommission { get; init; } = PlatformCommission;
+    public decimal OnlineDepositAmount { get; init; } = OnlineDepositAmount != 0m ? OnlineDepositAmount : Deposit;
+    public decimal VenuePayAmount { get; init; } = VenuePayAmount != 0m ? VenuePayAmount : (Total - Deposit);
+}
 
 /// <summary>
 /// Server-side price calculation. Precedence per 15-minute slice: base (pitch override over venue default) -> peak ->
@@ -42,7 +53,10 @@ public static class PricingCalculator
         DateTime startUtc,
         DateTime endUtc,
         DepositRule? deposit,
-        TimeZoneInfo timeZone)
+        TimeZoneInfo timeZone,
+        CommissionType commissionType = CommissionType.PlatformDefault,
+        decimal? commissionRate = null,
+        decimal defaultHourlyCommission = 0m)
     {
         if (endUtc <= startUtc || endUtc - startUtc > TimeSpan.FromMinutes(MaxQuoteMinutes)
             || (endUtc - startUtc).Ticks % TimeSpan.FromMinutes(SliceMinutes).Ticks != 0)
@@ -80,13 +94,28 @@ public static class PricingCalculator
         var (discount, discountRule) = BestDiscount(rules, startUtc, minutes, subtotal, timeZone);
         var roundedSubtotal = Round(subtotal);
         var roundedDiscount = Math.Min(Round(discount), roundedSubtotal);
-        var total = roundedSubtotal - roundedDiscount;
+        var netPitchPrice = roundedSubtotal - roundedDiscount;
+
+        var durationHours = minutes / 60m;
+        var commission = commissionType switch
+        {
+            CommissionType.Exempt => 0m,
+            CommissionType.PerHourFixed => Round(durationHours * (commissionRate ?? defaultHourlyCommission)),
+            CommissionType.Percentage => Round(netPitchPrice * (commissionRate ?? 10m) / 100m),
+            CommissionType.PlatformDefault or _ => Round(durationHours * defaultHourlyCommission)
+        };
+
+        var total = netPitchPrice + commission;
         var depositRule = deposit ?? DepositRule.Create(DepositType.Full, 0);
+        var calculatedDeposit = depositRule.CalculateDeposit(total);
+        var onlineDepositAmount = commission > 0 ? commission : calculatedDeposit;
+        var venuePayAmount = Math.Max(0m, total - onlineDepositAmount);
 
         return Result.Success(new PriceQuote(
             pitchId, startUtc, endUtc, minutes, currency, roundedSubtotal, roundedDiscount, discountRule?.Name, total,
-            depositRule.CalculateDeposit(total), depositRule.Type,
-            lines.Select(l => l with { Amount = Round(l.Amount) }).ToList()));
+            calculatedDeposit, depositRule.Type,
+            lines.Select(l => l with { Amount = Round(l.Amount) }).ToList(),
+            netPitchPrice, commission, onlineDepositAmount, venuePayAmount));
     }
 
     private static (decimal Rate, List<string> Applied) HourlyRate(PriceRule baseRule, List<PriceRule> rules, DateTime local)

@@ -1,9 +1,11 @@
 using System.Security.Claims;
 using Asp.Versioning.Builder;
 using Malabak.Api.Infrastructure.Authorization;
+using Malabak.Modules.Venues.Application.Admin;
 using Malabak.Modules.Venues.Application.Approvals;
 using Malabak.SharedKernel;
 using Malabak.SharedKernel.Authorization;
+using Malabak.SharedKernel.Contracts;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Malabak.Api.Endpoints;
@@ -74,7 +76,30 @@ public static class VenueApprovalEndpoints
         .Produces<VenueApprovalDto>()
         .WithName("RequestVenueInfo")
         .WithSummary("Ask the owner for more information (message required)");
+
+        admin.MapPatch("/{venueId:guid}/commission", async (
+            Guid venueId,
+            ClaimsPrincipal user,
+            [FromBody] UpdateVenueCommissionRequest request,
+            ICommandHandler<UpdateVenueCommissionCommand, Result<VenueCommissionDto>> handler,
+            CancellationToken ct) =>
+        {
+            var adminId = user.GetUserId() ?? Guid.Empty;
+            var command = new UpdateVenueCommissionCommand(
+                venueId,
+                request.CustomCommissionEnabled,
+                request.CommissionType,
+                request.CommissionRate,
+                adminId);
+
+            return ToResult(await handler.HandleAsync(command, ct));
+        })
+        .Produces<VenueCommissionDto>()
+        .WithName("UpdateVenueCommission")
+        .WithSummary("Configure custom platform commission for a specific venue");
     }
+
+    public sealed record UpdateVenueCommissionRequest(bool CustomCommissionEnabled, CommissionType CommissionType, decimal? CommissionRate);
 
     private static async Task<IResult> DecideAsync(
         ICommandHandler<DecideVenueApprovalCommand, Result<VenueApprovalDto>> handler,

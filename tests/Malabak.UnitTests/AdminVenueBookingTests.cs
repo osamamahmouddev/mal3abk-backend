@@ -149,10 +149,60 @@ public sealed class AdminVenueBookingTests
         (await service.ForceCancelAsync(Guid.NewGuid(), "x", _admin)).Error.Should().Be(BookingErrors.NotFound);
     }
 
+    [Fact]
+    public async Task AdminDepositReview_ApproveAndReject_UpdatesBookingAndAuditsAsync()
+    {
+        await using var db = BookingDb();
+        var booking = Online("MAL-REV1", Guid.NewGuid(), _now.AddHours(2), deposit: 100);
+        booking.SubmitProof(Guid.NewGuid(), "p", _now).IsSuccess.Should().BeTrue();
+        db.Bookings.Add(booking);
+        await db.SaveChangesAsync();
+
+        var service = Bookings(db);
+
+        // 1. Pending reviews query
+        var pending = await service.GetPendingDepositReviewsAsync(1, 10);
+        pending.Value.Total.Should().Be(1);
+        pending.Value.Items[0].BookingId.Should().Be(booking.Id);
+
+        // 2. Reject without reason fails
+        var failReject = await service.ReviewDepositAsync(booking.Id, approved: false, rejectionReason: "  ", _admin);
+        failReject.IsFailure.Should().BeTrue();
+
+        // 3. Mark under review
+        var markRes = await service.MarkUnderReviewAsync(booking.Id, _admin);
+        markRes.IsSuccess.Should().BeTrue();
+        booking.Status.Should().Be(BookingStatus.UnderReview);
+
+        // 4. Approve deposit
+        var approveRes = await service.ReviewDepositAsync(booking.Id, approved: true, rejectionReason: null, _admin);
+        approveRes.IsSuccess.Should().BeTrue();
+        booking.Status.Should().Be(BookingStatus.Confirmed);
+        _recorder.Audits.Should().Contain(a => a.Action == "admin.booking.deposit_approved" && a.ActorId == _admin);
+    }
+
+    [Fact]
+    public async Task AdminDepositReview_Reject_SetsStatusToRejectedAndRecordsAuditAsync()
+    {
+        await using var db = BookingDb();
+        var booking = Online("MAL-REV2", Guid.NewGuid(), _now.AddHours(3), deposit: 100);
+        booking.SubmitProof(Guid.NewGuid(), "p", _now).IsSuccess.Should().BeTrue();
+        db.Bookings.Add(booking);
+        await db.SaveChangesAsync();
+
+        var service = Bookings(db);
+
+        var rejectRes = await service.ReviewDepositAsync(booking.Id, approved: false, rejectionReason: "Invalid receipt reference", _admin);
+        rejectRes.IsSuccess.Should().BeTrue();
+        booking.Status.Should().Be(BookingStatus.Rejected);
+        booking.RejectionReason.Should().Be("Invalid receipt reference");
+        _recorder.Audits.Should().Contain(a => a.Action == "admin.booking.deposit_rejected" && a.ActorId == _admin);
+    }
+
     private AdminVenueService Venues(VenuesDbContext db) => new(db, new NoStats(), _accounts, _recorder, _recorder, _clock);
 
     private AdminBookingService Bookings(BookingDbContext db) =>
-        new(db, new VenueCancelBookingHandler(db, _clock, new NoEffects(), new NoEffects(), NullLogger<VenueCancelBookingHandler>.Instance), _recorder);
+        new(db, new VenueCancelBookingHandler(db, _clock, new NoEffects(), new NoEffects(), NullLogger<VenueCancelBookingHandler>.Instance), _recorder, _clock, new NoEffects(), new NoEffects());
 
     private async Task<Venue> ApprovedVenueAsync(VenuesDbContext db, bool published)
     {

@@ -14,7 +14,10 @@ import { TopProgressBar } from "./TopProgressBar";
 /** Admin app sections, keyed by the navigation keys the API returns for the signed-in staff member's permissions. */
 const SECTIONS: Record<string, { title: string; href: string }[]> = {
   dashboard: [{ title: "نظرة عامة", href: "/overview" }],
-  users: [{ title: "المستخدمين", href: "/users" }],
+  users: [
+    { title: "المستخدمين", href: "/users" },
+    { title: "قائمة الانتظار", href: "/waitlist" },
+  ],
   venues: [{ title: "الملاعب", href: "/venues" }],
   approvals: [{ title: "موافقات الملاعب", href: "/approvals" }],
   bookings: [{ title: "الحجوزات", href: "/bookings" }],
