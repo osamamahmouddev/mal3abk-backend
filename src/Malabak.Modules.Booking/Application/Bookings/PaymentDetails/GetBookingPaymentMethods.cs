@@ -16,8 +16,8 @@ public sealed record GetBookingPaymentMethodsQuery(Guid BookingId, Guid PlayerId
 /// </summary>
 public sealed class GetBookingPaymentMethodsHandler : IQueryHandler<GetBookingPaymentMethodsQuery, Result<IReadOnlyList<BookingPaymentMethodDto>>>
 {
-    private static readonly Guid PlatformInstaPayId = Guid.Parse("11111111-1111-1111-1111-111111111111");
-    private static readonly Guid PlatformWalletId = Guid.Parse("22222222-2222-2222-2222-222222222222");
+    private static readonly Guid _platformInstaPayId = Guid.Parse("11111111-1111-1111-1111-111111111111");
+    private static readonly Guid _platformWalletId = Guid.Parse("22222222-2222-2222-2222-222222222222");
 
     private readonly IBookingDbContext _dbContext;
     private readonly IVenuePaymentDirectory _payments;
@@ -64,11 +64,11 @@ public sealed class GetBookingPaymentMethodsHandler : IQueryHandler<GetBookingPa
             var platformMethods = new List<BookingPaymentMethodDto>();
             if (!string.IsNullOrWhiteSpace(instapay))
             {
-                platformMethods.Add(new BookingPaymentMethodDto(PlatformInstaPayId, "InstaPay", recipient, instapay, instructions));
+                platformMethods.Add(new BookingPaymentMethodDto(_platformInstaPayId, "InstaPay", recipient, instapay, instructions));
             }
             if (!string.IsNullOrWhiteSpace(wallet))
             {
-                platformMethods.Add(new BookingPaymentMethodDto(PlatformWalletId, "MobileWallet", recipient, wallet, instructions));
+                platformMethods.Add(new BookingPaymentMethodDto(_platformWalletId, "MobileWallet", recipient, wallet, instructions));
             }
 
             if (platformMethods.Count > 0)

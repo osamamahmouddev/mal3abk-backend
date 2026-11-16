@@ -15,7 +15,8 @@ public sealed record AdminBookingSearch(
 public sealed record AdminBookingListItem(
     Guid Id, string Reference, Guid VenueId, Guid PitchId, Guid PlayerId, string Status, DateTime StartUtc, DateTime EndUtc,
     decimal TotalPrice, decimal DepositAmount, string Currency, bool IsManual, DateTime CreatedAtUtc,
-    decimal PlatformCommission = 0m, decimal VenueNetAmount = 0m, decimal OnlinePaidAmount = 0m, decimal VenuePayAmount = 0m, bool IsCommissionPaid = false);
+    decimal PlatformCommission = 0m, decimal VenueNetAmount = 0m, decimal OnlinePaidAmount = 0m, decimal VenuePayAmount = 0m, bool IsCommissionPaid = false,
+    string? VenueName = null, string? PitchName = null);
 
 public sealed record AdminBookingPage(IReadOnlyList<AdminBookingListItem> Items, int Page, int PageSize, int Total);
 
@@ -60,7 +61,9 @@ public sealed record AdminDepositReviewItem(
     string? ContentType,
     long? FileSizeBytes,
     DateTime? ProofUploadedAtUtc,
-    string? RejectionReason);
+    string? RejectionReason,
+    string? VenueName = null,
+    string? PitchName = null);
 
 public sealed record AdminDepositReviewPage(
     IReadOnlyList<AdminDepositReviewItem> Items,
@@ -169,7 +172,14 @@ public sealed class AdminBookingService
             .Take(pageSize)
             .ToListAsync(cancellationToken);
 
-        return Result.Success(new AdminBookingPage(rows.Select(ToItem).ToList(), page, pageSize, total));
+        var venueIds = rows.Select(b => b.VenueId).Distinct().ToList();
+        var pitchIds = rows.Select(b => b.PitchId).Distinct().ToList();
+        var venueNames = _venues is not null ? await _venues.GetVenueNamesAsync(venueIds, cancellationToken) : new Dictionary<Guid, string>();
+        var pitchNames = _venues is not null ? await _venues.GetPitchNamesAsync(pitchIds, cancellationToken) : new Dictionary<Guid, string>();
+
+        return Result.Success(new AdminBookingPage(
+            rows.Select(b => ToItem(b, venueNames.GetValueOrDefault(b.VenueId), pitchNames.GetValueOrDefault(b.PitchId))).ToList(),
+            page, pageSize, total));
     }
 
     public async Task<Result<AdminBookingDetail>> GetAsync(Guid bookingId, CancellationToken cancellationToken = default)
@@ -188,8 +198,18 @@ public sealed class AdminBookingService
             .OrderBy(h => h.ChangedAtUtc)
             .ToListAsync(cancellationToken);
 
+        string? venueName = null;
+        string? pitchName = null;
+        if (_venues is not null)
+        {
+            var vNames = await _venues.GetVenueNamesAsync([booking.VenueId], cancellationToken);
+            venueName = vNames.GetValueOrDefault(booking.VenueId);
+            var pNames = await _venues.GetPitchNamesAsync([booking.PitchId], cancellationToken);
+            pitchName = pNames.GetValueOrDefault(booking.PitchId);
+        }
+
         return Result.Success(new AdminBookingDetail(
-            ToItem(booking),
+            ToItem(booking, venueName, pitchName),
             booking.CancellationReason,
             booking.RejectionReason,
             booking.HoldExpiresAtUtc,
@@ -251,6 +271,11 @@ public sealed class AdminBookingService
             .Take(ps)
             .ToListAsync(cancellationToken);
 
+        var venueIds = rows.Select(b => b.VenueId).Distinct().ToList();
+        var pitchIds = rows.Select(b => b.PitchId).Distinct().ToList();
+        var venueNames = _venues is not null ? await _venues.GetVenueNamesAsync(venueIds, cancellationToken) : new Dictionary<Guid, string>();
+        var pitchNames = _venues is not null ? await _venues.GetPitchNamesAsync(pitchIds, cancellationToken) : new Dictionary<Guid, string>();
+
         var items = rows.Select(b =>
         {
             var latestProof = b.Proofs.OrderByDescending(pr => pr.UploadedAtUtc).FirstOrDefault();
@@ -272,7 +297,9 @@ public sealed class AdminBookingService
                 latestProof?.ContentType,
                 latestProof?.FileSizeBytes,
                 latestProof?.UploadedAtUtc,
-                b.RejectionReason);
+                b.RejectionReason,
+                venueNames.GetValueOrDefault(b.VenueId),
+                pitchNames.GetValueOrDefault(b.PitchId));
         }).ToList();
 
         return Result.Success(new AdminDepositReviewPage(items, p, ps, total));
@@ -412,8 +439,9 @@ public sealed class AdminBookingService
         return Result.Success();
     }
 
-    private static AdminBookingListItem ToItem(Domain.Booking b) =>
+    private static AdminBookingListItem ToItem(Domain.Booking b, string? venueName = null, string? pitchName = null) =>
         new(b.Id, b.BookingReference, b.VenueId, b.PitchId, b.PlayerId, b.Status.ToString(), b.StartUtc, b.EndUtc,
             b.TotalPrice.Amount, b.DepositAmount.Amount, b.TotalPrice.Currency, b.IsManualBooking, b.CreatedAtUtc,
-            b.PlatformCommission.Amount, b.VenueNetAmount.Amount, b.OnlinePaidAmount.Amount, b.VenuePayAmount.Amount, b.IsCommissionPaid);
+            b.PlatformCommission.Amount, b.VenueNetAmount.Amount, b.OnlinePaidAmount.Amount, b.VenuePayAmount.Amount, b.IsCommissionPaid,
+            venueName, pitchName);
 }

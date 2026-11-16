@@ -7,7 +7,7 @@ import { KV, Page, PageHeader, Pill, ReasonModal, type ReasonRequest, SearchBox,
 import { Drawer, Pager, QueryState, Section, Select, Table, fmtDateTime, useNotice } from "@/components/admin";
 import { api, unwrap } from "@/lib/api";
 import { useStepUp } from "@/lib/stepup";
-import { CalendarDays, ChevronLeft, LayoutGrid, NotebookPen, Smartphone, Table2 } from "lucide-react";
+import { Building2, CalendarDays, ChevronLeft, LayoutGrid, NotebookPen, Smartphone, Table2 } from "lucide-react";
 
 type Row = Schemas["AdminBookingListItem"];
 
@@ -44,6 +44,20 @@ export default function BookingsPage() {
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<"cards" | "table">("cards");
+
+  const venuesQuery = useQuery({
+    queryKey: ["admin-venues-lookup"],
+    queryFn: () => unwrap(api.GET("/api/v1/admin/venues", { params: { query: { pageSize: 100 } } })),
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const venueMap = React.useMemo(() => {
+    const map = new Map<string, string>();
+    for (const v of venuesQuery.data?.items ?? []) {
+      map.set(v.id, v.name);
+    }
+    return map;
+  }, [venuesQuery.data]);
 
   const bookings = useQuery({
     queryKey: ["admin-bookings", reference, status, page],
@@ -140,6 +154,24 @@ export default function BookingsPage() {
                         </div>
                       </div>
 
+                      {/* Venue info badge */}
+                      <div className="flex items-center gap-2.5 p-2.5 rounded-xl bg-slate-50 border border-slate-100 text-slate-800">
+                        <span className="grid place-items-center size-8 rounded-lg bg-white border border-[#E9EDF5] text-slate-600 shrink-0">
+                          <Building2 className="size-4" />
+                        </span>
+                        <div className="flex flex-col min-w-0 flex-1">
+                          <span className="text-[10px] text-[#5B6475] font-semibold">الملعب</span>
+                          <span className="text-xs font-bold truncate text-slate-900">
+                            {(r as any).venueName || venueMap.get(r.venueId) || "ملعب"}
+                          </span>
+                        </div>
+                        {Boolean((r as any).pitchName) && (
+                          <span className="text-[11px] text-slate-600 mr-auto shrink-0 bg-white px-2 py-0.5 rounded-md border border-slate-200">
+                            {(r as any).pitchName}
+                          </span>
+                        )}
+                      </div>
+
                       {/* Center: Timing badge */}
                       <div className="flex items-center gap-3 p-3 rounded-xl bg-[#F6F8FB] border border-[#E9EDF5]">
                         <span className="grid place-items-center size-9 rounded-lg bg-white border border-[#E9EDF5] text-slate-600 shrink-0"><CalendarDays className="size-[18px]" /></span>
@@ -180,6 +212,15 @@ export default function BookingsPage() {
                 onSelect={(r) => setSelected(r.id)}
                 columns={[
                   { title: "الرقم", cell: (r) => <strong dir="ltr" className="font-inter">{r.reference}</strong> },
+                  {
+                    title: "الملعب",
+                    cell: (r) => (
+                      <div className="flex flex-col">
+                        <span className="font-bold text-slate-900">{(r as any).venueName || venueMap.get(r.venueId) || "—"}</span>
+                        {Boolean((r as any).pitchName) && <span className="text-[11px] text-slate-500">{(r as any).pitchName}</span>}
+                      </div>
+                    ),
+                  },
                   { title: "الميعاد", cell: (r) => fmtDateTime(r.startUtc) },
                   { title: "السعر", cell: (r) => money(r.totalPrice) },
                   { title: "العربون", cell: (r) => money(r.depositAmount) },
@@ -192,12 +233,12 @@ export default function BookingsPage() {
           </>
         )}
       </QueryState>
-      <BookingDrawer bookingId={selected} onClose={() => setSelected(null)} />
+      <BookingDrawer bookingId={selected} onClose={() => setSelected(null)} venueMap={venueMap} />
     </Page>
   );
 }
 
-function BookingDrawer({ bookingId, onClose }: { bookingId: string | null; onClose: () => void }) {
+function BookingDrawer({ bookingId, onClose, venueMap }: { bookingId: string | null; onClose: () => void; venueMap?: Map<string, string> }) {
   const queryClient = useQueryClient();
   const stepUp = useStepUp();
   const notice = useNotice();
@@ -230,7 +271,16 @@ function BookingDrawer({ bookingId, onClose }: { bookingId: string | null; onClo
               <KV k="الحالة"><Pill tone={TONE[d.booking.status] ?? "neutral"}>{STATUS_MAP[d.booking.status] ?? d.booking.status}</Pill></KV>
               <KV k="الميعاد">{fmtDateTime(d.booking.startUtc)}</KV>
               <KV k="السعر / العربون">{money(d.booking.totalPrice)} / {money(d.booking.depositAmount)}</KV>
-              <KV k="الملعب">{d.booking.venueId}</KV>
+              <KV k="الملعب">
+                <span className="font-bold text-slate-900">
+                  {(d.booking as any).venueName || venueMap?.get(d.booking.venueId) || d.booking.venueId}
+                </span>
+              </KV>
+              {Boolean((d.booking as any).pitchName) && (
+                <KV k="الملعب الفرعي">
+                  <span className="font-medium text-slate-800">{(d.booking as any).pitchName}</span>
+                </KV>
+              )}
               <KV k="اللاعب">{d.customerName ?? d.booking.playerId}</KV>
               {d.cancellationReason && <KV k="سبب الإلغاء">{d.cancellationReason}</KV>}
               {d.rejectionReason && <KV k="سبب الرفض">{d.rejectionReason}</KV>}
