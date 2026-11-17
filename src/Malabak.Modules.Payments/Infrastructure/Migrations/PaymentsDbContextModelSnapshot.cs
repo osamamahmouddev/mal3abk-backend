@@ -96,7 +96,8 @@ partial class PaymentsDbContextModelSnapshot : ModelSnapshot
 
                     b.HasIndex("ProviderOrderId");
 
-                    b.HasIndex("ProviderTransactionId");
+                    b.HasIndex("ProviderTransactionId")
+                        .IsUnique();
 
                     b.ToTable("payment_transactions", "payments");
                 });

@@ -40,7 +40,10 @@ public sealed class PaymentsDbContext : BaseDbContext
 
             builder.HasIndex(t => t.BookingId);
             builder.HasIndex(t => t.ProviderOrderId);
-            builder.HasIndex(t => t.ProviderTransactionId);
+            // A provider transaction may only be processed once. PostgreSQL still allows
+            // multiple NULL values, so transactions created before the provider callback
+            // remain valid while every real gateway id is idempotent at the database level.
+            builder.HasIndex(t => t.ProviderTransactionId).IsUnique();
         });
     }
 }

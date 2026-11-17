@@ -105,11 +105,12 @@ public sealed class BookingQuoteService : IBookingQuoteValidator
         var quote = price.Value;
         var policy = await _policies.GetCurrentSnapshotAsync(quote.VenueId, cancellationToken);
         var expiresAt = _clock.UtcNow + QuoteLifetime;
-        var payload = new QuoteTokenPayload(1, playerId, pitchId, startUtc, endUtc, quote.Total, quote.Deposit, quote.Currency, policy?.Version, expiresAt);
+        var payload = new QuoteTokenPayload(1, playerId, pitchId, startUtc, endUtc, quote.Total, quote.OnlineDepositAmount, quote.Currency, policy?.Version, expiresAt);
         var token = _signer.Protect(JsonSerializer.SerializeToUtf8Bytes(payload, _json));
 
         return Result.Success(new BookingQuoteDto(
-            token, expiresAt, quote.Currency, quote.Subtotal, quote.Discount, Fees: 0m, quote.Total, quote.Deposit, quote.Total - quote.Deposit,
+            token, expiresAt, quote.Currency, quote.Subtotal, quote.Discount, Fees: quote.PlatformCommission, quote.Total,
+            quote.OnlineDepositAmount, quote.VenuePayAmount,
             SubjectToConfirmation: true,
             ConfirmationNote: policy is null
                 ? "The venue confirms the booking after reviewing your deposit transfer."
@@ -157,7 +158,7 @@ public sealed class BookingQuoteService : IBookingQuoteValidator
         }
 
         var policy = await _policies.GetCurrentSnapshotAsync(current.Value.VenueId, cancellationToken);
-        var changed = current.Value.Total != payload.Total || current.Value.Deposit != payload.Deposit
+        var changed = current.Value.Total != payload.Total || current.Value.OnlineDepositAmount != payload.Deposit
             || current.Value.Currency != payload.Currency || policy?.Version != payload.PolicyVersion;
         return changed ? Result.Failure<PriceQuoteSnapshot>(QuoteErrors.PriceChanged) : current;
     }

@@ -98,7 +98,7 @@ public sealed class PricingService : IPriceQuoteProvider
 
     public PriceQuoteSnapshot ToSnapshot(Guid venueId, PriceQuote quote) => new(
         venueId, quote.PitchId, quote.StartUtc, quote.EndUtc, quote.DurationMinutes, quote.Currency, quote.Subtotal, quote.Discount,
-        quote.DiscountRule, quote.Total, quote.Deposit, quote.DepositType.ToString(),
+        quote.DiscountRule, quote.Total, quote.OnlineDepositAmount, quote.DepositType.ToString(),
         quote.Lines.Select(l => new PriceLineSnapshot(l.StartUtc, l.EndUtc, l.HourlyRate, l.Amount, l.AppliedRules)).ToList(),
         _clock.UtcNow,
         quote.NetPitchPrice,
