@@ -1470,7 +1470,8 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /** Get the platform commission configuration for a venue */
+        get: operations["GetVenueCommission"];
         put?: never;
         post?: never;
         delete?: never;
@@ -4684,6 +4685,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/venue-manager/venues/{venueId}/bookings/{id}/confirm-deposit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Confirm deposit receipt for a manual phone/walk-in booking and mark it as confirmed. */
+        post: operations["ConfirmManualBookingDeposit"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/venue-manager/venues/{venueId}/bookings/{id}/cancel": {
         parameters: {
             query?: never;
@@ -5587,6 +5605,8 @@ export interface components {
             /** Format: double */
             venuePayAmount: number;
             isCommissionPaid: boolean;
+            venueName?: string | null;
+            pitchName?: string | null;
         };
         AdminBookingPage: {
             items: components["schemas"]["AdminBookingListItem"][];
@@ -5646,6 +5666,8 @@ export interface components {
             /** Format: date-time */
             proofUploadedAtUtc?: string | null;
             rejectionReason?: string | null;
+            venueName?: string | null;
+            pitchName?: string | null;
         };
         AdminDepositReviewPage: {
             items: components["schemas"]["AdminDepositReviewItem"][];
@@ -6199,6 +6221,11 @@ export interface components {
         ConfirmApiRequest: {
             enrollmentToken: string;
             code: string;
+        };
+        ConfirmManualBookingApiRequest: {
+            /** Format: double */
+            collectedDeposit?: number | null;
+            notes?: string | null;
         };
         ConsentApiRequest: {
             type: components["schemas"]["ConsentType"];
@@ -16847,6 +16874,91 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["VenueApprovalDto"];
+                };
+            };
+            /** @description Bad Request (Validation failure, invalid inputs) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Unauthorized (Missing or expired JWT access token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Forbidden (Insufficient role or permissions) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Not Found (Resource does not exist) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Conflict (Concurrent update or duplicate idempotency in flight) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Unprocessable Entity (Business rule violation or payload mismatch) */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Too Many Requests (Rate limit exceeded, check Retry-After header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    GetVenueCommission: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                venueId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VenueCommissionDto"];
                 };
             };
             /** @description Bad Request (Validation failure, invalid inputs) */
@@ -30359,6 +30471,94 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["ManualBookingResponse"];
                 };
+            };
+            /** @description Bad Request (Validation failure, invalid inputs) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Unauthorized (Missing or expired JWT access token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Forbidden (Insufficient role or permissions) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Not Found (Resource does not exist) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Conflict (Concurrent update or duplicate idempotency in flight) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Unprocessable Entity (Business rule violation or payload mismatch) */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Too Many Requests (Rate limit exceeded, check Retry-After header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    ConfirmManualBookingDeposit: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                venueId: string;
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["ConfirmManualBookingApiRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Bad Request (Validation failure, invalid inputs) */
             400: {

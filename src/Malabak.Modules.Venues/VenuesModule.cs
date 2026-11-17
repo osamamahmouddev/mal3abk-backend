@@ -149,6 +149,7 @@ public static class VenuesModule
         services.AddScoped<ICommandHandler<DecideVenueApprovalCommand, Result<VenueApprovalDto>>, DecideVenueApprovalHandler>();
         services.AddScoped<IQueryHandler<GetPendingVenueApprovalsQuery, Result<IReadOnlyList<PendingVenueApprovalDto>>>, GetPendingVenueApprovalsHandler>();
         services.AddScoped<ICommandHandler<Application.Admin.UpdateVenueCommissionCommand, Result<Application.Admin.VenueCommissionDto>>, Application.Admin.UpdateVenueCommissionHandler>();
+        services.AddScoped<IQueryHandler<Application.Admin.GetVenueCommissionQuery, Result<Application.Admin.VenueCommissionDto>>, Application.Admin.GetVenueCommissionHandler>();
 
         return services;
     }

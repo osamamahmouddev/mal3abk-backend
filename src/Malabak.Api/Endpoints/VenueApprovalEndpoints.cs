@@ -97,6 +97,15 @@ public static class VenueApprovalEndpoints
         .Produces<VenueCommissionDto>()
         .WithName("UpdateVenueCommission")
         .WithSummary("Configure custom platform commission for a specific venue");
+
+        admin.MapGet("/{venueId:guid}/commission", async (
+            Guid venueId,
+            IQueryHandler<GetVenueCommissionQuery, Result<VenueCommissionDto>> handler,
+            CancellationToken ct) =>
+            ToResult(await handler.HandleAsync(new GetVenueCommissionQuery(venueId), ct)))
+        .Produces<VenueCommissionDto>()
+        .WithName("GetVenueCommission")
+        .WithSummary("Get the platform commission configuration for a venue");
     }
 
     public sealed record UpdateVenueCommissionRequest(bool CustomCommissionEnabled, CommissionType CommissionType, decimal? CommissionRate);

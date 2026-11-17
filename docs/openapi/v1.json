@@ -9990,6 +9990,106 @@
             }
           }
         }
+      },
+      "get": {
+        "tags": [
+          "Admin Venue Approval"
+        ],
+        "summary": "Get the platform commission configuration for a venue",
+        "operationId": "GetVenueCommission",
+        "parameters": [
+          {
+            "name": "venueId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VenueCommissionDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request (Validation failure, invalid inputs)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized (Missing or expired JWT access token)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (Insufficient role or permissions)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found (Resource does not exist)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict (Concurrent update or duplicate idempotency in flight)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity (Business rule violation or payload mismatch)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests (Rate limit exceeded, check Retry-After header)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/api/v1/admin/venues": {
@@ -26889,6 +26989,119 @@
         }
       }
     },
+    "/api/v1/venue-manager/venues/{venueId}/bookings/{id}/confirm-deposit": {
+      "post": {
+        "tags": [
+          "Venue Bookings \u0026 Calendar"
+        ],
+        "summary": "Confirm deposit receipt for a manual phone/walk-in booking and mark it as confirmed.",
+        "operationId": "ConfirmManualBookingDeposit",
+        "parameters": [
+          {
+            "name": "venueId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConfirmManualBookingApiRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Bad Request (Validation failure, invalid inputs)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized (Missing or expired JWT access token)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (Insufficient role or permissions)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found (Resource does not exist)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict (Concurrent update or duplicate idempotency in flight)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity (Business rule violation or payload mismatch)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests (Rate limit exceeded, check Retry-After header)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/venue-manager/venues/{venueId}/bookings/{id}/cancel": {
       "post": {
         "tags": [
@@ -34141,6 +34354,14 @@
           },
           "isCommissionPaid": {
             "type": "boolean"
+          },
+          "venueName": {
+            "type": "string",
+            "nullable": true
+          },
+          "pitchName": {
+            "type": "string",
+            "nullable": true
           }
         },
         "additionalProperties": false
@@ -34312,6 +34533,14 @@
             "nullable": true
           },
           "rejectionReason": {
+            "type": "string",
+            "nullable": true
+          },
+          "venueName": {
+            "type": "string",
+            "nullable": true
+          },
+          "pitchName": {
             "type": "string",
             "nullable": true
           }
@@ -36093,6 +36322,21 @@
           },
           "code": {
             "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ConfirmManualBookingApiRequest": {
+        "type": "object",
+        "properties": {
+          "collectedDeposit": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "notes": {
+            "type": "string",
+            "nullable": true
           }
         },
         "additionalProperties": false

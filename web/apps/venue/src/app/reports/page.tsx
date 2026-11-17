@@ -160,11 +160,13 @@ function ReportBody({ report }: { report: Report }) {
     ["عربون مستلم", r.depositsReceived, "اتأكد بإثبات دفع", "bg-navy-900"],
     ["متبقي يتحصّل في الملعب", r.outstanding, "للماتشات المؤكدة الجاية", "bg-brand-gold"],
     ["إيرادات محققة", r.recognized, "ماتشات اتلعبت + عربون عدم الحضور", "bg-[#2E8B55]"],
+    ["عمولة المنصة", r.platformCommission, "المبلغ المحصل للمنصة أونلاين", "bg-[#8B5CF6]"],
+    ["صافي إيراد الملعب", r.venueNetRevenue, "صافي إيجار الملعب بعد الخصومات", "bg-[#0EA5A4]"],
   ];
 
   return (
     <>
-      <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-3 grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         {kpis.map(([label, value, hint, dot]) => (
           <div key={label} className={`${card} rounded-[18px] p-4 flex flex-col gap-1.5`}>
             <span className={`text-[13px] ${muted} flex items-center gap-1.5`}>

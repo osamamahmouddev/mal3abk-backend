@@ -361,11 +361,32 @@ public sealed record UpdateVenueCommissionCommand(
     decimal? CommissionRate,
     Guid ActorUserId) : ICommand<Result<VenueCommissionDto>>;
 
+public sealed record GetVenueCommissionQuery(Guid VenueId) : IQuery<Result<VenueCommissionDto>>;
+
 public sealed record VenueCommissionDto(
     Guid VenueId,
     bool CustomCommissionEnabled,
     string CommissionType,
     decimal? CommissionRate);
+
+public sealed class GetVenueCommissionHandler : IQueryHandler<GetVenueCommissionQuery, Result<VenueCommissionDto>>
+{
+    private readonly VenuesDbContext _dbContext;
+
+    public GetVenueCommissionHandler(VenuesDbContext dbContext) => _dbContext = dbContext;
+
+    public async Task<Result<VenueCommissionDto>> HandleAsync(GetVenueCommissionQuery query, CancellationToken cancellationToken = default)
+    {
+        var commission = await _dbContext.Venues.AsNoTracking()
+            .Where(v => v.Id == query.VenueId && !v.IsDeleted)
+            .Select(v => new VenueCommissionDto(v.Id, v.CustomCommissionEnabled, v.CommissionType.ToString(), v.CommissionRate))
+            .FirstOrDefaultAsync(cancellationToken);
+
+        return commission is null
+            ? Result.Failure<VenueCommissionDto>(AdminVenueErrors.NotFound)
+            : Result.Success(commission);
+    }
+}
 
 public sealed class UpdateVenueCommissionHandler : ICommandHandler<UpdateVenueCommissionCommand, Result<VenueCommissionDto>>
 {

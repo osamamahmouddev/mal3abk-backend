@@ -654,8 +654,11 @@ function BookingDrawer({
                 ["الميعاد", `${cairoDateTime(b.startUtc)} – ${cairoDateTime(b.endUtc)}`],
                 ["السعر الإجمالي", money(b.totalPrice, b.currency)],
                 ["العربون", money(b.depositAmount, b.currency)],
+                ["عمولة المنصة", b.platformCommission > 0 ? money(b.platformCommission, b.currency) : "معفاة / غير مطبقة"],
+                ["حالة العمولة", b.platformCommission <= 0 ? "غير مطبقة" : b.isCommissionPaid ? "مسددة أونلاين" : "لم تُسدّد أونلاين بعد"],
+                ["صافي إيجار الملعب", money(b.venueNetAmount, b.currency)],
                 ...(b.totalPrice > b.depositAmount
-                  ? [["المتبقي كاش في الملعب", <strong key="rem" className="font-bold text-emerald-700">{money(b.totalPrice - b.depositAmount, b.currency)}</strong>]]
+                  ? [["المطلوب تحصيله في الملعب", <strong key="rem" className="font-bold text-emerald-700">{money(b.venuePayAmount > 0 ? b.venuePayAmount : b.totalPrice - b.depositAmount, b.currency)}</strong>]]
                   : []),
                 ["الهاتف", b.customerPhone ? <span key="p" dir="ltr">{b.customerPhone}</span> : "—"],
                 ...(b.status === 2 && b.holdExpiresAtUtc ? [["مهلة العربون", timeLeft(b.holdExpiresAtUtc)]] : []),

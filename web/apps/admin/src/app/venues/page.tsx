@@ -1,9 +1,9 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { Schemas } from "@malabak/api-client";
-import { KV, Page, PageHeader, Pill, ReasonModal, type ReasonRequest, SearchBox, btnDanger, btnOutline, btnPrimary, btnSmall, card, inputClass, money, muted, toArabicDigits } from "@/components/ui";
+import { KV, Page, PageHeader, Pill, ReasonModal, Switch, type ReasonRequest, SearchBox, btnDanger, btnOutline, btnPrimary, btnSmall, card, inputClass, money, muted, toArabicDigits } from "@/components/ui";
 import { Drawer, Field, Pager, QueryState, Section, Select, Table, TextInput, fmtDate, fmtDateTime, num, useNotice } from "@/components/admin";
 import { api, unwrap } from "@/lib/api";
 import { useStepUp } from "@/lib/stepup";
@@ -438,6 +438,9 @@ function VenueDrawer({ venueId, onClose }: { venueId: string | null; onClose: ()
   const [note, setNote] = useState<string | null>(null);
   const [newOwner, setNewOwner] = useState("");
   const [gallery, setGallery] = useState<{ photos: string[]; index: number; title: string } | null>(null);
+  const [commissionEnabled, setCommissionEnabled] = useState(false);
+  const [commissionType, setCommissionType] = useState<"0" | "1" | "2" | "3">("0");
+  const [commissionRate, setCommissionRate] = useState("");
 
   const usersQuery = useQuery({
     queryKey: ["admin-users-candidates-select"],
@@ -459,6 +462,38 @@ function VenueDrawer({ venueId, onClose }: { venueId: string | null; onClose: ()
     queryKey: ["admin-venue-complaints", venueId],
     enabled: !!venueId,
     queryFn: () => unwrap(api.GET("/api/v1/admin/venues/{venueId}/complaints", { params: { path: { venueId: venueId! } } })),
+  });
+
+  const commission = useQuery({
+    queryKey: ["admin-venue-commission", venueId],
+    enabled: !!venueId,
+    queryFn: () => unwrap(api.GET("/api/v1/admin/venues/{venueId}/commission", { params: { path: { venueId: venueId! } } })),
+  });
+
+  useEffect(() => {
+    if (!commission.data) return;
+    setCommissionEnabled(commission.data.customCommissionEnabled);
+    setCommissionType(({ PlatformDefault: "0", PerHourFixed: "1", Percentage: "2", Exempt: "3" } as Record<string, "0" | "1" | "2" | "3">)[commission.data.commissionType] ?? "0");
+    setCommissionRate(commission.data.commissionRate === null || commission.data.commissionRate === undefined ? "" : String(commission.data.commissionRate));
+  }, [commission.data]);
+
+  const saveCommission = useMutation({
+    mutationFn: () =>
+      unwrap(
+        api.PATCH("/api/v1/admin/venues/{venueId}/commission", {
+          params: { path: { venueId: venueId! } },
+          body: {
+            customCommissionEnabled: commissionEnabled,
+            commissionType: Number(commissionType) as 0 | 1 | 2 | 3,
+            commissionRate: commissionRate.trim() ? Number(commissionRate) : null,
+          },
+        }),
+      ),
+    onSuccess: async () => {
+      notice.ok("اتحفظت إعدادات عمولة المنصة.");
+      await queryClient.invalidateQueries({ queryKey: ["admin-venue-commission", venueId] });
+    },
+    onError: notice.fail,
   });
 
   type Kind = "suspend" | "reactivate" | "ask" | "note" | "owner";
@@ -534,6 +569,41 @@ function VenueDrawer({ venueId, onClose }: { venueId: string | null; onClose: ()
                   <KV k="تاريخ التسجيل">{fmtDate(v.createdAtUtc)}</KV>
                 </div>
               </div>
+
+              <Section title="إعدادات عمولة المنصة">
+                {commission.isLoading ? (
+                  <span className="text-xs text-slate-500">جاري تحميل الإعدادات…</span>
+                ) : commission.isError ? (
+                  <span className="text-xs text-red-700">تعذّر تحميل إعدادات العمولة.</span>
+                ) : (
+                  <div className="flex flex-col gap-3">
+                    <Switch
+                      on={commissionEnabled}
+                      label="تخصيص عمولة خاصة لهذا الملعب"
+                      onToggle={() => setCommissionEnabled((value) => !value)}
+                    />
+                    {commissionEnabled && (
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <Field label="نوع العمولة">
+                          <select value={commissionType} onChange={(e) => setCommissionType(e.target.value as "0" | "1" | "2" | "3")} className="w-full min-h-[40px] rounded-xl border border-slate-200 bg-white px-3 text-sm">
+                            <option value="1">مبلغ ثابت لكل ساعة</option>
+                            <option value="2">نسبة مئوية من الإيجار</option>
+                            <option value="3">معفي من العمولة</option>
+                          </select>
+                        </Field>
+                        {commissionType !== "3" && (
+                          <Field label={commissionType === "2" ? "النسبة المئوية" : "المبلغ لكل ساعة"}>
+                            <TextInput type="number" min="0" step="0.01" value={commissionRate} onChange={(e) => setCommissionRate(e.target.value)} placeholder={commissionType === "2" ? "مثلاً 10" : "مثلاً 30"} />
+                          </Field>
+                        )}
+                      </div>
+                    )}
+                    <button type="button" className={`${btnSmall} self-start`} disabled={saveCommission.isPending || !commission.data} onClick={() => saveCommission.mutate()}>
+                      {saveCommission.isPending ? "جاري الحفظ…" : "حفظ إعداد العمولة"}
+                    </button>
+                  </div>
+                )}
+              </Section>
 
               {/* Action Buttons */}
               <div className="flex flex-wrap gap-2">
