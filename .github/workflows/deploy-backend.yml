@@ -50,6 +50,8 @@ jobs:
           SECURITY_STEPUP_SECRET: ${{ secrets.MALABAK_SECURITY_STEPUP_SECRET }}
           SECURITY_TURNSTILE_SECRET: ${{ secrets.MALABAK_SECURITY_TURNSTILE_SECRET }}
           OTP_SLACK_WEBHOOK: ${{ secrets.MALABAK_OTP_SLACK_WEBHOOK }}
+          PRODUCTION_POSTGRES_CONNECTION: ${{ secrets.MALABAK_PRODUCTION_POSTGRES_CONNECTION }}
+          PRODUCTION_REDIS_CONNECTION: ${{ secrets.MALABAK_PRODUCTION_REDIS_CONNECTION }}
         run: |
           python3 - << 'EOF'
           import os, sys, time, ftplib, io, urllib.request, urllib.error
@@ -105,6 +107,11 @@ jobs:
           web_config = patch_environment_variable(web_config, "ASPNETCORE_ENVIRONMENT", "Development")
           web_config = patch_environment_variable(web_config, "Database__MigrateOnStartup", "false")
           web_config = patch_environment_variable(web_config, "Hangfire__Enabled", "false")
+          web_config = patch_environment_variable(web_config, "ConnectionStrings__Postgres", os.environ["PRODUCTION_POSTGRES_CONNECTION"])
+          web_config = patch_environment_variable(web_config, "Database__ConnectionString", os.environ["PRODUCTION_POSTGRES_CONNECTION"])
+          web_config = patch_environment_variable(web_config, "ConnectionStrings__Redis", os.environ["PRODUCTION_REDIS_CONNECTION"])
+          web_config = patch_environment_variable(web_config, "Redis__ConnectionString", os.environ["PRODUCTION_REDIS_CONNECTION"])
+          web_config = patch_environment_variable(web_config, "Redis__Ssl", "true")
           web_config = patch_environment_variable(web_config, "Security__Encryption__CurrentKeyEncryptionKeyId", os.environ["ENCRYPTION_CURRENT_KEK_ID"])
           web_config = patch_environment_variable(web_config, "Security__Encryption__KeyEncryptionKeys__dev-kek-1", os.environ["ENCRYPTION_KEK_DEV_1"])
           web_config = patch_environment_variable(web_config, "Security__Encryption__BlindIndexKey", os.environ["ENCRYPTION_BLIND_INDEX_KEY"])
