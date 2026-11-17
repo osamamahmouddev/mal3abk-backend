@@ -45,6 +45,11 @@ jobs:
           ENCRYPTION_BLIND_INDEX_KEY: ${{ secrets.MALABAK_ENCRYPTION_BLIND_INDEX_KEY }}
           ENCRYPTION_CURRENT_KEK_ID: ${{ secrets.MALABAK_ENCRYPTION_CURRENT_KEK_ID }}
           ENCRYPTION_KEK_DEV_1: ${{ secrets.MALABAK_ENCRYPTION_KEK_DEV_1 }}
+          SECURITY_JWT_PRIVATE_KEY_PEM: ${{ secrets.MALABAK_SECURITY_JWT_PRIVATE_KEY_PEM }}
+          SECURITY_OTP_HMAC_SECRET: ${{ secrets.MALABAK_SECURITY_OTP_HMAC_SECRET }}
+          SECURITY_STEPUP_SECRET: ${{ secrets.MALABAK_SECURITY_STEPUP_SECRET }}
+          SECURITY_TURNSTILE_SECRET: ${{ secrets.MALABAK_SECURITY_TURNSTILE_SECRET }}
+          OTP_SLACK_WEBHOOK: ${{ secrets.MALABAK_OTP_SLACK_WEBHOOK }}
         run: |
           python3 - << 'EOF'
           import os, sys, time, ftplib, io, urllib.request, urllib.error
@@ -74,7 +79,8 @@ jobs:
                           pass
 
           def patch_environment_variable(xml_text, name, value):
-              import re
+              import html, re
+              value = html.escape(value.replace("\r\n", "\n"), quote=True).replace("\n", "&#xA;")
               escaped_name = re.escape(name)
               pattern = rf'(name="{escaped_name}"\s+value=")[^"]*(")'
               replacement = rf'\g<1>{value}\g<2>'
@@ -102,6 +108,11 @@ jobs:
           web_config = patch_environment_variable(web_config, "Security__Encryption__CurrentKeyEncryptionKeyId", os.environ["ENCRYPTION_CURRENT_KEK_ID"])
           web_config = patch_environment_variable(web_config, "Security__Encryption__KeyEncryptionKeys__dev-kek-1", os.environ["ENCRYPTION_KEK_DEV_1"])
           web_config = patch_environment_variable(web_config, "Security__Encryption__BlindIndexKey", os.environ["ENCRYPTION_BLIND_INDEX_KEY"])
+          web_config = patch_environment_variable(web_config, "Security__Jwt__PrivateKeyPem", os.environ["SECURITY_JWT_PRIVATE_KEY_PEM"])
+          web_config = patch_environment_variable(web_config, "Security__Otp__HmacSecret", os.environ["SECURITY_OTP_HMAC_SECRET"])
+          web_config = patch_environment_variable(web_config, "Security__StepUp__SecretKey", os.environ["SECURITY_STEPUP_SECRET"])
+          web_config = patch_environment_variable(web_config, "Security__Turnstile__SecretKey", os.environ["SECURITY_TURNSTILE_SECRET"])
+          web_config = patch_environment_variable(web_config, "Identity__OtpDelivery__Slack__WebhookUrl", os.environ["OTP_SLACK_WEBHOOK"])
           ftp.storbinary("STOR web.config", io.BytesIO(web_config.encode("utf-8")))
 
           print("==> Stopping IIS process with app_offline.htm...")
