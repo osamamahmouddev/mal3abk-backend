@@ -359,7 +359,10 @@ if (app.Configuration.GetValue<bool>("Database:MigrateOnStartup"))
     using var scope = app.Services.CreateScope();
     await DatabaseMigrator.MigrateAllAsync(scope.ServiceProvider);
 
-    if (app.Environment.IsDevelopment() || app.Configuration.GetValue<bool>("Database:SeedOnStartup"))
+    // Startup migrations must not implicitly seed demo/dev data. Seeding can be expensive and
+    // delays the first listening socket on constrained hosts; use the explicit CLI seed commands
+    // or Database:SeedOnStartup when a deployment intentionally requires it.
+    if (app.Configuration.GetValue<bool>("Database:SeedOnStartup"))
     {
         var refSeeder = scope.ServiceProvider.GetRequiredService<ReferenceDataSeeder>();
         await refSeeder.SeedAsync();
