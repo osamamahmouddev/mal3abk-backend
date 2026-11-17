@@ -234,6 +234,26 @@ public sealed class VenueStaffAndReportingEdgeCaseTests
         duplicatePhoto.Error.Code.Should().Be(GalleryErrors.Full.Code);
     }
 
+    [Fact]
+    public async Task GalleryPhotoRemoval_UsesMediaIdWhenStoredVariantDiffersAsync()
+    {
+        await using var db = CreateVenuesDb();
+        var venue = Venue.Create(_venueId, "Club", "club", null, _ownerId, "Cairo", "Cairo", "Maadi", null, null, "+201000000000", null, null, _now);
+        db.Venues.Add(venue);
+        await db.SaveChangesAsync();
+
+        var mediaId = Guid.NewGuid();
+        var storedPhoto = $"/api/v1/media/{mediaId:D}/medium";
+        var handler = new GalleryHandlers(db, new FakeVenueAccess(VenueAccess.Owner(_venueId)), _clock);
+        (await handler.HandleAsync(new AddGalleryPhotoCommand(_venueId, null, _ownerId, storedPhoto))).IsSuccess.Should().BeTrue();
+
+        var result = await handler.HandleAsync(new RemoveGalleryPhotoCommand(
+            _venueId, null, _ownerId, $"/api/v1/media/{mediaId:D}/large", mediaId));
+
+        result.IsSuccess.Should().BeTrue();
+        result.Value.Should().BeEmpty();
+    }
+
     private sealed class FakeVenueAccess(VenueAccess access) : IVenueAccessService
     {
         public Task<VenueAccess> GetAccessAsync(Guid userId, Guid venueId, CancellationToken cancellationToken = default) => Task.FromResult(access);

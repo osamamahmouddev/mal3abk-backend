@@ -1412,6 +1412,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/venues/{venueId}/commission": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Configure custom platform commission for a specific venue */
+        patch: operations["UpdateVenueCommission"];
+        trace?: never;
+    };
     "/api/v1/admin/venues": {
         parameters: {
             query?: never;
@@ -1593,6 +1610,23 @@ export interface paths {
         put?: never;
         /** Verify OTP code and authenticate player */
         post: operations["VerifyOtp"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/firebase": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Authenticate or register player using Firebase Phone Auth ID token */
+        post: operations["AuthenticateWithFirebase"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3390,6 +3424,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/bookings/{id}/pay-commission": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Creates a Paymob checkout intention for the platform commission / deposit */
+        post: operations["PayBookingCommission"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/payments/paymob/webhook": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Receives asynchronous payment status notifications from Paymob */
+        post: operations["PaymobWebhook"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/me/phone-change/start": {
         parameters: {
             query?: never;
@@ -4052,6 +4120,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/teams/{id}/members/{memberPlayerId}/role": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Set an active member's role to ViceCaptain (2) or Member (3) (Captain only) */
+        put: operations["UpdateTeamMemberRole"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/teams/{id}": {
         parameters: {
             query?: never;
@@ -4164,7 +4249,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Leave team (members only; captain must transfer captaincy first) */
+        /** Leave team. A captain must transfer captaincy first, unless they are the only member: then the team is closed */
         post: operations["LeaveTeam"];
         delete?: never;
         options?: never;
@@ -5442,6 +5527,15 @@ export interface components {
             isManual: boolean;
             /** Format: date-time */
             createdAtUtc: string;
+            /** Format: double */
+            platformCommission: number;
+            /** Format: double */
+            venueNetAmount: number;
+            /** Format: double */
+            onlinePaidAmount: number;
+            /** Format: double */
+            venuePayAmount: number;
+            isCommissionPaid: boolean;
         };
         AdminBookingPage: {
             items: components["schemas"]["AdminBookingListItem"][];
@@ -5993,6 +6087,11 @@ export interface components {
         ChangeRoleApiRequest: {
             role: components["schemas"]["VenueStaffRole"];
         };
+        /**
+         * Format: int32
+         * @enum {integer}
+         */
+        CommissionType: 0 | 1 | 2 | 3;
         CompleteProfileApiRequest: {
             fullName: string;
             city: string;
@@ -6082,6 +6181,14 @@ export interface components {
             /** Format: date-time */
             holdExpiresAtUtc: string;
             paymentInstructions?: string | null;
+            /** Format: double */
+            platformCommission: number;
+            /** Format: double */
+            venueNetAmount: number;
+            /** Format: double */
+            onlineDepositAmount: number;
+            /** Format: double */
+            venuePayAmount: number;
         };
         CreateInvitationApiRequest: {
             /** Format: int32 */
@@ -6125,6 +6232,9 @@ export interface components {
             district?: string | null;
             logoUrl?: string | null;
             coverUrl?: string | null;
+            isPublic?: boolean | null;
+            isRecruiting?: boolean | null;
+            isOpenForChallenges?: boolean | null;
         };
         CreateUploadApiRequest: {
             purpose: components["schemas"]["MediaPurpose"];
@@ -6507,6 +6617,11 @@ export interface components {
             isCancelled: boolean;
             /** Format: date-time */
             createdAtUtc: string;
+        };
+        FirebaseAuthRequest: {
+            idToken: string;
+            fullName?: string | null;
+            restoreAccount: boolean;
         };
         FlagDto: {
             key: string;
@@ -6930,6 +7045,12 @@ export interface components {
             /** Format: date-time */
             refreshTokenExpiresAtUtc: string;
         };
+        PayCommissionRequest: {
+            firstName?: string | null;
+            lastName?: string | null;
+            phoneNumber?: string | null;
+            email?: string | null;
+        };
         PaymentDto: {
             /** Format: uuid */
             id: string;
@@ -7189,6 +7310,15 @@ export interface components {
             createdAtUtc: string;
             pitchName?: string | null;
             venueCoverPhotoUrl?: string | null;
+            /** Format: double */
+            platformCommission: number;
+            /** Format: double */
+            venueNetAmount: number;
+            /** Format: double */
+            onlinePaidAmount: number;
+            /** Format: double */
+            venuePayAmount: number;
+            isCommissionPaid: boolean;
         };
         PlayerBookingSummaryDto: {
             /** Format: uuid */
@@ -7216,6 +7346,15 @@ export interface components {
             venueName?: string | null;
             pitchName?: string | null;
             venueCoverPhotoUrl?: string | null;
+            /** Format: double */
+            platformCommission: number;
+            /** Format: double */
+            venueNetAmount: number;
+            /** Format: double */
+            onlinePaidAmount: number;
+            /** Format: double */
+            venuePayAmount: number;
+            isCommissionPaid: boolean;
         };
         PlayerBookingSummaryDtoPagedList: {
             items: components["schemas"]["PlayerBookingSummaryDto"][];
@@ -7324,6 +7463,14 @@ export interface components {
             lines: components["schemas"]["PriceLineSnapshot"][];
             /** Format: date-time */
             quotedAtUtc: string;
+            /** Format: double */
+            netPitchPrice: number;
+            /** Format: double */
+            platformCommission: number;
+            /** Format: double */
+            onlineDepositAmount: number;
+            /** Format: double */
+            venuePayAmount: number;
         };
         PriceRuleApiRequest: {
             kind: components["schemas"]["PriceRuleKind"];
@@ -7581,6 +7728,10 @@ export interface components {
             recognized: number;
             /** Format: double */
             pending: number;
+            /** Format: double */
+            platformCommission: number;
+            /** Format: double */
+            venueNetRevenue: number;
         };
         ReviewFairPlayReportRequest: {
             isApproved: boolean;
@@ -8305,6 +8456,10 @@ export interface components {
             enabled: boolean;
             reason?: string | null;
         };
+        UpdateMemberRoleApiRequest: {
+            /** Format: int32 */
+            role: number;
+        };
         UpdatePaymentMethodApiRequest: {
             methodType: string;
             recipientName: string;
@@ -8356,6 +8511,12 @@ export interface components {
             phoneNumber: string;
             facilities?: string[] | null;
             photos?: string[] | null;
+        };
+        UpdateVenueCommissionRequest: {
+            customCommissionEnabled: boolean;
+            commissionType: components["schemas"]["CommissionType"];
+            /** Format: double */
+            commissionRate?: number | null;
         };
         UpdateVenueSchedulesApiRequest: {
             schedules: components["schemas"]["ScheduleItemApiRequest"][];
@@ -8439,6 +8600,17 @@ export interface components {
             statusHistory: components["schemas"]["PlayerStatusHistoryDto"][];
             /** Format: date-time */
             createdAtUtc: string;
+            pitchName?: string | null;
+            /** Format: double */
+            platformCommission: number;
+            /** Format: double */
+            venueNetAmount: number;
+            /** Format: double */
+            onlinePaidAmount: number;
+            /** Format: double */
+            venuePayAmount: number;
+            isCommissionPaid: boolean;
+            isManual: boolean;
         };
         VenueBookingItemDto: {
             /** Format: uuid */
@@ -8461,6 +8633,15 @@ export interface components {
             /** Format: date-time */
             createdAtUtc: string;
             isManual: boolean;
+            /** Format: double */
+            platformCommission: number;
+            /** Format: double */
+            venueNetAmount: number;
+            /** Format: double */
+            onlinePaidAmount: number;
+            /** Format: double */
+            venuePayAmount: number;
+            isCommissionPaid: boolean;
         };
         VenueBookingItemDtoPagedList: {
             items: components["schemas"]["VenueBookingItemDto"][];
@@ -8506,6 +8687,14 @@ export interface components {
             nextAvailableStartUtc?: string | null;
             /** Format: date-time */
             viewedAtUtc?: string | null;
+        };
+        VenueCommissionDto: {
+            /** Format: uuid */
+            venueId: string;
+            customCommissionEnabled: boolean;
+            commissionType: string;
+            /** Format: double */
+            commissionRate?: number | null;
         };
         VenueComplaintDto: {
             /** Format: uuid */
@@ -8663,6 +8852,31 @@ export interface components {
             audience: string;
             chosenPlan?: string | null;
             turnstileToken?: string | null;
+        };
+        /**
+         * Format: int32
+         * @enum {integer}
+         */
+        WaitlistAudience: 0 | 1;
+        WaitlistDto: {
+            /** Format: uuid */
+            id: string;
+            audience: components["schemas"]["WaitlistAudience"];
+            chosenPlan?: string | null;
+            phone: string;
+            /** Format: date-time */
+            consentRecordedAtUtc: string;
+            /** Format: date-time */
+            createdAtUtc: string;
+        };
+        WaitlistPagedResult: {
+            items: components["schemas"]["WaitlistDto"][];
+            /** Format: int32 */
+            totalCount: number;
+            /** Format: int32 */
+            page: number;
+            /** Format: int32 */
+            pageSize: number;
         };
         WeeklyHoursInput: {
             dayOfWeek: components["schemas"]["DayOfWeek"];
@@ -16348,6 +16562,95 @@ export interface operations {
             };
         };
     };
+    UpdateVenueCommission: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                venueId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateVenueCommissionRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VenueCommissionDto"];
+                };
+            };
+            /** @description Bad Request (Validation failure, invalid inputs) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Unauthorized (Missing or expired JWT access token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Forbidden (Insufficient role or permissions) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Not Found (Resource does not exist) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Conflict (Concurrent update or duplicate idempotency in flight) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Unprocessable Entity (Business rule violation or payload mismatch) */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Too Many Requests (Rate limit exceeded, check Retry-After header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
     AdminSearchVenues: {
         parameters: {
             query?: {
@@ -17072,7 +17375,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["WaitlistPagedResult"];
+                };
             };
             /** @description Bad Request (Validation failure, invalid inputs) */
             400: {
@@ -17236,6 +17541,93 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["VerifyOtpRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VerifyOtpResponse"];
+                };
+            };
+            /** @description Bad Request (Validation failure, invalid inputs) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Unauthorized (Missing or expired JWT access token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Forbidden (Insufficient role or permissions) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Not Found (Resource does not exist) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Conflict (Concurrent update or duplicate idempotency in flight) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Unprocessable Entity (Business rule violation or payload mismatch) */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Too Many Requests (Rate limit exceeded, check Retry-After header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    AuthenticateWithFirebase: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FirebaseAuthRequest"];
             };
         };
         responses: {
@@ -22794,6 +23186,174 @@ export interface operations {
             };
         };
     };
+    PayBookingCommission: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PayCommissionRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Bad Request (Validation failure, invalid inputs) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Unauthorized (Missing or expired JWT access token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Forbidden (Insufficient role or permissions) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Not Found (Resource does not exist) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Conflict (Concurrent update or duplicate idempotency in flight) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Unprocessable Entity (Business rule violation or payload mismatch) */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Too Many Requests (Rate limit exceeded, check Retry-After header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    PaymobWebhook: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Bad Request (Validation failure, invalid inputs) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Unauthorized (Missing or expired JWT access token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Forbidden (Insufficient role or permissions) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Not Found (Resource does not exist) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Conflict (Concurrent update or duplicate idempotency in flight) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Unprocessable Entity (Business rule violation or payload mismatch) */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Too Many Requests (Rate limit exceeded, check Retry-After header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
     StartPhoneChange: {
         parameters: {
             query?: never;
@@ -26575,6 +27135,94 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["TransferCaptaincyApiRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Bad Request (Validation failure, invalid inputs) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Unauthorized (Missing or expired JWT access token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Forbidden (Insufficient role or permissions) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Not Found (Resource does not exist) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Conflict (Concurrent update or duplicate idempotency in flight) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Unprocessable Entity (Business rule violation or payload mismatch) */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Too Many Requests (Rate limit exceeded, check Retry-After header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    UpdateTeamMemberRole: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                memberPlayerId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateMemberRoleApiRequest"];
             };
         };
         responses: {

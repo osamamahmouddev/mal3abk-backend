@@ -556,6 +556,11 @@ public sealed class SubscriptionService
             return Result.Failure<SubscriptionDto>(SubscriptionErrors.InvalidTransition);
         }
 
+        if (!req.IsPaymentReported)
+        {
+            return Result.Failure<SubscriptionDto>(SubscriptionErrors.PaymentProofRequired);
+        }
+
         var plan = await _dbContext.Plans.FirstOrDefaultAsync(p => p.Id == req.PlanId, cancellationToken);
         if (plan is null)
         {

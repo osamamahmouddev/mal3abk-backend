@@ -61,6 +61,17 @@ public sealed class VenueDashboardTests
     }
 
     [Fact]
+    public void Revenue_IncludesExpectedDepositForManualPendingBooking()
+    {
+        var pendingManual = new GetVenueDashboardHandler.Row(
+            Guid.NewGuid(), "MLB-M2", _pitchId, Guid.NewGuid(), Local(5, 18), Local(5, 19),
+            BookingStatus.PendingDeposit, 600m, 150m, "EGP", _now.AddHours(1), true, "Saif Yasser");
+
+        GetVenueDashboardHandler.Revenue([pendingManual], "EGP")
+            .DepositsPendingReview.Should().Be(150m);
+    }
+
+    [Fact]
     public async Task StaffWithoutReportsPermission_GetNoMoneyFiguresAsync()
     {
         await using var db = await SeedAsync();

@@ -13,7 +13,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
           // A missing permission (403) or missing item (404) will not change on retry.
           queries: {
             staleTime: 30_000,
-            refetchOnWindowFocus: false,
+            refetchOnWindowFocus: true,
             retry: (count, error) => !(error instanceof ApiError && [401, 403, 404].includes(error.status)) && count < 1,
           },
         },

@@ -9,7 +9,7 @@ namespace Malabak.Modules.Venues.Application.Gallery;
 /// <param name="PitchId">Null for the venue gallery, otherwise the pitch's gallery.</param>
 public sealed record AddGalleryPhotoCommand(Guid VenueId, Guid? PitchId, Guid UserId, string PhotoUrl) : ICommand<Result<IReadOnlyList<string>>>;
 
-public sealed record RemoveGalleryPhotoCommand(Guid VenueId, Guid? PitchId, Guid UserId, string PhotoUrl) : ICommand<Result<IReadOnlyList<string>>>;
+public sealed record RemoveGalleryPhotoCommand(Guid VenueId, Guid? PitchId, Guid UserId, string PhotoUrl, Guid? MediaId = null) : ICommand<Result<IReadOnlyList<string>>>;
 
 public static class GalleryErrors
 {
@@ -42,7 +42,9 @@ public sealed class GalleryHandlers :
 
     public Task<Result<IReadOnlyList<string>>> HandleAsync(RemoveGalleryPhotoCommand command, CancellationToken cancellationToken = default) =>
         MutateAsync(command.VenueId, command.PitchId, command.UserId, cancellationToken,
-            onVenue: v => v.RemovePhoto(command.PhotoUrl, _clock.UtcNow), onPitch: p => p.RemovePhoto(command.PhotoUrl, _clock.UtcNow), GalleryErrors.PhotoNotFound);
+            onVenue: v => command.MediaId is { } mediaId ? v.RemovePhotoByMediaId(mediaId, _clock.UtcNow) : v.RemovePhoto(command.PhotoUrl, _clock.UtcNow),
+            onPitch: p => command.MediaId is { } mediaId ? p.RemovePhotoByMediaId(mediaId, _clock.UtcNow) : p.RemovePhoto(command.PhotoUrl, _clock.UtcNow),
+            GalleryErrors.PhotoNotFound);
 
     private async Task<Result<IReadOnlyList<string>>> MutateAsync(
         Guid venueId, Guid? pitchId, Guid userId, CancellationToken cancellationToken,

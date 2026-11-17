@@ -93,7 +93,7 @@ public static class MediaEndpoints
 
         gallery.MapDelete("/gallery/{mediaId:guid}", async (Guid venueId, Guid mediaId, ClaimsPrincipal user, MediaService service,
             ICommandHandler<RemoveGalleryPhotoCommand, Result<IReadOnlyList<string>>> handler, CancellationToken ct) =>
-            ToResult(await handler.HandleAsync(new RemoveGalleryPhotoCommand(venueId, null, user.GetUserId()!.Value, MediaService.PublicUrl(mediaId)), ct)))
+            ToResult(await handler.HandleAsync(new RemoveGalleryPhotoCommand(venueId, null, user.GetUserId()!.Value, MediaService.PublicUrl(mediaId), mediaId), ct)))
         .WithName("RemoveVenuePhoto");
 
         gallery.MapPost("/pitches/{pitchId:guid}/gallery", (Guid venueId, Guid pitchId, ClaimsPrincipal user, [FromBody] GalleryPhotoApiRequest request,
@@ -103,7 +103,7 @@ public static class MediaEndpoints
 
         gallery.MapDelete("/pitches/{pitchId:guid}/gallery/{mediaId:guid}", async (Guid venueId, Guid pitchId, Guid mediaId, ClaimsPrincipal user,
             MediaService service, ICommandHandler<RemoveGalleryPhotoCommand, Result<IReadOnlyList<string>>> handler, CancellationToken ct) =>
-            ToResult(await handler.HandleAsync(new RemoveGalleryPhotoCommand(venueId, pitchId, user.GetUserId()!.Value, MediaService.PublicUrl(mediaId)), ct)))
+            ToResult(await handler.HandleAsync(new RemoveGalleryPhotoCommand(venueId, pitchId, user.GetUserId()!.Value, MediaService.PublicUrl(mediaId), mediaId), ct)))
         .WithName("RemovePitchPhoto");
     }
 

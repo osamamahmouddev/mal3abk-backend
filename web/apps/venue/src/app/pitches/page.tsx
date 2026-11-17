@@ -24,14 +24,18 @@ const field = "min-h-[44px] px-3 rounded-xl border border-[#C9CFD9] text-sm text
 
 export default function PitchesPage() {
   const queryClient = useQueryClient();
-  const { venue, venues, venueId } = useVenue();
-  const { surfaces } = useReference();
+  const { venue, venues, venueId, selectVenue } = useVenue();
+  const { surfaces, governorates } = useReference();
   const [tab, setTab] = useState<"pitches" | "venues">("pitches");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [draft, setDraft] = useState<Pitch | null>(null);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const detailsRef = useRevealOnSelect<HTMLElement>(selectedId);
   const [toast, setToast] = useState<string | null>(null);
+  const [branchOpen, setBranchOpen] = useState(false);
+  const [branchForm, setBranchForm] = useState({ name: "", city: "", area: "", phoneNumber: "", address: "", description: "" });
+
+  const branchGovernorate = governorates.find((g) => g.nameAr === branchForm.city);
 
   const pitches = useQuery({
     queryKey: ["pitches", venueId],
@@ -161,6 +165,39 @@ export default function PitchesPage() {
     onError: (e: Error) => setToast(e.message),
   });
 
+  const createBranch = useMutation({
+    mutationFn: () =>
+      unwrap(
+        api.POST("/api/v1/venue-manager/venues", {
+          body: {
+            name: branchForm.name.trim(),
+            city: branchForm.city,
+            area: branchForm.area,
+            phoneNumber: branchForm.phoneNumber.trim(),
+            address: branchForm.address.trim(),
+            description: branchForm.description.trim() || null,
+            facilities: [],
+            photos: [],
+          },
+        }),
+      ),
+    onSuccess: async (created) => {
+      await queryClient.invalidateQueries({ queryKey: ["venues"] });
+      selectVenue(created.id);
+      setBranchOpen(false);
+      setBranchForm({ name: "", city: "", area: "", phoneNumber: "", address: "", description: "" });
+      setToast("الفرع اتضاف. كمّل بياناته وابعتُه للمراجعة.");
+    },
+    onError: (e: Error) => setToast(e.message),
+  });
+
+  const branchValid =
+    branchForm.name.trim().length >= 3 &&
+    branchForm.city &&
+    branchForm.area &&
+    branchForm.phoneNumber.trim() &&
+    branchForm.address.trim();
+
   return (
     <Page>
       <div className="flex flex-wrap items-center gap-3">
@@ -168,11 +205,11 @@ export default function PitchesPage() {
         <span className="text-[13px] text-[#5B6475]">{toArabicDigits(list.length)} ملاعب في {venue?.name ?? "الفرع"}</span>
         <button
           type="button"
-          onClick={() => add.mutate()}
-          disabled={!venueId || add.isPending}
+          onClick={() => (tab === "venues" ? setBranchOpen(true) : add.mutate())}
+          disabled={tab === "pitches" ? !venueId || add.isPending : createBranch.isPending}
           className="min-h-[44px] px-[18px] rounded-xl text-sm font-bold transition bg-brand-red hover:bg-brand-red-hover disabled:opacity-60 text-white shadow-[0_10px_22px_-10px_rgba(214,59,47,0.65)]"
         >
-          + إضافة ملعب
+          {tab === "venues" ? "+ إضافة فرع" : "+ إضافة ملعب"}
         </button>
       </div>
 
@@ -239,6 +276,69 @@ export default function PitchesPage() {
               </article>
             );
           })}
+        </div>
+      )}
+
+      {branchOpen && (
+        <div className="fixed inset-0 z-50 bg-black/40 p-4 grid place-items-center" role="dialog" aria-modal="true" aria-labelledby="add-branch-title">
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (branchValid) createBranch.mutate();
+            }}
+            className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-[22px] bg-white p-5 sm:p-6 shadow-2xl flex flex-col gap-4"
+          >
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <h2 id="add-branch-title" className="text-xl font-bold text-slate-900">إضافة فرع جديد</h2>
+                <p className="text-sm text-[#5B6475] mt-1">اكتب مكان الفرع، وبعدها أضف الملاعب والمواعيد من بياناته.</p>
+              </div>
+              <button type="button" onClick={() => setBranchOpen(false)} className="w-9 h-9 rounded-full border border-[#DCE0E8] text-slate-600 hover:bg-slate-50" aria-label="إغلاق">×</button>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+              <label className="flex flex-col gap-1.5 text-sm font-semibold sm:col-span-2">
+                اسم الفرع <input required minLength={3} value={branchForm.name} onChange={(e) => setBranchForm({ ...branchForm, name: e.target.value })} className={field} placeholder="مثال: فرع مدينة نصر" />
+              </label>
+              <label className="flex flex-col gap-1.5 text-sm font-semibold">
+                المحافظة
+                <select required value={branchForm.city} onChange={(e) => setBranchForm({ ...branchForm, city: e.target.value, area: "" })} className={field}>
+                  <option value="">اختار المحافظة</option>
+                  {governorates.map((g) => <option key={g.code} value={g.nameAr}>{g.nameAr}</option>)}
+                </select>
+              </label>
+              <label className="flex flex-col gap-1.5 text-sm font-semibold">
+                المنطقة
+                {branchGovernorate?.areas.length ? (
+                  <select required value={branchForm.area} onChange={(e) => setBranchForm({ ...branchForm, area: e.target.value })} className={field}>
+                    <option value="">اختار المنطقة</option>
+                    {branchGovernorate.areas.map((a) => <option key={a.code} value={a.nameAr}>{a.nameAr}</option>)}
+                  </select>
+                ) : (
+                  <input required value={branchForm.area} onChange={(e) => setBranchForm({ ...branchForm, area: e.target.value })} className={field} placeholder="اكتب المنطقة" />
+                )}
+              </label>
+              <label className="flex flex-col gap-1.5 text-sm font-semibold">
+                رقم التواصل
+                <input required type="tel" dir="ltr" value={branchForm.phoneNumber} onChange={(e) => setBranchForm({ ...branchForm, phoneNumber: e.target.value })} className={`${field} text-right`} />
+              </label>
+              <label className="flex flex-col gap-1.5 text-sm font-semibold sm:col-span-2">
+                العنوان بالتفصيل
+                <input required value={branchForm.address} onChange={(e) => setBranchForm({ ...branchForm, address: e.target.value })} className={field} />
+              </label>
+              <label className="flex flex-col gap-1.5 text-sm font-semibold sm:col-span-2">
+                وصف مختصر (اختياري)
+                <textarea rows={3} value={branchForm.description} onChange={(e) => setBranchForm({ ...branchForm, description: e.target.value })} className={`${field} py-2.5`} />
+              </label>
+            </div>
+
+            <div className="flex flex-col-reverse sm:flex-row gap-2.5 sm:justify-end pt-1">
+              <button type="button" onClick={() => setBranchOpen(false)} className="min-h-[44px] px-5 rounded-xl border border-[#C9CFD9] text-sm font-semibold">إلغاء</button>
+              <button type="submit" disabled={!branchValid || createBranch.isPending} className="min-h-[44px] px-5 rounded-xl bg-brand-red hover:bg-brand-red-hover disabled:opacity-60 text-white text-sm font-bold">
+                {createBranch.isPending ? "جاري الإضافة…" : "إضافة الفرع"}
+              </button>
+            </div>
+          </form>
         </div>
       )}
 

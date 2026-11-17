@@ -46,6 +46,7 @@ public sealed record VenueBookingDetailDto(
     IReadOnlyList<VenueProofItemDto> Proofs,
     IReadOnlyList<PlayerStatusHistoryDto> StatusHistory,
     DateTime CreatedAtUtc,
+    string? PitchName = null,
     decimal PlatformCommission = 0m,
     decimal VenueNetAmount = 0m,
     decimal OnlinePaidAmount = 0m,
@@ -292,6 +293,10 @@ public sealed class VenueBookingQueriesHandler :
                 h.ChangedAtUtc))
             .ToList();
 
+        // Resolve the display name server-side so the details drawer does not depend on
+        // the dashboard's cached pitch list or expose the internal pitch id as a label.
+        var pitchNames = await _venues.GetPitchNamesAsync([booking.PitchId], cancellationToken);
+
         var dto = new VenueBookingDetailDto(
             booking.Id,
             booking.BookingReference,
@@ -311,6 +316,7 @@ public sealed class VenueBookingQueriesHandler :
             proofs,
             history,
             booking.CreatedAtUtc,
+            pitchNames.GetValueOrDefault(booking.PitchId),
             booking.PlatformCommission.Amount,
             booking.VenueNetAmount.Amount,
             booking.OnlinePaidAmount.Amount,

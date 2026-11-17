@@ -169,6 +169,20 @@ public sealed class Pitch : Entity<Guid>
         return removed;
     }
 
+    public bool RemovePhotoByMediaId(Guid mediaId, DateTime nowUtc)
+    {
+        var marker = $"/{mediaId:D}/";
+        var index = _photos.FindIndex(photo => photo.Contains(marker, StringComparison.OrdinalIgnoreCase));
+        if (index < 0)
+        {
+            return false;
+        }
+
+        _photos.RemoveAt(index);
+        UpdatedAtUtc = nowUtc;
+        return true;
+    }
+
     public void MarkDeleted(DateTime nowUtc)
     {
         IsDeleted = true;

@@ -44014,6 +44014,7 @@
           "endUtc",
           "id",
           "isCommissionPaid",
+          "isManual",
           "onlinePaidAmount",
           "pitchId",
           "platformCommission",
@@ -44104,6 +44105,10 @@
             "type": "string",
             "format": "date-time"
           },
+          "pitchName": {
+            "type": "string",
+            "nullable": true
+          },
           "platformCommission": {
             "type": "number",
             "format": "double"
@@ -44121,6 +44126,9 @@
             "format": "double"
           },
           "isCommissionPaid": {
+            "type": "boolean"
+          },
+          "isManual": {
             "type": "boolean"
           }
         },

@@ -25,6 +25,7 @@ export const DEPOSIT_STATE: Record<string, string> = {
   Received: "عربون معتمد",
   UnderReview: "إيصال مرفوع",
   AwaitingUpload: "لم يُرفع بعد",
+  ManualAwaitingDeposit: "بانتظار العربون",
   PayAtVenue: "الدفع في الملعب",
   Cancelled: "ملغي",
   None: "—",
@@ -33,9 +34,28 @@ export const DEPOSIT_STATE: Record<string, string> = {
 const CAIRO = "Africa/Cairo";
 const digits = (s: string) => s.replace(/[0-9]/g, (d) => "٠١٢٣٤٥٦٧٨٩"[Number(d)]);
 
-/** "2026-11-05T17:00:00Z" → "٧:٠٠ م" in Cairo time. */
+function cairoPeriod(hour24: number): string {
+  if (hour24 < 5 || hour24 >= 17) return "بليل";
+  if (hour24 < 12) return "الصبح";
+  return "الضهر";
+}
+
+/** "2026-11-05T17:00:00Z" → "٧:٠٠ بليل" in Cairo time. */
 export function cairoTime(utc: string): string {
-  return new Date(utc).toLocaleTimeString("ar-EG", { timeZone: CAIRO, hour: "numeric", minute: "2-digit" });
+  const parts = Object.fromEntries(
+    new Intl.DateTimeFormat("en-US", { timeZone: CAIRO, hourCycle: "h23", hour: "2-digit", minute: "2-digit" })
+      .formatToParts(new Date(utc))
+      .map((p) => [p.type, p.value]),
+  );
+  const hour24 = Number(parts.hour);
+  const hour12 = hour24 % 12 || 12;
+  return `${digits(`${hour12}:${parts.minute}`)} ${cairoPeriod(hour24)}`;
+}
+
+/** A clear label for calendar rows, including late-night hours such as "١ بليل". */
+export function cairoHourLabel(hour24: number): string {
+  const normalized = ((hour24 % 24) + 24) % 24;
+  return `${digits(String(normalized % 12 || 12))} ${cairoPeriod(normalized)}`;
 }
 
 /** "الخميس ٥ نوفمبر" in Cairo time. */
@@ -43,9 +63,10 @@ export function cairoDay(utc: string): string {
   return new Date(utc).toLocaleDateString("ar-EG", { timeZone: CAIRO, weekday: "long", day: "numeric", month: "long" });
 }
 
-/** "٥ نوفمبر، ٧:٠٠ م" in Cairo time. */
+/** "٥ نوفمبر، ٧:٠٠ بليل" in Cairo time. */
 export function cairoDateTime(utc: string): string {
-  return new Date(utc).toLocaleString("ar-EG", { timeZone: CAIRO, day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
+  const date = new Date(utc).toLocaleDateString("ar-EG", { timeZone: CAIRO, day: "numeric", month: "short" });
+  return `${date}، ${cairoTime(utc)}`;
 }
 
 /** Today's date in Cairo as yyyy-MM-dd (the API's DateOnly format). */

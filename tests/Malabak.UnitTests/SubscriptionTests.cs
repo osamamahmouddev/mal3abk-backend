@@ -211,6 +211,14 @@ public sealed class SubscriptionTests
         replyResult.IsSuccess.Should().BeTrue();
         _recorder.Notifications.Should().Contain(n => n.Type == NotificationTypes.SubscriptionRequestInstructions);
 
+        var blockedApprove = await service.ApproveRequestAsync(reqResult.Value.Id, _admin);
+        blockedApprove.IsFailure.Should().BeTrue();
+        blockedApprove.Error.Should().Be(SubscriptionErrors.PaymentProofRequired);
+
+        var reportResult = await service.ReportPaymentAsync(_owner, null, "REF-123", "تم التحويل من فودافون كاش");
+        reportResult.IsSuccess.Should().BeTrue();
+        reportResult.Value.IsPaymentReported.Should().BeTrue();
+
         // Admin approves request
         var approveResult = await service.ApproveRequestAsync(reqResult.Value.Id, _admin);
         approveResult.IsSuccess.Should().BeTrue();

@@ -416,6 +416,7 @@ public static class SubscriptionErrors
     public static readonly Error InvalidTransition = new("Subscription.InvalidTransition", "This change is not possible in the subscription's current state.");
     public static readonly Error Closed = new("Subscription.Closed", "The subscription is cancelled. Start a new one instead.");
     public static readonly Error InvalidPayment = new("Subscription.InvalidPayment", "Enter an amount above zero, a valid method and a reference of up to 100 characters.");
+    public static readonly Error PaymentProofRequired = new("Subscription.PaymentProofRequired", "A payment proof must be submitted before the subscription request can be approved.");
     public static readonly Error DowngradeNotPossible = new("Subscription.DowngradeNotPossible", "The owner uses more than the new plan allows. Reduce usage first.");
     public static readonly Error InvoiceNotFound = new("Invoice.NotFound", "Invoice not found.");
 }

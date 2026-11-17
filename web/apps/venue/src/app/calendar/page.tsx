@@ -9,7 +9,7 @@ import { Badge, Page, Toast, Tone, card, inputClass, muted, redShadow, toArabicD
 import { useVenue } from "@/components/Providers";
 import { ManualBookingForm, type ManualBookingDefaults } from "@/components/ManualBookingForm";
 import { api, unwrap } from "@/lib/api";
-import { addDays, cairoDayStartUtc, cairoTime, cairoToday } from "@/lib/booking-format";
+import { addDays, cairoDayStartUtc, cairoHourLabel, cairoTime, cairoToday } from "@/lib/booking-format";
 import { P } from "@/lib/permissions";
 import { X } from "lucide-react";
 
@@ -30,11 +30,10 @@ const kindOf = (status: string): Kind =>
 /** Grid hours: 08:00 to 02:00 the next morning (most venues play late). */
 const FIRST_HOUR = 8;
 const LAST_HOUR = 26;
-const HOURS = Array.from({ length: LAST_HOUR - FIRST_HOUR }, (_, i) => FIRST_HOUR + i);
 const ROW = 52;
 const DAY_SHORT = ["أحد", "إثنين", "ثلاثاء", "أربعاء", "خميس", "جمعة", "سبت"];
 
-const hourLabel = (h: number) => `${toArabicDigits(h % 12 === 0 ? 12 : h % 12)} ${h % 24 < 12 ? "ص" : "م"}`;
+const hourLabel = cairoHourLabel;
 const weekStart = (date: string) => addDays(date, -((new Date(`${date}T12:00:00Z`).getUTCDay() + 1) % 7));
 const monthStart = (date: string) => `${date.slice(0, 7)}-01`;
 const monthEnd = (date: string) => {
@@ -46,6 +45,27 @@ const dayLabel = (date: string) => new Date(`${date}T12:00:00Z`).toLocaleDateStr
 
 /** Minutes from the business date's local midnight. */
 const minutesFrom = (date: string, utc: string) => (new Date(utc).getTime() - new Date(cairoDayStartUtc(date)).getTime()) / 60_000;
+
+function autoHours(slots: Slot[]) {
+  if (slots.length === 0) return { firstHour: FIRST_HOUR, lastHour: LAST_HOUR };
+
+  const ranges = slots.map((slot) => {
+    const localDate = new Date(slot.startUtc).toLocaleDateString("en-CA", { timeZone: "Africa/Cairo" });
+    const startHour = minutesFrom(localDate, slot.startUtc) / 60;
+    const duration = (new Date(slot.endUtc).getTime() - new Date(slot.startUtc).getTime()) / 3_600_000;
+    return { startHour, endHour: startHour + duration };
+  });
+  let firstHour = Math.max(0, Math.floor(Math.min(...ranges.map((r) => r.startHour))) - 1);
+  let lastHour = Math.min(LAST_HOUR, Math.ceil(Math.max(...ranges.map((r) => r.endHour))) + 1);
+
+  // Keep a useful amount of empty space for creating the next booking.
+  if (lastHour - firstHour < 6) {
+    lastHour = Math.min(LAST_HOUR, firstHour + 6);
+    firstHour = Math.max(0, lastHour - 6);
+  }
+
+  return { firstHour, lastHour };
+}
 
 export default function CalendarPage() {
   return (
@@ -104,6 +124,10 @@ function Calendar() {
   });
 
   const all = slots.data ?? [];
+  const visibleHours = useMemo(() => autoHours(all), [all]);
+  // Existing bookings must remain visible even if their pitch was later paused.
+  // The active-pitches list is still used for creating new bookings and the week selector.
+  const dayPitches = useMemo(() => venue?.pitches ?? [], [venue]);
   const pitchName = (id: string) => pitches.find((p) => p.id === id)?.name ?? "ملعب";
   const step = view === "day" ? 1 : view === "week" ? 7 : 30;
   const title =
@@ -175,8 +199,10 @@ function Calendar() {
 
       {view === "day" && (
         <Grid
-          columns={pitches.map((p) => ({ key: p.id, label: p.name, date, pitchId: p.id }))}
+          columns={dayPitches.map((p) => ({ key: p.id, label: p.name, date, pitchId: p.id }))}
           slots={all}
+          firstHour={visibleHours.firstHour}
+          lastHour={visibleHours.lastHour}
           busy={slots.isFetching}
           onSlot={setSelected}
           onEmpty={(c, minutes) => setEmpty({ date: c.date, pitchId: c.pitchId, startMinutes: minutes })}
@@ -189,6 +215,8 @@ function Calendar() {
             return { key: d, label: `${DAY_SHORT[new Date(`${d}T12:00:00Z`).getUTCDay()]} ${toArabicDigits(Number(d.slice(8)))}`, date: d, pitchId: weekPitch };
           })}
           slots={all}
+          firstHour={visibleHours.firstHour}
+          lastHour={visibleHours.lastHour}
           busy={slots.isFetching}
           onSlot={setSelected}
           onEmpty={(c, minutes) => setEmpty({ date: c.date, pitchId: c.pitchId, startMinutes: minutes })}
@@ -275,12 +303,16 @@ interface Column {
 function Grid({
   columns,
   slots,
+  firstHour,
+  lastHour,
   busy,
   onSlot,
   onEmpty,
 }: {
   columns: Column[];
   slots: Slot[];
+  firstHour: number;
+  lastHour: number;
   busy: boolean;
   onSlot: (s: Slot) => void;
   onEmpty: (c: Column, minutes: number) => void;
@@ -288,6 +320,8 @@ function Grid({
   if (columns.length === 0) {
     return <p className={`${card} rounded-[18px] p-8 text-center text-sm ${muted}`}>ضيف ملعب نشط عشان يظهر التقويم.</p>;
   }
+  const hours = Array.from({ length: lastHour - firstHour }, (_, i) => firstHour + i);
+  const gridHeight = hours.length * ROW;
   return (
     <section aria-label="جدول المواعيد" aria-busy={busy} className={`${card} rounded-[18px] overflow-x-auto`} tabIndex={0}>
       <div className="grid min-w-[640px]" style={{ gridTemplateColumns: `64px repeat(${columns.length}, minmax(120px, 1fr))` }}>
@@ -297,8 +331,8 @@ function Grid({
             {c.label}
           </div>
         ))}
-        <div className="relative" style={{ height: HOURS.length * ROW }}>
-          {HOURS.map((h, i) => (
+        <div className="relative" style={{ height: gridHeight }}>
+          {hours.map((h, i) => (
             <span key={h} className={`absolute right-2 text-[11px] ${muted}`} style={{ top: i * ROW + 4 }}>
               {hourLabel(h)}
             </span>
@@ -307,11 +341,11 @@ function Grid({
         {columns.map((c) => {
           const mine = slots.filter((s) => s.pitchId === c.pitchId).filter((s) => {
             const start = minutesFrom(c.date, s.startUtc);
-            return start >= FIRST_HOUR * 60 - 60 && start < LAST_HOUR * 60;
+            return start >= firstHour * 60 - 60 && start < lastHour * 60;
           });
           return (
-            <div key={c.key} className="relative border-r border-[#EDF0F5]" style={{ height: HOURS.length * ROW }}>
-              {HOURS.map((h, i) => (
+            <div key={c.key} className="relative border-r border-[#EDF0F5]" style={{ height: gridHeight }}>
+              {hours.map((h, i) => (
                 <button
                   key={h}
                   type="button"
@@ -322,8 +356,8 @@ function Grid({
                 />
               ))}
               {mine.map((s) => {
-                const start = Math.max(minutesFrom(c.date, s.startUtc), FIRST_HOUR * 60);
-                const end = Math.min(minutesFrom(c.date, s.endUtc), LAST_HOUR * 60);
+                const start = Math.max(minutesFrom(c.date, s.startUtc), firstHour * 60);
+                const end = Math.min(minutesFrom(c.date, s.endUtc), lastHour * 60);
                 const kind = kindOf(s.status);
                 return (
                   <button
@@ -332,7 +366,7 @@ function Grid({
                     onClick={() => onSlot(s)}
                     aria-label={`${KIND[kind].label}: ${s.customerName ?? s.reason ?? ""} ${cairoTime(s.startUtc)}`}
                     className={`absolute inset-x-1 rounded-lg px-2 py-1 text-right text-xs overflow-hidden ${KIND[kind].box}`}
-                    style={{ top: ((start - FIRST_HOUR * 60) / 60) * ROW + 2, height: Math.max(22, ((end - start) / 60) * ROW - 4) }}
+                    style={{ top: ((start - firstHour * 60) / 60) * ROW + 2, height: Math.max(22, ((end - start) / 60) * ROW - 4) }}
                   >
                     <span className="block font-bold truncate">{kind === "blk" ? s.reason || "محظور" : s.customerName || "—"}</span>
                     <span className="block opacity-80">

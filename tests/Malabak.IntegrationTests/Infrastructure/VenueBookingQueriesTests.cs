@@ -72,6 +72,19 @@ public sealed class VenueBookingQueriesTests : IClassFixture<BookingDatabaseFixt
     }
 
     [Fact]
+    public async Task TheBookingDetails_IncludeTheServerResolvedPitchNameAsync()
+    {
+        var bookingId = await SaveAsync(_day.AddDays(6).AddHours(10));
+        await using var context = _database.CreateContext();
+
+        var result = await new VenueBookingQueriesHandler(context, new FakeVenueDirectory(), new FakeUserAccounts())
+            .HandleAsync(new GetVenueBookingDetailQuery(_venueId, bookingId));
+
+        result.IsSuccess.Should().BeTrue();
+        result.Value.PitchName.Should().Be(FakeVenueDirectory.PitchName);
+    }
+
+    [Fact]
     public async Task TheCalendar_ShowsBookingsAndBlockedPeriodsTogether_InTimeOrderAsync()
     {
         var day = _day.AddDays(2);

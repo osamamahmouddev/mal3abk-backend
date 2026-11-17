@@ -79,6 +79,7 @@ const REASONS = ["صيانة طارئة", "حجز مكرر", "الملعب مق�
 const depositText = (b: Item) => {
   const rem = Math.max(0, b.totalPrice - b.depositAmount);
   const remText = rem > 0 ? ` · المتبقي ${money(rem, b.currency)} كاش` : "";
+  if (b.isManual && b.status === 2) return `${b.depositAmount > 0 ? `${money(b.depositAmount, b.currency)} عربون مطلوب — ` : ""}بانتظار العربون`;
   if (b.isManual) return `${b.depositAmount > 0 ? `${money(b.depositAmount, b.currency)} عربون — ` : ""}الدفع في الملعب${remText}`;
   if (b.status === 2) return `لم يُرفع بعد${remText}`;
   if (b.status === 3 || b.status === 4) return `${money(b.depositAmount, b.currency)} — إيصال مرفوع${remText}`;
@@ -385,7 +386,7 @@ export default function ReservationsPage() {
                         <span className="font-semibold text-slate-800">
                           {b.depositAmount > 0 ? money(b.depositAmount, b.currency) : "بدون عربون"}
                           <span className="text-xs text-[#5B6475] font-normal">
-                            {" "}· {b.isManual ? "الدفع في الملعب" : b.status === 2 ? "لم يُرفع بعد" : (b.status === 3 || b.status === 4) ? "إيصال مرفوع" : "معتمد"}
+                            {" "}· {b.isManual ? b.status === 2 ? "بانتظار العربون" : "الدفع في الملعب" : b.status === 2 ? "لم يُرفع بعد" : (b.status === 3 || b.status === 4) ? "إيصال مرفوع" : "معتمد"}
                           </span>
                         </span>
                         {b.totalPrice > b.depositAmount && (
@@ -452,6 +453,7 @@ export default function ReservationsPage() {
             key={selId}
             venueId={venueId}
             bookingId={selId}
+            isManual={list.find((item) => item.id === selId)?.isManual ?? false}
             panelRef={detailsRef}
             pitchName={pitchName}
             onClose={() => setSelId(null)}
@@ -567,6 +569,7 @@ function RowActions({
 function BookingDrawer({
   venueId,
   bookingId,
+  isManual,
   panelRef,
   pitchName,
   onClose,
@@ -575,6 +578,7 @@ function BookingDrawer({
 }: {
   venueId: string;
   bookingId: string;
+  isManual: boolean;
   panelRef: React.Ref<HTMLElement>;
   pitchName: (id: string) => string;
   onClose: () => void;
@@ -646,7 +650,7 @@ function BookingDrawer({
             {(
               [
                 ["رقم الحجز", <span key="r" dir="ltr">{b.reference}</span>],
-                ["الملعب", pitchName(b.pitchId)],
+                ["الملعب", b.pitchName ?? pitchName(b.pitchId)],
                 ["الميعاد", `${cairoDateTime(b.startUtc)} – ${cairoDateTime(b.endUtc)}`],
                 ["السعر الإجمالي", money(b.totalPrice, b.currency)],
                 ["العربون", money(b.depositAmount, b.currency)],
@@ -676,7 +680,7 @@ function BookingDrawer({
           <Link href="/customers" className="text-[13px] font-semibold text-navy-900 underline hover:text-brand-red">
             ملف العميل وسجل حجوزاته
           </Link>
-          {Boolean((b as any).isManual) && b.status === 2 && can(P.bookingsApprove) && (
+          {(isManual || b.isManual) && b.status === 2 && can(P.bookingsApprove) && (
             <button
               type="button"
               disabled={confirmDeposit.isPending}

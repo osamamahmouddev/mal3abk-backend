@@ -286,7 +286,7 @@ function FinanceStrip({ today, month }: { today: Schemas["DashboardRevenue"]; mo
     { label: "قيمة الحجوزات المؤكدة اليوم", value: money(today.confirmedValue, today.currency), tone: "" },
     { label: "عربون معتمد (محصّل)", value: money(today.depositsCollected, today.currency), tone: "text-[#1B6E3E]" },
     { label: "متبقي يُحصّل في الملعب", value: money(today.dueAtVenue, today.currency), tone: "" },
-    { label: "عربون قيد المراجعة — غير محصّل", value: money(today.depositsPendingReview, today.currency), tone: "text-[#7A4D00]" },
+    { label: "عربون غير محصّل", value: money(today.depositsPendingReview, today.currency), tone: "text-[#7A4D00]" },
     { label: "إيراد الشهر المؤكد", value: money(month.confirmedValue, month.currency), tone: "" },
   ];
   return (
@@ -328,12 +328,10 @@ function BookingTable({ rows, pitchName }: { rows: Row[]; pitchName: (id: string
                   <span className="font-semibold text-slate-800">
                     {b.depositAmount > 0 ? money(b.depositAmount, b.currency) : "بدون عربون"}
                     <span className="text-xs text-[#5B6475] font-normal"> · {DEPOSIT_STATE[b.depositState] ?? b.depositState}</span>
+                    {b.totalPrice > b.depositAmount && (
+                      <span className="text-xs text-emerald-700 font-semibold"> · المتبقي {money(b.totalPrice - b.depositAmount, b.currency)} كاش</span>
+                    )}
                   </span>
-                  {b.totalPrice > b.depositAmount && (
-                    <span className="text-xs font-semibold text-emerald-700">
-                      المتبقي {money(b.totalPrice - b.depositAmount, b.currency)} كاش
-                    </span>
-                  )}
                 </div>
               </td>
               <td className="px-5 py-3">

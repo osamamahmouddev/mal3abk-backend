@@ -24,6 +24,14 @@ const STATUSES: [string, string][] = [["", "كل الحالات"], ["0", "تجر
 const METHODS: [string, string][] = [["0", "كاش"], ["1", "تحويل بنكي"], ["2", "إنستاباي"], ["3", "محفظة"]];
 const CYCLES: [string, string][] = [["0", "شهري"], ["1", "سنوي"]];
 
+/** Media URLs returned by the API are relative to the API host; load them through this app's authenticated BFF. */
+function mediaSrc(path: string) {
+  if (!path) return "";
+  if (/^https?:\/\//i.test(path)) return path;
+  if (path.startsWith("/admin/bff")) return path;
+  return `/admin/bff${path.startsWith("/") ? "" : "/"}${path}`;
+}
+
 export default function BillingPage() {
   const [tab, setTab] = useState<Tab>("subscriptions");
   const pendingRequestsQuery = useQuery({
@@ -888,6 +896,7 @@ function SubscriptionRequests() {
 
   const requests = useQuery({
     queryKey: ["admin-subscription-requests", statusFilter],
+    refetchInterval: 15_000,
     queryFn: () =>
       unwrap(
         api.GET("/api/v1/admin/subscriptions/requests", {
@@ -1004,7 +1013,9 @@ function SubscriptionRequests() {
                     {r.isPaymentReported ? (
                       <>
                         <div className="flex items-center gap-1.5">
-                          <Pill tone="ok">تم التحويل</Pill>
+                          <Pill tone={r.status === "Approved" ? "ok" : "warn"}>
+                            {r.status === "Approved" ? "تم قبول التحويل" : "قيد الانتظار"}
+                          </Pill>
                         </div>
                         {r.transferNotes && (
                           <span className="text-[11px] text-gray-700 leading-tight">
@@ -1037,6 +1048,11 @@ function SubscriptionRequests() {
                 title: "ملاحظات / تعليمات",
                 cell: (r) => (
                   <div className="max-w-[220px] text-xs flex flex-col gap-1">
+                    {r.paymentProofUrl && (
+                      <button type="button" onClick={() => setViewReceipt(r)} className="w-fit rounded-lg border border-emerald-200 bg-emerald-50 p-1 hover:bg-emerald-100" title="معاينة صورة التحويل">
+                        <img src={mediaSrc(r.paymentProofUrl)} alt="صورة إيصال التحويل" className="h-14 w-20 rounded object-cover" />
+                      </button>
+                    )}
                     {r.notes && <p className="text-[#374151] italic">"{r.notes}"</p>}
                     {r.adminReply && <p className="text-[#1E40AF] bg-blue-50 p-1.5 rounded text-[11px]">رد الإدارة: {r.adminReply}</p>}
                   </div>
@@ -1049,12 +1065,12 @@ function SubscriptionRequests() {
                     <div className="flex items-center gap-1.5">
                       <button
                         type="button"
-                        className={`${btnSmall} bg-emerald-600 hover:bg-emerald-700 text-white font-semibold`}
-                        disabled={approve.isPending}
+                        className={`${btnSmall} min-h-9 px-3 whitespace-nowrap font-bold ${r.isPaymentReported ? "bg-emerald-600 hover:bg-emerald-700 text-white" : "bg-gray-100 text-gray-500 cursor-not-allowed"}`}
+                        disabled={approve.isPending || !r.isPaymentReported}
                         onClick={() => approve.mutate(r.id)}
-                        title="تفعيل الباقة فوراً لحساب المالك"
+                        title={r.isPaymentReported ? "قبول التحويل وتفعيل الباقة" : "لا يمكن التفعيل قبل إرفاق إثبات الدفع"}
                       >
-                        تفعيل فوراً
+                        {r.isPaymentReported ? "قبول التحويل" : "بانتظار الإيصال"}
                       </button>
                       <button
                         type="button"
@@ -1169,12 +1185,12 @@ function SubscriptionRequests() {
             {viewReceipt.paymentProofUrl ? (
               <div className="flex flex-col items-center gap-2 border border-gray-200 rounded-xl p-3 bg-gray-100/50">
                 <img
-                  src={viewReceipt.paymentProofUrl}
+                  src={mediaSrc(viewReceipt.paymentProofUrl)}
                   alt="إيصال التحويل"
                   className="max-h-[50vh] object-contain rounded-lg shadow-sm"
                 />
                 <a
-                  href={viewReceipt.paymentProofUrl}
+                  href={mediaSrc(viewReceipt.paymentProofUrl)}
                   target="_blank"
                   rel="noreferrer"
                   className="text-xs text-blue-600 hover:text-blue-800 underline font-semibold mt-1"

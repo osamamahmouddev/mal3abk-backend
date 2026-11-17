@@ -27,7 +27,7 @@ public sealed record OccupancyPoint(DateOnly Date, int OpenMinutes, int BookedMi
 
 public sealed record RevenuePoint(DateOnly Date, decimal ConfirmedValue, decimal DepositsCollected);
 
-/// <summary>A booking as a dashboard row. <c>DepositState</c>: Approved, UnderReview, AwaitingUpload, PayAtVenue or None.</summary>
+/// <summary>A booking as a dashboard row. <c>DepositState</c>: Approved, UnderReview, AwaitingUpload, ManualAwaitingDeposit, PayAtVenue or None.</summary>
 public sealed record DashboardBooking(
     Guid BookingId, string Reference, Guid PitchId, DateTime StartUtc, DateTime EndUtc, string CustomerName, bool IsManual,
     BookingStatus Status, decimal TotalPrice, decimal DepositAmount, string Currency, string DepositState, DateTime? DeadlineUtc);
@@ -182,7 +182,7 @@ public sealed class GetVenueDashboardHandler : IQueryHandler<GetVenueDashboardQu
             confirmedValue,
             list.Where(b => _depositKept.Contains(b.Status)).Sum(b => b.Deposit),
             confirmedValue - confirmed.Sum(b => b.Deposit),
-            list.Where(b => _inReview.Contains(b.Status)).Sum(b => b.Deposit),
+            list.Where(b => b.Status == BookingStatus.PendingDeposit || _inReview.Contains(b.Status)).Sum(b => b.Deposit),
             confirmedValue + waiting);
     }
 
@@ -213,6 +213,7 @@ public sealed class GetVenueDashboardHandler : IQueryHandler<GetVenueDashboardQu
 
     private static string DepositState(Row b) => b.Status switch
     {
+        BookingStatus.PendingDeposit when b.IsManual => "ManualAwaitingDeposit",
         _ when b.IsManual => "PayAtVenue",
         BookingStatus.PendingDeposit => "AwaitingUpload",
         BookingStatus.ProofSubmitted or BookingStatus.UnderReview => "UnderReview",
