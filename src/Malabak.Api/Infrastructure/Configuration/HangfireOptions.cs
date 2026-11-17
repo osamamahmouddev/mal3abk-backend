@@ -6,6 +6,11 @@ public sealed class HangfireOptions
 {
     public const string SectionName = "Hangfire";
 
+    /// <summary>
+    /// Disables Hangfire storage, workers, dashboard and recurring jobs on hosts that do not run a job worker.
+    /// </summary>
+    public bool Enabled { get; set; } = true;
+
     public string? ConnectionString { get; set; }
 
     [Required(ErrorMessage = "Hangfire schema name is required.")]
