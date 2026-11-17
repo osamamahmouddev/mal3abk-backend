@@ -102,7 +102,7 @@ jobs:
           config_buffer = io.BytesIO()
           ftp.retrbinary("RETR web.config", config_buffer.write)
           web_config = config_buffer.getvalue().decode("utf-8-sig")
-          web_config = patch_environment_variable(web_config, "ASPNETCORE_ENVIRONMENT", "Staging")
+          web_config = patch_environment_variable(web_config, "ASPNETCORE_ENVIRONMENT", "Development")
           web_config = patch_environment_variable(web_config, "Database__MigrateOnStartup", "false")
           web_config = patch_environment_variable(web_config, "Hangfire__Enabled", "false")
           web_config = patch_environment_variable(web_config, "Security__Encryption__CurrentKeyEncryptionKeyId", os.environ["ENCRYPTION_CURRENT_KEK_ID"])
@@ -112,6 +112,7 @@ jobs:
           web_config = patch_environment_variable(web_config, "Security__Otp__HmacSecret", os.environ["SECURITY_OTP_HMAC_SECRET"])
           web_config = patch_environment_variable(web_config, "Security__StepUp__SecretKey", os.environ["SECURITY_STEPUP_SECRET"])
           web_config = patch_environment_variable(web_config, "Security__Turnstile__SecretKey", os.environ["SECURITY_TURNSTILE_SECRET"])
+          web_config = patch_environment_variable(web_config, "Security__Turnstile__BypassInDevelopment", "true")
           web_config = patch_environment_variable(web_config, "Identity__OtpDelivery__Slack__WebhookUrl", os.environ["OTP_SLACK_WEBHOOK"])
           ftp.storbinary("STOR web.config", io.BytesIO(web_config.encode("utf-8")))
 
