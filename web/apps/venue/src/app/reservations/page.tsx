@@ -77,10 +77,12 @@ const SORTS: [Sort, string][] = [
 const REASONS = ["صيانة طارئة", "حجز مكرر", "الملعب مقفول للظروف الجوية"];
 
 const depositText = (b: Item) => {
-  if (b.isManual) return "الدفع في الملعب";
-  if (b.status === 2) return "لم يُرفع بعد";
-  if (b.status === 3 || b.status === 4) return `${money(b.depositAmount, b.currency)} — إيصال مرفوع`;
-  if (b.status === 5 || b.status === 9 || b.status === 10) return `${money(b.depositAmount, b.currency)} معتمد`;
+  const rem = Math.max(0, b.totalPrice - b.depositAmount);
+  const remText = rem > 0 ? ` · المتبقي ${money(rem, b.currency)} كاش` : "";
+  if (b.isManual) return `${b.depositAmount > 0 ? `${money(b.depositAmount, b.currency)} عربون — ` : ""}الدفع في الملعب${remText}`;
+  if (b.status === 2) return `لم يُرفع بعد${remText}`;
+  if (b.status === 3 || b.status === 4) return `${money(b.depositAmount, b.currency)} — إيصال مرفوع${remText}`;
+  if (b.status === 5 || b.status === 9 || b.status === 10) return `${money(b.depositAmount, b.currency)} معتمد${remText}`;
   return "—";
 };
 
@@ -378,7 +380,21 @@ export default function ReservationsPage() {
                     <td className="p-3 whitespace-nowrap">
                       {pitchName(b.pitchId)} · {cairoDateTime(b.startUtc)}
                     </td>
-                    <td className="p-3 whitespace-nowrap text-[13px] text-[#333B4A]">{depositText(b)}</td>
+                    <td className="p-3 text-[13px] text-[#333B4A]">
+                      <div className="flex flex-col gap-0.5 whitespace-nowrap">
+                        <span className="font-semibold text-slate-800">
+                          {b.depositAmount > 0 ? money(b.depositAmount, b.currency) : "بدون عربون"}
+                          <span className="text-xs text-[#5B6475] font-normal">
+                            {" "}· {b.isManual ? "الدفع في الملعب" : b.status === 2 ? "لم يُرفع بعد" : (b.status === 3 || b.status === 4) ? "إيصال مرفوع" : "معتمد"}
+                          </span>
+                        </span>
+                        {b.totalPrice > b.depositAmount && (
+                          <span className="text-xs font-semibold text-emerald-700">
+                            المتبقي {money(b.totalPrice - b.depositAmount, b.currency)} كاش
+                          </span>
+                        )}
+                      </div>
+                    </td>
                     <td className="p-3">
                       <Badge tone={BOOKING_STATUS[b.status].tone}>{BOOKING_STATUS[b.status].label}</Badge>
                     </td>
@@ -632,8 +648,11 @@ function BookingDrawer({
                 ["رقم الحجز", <span key="r" dir="ltr">{b.reference}</span>],
                 ["الملعب", pitchName(b.pitchId)],
                 ["الميعاد", `${cairoDateTime(b.startUtc)} – ${cairoDateTime(b.endUtc)}`],
-                ["السعر", money(b.totalPrice, b.currency)],
+                ["السعر الإجمالي", money(b.totalPrice, b.currency)],
                 ["العربون", money(b.depositAmount, b.currency)],
+                ...(b.totalPrice > b.depositAmount
+                  ? [["المتبقي كاش في الملعب", <strong key="rem" className="font-bold text-emerald-700">{money(b.totalPrice - b.depositAmount, b.currency)}</strong>]]
+                  : []),
                 ["الهاتف", b.customerPhone ? <span key="p" dir="ltr">{b.customerPhone}</span> : "—"],
                 ...(b.status === 2 && b.holdExpiresAtUtc ? [["مهلة العربون", timeLeft(b.holdExpiresAtUtc)]] : []),
               ] as [string, React.ReactNode][]

@@ -323,9 +323,18 @@ function BookingTable({ rows, pitchName }: { rows: Row[]; pitchName: (id: string
                 {b.customerName || "—"}
                 {b.isManual && <span className={`text-xs ${muted}`}> · يدوي</span>}
               </td>
-              <td className="p-3 whitespace-nowrap text-[#333B4A]">
-                {b.depositAmount > 0 ? `${money(b.depositAmount, b.currency)} — ` : ""}
-                {DEPOSIT_STATE[b.depositState] ?? b.depositState}
+              <td className="p-3 text-[#333B4A]">
+                <div className="flex flex-col gap-0.5 whitespace-nowrap">
+                  <span className="font-semibold text-slate-800">
+                    {b.depositAmount > 0 ? money(b.depositAmount, b.currency) : "بدون عربون"}
+                    <span className="text-xs text-[#5B6475] font-normal"> · {DEPOSIT_STATE[b.depositState] ?? b.depositState}</span>
+                  </span>
+                  {b.totalPrice > b.depositAmount && (
+                    <span className="text-xs font-semibold text-emerald-700">
+                      المتبقي {money(b.totalPrice - b.depositAmount, b.currency)} كاش
+                    </span>
+                  )}
+                </div>
               </td>
               <td className="px-5 py-3">
                 <Badge tone={BOOKING_STATUS[b.status].tone}>{BOOKING_STATUS[b.status].label}</Badge>
