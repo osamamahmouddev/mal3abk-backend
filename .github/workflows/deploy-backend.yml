@@ -42,6 +42,9 @@ jobs:
           FTP_HOST: ${{ secrets.MONSTERASP_FTP_SERVER }}
           FTP_USER: ${{ secrets.MONSTERASP_FTP_USERNAME }}
           FTP_PASS: ${{ secrets.MONSTERASP_FTP_PASSWORD }}
+          ENCRYPTION_BLIND_INDEX_KEY: ${{ secrets.MALABAK_ENCRYPTION_BLIND_INDEX_KEY }}
+          ENCRYPTION_CURRENT_KEK_ID: ${{ secrets.MALABAK_ENCRYPTION_CURRENT_KEK_ID }}
+          ENCRYPTION_KEK_DEV_1: ${{ secrets.MALABAK_ENCRYPTION_KEK_DEV_1 }}
         run: |
           python3 - << 'EOF'
           import os, sys, time, ftplib, io, urllib.request, urllib.error
@@ -70,9 +73,36 @@ jobs:
                       except ftplib.error_perm:
                           pass
 
+          def patch_environment_variable(xml_text, name, value):
+              import re
+              escaped_name = re.escape(name)
+              pattern = rf'(name="{escaped_name}"\s+value=")[^"]*(")'
+              replacement = rf'\g<1>{value}\g<2>'
+              updated, count = re.subn(pattern, replacement, xml_text, count=1)
+              if count:
+                  return updated
+              marker = "</environmentVariables>"
+              entry = f'        <environmentVariable name="{name}" value="{value}" />\n'
+              if marker in updated:
+                  return updated.replace(marker, entry + "      " + marker, 1)
+              return updated
+
           print(f"==> Connecting to FTP {host} for {remote_root}...")
           ftp = get_ftp()
           print("==> Connected.")
+
+          print("==> Applying protected startup configuration...")
+          ftp.cwd(remote_root)
+          config_buffer = io.BytesIO()
+          ftp.retrbinary("RETR web.config", config_buffer.write)
+          web_config = config_buffer.getvalue().decode("utf-8-sig")
+          web_config = patch_environment_variable(web_config, "ASPNETCORE_ENVIRONMENT", "Staging")
+          web_config = patch_environment_variable(web_config, "Database__MigrateOnStartup", "false")
+          web_config = patch_environment_variable(web_config, "Hangfire__Enabled", "false")
+          web_config = patch_environment_variable(web_config, "Security__Encryption__CurrentKeyEncryptionKeyId", os.environ["ENCRYPTION_CURRENT_KEK_ID"])
+          web_config = patch_environment_variable(web_config, "Security__Encryption__KeyEncryptionKeys__dev-kek-1", os.environ["ENCRYPTION_KEK_DEV_1"])
+          web_config = patch_environment_variable(web_config, "Security__Encryption__BlindIndexKey", os.environ["ENCRYPTION_BLIND_INDEX_KEY"])
+          ftp.storbinary("STOR web.config", io.BytesIO(web_config.encode("utf-8")))
 
           print("==> Stopping IIS process with app_offline.htm...")
           ftp.cwd(remote_root)
