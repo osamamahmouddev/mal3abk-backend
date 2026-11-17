@@ -104,6 +104,8 @@ public sealed class RespondToChallengeHandler : ICommandHandler<RespondToChallen
         if (createdMatch is not null)
         {
             _dbContext.Matches.Add(createdMatch);
+            // The challenge points at its match so both teams can open it from the challenge.
+            challenge.LinkMatch(createdMatch.Id, _clock.UtcNow);
         }
 
         await _dbContext.SaveChangesAsync(cancellationToken);

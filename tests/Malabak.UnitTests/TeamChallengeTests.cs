@@ -262,7 +262,8 @@ public sealed class TeamChallengeTests
         acceptRes.IsSuccess.Should().BeTrue();
         acceptRes.Value.Status.Should().Be(ChallengeStatus.Accepted);
         acceptRes.Value.AcceptedAtUtc.Should().NotBeNull();
-        acceptRes.Value.MatchId.Should().BeNull("Challenge acceptance does not automatically book a pitch");
+        acceptRes.Value.MatchId.Should().NotBeNull("accepting schedules the match and the challenge links to it");
+        acceptRes.Value.BookingId.Should().BeNull("challenge acceptance does not automatically book a pitch");
 
         // Step 5: Query challenge by ID
         var detailRes = await getByIdHandler.HandleAsync(new GetChallengeByIdQuery(challengeId, captainA));

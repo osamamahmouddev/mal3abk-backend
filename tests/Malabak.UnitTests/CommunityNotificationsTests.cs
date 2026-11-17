@@ -220,6 +220,35 @@ public sealed class CommunityNotificationsTests
     }
 
     [Fact]
+    public async Task RespondToChallenge_Accept_LinksTheChallengeToItsMatchAsync()
+    {
+        using var db = CreateInMemoryMatchesDb();
+        var checker = new FakeTeamCaptaincyChecker();
+        var handler = new RespondToChallengeHandler(db, checker, new CapturingNotificationPublisher(), _clock);
+        var challengerTeamId = Guid.NewGuid();
+        var challengedTeamId = Guid.NewGuid();
+        var challengerCaptainId = Guid.NewGuid();
+        var challengedCaptainId = Guid.NewGuid();
+        checker.CaptainsByTeam[challengerTeamId] = challengerCaptainId;
+        checker.CaptainsByTeam[challengedTeamId] = challengedCaptainId;
+        var challenge = TeamChallenge.Create(
+            Guid.NewGuid(), challengerTeamId, challengedTeamId, challengerCaptainId, _clock.UtcNow.AddDays(2), _clock.UtcNow).Value;
+        db.TeamChallenges.Add(challenge);
+        await db.SaveChangesAsync();
+
+        var result = await handler.HandleAsync(new RespondToChallengeCommand(
+            ChallengeId: challenge.Id,
+            RespondingTeamId: challengedTeamId,
+            CallerPlayerId: challengedCaptainId,
+            Action: ChallengeResponseAction.Accept));
+
+        result.IsSuccess.Should().BeTrue();
+        var match = await db.Matches.SingleAsync(m => m.ChallengeId == challenge.Id);
+        result.Value.MatchId.Should().Be(match.Id, "the app opens the match from the accepted challenge");
+        (await db.TeamChallenges.SingleAsync(c => c.Id == challenge.Id)).MatchId.Should().Be(match.Id);
+    }
+
+    [Fact]
     public async Task RespondToChallenge_Decline_DispatchesChallengeDeclinedNotificationAsync()
     {
         // Arrange
