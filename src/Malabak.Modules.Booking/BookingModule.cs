@@ -72,7 +72,15 @@ public static class BookingModule
         services.AddScoped<IQueryHandler<GetBookingProofsQuery, Result<IReadOnlyList<BookingProofDto>>>, GetBookingProofsHandler>();
 
         // Hangfire Jobs & Schedulers
-        services.AddScoped<IHoldExpiryScheduler, HangfireHoldExpiryScheduler>();
+        services.AddScoped<IHoldExpiryScheduler>(sp =>
+        {
+            var backgroundJobClient = sp.GetService<Hangfire.IBackgroundJobClient>();
+            return backgroundJobClient is null
+                ? new NoopHoldExpiryScheduler()
+                : new HangfireHoldExpiryScheduler(
+                    backgroundJobClient,
+                    sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<HangfireHoldExpiryScheduler>>());
+        });
         services.AddScoped<ExpireBookingHoldsJob>();
         services.AddScoped<CompleteBookingsJob>();
         services.AddScoped<BookingRemindersJob>();
