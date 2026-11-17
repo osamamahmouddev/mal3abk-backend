@@ -215,7 +215,7 @@ public sealed class SubscriptionTests
         blockedApprove.IsFailure.Should().BeTrue();
         blockedApprove.Error.Should().Be(SubscriptionErrors.PaymentProofRequired);
 
-        var reportResult = await service.ReportPaymentAsync(_owner, null, "REF-123", "تم التحويل من فودافون كاش");
+        var reportResult = await service.ReportPaymentAsync(_owner, null, null, "REF-123", "تم التحويل من فودافون كاش");
         reportResult.IsSuccess.Should().BeTrue();
         reportResult.Value.IsPaymentReported.Should().BeTrue();
 
