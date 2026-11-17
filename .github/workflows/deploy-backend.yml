@@ -54,13 +54,28 @@ jobs:
           PRODUCTION_REDIS_CONNECTION: ${{ secrets.MALABAK_PRODUCTION_REDIS_CONNECTION }}
         run: |
           python3 - << 'EOF'
-          import os, sys, time, ftplib, io, urllib.request, urllib.error
+          import os, sys, time, ftplib, io, json, urllib.request, urllib.error
 
           host = os.environ["FTP_HOST"]
           user = os.environ["FTP_USER"]
           ftp_auth = os.environ["FTP_PASS"]
           local_dir = "publish"
           remote_root = "/wwwroot"
+
+          # The application loads appsettings.Development.json before its
+          # prefixed cloud environment source. Put the required connection
+          # settings in that deployed file as a fallback for IIS environment
+          # variable handling, without committing secrets to the repository.
+          development_settings_path = os.path.join(local_dir, "appsettings.Development.json")
+          with open(development_settings_path, encoding="utf-8") as stream:
+              development_settings = json.load(stream)
+          development_settings.setdefault("ConnectionStrings", {})["Postgres"] = os.environ["PRODUCTION_POSTGRES_CONNECTION"]
+          development_settings.setdefault("ConnectionStrings", {})["Redis"] = os.environ["PRODUCTION_REDIS_CONNECTION"]
+          development_settings.setdefault("Database", {})["ConnectionString"] = os.environ["PRODUCTION_POSTGRES_CONNECTION"]
+          development_settings.setdefault("Redis", {})["ConnectionString"] = os.environ["PRODUCTION_REDIS_CONNECTION"]
+          development_settings["Redis"]["Ssl"] = True
+          with open(development_settings_path, "w", encoding="utf-8") as stream:
+              json.dump(development_settings, stream, ensure_ascii=False, indent=2)
 
           def get_ftp():
               ftp = ftplib.FTP(host, timeout=30)
