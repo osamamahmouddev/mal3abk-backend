@@ -6,12 +6,6 @@ public sealed class HangfireOptions
 {
     public const string SectionName = "Hangfire";
 
-    /// <summary>
-    /// Controls whether Hangfire storage, workers, dashboard and recurring jobs are hosted by this API process.
-    /// This can be disabled for memory-constrained single-instance hosts while preserving the database schema.
-    /// </summary>
-    public bool Enabled { get; set; } = true;
-
     public string? ConnectionString { get; set; }
 
     [Required(ErrorMessage = "Hangfire schema name is required.")]

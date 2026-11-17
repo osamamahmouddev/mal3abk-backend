@@ -17,12 +17,6 @@ public static class HangfireServiceCollectionExtensions
         ArgumentNullException.ThrowIfNull(configuration);
         ArgumentNullException.ThrowIfNull(environment);
 
-        var options = configuration.GetSection(HangfireOptions.SectionName).Get<HangfireOptions>() ?? new HangfireOptions();
-        if (!options.Enabled)
-        {
-            return services;
-        }
-
         var connectionString = configuration.GetSection(HangfireOptions.SectionName)["ConnectionString"]
             ?? configuration.GetConnectionString("Postgres");
 
@@ -68,11 +62,6 @@ public static class HangfireServiceCollectionExtensions
         ArgumentNullException.ThrowIfNull(app);
 
         var options = app.Services.GetRequiredService<IOptions<HangfireOptions>>().Value;
-
-        if (!options.Enabled)
-        {
-            return app;
-        }
 
         if (options.EnableDashboard)
         {
