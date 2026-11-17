@@ -140,3 +140,42 @@ jobs:
           print("==> Health verification timed out.")
           sys.exit(1)
           EOF
+
+      - name: Collect startup diagnostics
+        if: failure()
+        env:
+          FTP_HOST: ${{ secrets.MONSTERASP_FTP_SERVER }}
+          FTP_USER: ${{ secrets.MONSTERASP_FTP_USERNAME }}
+          FTP_PASS: ${{ secrets.MONSTERASP_FTP_PASSWORD }}
+        run: |
+          python3 - << 'EOF'
+          import ftplib, os, pathlib
+
+          host = os.environ["FTP_HOST"]
+          user = os.environ["FTP_USER"]
+          password = os.environ["FTP_PASS"]
+          output_dir = pathlib.Path("startup-diagnostics")
+          output_dir.mkdir(exist_ok=True)
+
+          ftp = ftplib.FTP(host, timeout=30)
+          ftp.login(user, password)
+          entries = ftp.nlst("/wwwroot/logs")
+          logs = [entry for entry in entries if entry.lower().endswith(".log")]
+          if logs:
+              latest = sorted(logs)[-1]
+              destination = output_dir / pathlib.PurePosixPath(latest).name
+              with destination.open("wb") as stream:
+                  ftp.retrbinary(f"RETR {latest}", stream.write)
+              print(f"Collected startup log: {destination.name}")
+          else:
+              print("No startup log was found in /wwwroot/logs")
+          ftp.quit()
+          EOF
+
+      - name: Upload startup diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: monsterasp-startup-diagnostics
+          path: startup-diagnostics/
+          if-no-files-found: warn
