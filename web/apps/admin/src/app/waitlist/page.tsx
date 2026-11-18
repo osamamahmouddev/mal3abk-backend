@@ -6,6 +6,7 @@ import { Page, PageHeader, Pill, SearchBox, btnOutline, btnPrimary, btnSmall, ca
 import { Pager, QueryState, Select, Table, fmtDateTime, useNotice } from "@/components/admin";
 import { api, downloadFile, unwrap } from "@/lib/api";
 import {
+  AlertTriangle,
   Building2,
   Calendar,
   Check,
@@ -22,6 +23,7 @@ import {
   ShieldCheck,
   Sparkles,
   Table2,
+  Trash2,
   Trophy,
   Users,
 } from "lucide-react";
@@ -65,8 +67,8 @@ function formatWaitlistPhone(phone: string | null | undefined) {
   if (!phone || phone.includes("ENCRYPTED")) {
     return {
       isEncrypted: true,
-      display: "رقم محمي ومشفّر",
-      formattedDisplay: "مشفر (AES-256-GCM)",
+      display: "سجل تجريبي سابق",
+      formattedDisplay: "سجل تجريبي قديم (فُقد مفتاحه أثناء التطوير)",
       waUrl: null,
       telUrl: null,
       rawDigits: "",
@@ -155,7 +157,48 @@ export default function WaitlistPage() {
     }
   };
 
+  const handleDelete = async (id: string) => {
+    if (!confirm("هل أنت متأكد من حذف هذا السجل من قائمة الانتظار؟")) return;
+    try {
+      await unwrap(
+        api.DELETE("/api/v1/admin/waitlist/{id}", {
+          params: { path: { id } },
+        }),
+      );
+      notice.ok("تم حذف السجل بنجاح.");
+      waitlistQuery.refetch();
+    } catch {
+      notice.fail("تعذر حذف السجل، يرجى المحاولة لاحقاً.");
+    }
+  };
+
+  const handlePurgeCorrupted = async () => {
+    const corrupted = rawItems.filter((i) => !i.phone || i.phone.includes("ENCRYPTED"));
+    if (corrupted.length === 0) {
+      notice.ok("لا توجد سجلات تجريبية تالفة في هذه الصفحة.");
+      return;
+    }
+    if (!confirm(`هل أنت متأكد من حذف (${corrupted.length}) سجل تجريبي قديم غير قابل للقراءة؟`)) return;
+    try {
+      await Promise.all(
+        corrupted.map((item) =>
+          unwrap(
+            api.DELETE("/api/v1/admin/waitlist/{id}", {
+              params: { path: { id: item.id } },
+            }),
+          ),
+        ),
+      );
+      notice.ok(`تم تنظيف وحذف ${corrupted.length} سجل تجريبي قديم بنجاح.`);
+      waitlistQuery.refetch();
+    } catch {
+      notice.fail("تعذر إكمال حذف بعض السجلات.");
+      waitlistQuery.refetch();
+    }
+  };
+
   const rawItems = waitlistQuery.data?.items ?? [];
+  const corruptedCount = rawItems.filter((i) => !i.phone || i.phone.includes("ENCRYPTED")).length;
   const filteredItems = useMemo(() => {
     if (!search.trim()) return rawItems;
     const term = search.trim().toLowerCase();
@@ -181,15 +224,28 @@ export default function WaitlistPage() {
         title="قائمة الانتظار والمسجلين مبكراً (Launch Leads)"
         sub="المسجلون مبكراً من صفحة الهبوط لتطبيق اللاعبين وأصحاب الملاعب للتمييز والمكافآت وتفعيل العضوية المؤسسة."
       >
-        <button
-          type="button"
-          onClick={handleExportCsv}
-          disabled={isExporting || totalCount === 0}
-          className={`${btnPrimary} gap-2 text-xs shadow-sm hover:shadow-md transition-all`}
-        >
-          <Download className="size-4" />
-          {isExporting ? "جارٍ التصدير..." : "تصدير ملف CSV"}
-        </button>
+        <div className="flex items-center gap-2">
+          {corruptedCount > 0 && (
+            <button
+              type="button"
+              onClick={handlePurgeCorrupted}
+              className={`${btnOutline} gap-1.5 text-xs text-rose-700 border-rose-300 hover:bg-rose-50 shadow-2xs cursor-pointer`}
+              title="حذف جميع السجلات التجريبية القديمة غير القابلة للقراءة في هذه الصفحة"
+            >
+              <Trash2 className="size-3.5 text-rose-600" />
+              <span>تنظيف السجلات التجريبية ({toArabicDigits(corruptedCount)})</span>
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={handleExportCsv}
+            disabled={isExporting || totalCount === 0}
+            className={`${btnPrimary} gap-2 text-xs shadow-sm hover:shadow-md transition-all`}
+          >
+            <Download className="size-4" />
+            {isExporting ? "جارٍ التصدير..." : "تصدير ملف CSV"}
+          </button>
+        </div>
       </PageHeader>
 
       {notice.node}
@@ -395,12 +451,12 @@ export default function WaitlistPage() {
                       <div className="bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl p-3 flex items-center justify-between gap-3">
                         {phoneInfo.isEncrypted ? (
                           <div className="flex items-center gap-2.5">
-                            <div className="size-8 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center shrink-0">
-                              <Lock className="size-4" />
+                            <div className="size-8 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center shrink-0">
+                              <AlertTriangle className="size-4" />
                             </div>
                             <div className="flex flex-col">
-                              <span className="text-xs font-bold text-slate-700">رقم محمي مشفر</span>
-                              <span className="text-[10px] text-slate-400 font-mono">حماية أمنية مشددة (AES-256-GCM)</span>
+                              <span className="text-xs font-bold text-amber-900">سجل تجريبي سابق</span>
+                              <span className="text-[10px] text-slate-500">فُقد مفتاح اختباره أثناء مرحلة التطوير</span>
                             </div>
                           </div>
                         ) : (
@@ -419,7 +475,17 @@ export default function WaitlistPage() {
 
                         {/* Action Buttons */}
                         <div className="flex items-center gap-1.5 shrink-0">
-                          {!phoneInfo.isEncrypted && (
+                          {phoneInfo.isEncrypted ? (
+                            <button
+                              type="button"
+                              onClick={() => handleDelete(item.id)}
+                              title="حذف هذا السجل التجريبي القديم"
+                              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 transition-colors cursor-pointer"
+                            >
+                              <Trash2 className="size-3 text-rose-600" />
+                              <span>حذف</span>
+                            </button>
+                          ) : (
                             <>
                               <button
                                 type="button"
@@ -453,6 +519,15 @@ export default function WaitlistPage() {
                                   <PhoneCall className="size-3.5" />
                                 </a>
                               )}
+
+                              <button
+                                type="button"
+                                onClick={() => handleDelete(item.id)}
+                                title="حذف السجل"
+                                className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 border border-transparent hover:border-rose-200 transition-colors cursor-pointer"
+                              >
+                                <Trash2 className="size-3.5" />
+                              </button>
                             </>
                           )}
                         </div>
@@ -513,9 +588,9 @@ export default function WaitlistPage() {
 
                       if (phoneInfo.isEncrypted) {
                         return (
-                          <div className="flex items-center gap-1.5 text-slate-500 text-xs">
-                            <Lock className="size-3.5 text-amber-600" />
-                            <span className="font-semibold">{phoneInfo.formattedDisplay}</span>
+                          <div className="flex items-center gap-1.5 text-amber-800 text-xs font-medium">
+                            <AlertTriangle className="size-3.5 text-amber-600 shrink-0" />
+                            <span>{phoneInfo.formattedDisplay}</span>
                           </div>
                         );
                       }
@@ -581,14 +656,24 @@ export default function WaitlistPage() {
                     title: "إجراء سريع",
                     cell: (r) => {
                       const phoneInfo = formatWaitlistPhone(r.phone);
-                      if (phoneInfo.isEncrypted || !phoneInfo.waUrl) {
-                        return <span className="text-slate-400 text-xs">—</span>;
+                      if (phoneInfo.isEncrypted) {
+                        return (
+                          <button
+                            type="button"
+                            onClick={() => handleDelete(r.id)}
+                            className="inline-flex items-center gap-1 text-xs text-rose-700 hover:text-rose-900 bg-rose-50 hover:bg-rose-100 px-2 py-1 rounded border border-rose-200 transition-colors cursor-pointer"
+                            title="حذف هذا السجل التجريبي القديم"
+                          >
+                            <Trash2 className="size-3 text-rose-600" />
+                            <span>حذف</span>
+                          </button>
+                        );
                       }
 
                       return (
                         <div className="flex items-center gap-2">
                           <a
-                            href={phoneInfo.waUrl}
+                            href={phoneInfo.waUrl ?? "#"}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="inline-flex items-center gap-1 text-xs font-bold text-emerald-700 hover:text-emerald-800 bg-emerald-50 hover:bg-emerald-100 px-2.5 py-1 rounded-lg border border-emerald-200 transition-colors"
@@ -606,6 +691,15 @@ export default function WaitlistPage() {
                               <PhoneCall className="size-3.5" />
                             </a>
                           )}
+
+                          <button
+                            type="button"
+                            onClick={() => handleDelete(r.id)}
+                            className="text-slate-400 hover:text-rose-600 p-1 cursor-pointer transition-colors"
+                            title="حذف السجل"
+                          >
+                            <Trash2 className="size-3.5" />
+                          </button>
                         </div>
                       );
                     },

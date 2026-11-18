@@ -131,6 +131,19 @@ public static class WaitlistEndpoints
         .Produces<WaitlistPagedResult>()
         .WithName("GetAdminWaitlist")
         .WithSummary("View or export the landing page waitlist entries");
+
+        admin.MapDelete("{id:guid}", async (
+            Guid id,
+            IWaitlistService waitlist,
+            CancellationToken ct) =>
+        {
+            var result = await waitlist.DeleteAsync(id, ct);
+            return result.IsFailure ? AdminResults.Problem(result.Error) : Results.NoContent();
+        })
+        .Produces(StatusCodes.Status204NoContent)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .WithName("DeleteAdminWaitlistEntry")
+        .WithSummary("Delete a waitlist entry");
     }
 
     private static string EscapeCsv(string? value)

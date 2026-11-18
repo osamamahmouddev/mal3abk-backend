@@ -148,4 +148,18 @@ public sealed class WaitlistService : IWaitlistService
 
         return Result.Success(new WaitlistPagedResult(items, total, page, pageSize));
     }
+
+    public async Task<Result> DeleteAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        var entry = await _dbContext.WaitlistEntries.FindAsync([id], cancellationToken);
+        if (entry is null)
+        {
+            return Result.Failure(Error.NotFound("Waitlist.NotFound", "سجل قائمة الانتظار غير موجود."));
+        }
+
+        _dbContext.WaitlistEntries.Remove(entry);
+        await _dbContext.SaveChangesAsync(cancellationToken);
+        _logger.LogInformation("Waitlist entry {EntryId} deleted", id);
+        return Result.Success();
+    }
 }

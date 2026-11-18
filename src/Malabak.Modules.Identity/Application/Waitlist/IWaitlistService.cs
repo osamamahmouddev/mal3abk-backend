@@ -38,4 +38,8 @@ public interface IWaitlistService
         int page,
         int pageSize,
         CancellationToken cancellationToken = default);
+
+    Task<Result> DeleteAsync(
+        Guid id,
+        CancellationToken cancellationToken = default);
 }
