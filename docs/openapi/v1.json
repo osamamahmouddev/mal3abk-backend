@@ -2575,6 +2575,222 @@
         }
       }
     },
+    "/api/v1/admin/bookings/financial-summary": {
+      "get": {
+        "tags": [
+          "Admin Bookings"
+        ],
+        "summary": "Comprehensive financial and commission breakdown for all venues",
+        "operationId": "AdminGetVenuesFinancialSummary",
+        "parameters": [
+          {
+            "name": "fromUtc",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "toUtc",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/VenueFinancialSummaryItem"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request (Validation failure, invalid inputs)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized (Missing or expired JWT access token)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (Insufficient role or permissions)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found (Resource does not exist)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict (Concurrent update or duplicate idempotency in flight)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity (Business rule violation or payload mismatch)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests (Rate limit exceeded, check Retry-After header)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/bookings/refunds/{refundId}/process": {
+      "post": {
+        "tags": [
+          "Admin Bookings"
+        ],
+        "summary": "Record that platform administration processed and refunded deposit to the player",
+        "operationId": "AdminProcessBookingRefund",
+        "parameters": [
+          {
+            "name": "refundId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminProcessRefundApiRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request (Validation failure, invalid inputs)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized (Missing or expired JWT access token)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (Insufficient role or permissions)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict (Concurrent update or duplicate idempotency in flight)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity (Business rule violation or payload mismatch)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests (Rate limit exceeded, check Retry-After header)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/admin/dashboard": {
       "get": {
         "tags": [
@@ -34685,6 +34901,16 @@
         },
         "additionalProperties": false
       },
+      "AdminProcessRefundApiRequest": {
+        "type": "object",
+        "properties": {
+          "notes": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
       "AdminProofItem": {
         "required": [
           "contentType",
@@ -44845,6 +45071,82 @@
             "items": {
               "$ref": "#/components/schemas/PitchDto"
             }
+          }
+        },
+        "additionalProperties": false
+      },
+      "VenueFinancialSummaryItem": {
+        "required": [
+          "cancelledBookings",
+          "confirmedBookings",
+          "currency",
+          "pendingConfirmationBookings",
+          "pendingRefundsAmount",
+          "pendingRefundsCount",
+          "totalBookings",
+          "totalDepositAmount",
+          "totalDueAtVenueCash",
+          "totalGrossAmount",
+          "totalPlatformCommission",
+          "totalVenueNetAmount",
+          "venueId",
+          "venueName"
+        ],
+        "type": "object",
+        "properties": {
+          "venueId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "venueName": {
+            "type": "string"
+          },
+          "totalBookings": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "confirmedBookings": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "cancelledBookings": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "pendingConfirmationBookings": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalGrossAmount": {
+            "type": "number",
+            "format": "double"
+          },
+          "totalDepositAmount": {
+            "type": "number",
+            "format": "double"
+          },
+          "totalPlatformCommission": {
+            "type": "number",
+            "format": "double"
+          },
+          "totalVenueNetAmount": {
+            "type": "number",
+            "format": "double"
+          },
+          "totalDueAtVenueCash": {
+            "type": "number",
+            "format": "double"
+          },
+          "pendingRefundsCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "pendingRefundsAmount": {
+            "type": "number",
+            "format": "double"
+          },
+          "currency": {
+            "type": "string"
           }
         },
         "additionalProperties": false
