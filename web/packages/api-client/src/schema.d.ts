@@ -299,7 +299,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Booking with status history, payment proofs (metadata) and refunds */
+        /** Booking with status history, payment proofs (with signed download URLs) and refunds */
         get: operations["AdminGetBooking"];
         put?: never;
         post?: never;
@@ -5615,6 +5615,7 @@ export interface components {
             history: components["schemas"]["AdminBookingHistoryItem"][];
             proofs: components["schemas"]["AdminProofItem"][];
             refunds: components["schemas"]["AdminRefundItem"][];
+            customerPhone?: string | null;
         };
         AdminBookingHistoryItem: {
             fromStatus: string;
@@ -5658,6 +5659,8 @@ export interface components {
             isCommissionPaid: boolean;
             venueName?: string | null;
             pitchName?: string | null;
+            customerName?: string | null;
+            customerPhone?: string | null;
         };
         AdminBookingPage: {
             items: components["schemas"]["AdminBookingListItem"][];
@@ -5719,6 +5722,9 @@ export interface components {
             rejectionReason?: string | null;
             venueName?: string | null;
             pitchName?: string | null;
+            downloadUrl?: string | null;
+            customerName?: string | null;
+            customerPhone?: string | null;
         };
         AdminDepositReviewPage: {
             items: components["schemas"]["AdminDepositReviewItem"][];
@@ -5776,6 +5782,10 @@ export interface components {
             reviewedAtUtc?: string | null;
             reviewedBy?: string | null;
             isArchived: boolean;
+            /** Format: uuid */
+            mediaId?: string | null;
+            originalFileName?: string | null;
+            downloadUrl?: string | null;
         };
         AdminReasonApiRequest: {
             reason?: string | null;

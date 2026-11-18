@@ -2057,7 +2057,7 @@
         "tags": [
           "Admin Bookings"
         ],
-        "summary": "Booking with status history, payment proofs (metadata) and refunds",
+        "summary": "Booking with status history, payment proofs (with signed download URLs) and refunds",
         "operationId": "AdminGetBooking",
         "parameters": [
           {
@@ -34543,6 +34543,10 @@
             "items": {
               "$ref": "#/components/schemas/AdminRefundItem"
             }
+          },
+          "customerPhone": {
+            "type": "string",
+            "nullable": true
           }
         },
         "additionalProperties": false
@@ -34671,6 +34675,14 @@
             "nullable": true
           },
           "pitchName": {
+            "type": "string",
+            "nullable": true
+          },
+          "customerName": {
+            "type": "string",
+            "nullable": true
+          },
+          "customerPhone": {
             "type": "string",
             "nullable": true
           }
@@ -34852,6 +34864,18 @@
             "nullable": true
           },
           "pitchName": {
+            "type": "string",
+            "nullable": true
+          },
+          "downloadUrl": {
+            "type": "string",
+            "nullable": true
+          },
+          "customerName": {
+            "type": "string",
+            "nullable": true
+          },
+          "customerPhone": {
             "type": "string",
             "nullable": true
           }
@@ -35054,6 +35078,19 @@
           },
           "isArchived": {
             "type": "boolean"
+          },
+          "mediaId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "originalFileName": {
+            "type": "string",
+            "nullable": true
+          },
+          "downloadUrl": {
+            "type": "string",
+            "nullable": true
           }
         },
         "additionalProperties": false

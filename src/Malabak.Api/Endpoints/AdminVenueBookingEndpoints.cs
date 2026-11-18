@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using Asp.Versioning.Builder;
 using Malabak.Api.Infrastructure.Authorization;
+using Malabak.Api.Infrastructure.Media;
 using Malabak.Api.Infrastructure.Security;
 using Malabak.Modules.Booking.Application.Admin;
 using Malabak.Modules.Identity.Application.Common;
@@ -80,13 +81,23 @@ public static class AdminVenueBookingEndpoints
             .Produces<AdminBookingPage>().ProducesProblem(StatusCodes.Status400BadRequest)
             .WithName("AdminSearchBookings").WithSummary("Search bookings across venues by reference, venue, player, status and start time");
 
-        bookings.MapGet("/{bookingId:guid}", async (Guid bookingId, HttpContext http, AdminBookingService service, CancellationToken ct) =>
+        bookings.MapGet("/{bookingId:guid}", async (Guid bookingId, HttpContext http, AdminBookingService service, MediaService mediaService, CancellationToken ct) =>
             {
                 AdminResults.NoStore(http);
-                return AdminResults.From(await service.GetAsync(bookingId, ct));
+                var result = await service.GetAsync(bookingId, ct);
+                if (result.IsFailure)
+                {
+                    return AdminResults.From(result);
+                }
+
+                var detail = result.Value;
+                var proofs = detail.Proofs
+                    .Select(p => p with { DownloadUrl = p.MediaId is { } mediaId ? mediaService.SignedUrl(mediaId, "large") : null })
+                    .ToList();
+                return Results.Ok(detail with { Proofs = proofs });
             })
             .Produces<AdminBookingDetail>().ProducesProblem(StatusCodes.Status404NotFound)
-            .WithName("AdminGetBooking").WithSummary("Booking with status history, payment proofs (metadata) and refunds");
+            .WithName("AdminGetBooking").WithSummary("Booking with status history, payment proofs (with signed download URLs) and refunds");
 
         bookings.MapPost("/{bookingId:guid}/force-cancel", async (Guid bookingId, [FromBody] AdminReasonApiRequest request, ClaimsPrincipal user, AdminBookingService service, CancellationToken ct) =>
                 AdminResults.From(await service.ForceCancelAsync(bookingId, request.Reason, user.GetUserId()!.Value, ct)))
@@ -96,10 +107,20 @@ public static class AdminVenueBookingEndpoints
             .WithName("AdminForceCancelBooking").WithSummary("Cancel any active booking with a reason; the full deposit is owed back to the player");
 
         bookings.MapGet("/deposit-reviews", async ([FromQuery] int? page, [FromQuery] int? pageSize,
-                HttpContext http, AdminBookingService service, CancellationToken ct) =>
+                HttpContext http, AdminBookingService service, MediaService mediaService, CancellationToken ct) =>
             {
                 AdminResults.NoStore(http);
-                return AdminResults.From(await service.GetPendingDepositReviewsAsync(page ?? 1, pageSize ?? 25, ct));
+                var result = await service.GetPendingDepositReviewsAsync(page ?? 1, pageSize ?? 25, ct);
+                if (result.IsFailure)
+                {
+                    return AdminResults.From(result);
+                }
+
+                var p = result.Value;
+                var items = p.Items
+                    .Select(i => i with { DownloadUrl = i.MediaId is { } mId ? mediaService.SignedUrl(mId, "large") : null })
+                    .ToList();
+                return Results.Ok(p with { Items = items });
             })
             .Produces<AdminDepositReviewPage>()
             .WithName("AdminGetPendingDepositReviews")

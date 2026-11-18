@@ -1,13 +1,13 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { Schemas } from "@malabak/api-client";
-import { KV, Page, PageHeader, Pill, ReasonModal, type ReasonRequest, SearchBox, btnDanger, card, money, muted } from "@/components/ui";
+import { KV, Page, PageHeader, Pill, ReasonModal, type ReasonRequest, SearchBox, btnDanger, card, money, muted, toArabicDigits } from "@/components/ui";
 import { Drawer, Pager, QueryState, Section, Select, Table, fmtDateTime, useNotice } from "@/components/admin";
 import { api, unwrap } from "@/lib/api";
 import { useStepUp } from "@/lib/stepup";
-import { Building2, CalendarDays, CheckCircle2, ChevronLeft, Clock, LayoutGrid, NotebookPen, ShieldAlert, Smartphone, Table2, XCircle } from "lucide-react";
+import { Building2, CalendarDays, CheckCircle2, ChevronLeft, Clock, ExternalLink, FileText, LayoutGrid, NotebookPen, RotateCw, ShieldAlert, Smartphone, Table2, XCircle, ZoomIn, ZoomOut } from "lucide-react";
 
 type Row = Schemas["AdminBookingListItem"];
 
@@ -172,6 +172,20 @@ export default function BookingsPage() {
                         )}
                       </div>
 
+                      {/* Customer / Player info */}
+                      {(r.customerName || (r as any).customerPhone) && (
+                        <div className="flex items-center justify-between text-xs px-1 text-slate-700">
+                          <span className="font-semibold text-slate-900 truncate">
+                            {r.customerName || (r.isManual ? "حجز يدوي" : "لاعب مسجل")}
+                          </span>
+                          {(r as any).customerPhone && (
+                            <span className="text-[11px] text-slate-500 font-mono shrink-0" dir="ltr">
+                              {(r as any).customerPhone}
+                            </span>
+                          )}
+                        </div>
+                      )}
+
                       {/* Center: Timing badge */}
                       <div className="flex items-center gap-3 p-3 rounded-xl bg-[#F6F8FB] border border-[#E9EDF5]">
                         <span className="grid place-items-center size-9 rounded-lg bg-white border border-[#E9EDF5] text-slate-600 shrink-0"><CalendarDays className="size-[18px]" /></span>
@@ -221,6 +235,19 @@ export default function BookingsPage() {
                       </div>
                     ),
                   },
+                  {
+                    title: "اللاعب",
+                    cell: (r) => (
+                      <div className="flex flex-col">
+                        <span className="font-medium text-slate-900">{r.customerName || (r.isManual ? "حجز يدوي" : "لاعب مسجل")}</span>
+                        {(r as any).customerPhone && (
+                          <span className="text-[11px] text-slate-500 font-mono" dir="ltr">
+                            {(r as any).customerPhone}
+                          </span>
+                        )}
+                      </div>
+                    ),
+                  },
                   { title: "الميعاد", cell: (r) => fmtDateTime(r.startUtc) },
                   { title: "السعر", cell: (r) => money(r.totalPrice) },
                   { title: "العربون", cell: (r) => money(r.depositAmount) },
@@ -238,11 +265,147 @@ export default function BookingsPage() {
   );
 }
 
+/** Media URLs returned by the API are relative to the API host; load them through this app's authenticated BFF. */
+function mediaSrc(path: string) {
+  if (!path) return "";
+  if (/^https?:\/\//i.test(path)) return path;
+  if (path.startsWith("/admin/bff")) return path;
+  return `/admin/bff${path.startsWith("/") ? "" : "/"}${path}`;
+}
+
+/** Receipt preview: images zoom (buttons, wheel) and pan (drag), rotate; PDFs open in the browser's own viewer. */
+function ReceiptViewer({ proof }: { proof: any }) {
+  const [scale, setScale] = useState(1);
+  const [rotation, setRotation] = useState(0);
+  const [offset, setOffset] = useState({ x: 0, y: 0 });
+  const drag = useRef<{ x: number; y: number } | null>(null);
+
+  const rawUrl = proof.downloadUrl || proof.url;
+  const src = rawUrl ? mediaSrc(rawUrl) : null;
+  const isPdf = proof.contentType === "application/pdf";
+
+  useEffect(() => {
+    setScale(1);
+    setRotation(0);
+    setOffset({ x: 0, y: 0 });
+  }, [proof.id]);
+
+  if (!src) {
+    return (
+      <div className="aspect-[3/4] max-h-[360px] rounded-2xl bg-slate-100 border border-slate-200 flex flex-col items-center justify-center gap-2 text-slate-500 text-xs">
+        <FileText className="size-8 text-slate-400" />
+        <span>رابط معاينة الإيصال مش متاح حالياً.</span>
+      </div>
+    );
+  }
+
+  const zoom = (delta: number) => setScale((s) => Math.min(5, Math.max(1, Math.round((s + delta) * 10) / 10)));
+  const rotate = () => setRotation((r) => (r + 90) % 360);
+
+  return (
+    <div className="flex flex-col gap-2">
+      <div
+        className="aspect-[3/4] max-h-[380px] rounded-2xl border border-slate-200/90 bg-slate-900/5 overflow-hidden relative touch-none select-none flex items-center justify-center shadow-inner"
+        onWheel={(e) => !isPdf && zoom(e.deltaY < 0 ? 0.25 : -0.25)}
+        onPointerDown={(e) => {
+          if (isPdf || scale === 1) return;
+          drag.current = { x: e.clientX - offset.x, y: e.clientY - offset.y };
+          (e.target as HTMLElement).setPointerCapture(e.pointerId);
+        }}
+        onPointerMove={(e) => drag.current && setOffset({ x: e.clientX - drag.current.x, y: e.clientY - drag.current.y })}
+        onPointerUp={() => (drag.current = null)}
+      >
+        {isPdf ? (
+          <a
+            href={src}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="w-full h-full flex flex-col items-center justify-center gap-2.5 text-slate-800 hover:text-emerald-700 transition-colors p-4 text-center"
+          >
+            <div className="size-14 rounded-2xl bg-white shadow-xs border border-slate-200 flex items-center justify-center text-red-600">
+              <FileText className="size-8" strokeWidth={1.5} />
+            </div>
+            <span className="text-sm font-bold underline">فتح إيصال PDF في نافذة جديدة</span>
+            {proof.originalFileName && <span className="text-xs text-slate-500">{proof.originalFileName}</span>}
+          </a>
+        ) : (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={src}
+            alt="صورة إيصال التحويل"
+            draggable={false}
+            className="w-full h-full object-contain transition-transform duration-75"
+            style={{
+              transform: `translate(${offset.x}px, ${offset.y}px) rotate(${rotation}deg) scale(${scale})`,
+              cursor: scale > 1 ? "grab" : "default",
+            }}
+          />
+        )}
+      </div>
+
+      <div className="flex items-center gap-1.5 flex-wrap">
+        {!isPdf && (
+          <>
+            <button
+              type="button"
+              onClick={() => zoom(0.5)}
+              title="تكبير"
+              className="flex-1 min-h-[36px] px-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold flex items-center justify-center gap-1 transition-colors cursor-pointer"
+            >
+              <ZoomIn className="size-3.5" />
+              <span>تكبير +</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setScale(1);
+                setOffset({ x: 0, y: 0 });
+              }}
+              title="الحجم الأصلي"
+              className="min-h-[36px] px-3 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold transition-colors cursor-pointer"
+            >
+              {toArabicDigits(Math.round(scale * 100))}٪
+            </button>
+            <button
+              type="button"
+              onClick={() => zoom(-0.5)}
+              title="تصغير"
+              className="flex-1 min-h-[36px] px-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold flex items-center justify-center gap-1 transition-colors cursor-pointer"
+            >
+              <ZoomOut className="size-3.5" />
+              <span>تصغير −</span>
+            </button>
+            <button
+              type="button"
+              onClick={rotate}
+              title="تدوير 90 درجة"
+              className="min-h-[36px] px-3 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold flex items-center justify-center gap-1 transition-colors cursor-pointer"
+            >
+              <RotateCw className="size-3.5" />
+              <span>تدوير</span>
+            </button>
+          </>
+        )}
+        <a
+          href={src}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex-1 min-h-[36px] px-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-800 text-xs font-semibold flex items-center justify-center gap-1 transition-colors"
+        >
+          <ExternalLink className="size-3.5" />
+          <span>فتح بحجم كامل</span>
+        </a>
+      </div>
+    </div>
+  );
+}
+
 function BookingDrawer({ bookingId, onClose, venueMap }: { bookingId: string | null; onClose: () => void; venueMap?: Map<string, string> }) {
   const queryClient = useQueryClient();
   const stepUp = useStepUp();
   const notice = useNotice();
   const [reason, setReason] = useState<ReasonRequest | null>(null);
+  const [selectedProofIdx, setSelectedProofIdx] = useState(0);
 
   const detail = useQuery({
     queryKey: ["admin-booking", bookingId],
@@ -312,82 +475,141 @@ function BookingDrawer({ bookingId, onClose, venueMap }: { bookingId: string | n
     <Drawer title="تفاصيل الحجز" open={!!bookingId} onClose={() => { notice.clear(); onClose(); }}>
       {notice.node}
       <QueryState query={detail}>
-        {(d) => (
-          <>
-            <div className={`${card} rounded-[16px] p-4 flex flex-col gap-2`}>
-              <strong dir="ltr" className="font-inter text-[17px] text-right">{d.booking.reference}</strong>
-              <KV k="الحالة"><Pill tone={TONE[d.booking.status] ?? "neutral"}>{STATUS_MAP[d.booking.status] ?? d.booking.status}</Pill></KV>
-              <KV k="الميعاد">{fmtDateTime(d.booking.startUtc)}</KV>
-              <KV k="السعر / العربون">{money(d.booking.totalPrice)} / {money(d.booking.depositAmount)}</KV>
-              <KV k="الملعب">
-                <span className="font-bold text-slate-900">
-                  {(d.booking as any).venueName || venueMap?.get(d.booking.venueId) || d.booking.venueId}
-                </span>
-              </KV>
-              {Boolean((d.booking as any).pitchName) && (
-                <KV k="الملعب الفرعي">
-                  <span className="font-medium text-slate-800">{(d.booking as any).pitchName}</span>
+        {(d) => {
+          const selectedProof = d.proofs[selectedProofIdx] || d.proofs[0];
+          const hasProofs = d.proofs.length > 0;
+          const isDepositPending =
+            d.booking.status === "PendingDeposit" || d.booking.status === "ProofSubmitted" || d.booking.status === "UnderReview";
+
+          return (
+            <>
+              <div className={`${card} rounded-[16px] p-4 flex flex-col gap-2`}>
+                <div className="flex items-center justify-between">
+                  <strong dir="ltr" className="font-inter text-[17px] text-right font-extrabold text-slate-900">{d.booking.reference}</strong>
+                  <Pill tone={TONE[d.booking.status] ?? "neutral"}>{STATUS_MAP[d.booking.status] ?? d.booking.status}</Pill>
+                </div>
+                <KV k="الميعاد">{fmtDateTime(d.booking.startUtc)}</KV>
+                <KV k="السعر / العربون">{money(d.booking.totalPrice)} / {money(d.booking.depositAmount)}</KV>
+                <KV k="الملعب">
+                  <span className="font-bold text-slate-900">
+                    {(d.booking as any).venueName || venueMap?.get(d.booking.venueId) || d.booking.venueId}
+                  </span>
                 </KV>
-              )}
-              <KV k="اللاعب">{d.customerName ?? d.booking.playerId}</KV>
-              {d.cancellationReason && <KV k="سبب الإلغاء">{d.cancellationReason}</KV>}
-              {d.rejectionReason && <KV k="سبب الرفض">{d.rejectionReason}</KV>}
-              {d.policy && <KV k="سياسة الإلغاء">قبلها بـ {d.policy.cancellationDeadlineHours} ساعة · استرداد {d.policy.refundPercentage}٪</KV>}
-            </div>
-
-            {/* Admin Deposit Confirmation / Review Box */}
-            {(d.booking.status === "PendingDeposit" || d.booking.status === "ProofSubmitted" || d.booking.status === "UnderReview") && (
-              <div className="bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-200/90 rounded-2xl p-4 flex flex-col gap-3 shadow-xs">
-                <div className="flex items-center gap-2.5">
-                  <div className="size-8 rounded-lg bg-emerald-600 text-white flex items-center justify-center shrink-0">
-                    <CheckCircle2 className="size-5" />
-                  </div>
+                {Boolean((d.booking as any).pitchName) && (
+                  <KV k="الملعب الفرعي">
+                    <span className="font-medium text-slate-800">{(d.booking as any).pitchName}</span>
+                  </KV>
+                )}
+                <KV k="اللاعب">
                   <div className="flex flex-col">
-                    <strong className="text-sm font-bold text-slate-900">مراجعة وتأكيد العربون (صلاحية الإدارة)</strong>
-                    <span className="text-[11px] text-slate-500">العمولة والعربون يدخلان لحساب المنصة وتأكيد الحجز يتم مركزياً</span>
+                    <span className="font-bold text-slate-900">
+                      {d.customerName || (d.booking as any).customerName || (d.booking.isManual ? "حجز يدوي" : "لاعب مسجل")}
+                    </span>
+                    {(d as any).customerPhone || (d.booking as any).customerPhone ? (
+                      <span className="text-xs text-slate-600 font-mono font-medium" dir="ltr">
+                        {(d as any).customerPhone || (d.booking as any).customerPhone}
+                      </span>
+                    ) : null}
                   </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-2 text-xs bg-white/90 p-3 rounded-xl border border-emerald-100">
-                  <div>
-                    <span className="text-slate-500 block text-[11px]">مبلغ العربون:</span>
-                    <strong className="text-sm font-bold text-emerald-700">{money(d.booking.depositAmount)}</strong>
-                  </div>
-                  <div>
-                    <span className="text-slate-500 block text-[11px]">عمولة المنصة:</span>
-                    <strong className="text-sm font-bold text-slate-800">{money((d.booking as any).platformCommission ?? 0)}</strong>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2 pt-1">
-                  <button
-                    type="button"
-                    disabled={confirmDeposit.isPending}
-                    onClick={() => confirmDeposit.mutate()}
-                    className="flex-1 min-h-[40px] px-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
-                  >
-                    <CheckCircle2 className="size-4" />
-                    {confirmDeposit.isPending ? "جاري الاعتماد…" : "تأكيد العربون وتثبيت الحجز"}
-                  </button>
-
-                  <button
-                    type="button"
-                    disabled={rejectDeposit.isPending}
-                    onClick={() =>
-                      setReason({
-                        title: "رفض العربون",
-                        body: "يرجى كتابة سبب عدم اعتماد العربون؛ سيتم إخطار اللاعب بالسبب وإلغاء الحجز.",
-                        confirmLabel: "تأكيد الرفض",
-                        onConfirm: (text) => rejectDeposit.mutate(text),
-                      })
-                    }
-                    className="min-h-[40px] px-3.5 rounded-xl border border-red-200 bg-white hover:bg-red-50 text-red-700 font-semibold text-xs transition-colors cursor-pointer"
-                  >
-                    رفض
-                  </button>
-                </div>
+                </KV>
+                {d.cancellationReason && <KV k="سبب الإلغاء">{d.cancellationReason}</KV>}
+                {d.rejectionReason && <KV k="سبب الرفض">{d.rejectionReason}</KV>}
+                {d.policy && <KV k="سياسة الإلغاء">قبلها بـ {d.policy.cancellationDeadlineHours} ساعة · استرداد {d.policy.refundPercentage}٪</KV>}
               </div>
-            )}
+
+              {/* Visual Payment Proof Viewer */}
+              {hasProofs && (
+                <div className="bg-slate-50 border border-slate-200/90 rounded-2xl p-4 flex flex-col gap-3 shadow-xs">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="text-base">🧾</span>
+                      <strong className="text-sm font-bold text-slate-900">إيصال التحويل المرفوع</strong>
+                    </div>
+                    <span className="text-[11px] text-slate-500 font-medium">
+                      {fmtDateTime(selectedProof.uploadedAtUtc)}
+                    </span>
+                  </div>
+
+                  {d.proofs.length > 1 && (
+                    <div className="flex items-center gap-1.5 bg-white p-1 rounded-xl border border-slate-200">
+                      {d.proofs.map((p, idx) => (
+                        <button
+                          key={p.id}
+                          type="button"
+                          onClick={() => setSelectedProofIdx(idx)}
+                          className={`flex-1 py-1 px-2 text-xs font-semibold rounded-lg transition-colors cursor-pointer ${
+                            selectedProofIdx === idx ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-100"
+                          }`}
+                        >
+                          إيصال {toArabicDigits(idx + 1)} {idx === 0 ? "(الأحدث)" : ""}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  <ReceiptViewer proof={selectedProof} />
+
+                  {selectedProof.rejectionReason && (
+                    <div className="p-2.5 rounded-xl bg-red-50 border border-red-200 text-xs text-red-700">
+                      <strong>سبب الرفض السابق:</strong> {selectedProof.rejectionReason}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Admin Deposit Confirmation / Review Box */}
+              {isDepositPending && (
+                <div className="bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-200/90 rounded-2xl p-4 flex flex-col gap-3 shadow-xs">
+                  <div className="flex items-center gap-2.5">
+                    <div className="size-8 rounded-lg bg-emerald-600 text-white flex items-center justify-center shrink-0">
+                      <CheckCircle2 className="size-5" />
+                    </div>
+                    <div className="flex flex-col">
+                      <strong className="text-sm font-bold text-slate-900">مراجعة وتأكيد العربون (صلاحية الإدارة)</strong>
+                      <span className="text-[11px] text-slate-500">العمولة والعربون يدخلان لحساب المنصة وتأكيد الحجز يتم مركزياً</span>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 text-xs bg-white/90 p-3 rounded-xl border border-emerald-100">
+                    <div>
+                      <span className="text-slate-500 block text-[11px]">مبلغ العربون:</span>
+                      <strong className="text-sm font-bold text-emerald-700">{money(d.booking.depositAmount)}</strong>
+                    </div>
+                    <div>
+                      <span className="text-slate-500 block text-[11px]">عمولة المنصة:</span>
+                      <strong className="text-sm font-bold text-slate-800">{money((d.booking as any).platformCommission ?? 0)}</strong>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 pt-1">
+                    <button
+                      type="button"
+                      disabled={confirmDeposit.isPending}
+                      onClick={() => confirmDeposit.mutate()}
+                      className="flex-1 min-h-[40px] px-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                    >
+                      <CheckCircle2 className="size-4" />
+                      {confirmDeposit.isPending ? "جاري الاعتماد…" : "تأكيد العربون وتثبيت الحجز"}
+                    </button>
+
+                    <button
+                      type="button"
+                      disabled={rejectDeposit.isPending}
+                      onClick={() =>
+                        setReason({
+                          title: "رفض العربون",
+                          body: "يرجى كتابة سبب عدم اعتماد العربون؛ سيتم إخطار اللاعب بالسبب وإلغاء الحجز.",
+                          confirmLabel: "تأكيد الرفض",
+                          onConfirm: (text) => rejectDeposit.mutate(text),
+                        })
+                      }
+                      className="min-h-[40px] px-3.5 rounded-xl border border-red-200 bg-white hover:bg-red-50 text-red-700 font-semibold text-xs transition-colors cursor-pointer"
+                    >
+                      رفض
+                    </button>
+                  </div>
+                </div>
+              )}
 
             {/* Cancelled by Venue - Pending Refund Alert */}
             {d.booking.status === "Cancelled" && d.refunds.some((r) => r.status === "Pending") && (
@@ -457,7 +679,8 @@ function BookingDrawer({ bookingId, onClose, venueMap }: { bookingId: string | n
               ))}
             </Section>
           </>
-        )}
+          );
+        }}
       </QueryState>
       <ReasonModal request={reason} onClose={() => setReason(null)} />
     </Drawer>

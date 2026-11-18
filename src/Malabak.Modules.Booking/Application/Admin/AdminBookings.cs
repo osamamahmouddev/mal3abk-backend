@@ -16,16 +16,17 @@ public sealed record AdminBookingListItem(
     Guid Id, string Reference, Guid VenueId, Guid PitchId, Guid PlayerId, string Status, DateTime StartUtc, DateTime EndUtc,
     decimal TotalPrice, decimal DepositAmount, string Currency, bool IsManual, DateTime CreatedAtUtc,
     decimal PlatformCommission = 0m, decimal VenueNetAmount = 0m, decimal OnlinePaidAmount = 0m, decimal VenuePayAmount = 0m, bool IsCommissionPaid = false,
-    string? VenueName = null, string? PitchName = null);
+    string? VenueName = null, string? PitchName = null, string? CustomerName = null, string? CustomerPhone = null);
 
 public sealed record AdminBookingPage(IReadOnlyList<AdminBookingListItem> Items, int Page, int PageSize, int Total);
 
 public sealed record AdminBookingHistoryItem(string FromStatus, string ToStatus, string? Reason, string ChangedBy, DateTime ChangedAtUtc);
 
-/// <summary>Proof metadata only: the file itself stays behind the reviewed, short-lived download flow.</summary>
+/// <summary>Proof metadata and short-lived signed download link for staff review.</summary>
 public sealed record AdminProofItem(
     Guid Id, string ContentType, long FileSizeBytes, DateTime UploadedAtUtc, bool IsScanClean, bool? IsApproved, string? RejectionReason,
-    DateTime? ReviewedAtUtc, string? ReviewedBy, bool IsArchived);
+    DateTime? ReviewedAtUtc, string? ReviewedBy, bool IsArchived,
+    Guid? MediaId = null, string? OriginalFileName = null, string? DownloadUrl = null);
 
 public sealed record AdminRefundItem(Guid Id, string Status, decimal ExpectedAmount, decimal? ActualAmount, string Currency, string? Reason, DateTime? RecordedAtUtc);
 
@@ -41,7 +42,8 @@ public sealed record AdminBookingDetail(
     BookingPolicySnapshot? Policy,
     IReadOnlyList<AdminBookingHistoryItem> History,
     IReadOnlyList<AdminProofItem> Proofs,
-    IReadOnlyList<AdminRefundItem> Refunds);
+    IReadOnlyList<AdminRefundItem> Refunds,
+    string? CustomerPhone = null);
 
 public sealed record AdminDepositReviewItem(
     Guid BookingId,
@@ -63,7 +65,10 @@ public sealed record AdminDepositReviewItem(
     DateTime? ProofUploadedAtUtc,
     string? RejectionReason,
     string? VenueName = null,
-    string? PitchName = null);
+    string? PitchName = null,
+    string? DownloadUrl = null,
+    string? CustomerName = null,
+    string? CustomerPhone = null);
 
 public sealed record AdminDepositReviewPage(
     IReadOnlyList<AdminDepositReviewItem> Items,
@@ -109,6 +114,7 @@ public sealed class AdminBookingService
     private readonly IAvailabilityInvalidator? _availabilityInvalidator;
     private readonly IVenueDirectory? _venues;
     private readonly INotificationPublisher? _notificationPublisher;
+    private readonly IUserAccountsContract? _users;
     private readonly ILogger<AdminBookingService>? _logger;
 
     public AdminBookingService(
@@ -120,6 +126,7 @@ public sealed class AdminBookingService
         IAvailabilityInvalidator? availabilityInvalidator = null,
         IVenueDirectory? venues = null,
         INotificationPublisher? notificationPublisher = null,
+        IUserAccountsContract? users = null,
         ILogger<AdminBookingService>? logger = null)
     {
         _dbContext = dbContext;
@@ -130,6 +137,7 @@ public sealed class AdminBookingService
         _availabilityInvalidator = availabilityInvalidator;
         _venues = venues;
         _notificationPublisher = notificationPublisher;
+        _users = users;
         _logger = logger;
     }
 
@@ -193,8 +201,20 @@ public sealed class AdminBookingService
         var venueNames = _venues is not null ? await _venues.GetVenueNamesAsync(venueIds, cancellationToken) : new Dictionary<Guid, string>();
         var pitchNames = _venues is not null ? await _venues.GetPitchNamesAsync(pitchIds, cancellationToken) : new Dictionary<Guid, string>();
 
+        var playerIds = rows.Where(b => !b.IsManualBooking && (string.IsNullOrWhiteSpace(b.CustomerName) || string.IsNullOrWhiteSpace(b.CustomerPhone)))
+            .Select(b => b.PlayerId).Distinct().ToList();
+        var playerSummaries = _users is not null && playerIds.Count > 0
+            ? await _users.GetSummariesAsync(playerIds, cancellationToken)
+            : new Dictionary<Guid, UserAccountSummary>();
+
         return Result.Success(new AdminBookingPage(
-            rows.Select(b => ToItem(b, venueNames.GetValueOrDefault(b.VenueId), pitchNames.GetValueOrDefault(b.PitchId))).ToList(),
+            rows.Select(b =>
+            {
+                playerSummaries.TryGetValue(b.PlayerId, out var s);
+                var cName = string.IsNullOrWhiteSpace(b.CustomerName) ? s?.FullName : b.CustomerName;
+                var cPhone = string.IsNullOrWhiteSpace(b.CustomerPhone) ? s?.MaskedPhone : b.CustomerPhone;
+                return ToItem(b, venueNames.GetValueOrDefault(b.VenueId), pitchNames.GetValueOrDefault(b.PitchId), cName, cPhone);
+            }).ToList(),
             page, pageSize, total));
     }
 
@@ -224,21 +244,35 @@ public sealed class AdminBookingService
             pitchName = pNames.GetValueOrDefault(booking.PitchId);
         }
 
+        string? customerName = booking.CustomerName;
+        string? customerPhone = booking.CustomerPhone;
+        if (_users is not null && !booking.IsManualBooking && (string.IsNullOrWhiteSpace(customerName) || string.IsNullOrWhiteSpace(customerPhone)))
+        {
+            var summaries = await _users.GetSummariesAsync([booking.PlayerId], cancellationToken);
+            if (summaries.TryGetValue(booking.PlayerId, out var summary))
+            {
+                customerName = string.IsNullOrWhiteSpace(customerName) ? summary.FullName : customerName;
+                customerPhone = string.IsNullOrWhiteSpace(customerPhone) ? summary.MaskedPhone : customerPhone;
+            }
+        }
+
         return Result.Success(new AdminBookingDetail(
-            ToItem(booking, venueName, pitchName),
+            ToItem(booking, venueName, pitchName, customerName, customerPhone),
             booking.CancellationReason,
             booking.RejectionReason,
             booking.HoldExpiresAtUtc,
             booking.ConfirmedAtUtc,
             booking.CancelledAtUtc,
-            booking.CustomerName,
+            customerName,
             booking.Notes,
             booking.PolicySnapshot,
             history.Select(h => new AdminBookingHistoryItem(h.FromStatus.ToString(), h.ToStatus.ToString(), h.Reason, h.ChangedBy, h.ChangedAtUtc)).ToList(),
             booking.Proofs.OrderByDescending(p => p.UploadedAtUtc).Select(p => new AdminProofItem(
-                p.Id, p.ContentType, p.FileSizeBytes, p.UploadedAtUtc, p.IsScanClean, p.IsApproved, p.RejectionReason, p.ReviewedAtUtc, p.ReviewedByUserId, p.IsArchived)).ToList(),
+                p.Id, p.ContentType, p.FileSizeBytes, p.UploadedAtUtc, p.IsScanClean, p.IsApproved, p.RejectionReason, p.ReviewedAtUtc, p.ReviewedByUserId, p.IsArchived,
+                p.MediaId, p.OriginalFileName)).ToList(),
             booking.Refunds.OrderByDescending(r => r.RecordedAtUtc).Select(r => new AdminRefundItem(
-                r.Id, r.Status.ToString(), r.ExpectedRefundAmount, r.ActualRefundAmount, r.Currency, r.Reason, r.RecordedAtUtc)).ToList()));
+                r.Id, r.Status.ToString(), r.ExpectedRefundAmount, r.ActualRefundAmount, r.Currency, r.Reason, r.RecordedAtUtc)).ToList(),
+            customerPhone));
     }
 
     /// <summary>Admin intervention: cancels regardless of the player deadline, owes the full deposit back and is audited.</summary>
@@ -292,9 +326,17 @@ public sealed class AdminBookingService
         var venueNames = _venues is not null ? await _venues.GetVenueNamesAsync(venueIds, cancellationToken) : new Dictionary<Guid, string>();
         var pitchNames = _venues is not null ? await _venues.GetPitchNamesAsync(pitchIds, cancellationToken) : new Dictionary<Guid, string>();
 
+        var playerIds = rows.Select(b => b.PlayerId).Distinct().ToList();
+        var playerSummaries = _users is not null && playerIds.Count > 0
+            ? await _users.GetSummariesAsync(playerIds, cancellationToken)
+            : new Dictionary<Guid, UserAccountSummary>();
+
         var items = rows.Select(b =>
         {
             var latestProof = b.Proofs.OrderByDescending(pr => pr.UploadedAtUtc).FirstOrDefault();
+            playerSummaries.TryGetValue(b.PlayerId, out var pSummary);
+            var cName = string.IsNullOrWhiteSpace(b.CustomerName) ? pSummary?.FullName : b.CustomerName;
+            var cPhone = string.IsNullOrWhiteSpace(b.CustomerPhone) ? pSummary?.MaskedPhone : b.CustomerPhone;
             return new AdminDepositReviewItem(
                 b.Id,
                 b.BookingReference,
@@ -315,7 +357,10 @@ public sealed class AdminBookingService
                 latestProof?.UploadedAtUtc,
                 b.RejectionReason,
                 venueNames.GetValueOrDefault(b.VenueId),
-                pitchNames.GetValueOrDefault(b.PitchId));
+                pitchNames.GetValueOrDefault(b.PitchId),
+                null,
+                cName,
+                cPhone);
         }).ToList();
 
         return Result.Success(new AdminDepositReviewPage(items, p, ps, total));
@@ -585,9 +630,14 @@ public sealed class AdminBookingService
         return Result.Success();
     }
 
-    private static AdminBookingListItem ToItem(Domain.Booking b, string? venueName = null, string? pitchName = null) =>
+    private static AdminBookingListItem ToItem(
+        Domain.Booking b,
+        string? venueName = null,
+        string? pitchName = null,
+        string? customerName = null,
+        string? customerPhone = null) =>
         new(b.Id, b.BookingReference, b.VenueId, b.PitchId, b.PlayerId, b.Status.ToString(), b.StartUtc, b.EndUtc,
             b.TotalPrice.Amount, b.DepositAmount.Amount, b.TotalPrice.Currency, b.IsManualBooking, b.CreatedAtUtc,
             b.PlatformCommission.Amount, b.VenueNetAmount.Amount, b.OnlinePaidAmount.Amount, b.VenuePayAmount.Amount, b.IsCommissionPaid,
-            venueName, pitchName);
+            venueName, pitchName, customerName ?? b.CustomerName, customerPhone ?? b.CustomerPhone);
 }
