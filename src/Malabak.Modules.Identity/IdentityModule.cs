@@ -73,6 +73,7 @@ public static class IdentityModule
         services.AddScoped<ICommandHandler<AdminConfirmTotpCommand, Result<IReadOnlyList<string>>>>(sp => sp.GetRequiredService<AdminAuthHandlers>());
         services.AddScoped<ICommandHandler<AdminRefreshCommand, Result<AdminTokens>>>(sp => sp.GetRequiredService<AdminAuthHandlers>());
         services.AddScoped<ICommandHandler<AdminLogoutCommand, Result>>(sp => sp.GetRequiredService<AdminAuthHandlers>());
+        services.AddScoped<ICommandHandler<AdminResetTotpCommand, Result>>(sp => sp.GetRequiredService<AdminAuthHandlers>());
         services.AddScoped<IQueryHandler<ListAdminSessionsQuery, Result<IReadOnlyList<AdminSessionDto>>>>(sp => sp.GetRequiredService<AdminAuthHandlers>());
         services.AddScoped<ICommandHandler<RevokeAdminSessionCommand, Result>>(sp => sp.GetRequiredService<AdminAuthHandlers>());
 

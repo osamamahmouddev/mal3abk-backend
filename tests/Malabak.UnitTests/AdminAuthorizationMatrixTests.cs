@@ -32,6 +32,7 @@ public sealed class AdminAuthorizationMatrixTests : IClassFixture<AdminAuthoriza
         "POST /api/v{version:apiVersion}/admin/auth/login",
         "POST /api/v{version:apiVersion}/admin/auth/totp/enroll",
         "POST /api/v{version:apiVersion}/admin/auth/totp/confirm",
+        "POST /api/v{version:apiVersion}/admin/auth/totp/reset",
         "POST /api/v{version:apiVersion}/admin/auth/refresh",
     ];
 

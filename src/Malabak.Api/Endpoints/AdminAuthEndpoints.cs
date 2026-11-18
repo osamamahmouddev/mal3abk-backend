@@ -46,6 +46,14 @@ public static class AdminAuthEndpoints
         })
         .AllowAnonymous().Produces<RecoveryCodesResponse>().WithName("AdminConfirmTotp").WithSummary("Turn on TOTP; returns one-time recovery codes (shown once)");
 
+        auth.MapPost("/totp/reset", async ([FromBody] ResetTotpApiRequest request, HttpContext http,
+            ICommandHandler<AdminResetTotpCommand, Result> handler, CancellationToken ct) =>
+        {
+            var result = await handler.HandleAsync(new AdminResetTotpCommand(request.Email, request.Password, request.TurnstileToken, http.Connection.RemoteIpAddress?.ToString()), ct);
+            return NoStore(http, result.IsSuccess ? Results.Ok(new { message = "TOTP reset successfully. Please log in to enroll your new authenticator." }) : ToProblem(result.Error));
+        })
+        .AllowAnonymous().WithName("AdminResetTotp").WithSummary("Reset admin TOTP to allow re-enrollment with valid password");
+
         auth.MapPost("/refresh", async ([FromBody] RefreshApiRequest request, HttpContext http,
             ICommandHandler<AdminRefreshCommand, Result<AdminTokens>> handler, CancellationToken ct) =>
         {
@@ -107,6 +115,8 @@ public static class AdminAuthEndpoints
     public sealed record ConfirmApiRequest(string EnrollmentToken, string Code);
 
     public sealed record RefreshApiRequest(string RefreshToken);
+
+    public sealed record ResetTotpApiRequest(string Email, string Password, string? TurnstileToken);
 
     public sealed record RecoveryCodesResponse(IReadOnlyList<string> RecoveryCodes);
 }

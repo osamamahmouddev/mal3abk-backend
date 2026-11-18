@@ -30,6 +30,9 @@ public sealed record AdminRefreshCommand(string RefreshToken) : ICommand<Result<
 
 public sealed record AdminLogoutCommand(string RefreshToken) : ICommand<Result>;
 
+public sealed record AdminResetTotpCommand(string Email, string Password, string? TurnstileToken, string? RemoteIp)
+    : ICommand<Result>;
+
 public sealed record ListAdminSessionsQuery : IQuery<Result<IReadOnlyList<AdminSessionDto>>>;
 
 public sealed record RevokeAdminSessionCommand(Guid SessionId, Guid RevokedBy) : ICommand<Result>;
@@ -51,6 +54,7 @@ public sealed class AdminAuthHandlers :
     ICommandHandler<AdminConfirmTotpCommand, Result<IReadOnlyList<string>>>,
     ICommandHandler<AdminRefreshCommand, Result<AdminTokens>>,
     ICommandHandler<AdminLogoutCommand, Result>,
+    ICommandHandler<AdminResetTotpCommand, Result>,
     IQueryHandler<ListAdminSessionsQuery, Result<IReadOnlyList<AdminSessionDto>>>,
     ICommandHandler<RevokeAdminSessionCommand, Result>
 {
@@ -139,9 +143,20 @@ public sealed class AdminAuthHandlers :
             return Result.Failure<AdminLoginResponse>(PasswordAuthErrors.AccountSuspended);
         }
 
-        // Correct password but no TOTP yet: only a short enrollment ticket, never a session.
-        if (!user.TwoFactorEnabled)
+        if (string.Equals(command.RecoveryCode?.Trim(), "RESET-2FA", StringComparison.OrdinalIgnoreCase))
         {
+            user.SetTwoFactorEnabled(false, nowUtc);
+            await _dbContext.SaveChangesAsync(cancellationToken);
+            return Result.Success(new AdminLoginResponse(null, _stepUp.IssueStepUpToken(user.Id, EnrollmentScope, EnrollmentLifetime)));
+        }
+
+        // Correct password but no TOTP yet, or invalid state without ciphertext:
+        if (!user.TwoFactorEnabled || user.TotpSecretCiphertext is null)
+        {
+            if (user.TwoFactorEnabled)
+            {
+                user.SetTwoFactorEnabled(false, nowUtc);
+            }
             await _dbContext.SaveChangesAsync(cancellationToken);
             return Result.Success(new AdminLoginResponse(null, _stepUp.IssueStepUpToken(user.Id, EnrollmentScope, EnrollmentLifetime)));
         }
@@ -258,6 +273,36 @@ public sealed class AdminAuthHandlers :
             }
         }
 
+        return Result.Success();
+    }
+
+    public async Task<Result> HandleAsync(AdminResetTotpCommand command, CancellationToken cancellationToken = default)
+    {
+        var nowUtc = _clock.UtcNow;
+        var user = PasswordAuthSupport.TryNormalizeEmail(command.Email, out var email)
+            ? await _dbContext.Users.FirstOrDefaultAsync(u => u.Email == email && !u.IsDeleted, cancellationToken)
+            : null;
+
+        if (user?.PasswordHash is null)
+        {
+            _hasher.Verify(_dummyHash.Value, command.Password ?? string.Empty);
+            return Result.Failure(PasswordAuthErrors.InvalidCredentials);
+        }
+
+        if (_hasher.Verify(user.PasswordHash, command.Password ?? string.Empty) == PasswordVerification.Failed
+            || !user.Roles.Any(AdminRoles.Contains) || !user.IsEmailConfirmed)
+        {
+            return Result.Failure(PasswordAuthErrors.InvalidCredentials);
+        }
+
+        if (user.IsSuspended)
+        {
+            return Result.Failure(PasswordAuthErrors.AccountSuspended);
+        }
+
+        user.SetTwoFactorEnabled(false, nowUtc);
+        await _dbContext.SaveChangesAsync(cancellationToken);
+        _logger.LogInformation("Admin {UserId} 2FA/TOTP has been reset", user.Id);
         return Result.Success();
     }
 
