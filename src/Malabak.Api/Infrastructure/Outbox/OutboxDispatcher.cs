@@ -46,6 +46,11 @@ public sealed class OutboxDispatcher : IOutboxDispatcher
                 break;
             }
 
+            if (!await source.HasPendingMessagesAsync(cancellationToken))
+            {
+                continue;
+            }
+
             var lockKey = _keyBuilder.Format("outbox", "lock", source.SourceName);
             var lockExpiry = TimeSpan.FromSeconds(_options.Value.DistributedLockTimeoutSeconds);
 

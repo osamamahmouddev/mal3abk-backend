@@ -29,11 +29,12 @@ public sealed class OutboxDispatcherBackgroundService : BackgroundService
 
         while (!stoppingToken.IsCancellationRequested)
         {
+            var dispatched = 0;
             try
             {
                 using var scope = _scopeFactory.CreateScope();
                 var dispatcher = scope.ServiceProvider.GetRequiredService<IOutboxDispatcher>();
-                await dispatcher.DispatchPendingMessagesAsync(stoppingToken);
+                dispatched = await dispatcher.DispatchPendingMessagesAsync(stoppingToken);
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
             {
@@ -44,8 +45,8 @@ public sealed class OutboxDispatcherBackgroundService : BackgroundService
                 _logger.LogError(ex, "Unexpected error in OutboxDispatcherBackgroundService.");
             }
 
-            var delay = TimeSpan.FromSeconds(Math.Max(1, _options.Value.PollIntervalSeconds));
-            await Task.Delay(delay, stoppingToken);
+            var delaySeconds = dispatched > 0 ? Math.Max(1, _options.Value.PollIntervalSeconds) : Math.Max(20, _options.Value.PollIntervalSeconds * 4);
+            await Task.Delay(TimeSpan.FromSeconds(delaySeconds), stoppingToken);
         }
 
         _logger.LogInformation("OutboxDispatcherBackgroundService stopped.");

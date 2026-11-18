@@ -40,6 +40,14 @@ public class OutboxMessageSource<TDbContext> : IOutboxMessageSource
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
+    public async Task<bool> HasPendingMessagesAsync(CancellationToken cancellationToken = default)
+    {
+        var now = _clock.UtcNow;
+        return await _dbContext.OutboxMessages
+            .AsNoTracking()
+            .AnyAsync(m => m.ProcessedOnUtc == null && (m.NextRetryUtc == null || m.NextRetryUtc <= now), cancellationToken);
+    }
+
     public async Task<int> DispatchPendingMessagesAsync(int batchSize, CancellationToken cancellationToken = default)
     {
         var now = _clock.UtcNow;
