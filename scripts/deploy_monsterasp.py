@@ -10,7 +10,7 @@ HOST = os.environ.get("MONSTERASP_FTP_SERVER", "site103465.siteasp.net")
 USER = os.environ.get("MONSTERASP_FTP_USERNAME", "site103465")
 PASSWORD = os.environ.get("MONSTERASP_FTP_PASSWORD", "Js6!a7#ZXe2_")
 LOCAL_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "publish"))
-REMOTE_ROOT = "/"
+REMOTE_ROOT = "/wwwroot"
 
 def get_ftp():
     ftp = ftplib.FTP(HOST, timeout=30)
