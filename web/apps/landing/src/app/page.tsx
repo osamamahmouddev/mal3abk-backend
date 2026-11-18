@@ -4,6 +4,7 @@ import { FAQ_ITEMS } from "@/components/faqItems";
 import { JoinForm } from "@/components/JoinForm";
 import { LandingStateProvider } from "@/components/LandingState";
 import { Plans } from "@/components/Plans";
+import { ScrollReveal } from "@/components/ScrollReveal";
 import { Check, Star, X } from "lucide-react";
 
 const toArabicDigits = (v: string | number) => String(v).replace(/[0-9]/g, (d) => "٠١٢٣٤٥٦٧٨٩"[Number(d)]);
@@ -198,16 +199,20 @@ export default function LandingPage() {
           {/* ------------------------------ How it works ------------------------------ */}
           <section className="sec" id="how">
             <div className="wrap center">
-              <span className="eyebrow">إزاي بيشتغل</span>
-              <h2 className="h2">من &quot;فين نلعب؟&quot; لـ &quot;متأكد&quot; في ٣ خطوات</h2>
-              <p className="sub">مفيش مكالمات، ولا &quot;هكلمك وأرد عليك&quot;، ولا ميعاد يطير منك في آخر لحظة.</p>
+              <ScrollReveal direction="up">
+                <span className="eyebrow">إزاي بيشتغل</span>
+                <h2 className="h2">من &quot;فين نلعب؟&quot; لـ &quot;متأكد&quot; في ٣ خطوات</h2>
+                <p className="sub">مفيش مكالمات، ولا &quot;هكلمك وأرد عليك&quot;، ولا ميعاد يطير منك في آخر لحظة.</p>
+              </ScrollReveal>
               <div className="grid3">
                 {STEPS.map(([t, d], i) => (
-                  <div key={t} className="card">
-                    <span className="num">{toArabicDigits(i + 1)}</span>
-                    <h3>{t}</h3>
-                    <p>{d}</p>
-                  </div>
+                  <ScrollReveal key={t} direction="up" delayMs={i * 120}>
+                    <div className="card" style={{ height: "100%" }}>
+                      <span className="num">{toArabicDigits(i + 1)}</span>
+                      <h3>{t}</h3>
+                      <p>{d}</p>
+                    </div>
+                  </ScrollReveal>
                 ))}
               </div>
             </div>
@@ -216,56 +221,64 @@ export default function LandingPage() {
           {/* ------------------------------ Before/after ------------------------------ */}
           <section className="sec flush">
             <div className="wrap split">
-              <div>
-                <span className="eyebrow">ليه ملعبك؟</span>
-                <h2 className="h2">الحجز زمان كان ماتش لوحده</h2>
-                <p className="sub">
-                  رنّة على صاحب الملعب، استنى يرد، &quot;الميعاد ده محجوز&quot;، دوّر على تاني، حوّل العربون واستنى حد يأكد… خلّصنا الحتة دي.
-                </p>
-              </div>
-              <div className="compare">
-                <div className="before">
-                  <b>قبل</b>
-                  {BEFORE.map((b) => (
-                    <div key={b} className="li">
-                      <span aria-hidden="true">
-                        <X size={16} strokeWidth={2.75} />
-                      </span>
-                      <span>{b}</span>
-                    </div>
-                  ))}
+              <ScrollReveal direction="right">
+                <div>
+                  <span className="eyebrow">ليه ملعبك؟</span>
+                  <h2 className="h2">الحجز زمان كان ماتش لوحده</h2>
+                  <p className="sub">
+                    رنّة على صاحب الملعب، استنى يرد، &quot;الميعاد ده محجوز&quot;، دوّر على تاني، حوّل العربون واستنى حد يأكد… خلّصنا الحتة دي.
+                  </p>
                 </div>
-                <div className="after">
-                  <b>مع ملعبك</b>
-                  {AFTER.map((b) => (
-                    <div key={b} className="li">
-                      <span aria-hidden="true">
-                        <Check size={16} strokeWidth={2.75} />
-                      </span>
-                      <span>{b}</span>
-                    </div>
-                  ))}
+              </ScrollReveal>
+              <ScrollReveal direction="left" delayMs={100}>
+                <div className="compare">
+                  <div className="before">
+                    <b>قبل</b>
+                    {BEFORE.map((b) => (
+                      <div key={b} className="li">
+                        <span aria-hidden="true">
+                          <X size={16} strokeWidth={2.75} />
+                        </span>
+                        <span>{b}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="after">
+                    <b>مع ملعبك</b>
+                    {AFTER.map((b) => (
+                      <div key={b} className="li">
+                        <span aria-hidden="true">
+                          <Check size={16} strokeWidth={2.75} />
+                        </span>
+                        <span>{b}</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              </div>
+              </ScrollReveal>
             </div>
           </section>
 
           {/* -------------------------------- Features -------------------------------- */}
           <section className="sec flush">
             <div className="wrap center">
-              <span className="eyebrow">كل اللي محتاجه</span>
-              <h2 className="h2">معمول للي بيلعب كل أسبوع</h2>
+              <ScrollReveal direction="up">
+                <span className="eyebrow">كل اللي محتاجه</span>
+                <h2 className="h2">معمول للي بيلعب كل أسبوع</h2>
+              </ScrollReveal>
               <div className="grid4">
-                {FEATURES.map(([icon, t, d, bg, fg]) => (
-                  <div key={t} className="card feature">
-                    <span className="ico" style={{ background: bg, color: fg }}>
-                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                        <path d={ICONS[icon]} />
-                      </svg>
-                    </span>
-                    <h3>{t}</h3>
-                    <p>{d}</p>
-                  </div>
+                {FEATURES.map(([icon, t, d, bg, fg], i) => (
+                  <ScrollReveal key={t} direction="up" delayMs={i * 100}>
+                    <div className="card feature" style={{ height: "100%" }}>
+                      <span className="ico" style={{ background: bg, color: fg }}>
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                          <path d={ICONS[icon]} />
+                        </svg>
+                      </span>
+                      <h3>{t}</h3>
+                      <p>{d}</p>
+                    </div>
+                  </ScrollReveal>
                 ))}
               </div>
             </div>
@@ -274,154 +287,170 @@ export default function LandingPage() {
           {/* --------------------------------- Teams ---------------------------------- */}
           <section className="sec dark" id="teams">
             <div className="wrap split">
-              <div>
-                <span className="eyebrow">الفرق والتحديات</span>
-                <h2 className="h2">
-                  فريقك ليه بيت.
-                  <br />
-                  وليه ترتيب.
-                </h2>
-                <p className="sub">
-                  اعمل فريق، ابعت كود الدعوة للشلة، واتحدى أي فريق تاني على ملعب وميعاد. النتيجة بتتأكد من الفريقين، والترتيب بيتحدّث لوحده.
-                </p>
-                <div className="chips">
-                  <span>
-                    كود دعوة <b dir="ltr">NJM-4827</b>
-                  </span>
-                  <span>تأكيد النتيجة من الفريقين</span>
-                  <span>ترتيب لكل منطقة</span>
-                </div>
-              </div>
-              <div className="stack">
-                <div className="ranking">
-                  <div className="ranking-head">
-                    <b style={{ fontSize: 17 }}>ترتيب مدينة نصر</b>
-                    <span className="pill" style={{ background: "#FEF3D6", color: "#7A4D00" }}>
-                      الموسم ده
+              <ScrollReveal direction="right">
+                <div>
+                  <span className="eyebrow">الفرق والتحديات</span>
+                  <h2 className="h2">
+                    فريقك ليه بيت.
+                    <br />
+                    وليه ترتيب.
+                  </h2>
+                  <p className="sub">
+                    اعمل فريق، ابعت كود الدعوة للشلة، واتحدى أي فريق تاني على ملعب وميعاد. النتيجة بتتأكد من الفريقين، والترتيب بيتحدّث لوحده.
+                  </p>
+                  <div className="chips">
+                    <span>
+                      كود دعوة <b dir="ltr">NJM-4827</b>
                     </span>
+                    <span>تأكيد النتيجة من الفريقين</span>
+                    <span>ترتيب لكل منطقة</span>
                   </div>
-                  {RANKS.map(([pos, name, ini, rec, pts], i) => (
-                    <div key={name} className={`rank-row${i === 3 ? " me" : ""}`}>
-                      <span className="rank-pos">{pos}</span>
-                      <span className="avatar">{ini}</span>
-                      <b className="rank-name">{name}</b>
-                      <span className="rank-rec" dir="ltr">
-                        {toArabicDigits(rec)}
+                </div>
+              </ScrollReveal>
+              <ScrollReveal direction="left" delayMs={120}>
+                <div className="stack">
+                  <div className="ranking">
+                    <div className="ranking-head">
+                      <b style={{ fontSize: 17 }}>ترتيب مدينة نصر</b>
+                      <span className="pill" style={{ background: "#FEF3D6", color: "#7A4D00" }}>
+                        الموسم ده
                       </span>
-                      <b className="rank-pts">{pts}</b>
                     </div>
-                  ))}
+                    {RANKS.map(([pos, name, ini, rec, pts], i) => (
+                      <div key={name} className={`rank-row${i === 3 ? " me" : ""}`}>
+                        <span className="rank-pos">{pos}</span>
+                        <span className="avatar">{ini}</span>
+                        <b className="rank-name">{name}</b>
+                        <span className="rank-rec" dir="ltr">
+                          {toArabicDigits(rec)}
+                        </span>
+                        <b className="rank-pts">{pts}</b>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="challenge">
+                    <span className="avatar">نج</span>
+                    <span className="challenge-copy">
+                      <b>تحدي جديد من الصقور</b>
+                      <small>الجمعة ٩ م · ملعب النجوم — ملعب ٢</small>
+                    </span>
+                    <span className="challenge-accept">قبول</span>
+                  </div>
                 </div>
-                <div className="challenge">
-                  <span className="avatar">نج</span>
-                  <span className="challenge-copy">
-                    <b>تحدي جديد من الصقور</b>
-                    <small>الجمعة ٩ م · ملعب النجوم — ملعب ٢</small>
-                  </span>
-                  <span className="challenge-accept">قبول</span>
-                </div>
-              </div>
+              </ScrollReveal>
             </div>
           </section>
 
           {/* --------------------------------- Venues --------------------------------- */}
           <section className="sec" id="venues">
             <div className="wrap">
-              <div className="center">
-                <span className="eyebrow">لأصحاب الملاعب</span>
-                <h2 className="h2">ملعبك مليان، والتليفون ساكت</h2>
-                <p className="sub">
-                  لوحة تحكم كاملة: تقويم لكل الملاعب، مراجعة إثبات العربون بضغطة، أسعار للذروة والويك إند، وتقارير بالإيراد الحقيقي.
-                </p>
-              </div>
+              <ScrollReveal direction="up">
+                <div className="center">
+                  <span className="eyebrow">لأصحاب الملاعب</span>
+                  <h2 className="h2">ملعبك مليان، والتليفون ساكت</h2>
+                  <p className="sub">
+                    لوحة تحكم كاملة: تقويم لكل الملاعب، مراجعة إثبات العربون بضغطة، أسعار للذروة والويك إند، وتقارير بالإيراد الحقيقي.
+                  </p>
+                </div>
+              </ScrollReveal>
               <div className="split" style={{ marginTop: 48, alignItems: "stretch" }}>
-                <div className="dash" aria-hidden="true">
-                  <div className="dash-side">
-                    <b style={{ fontSize: 16, marginBottom: 8 }}>
-                      ملعبك{" "}
-                      <span className="pill" style={{ background: "#F5B62B", color: "#0F1B3D", fontSize: 9 }}>
-                        للملاعب
-                      </span>
-                    </b>
-                    <span>نظرة عامة</span>
-                    <span className="on">تقويم الحجوزات</span>
-                    <span>
-                      الحجوزات{" "}
-                      <span className="pill" style={{ background: "#D63B2F", color: "#FFFFFF" }}>
-                        ٥
-                      </span>
-                    </span>
-                    <span>الأسعار</span>
-                    <span>التقارير</span>
-                  </div>
-                  <div className="dash-main">
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                      <b style={{ fontSize: 16 }}>السبت ٢٦ يوليو</b>
-                      <span className="muted" style={{ fontSize: 11 }}>
-                        ٣ ملاعب
-                      </span>
-                    </div>
-                    <div className="dash-cal">
-                      <span />
-                      <b style={{ textAlign: "center" }}>ملعب ١</b>
-                      <b style={{ textAlign: "center" }}>ملعب ٢</b>
-                      <b style={{ textAlign: "center" }}>ملعب ٣</b>
-                      {CAL.flatMap(([t, cells]) => [
-                        <span key={t} className="t">
-                          {t}
-                        </span>,
-                        ...cells.map(([kind, label], j) => (
-                          <span key={`${t}-${j}`} className={`c ${kind}`}>
-                            {label}
-                          </span>
-                        )),
-                      ])}
-                    </div>
-                    <div className="dash-alert">
-                      <b style={{ flex: 1 }}>حجز جديد مؤكد — عمر خالد · سدد العمولة أونلاين بـ Paymob</b>
-                      <span style={{ background: "#1B6E3E", color: "#FFFFFF", borderRadius: 8, padding: "4px 10px", fontWeight: 700, fontSize: 12 }}>مؤكد</span>
-                    </div>
-                  </div>
-                </div>
-                <div className="stack" style={{ gap: 12 }}>
-                  {VENUE_PERKS.map(([t, d]) => (
-                    <div key={t} className="card perk">
+                <ScrollReveal direction="right" delayMs={100} style={{ flex: "1.5 1 0" }}>
+                  <div className="dash" aria-hidden="true" style={{ height: "100%" }}>
+                    <div className="dash-side">
+                      <b style={{ fontSize: 16, marginBottom: 8 }}>
+                        ملعبك{" "}
+                        <span className="pill" style={{ background: "#F5B62B", color: "#0F1B3D", fontSize: 9 }}>
+                          للملاعب
+                        </span>
+                      </b>
+                      <span>نظرة عامة</span>
+                      <span className="on">تقويم الحجوزات</span>
                       <span>
-                        <b>{t}</b>
-                        <p>{d}</p>
+                        الحجوزات{" "}
+                        <span className="pill" style={{ background: "#D63B2F", color: "#FFFFFF" }}>
+                          ٥
+                        </span>
                       </span>
+                      <span>الأسعار</span>
+                      <span>التقارير</span>
                     </div>
-                  ))}
-                </div>
+                    <div className="dash-main">
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <b style={{ fontSize: 16 }}>السبت ٢٦ يوليو</b>
+                        <span className="muted" style={{ fontSize: 11 }}>
+                          ٣ ملاعب
+                        </span>
+                      </div>
+                      <div className="dash-cal">
+                        <span />
+                        <b style={{ textAlign: "center" }}>ملعب ١</b>
+                        <b style={{ textAlign: "center" }}>ملعب ٢</b>
+                        <b style={{ textAlign: "center" }}>ملعب ٣</b>
+                        {CAL.flatMap(([t, cells]) => [
+                          <span key={t} className="t">
+                            {t}
+                          </span>,
+                          ...cells.map(([kind, label], j) => (
+                            <span key={`${t}-${j}`} className={`c ${kind}`}>
+                              {label}
+                            </span>
+                          )),
+                        ])}
+                      </div>
+                      <div className="dash-alert">
+                        <b style={{ flex: 1 }}>حجز جديد مؤكد — عمر خالد · سدد العمولة أونلاين بـ Paymob</b>
+                        <span style={{ background: "#1B6E3E", color: "#FFFFFF", borderRadius: 8, padding: "4px 10px", fontWeight: 700, fontSize: 12 }}>مؤكد</span>
+                      </div>
+                    </div>
+                  </div>
+                </ScrollReveal>
+                <ScrollReveal direction="left" delayMs={150} style={{ flex: "1 1 0" }}>
+                  <div className="stack" style={{ gap: 12 }}>
+                    {VENUE_PERKS.map(([t, d]) => (
+                      <div key={t} className="card perk">
+                        <span>
+                          <b>{t}</b>
+                          <p>{d}</p>
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </ScrollReveal>
               </div>
 
-              <Plans />
+              <ScrollReveal direction="up" delayMs={100}>
+                <Plans />
+              </ScrollReveal>
             </div>
           </section>
 
           {/* ---------------------------------- FAQ ----------------------------------- */}
           <section className="sec flush" id="faq">
             <div className="wrap center">
-              <span className="eyebrow">أسئلة</span>
-              <h2 className="h2">أسئلة بتتسأل كتير</h2>
-              <Faq />
+              <ScrollReveal direction="up">
+                <span className="eyebrow">أسئلة</span>
+                <h2 className="h2">أسئلة بتتسأل كتير</h2>
+                <Faq />
+              </ScrollReveal>
             </div>
           </section>
 
           {/* ---------------------------------- Join ---------------------------------- */}
           <section className="sec flush" id="join">
             <div className="wrap">
-              <div className="cta">
-                <div>
-                  <h2 className="h2" style={{ marginTop: 0 }}>
-                    أول ما نفتح، هتعرف قبل أي حد.
-                  </h2>
-                  <p className="sub">سيب رقمك وهنبعتلك رسالة يوم الإطلاق، ومعاها أول حجز من غير رسوم خدمة.</p>
+              <ScrollReveal direction="up">
+                <div className="cta">
+                  <div>
+                    <h2 className="h2" style={{ marginTop: 0 }}>
+                      أول ما نفتح، هتعرف قبل أي حد.
+                    </h2>
+                    <p className="sub">سيب رقمك وهنبعتلك رسالة يوم الإطلاق، ومعاها أول حجز من غير رسوم خدمة.</p>
+                  </div>
+                  <div>
+                    <JoinForm />
+                  </div>
                 </div>
-                <div>
-                  <JoinForm />
-                </div>
-              </div>
+              </ScrollReveal>
             </div>
           </section>
         </main>

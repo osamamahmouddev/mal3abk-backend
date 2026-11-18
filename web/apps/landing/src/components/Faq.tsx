@@ -11,18 +11,28 @@ export function Faq() {
       {FAQ_ITEMS.map(([q, a], i) => {
         const isOpen = open === i;
         return (
-          <div key={q}>
-            <button type="button" aria-expanded={isOpen} aria-controls={`faq-${i}`} onClick={() => setOpen(isOpen ? -1 : i)}>
+          <div key={q} className="faq-item">
+            <button
+              type="button"
+              aria-expanded={isOpen}
+              aria-controls={`faq-${i}`}
+              onClick={() => setOpen(isOpen ? -1 : i)}
+            >
               <span style={{ flex: 1 }}>{q}</span>
               <span className="faq-icon" aria-hidden="true">
                 +
               </span>
             </button>
-            {isOpen && (
-              <p id={`faq-${i}`} className="faq-answer">
-                {a}
-              </p>
-            )}
+            <div
+              id={`faq-${i}`}
+              className={`faq-collapsible ${isOpen ? "is-open" : ""}`}
+              role="region"
+              aria-hidden={!isOpen}
+            >
+              <div className="faq-collapsible-inner">
+                <p className="faq-answer">{a}</p>
+              </div>
+            </div>
           </div>
         );
       })}
