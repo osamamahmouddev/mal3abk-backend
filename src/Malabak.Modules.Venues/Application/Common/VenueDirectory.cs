@@ -85,6 +85,21 @@ public sealed class VenueDirectory : IVenueDirectory
             .ToDictionaryAsync(p => p.Id, p => p.Name, cancellationToken);
     }
 
+    public async Task<IReadOnlyDictionary<Guid, VenueCommissionInfo>> GetVenueCommissionsAsync(IReadOnlyCollection<Guid> venueIds, CancellationToken cancellationToken = default)
+    {
+        if (venueIds.Count == 0)
+        {
+            return new Dictionary<Guid, VenueCommissionInfo>();
+        }
+
+        var list = await _dbContext.Venues.IgnoreQueryFilters().AsNoTracking()
+            .Where(v => venueIds.Contains(v.Id) && !v.IsDeleted)
+            .Select(v => new VenueCommissionInfo(v.Id, v.CustomCommissionEnabled, v.CommissionType.ToString(), v.CommissionRate))
+            .ToListAsync(cancellationToken);
+
+        return list.ToDictionary(v => v.VenueId);
+    }
+
     public async Task<IReadOnlyList<Guid>> GetStaffUserIdsAsync(Guid venueId, string permission, CancellationToken cancellationToken = default)
     {
         var ownerId = await _dbContext.Venues.IgnoreQueryFilters().AsNoTracking()

@@ -200,6 +200,7 @@ public sealed class AdminBookingService
         var pitchIds = rows.Select(b => b.PitchId).Distinct().ToList();
         var venueNames = _venues is not null ? await _venues.GetVenueNamesAsync(venueIds, cancellationToken) : new Dictionary<Guid, string>();
         var pitchNames = _venues is not null ? await _venues.GetPitchNamesAsync(pitchIds, cancellationToken) : new Dictionary<Guid, string>();
+        var venueCommissions = _venues is not null ? await _venues.GetVenueCommissionsAsync(venueIds, cancellationToken) : new Dictionary<Guid, VenueCommissionInfo>();
 
         var playerIds = rows.Where(b => !b.IsManualBooking && (string.IsNullOrWhiteSpace(b.CustomerName) || string.IsNullOrWhiteSpace(b.CustomerPhone)))
             .Select(b => b.PlayerId).Distinct().ToList();
@@ -213,7 +214,8 @@ public sealed class AdminBookingService
                 playerSummaries.TryGetValue(b.PlayerId, out var s);
                 var cName = string.IsNullOrWhiteSpace(b.CustomerName) ? s?.FullName : b.CustomerName;
                 var cPhone = string.IsNullOrWhiteSpace(b.CustomerPhone) ? s?.MaskedPhone : b.CustomerPhone;
-                return ToItem(b, venueNames.GetValueOrDefault(b.VenueId), pitchNames.GetValueOrDefault(b.PitchId), cName, cPhone);
+                venueCommissions.TryGetValue(b.VenueId, out var comm);
+                return ToItem(b, venueNames.GetValueOrDefault(b.VenueId), pitchNames.GetValueOrDefault(b.PitchId), cName, cPhone, comm);
             }).ToList(),
             page, pageSize, total));
     }
@@ -236,12 +238,15 @@ public sealed class AdminBookingService
 
         string? venueName = null;
         string? pitchName = null;
+        VenueCommissionInfo? venueComm = null;
         if (_venues is not null)
         {
             var vNames = await _venues.GetVenueNamesAsync([booking.VenueId], cancellationToken);
             venueName = vNames.GetValueOrDefault(booking.VenueId);
             var pNames = await _venues.GetPitchNamesAsync([booking.PitchId], cancellationToken);
             pitchName = pNames.GetValueOrDefault(booking.PitchId);
+            var vComms = await _venues.GetVenueCommissionsAsync([booking.VenueId], cancellationToken);
+            venueComm = vComms.GetValueOrDefault(booking.VenueId);
         }
 
         string? customerName = booking.CustomerName;
@@ -257,7 +262,7 @@ public sealed class AdminBookingService
         }
 
         return Result.Success(new AdminBookingDetail(
-            ToItem(booking, venueName, pitchName, customerName, customerPhone),
+            ToItem(booking, venueName, pitchName, customerName, customerPhone, venueComm),
             booking.CancellationReason,
             booking.RejectionReason,
             booking.HoldExpiresAtUtc,
@@ -541,6 +546,8 @@ public sealed class AdminBookingService
                 b.Id,
                 b.VenueId,
                 b.Status,
+                b.StartUtc,
+                b.EndUtc,
                 TotalPrice = b.TotalPrice.Amount,
                 DepositAmount = b.DepositAmount.Amount,
                 PlatformCommission = b.PlatformCommission.Amount,
@@ -561,6 +568,10 @@ public sealed class AdminBookingService
             ? await _venues.GetVenueNamesAsync(venueIds, cancellationToken)
             : new Dictionary<Guid, string>();
 
+        var venueCommissions = _venues is not null
+            ? await _venues.GetVenueCommissionsAsync(venueIds, cancellationToken)
+            : new Dictionary<Guid, VenueCommissionInfo>();
+
         var summary = venueIds.Select(vId =>
         {
             var vBookings = bookings.Where(b => b.VenueId == vId).ToList();
@@ -572,6 +583,16 @@ public sealed class AdminBookingService
                 .Where(r => bookingVenueMap.TryGetValue(r.BookingId, out var mappedId) && mappedId == vId)
                 .ToList();
 
+            venueCommissions.TryGetValue(vId, out var comm);
+
+            var totalGross = confirmed.Sum(b => b.TotalPrice);
+            var totalDeposit = confirmed.Sum(b => b.DepositAmount) + pending.Sum(b => b.DepositAmount);
+
+            // Compute platform commission dynamically based on venue rules if available
+            var totalCommission = confirmed.Sum(b => CalculateEffectiveCommission(b.TotalPrice, b.PlatformCommission, b.StartUtc, b.EndUtc, comm));
+            var totalVenueNet = Math.Max(0m, totalGross - totalCommission);
+            var totalDueAtVenue = confirmed.Sum(b => Math.Max(0m, b.TotalPrice - b.DepositAmount));
+
             return new VenueFinancialSummaryItem(
                 vId,
                 venueNames.GetValueOrDefault(vId) ?? "ملعب غير معروف",
@@ -579,11 +600,11 @@ public sealed class AdminBookingService
                 confirmed.Count,
                 cancelled.Count,
                 pending.Count,
-                confirmed.Sum(b => b.TotalPrice),
-                confirmed.Sum(b => b.DepositAmount) + pending.Sum(b => b.DepositAmount),
-                confirmed.Sum(b => b.PlatformCommission),
-                confirmed.Sum(b => b.VenueNetAmount),
-                confirmed.Sum(b => b.VenuePayAmount),
+                totalGross,
+                totalDeposit,
+                totalCommission,
+                totalVenueNet,
+                totalDueAtVenue,
                 vRefunds.Count,
                 vRefunds.Sum(r => r.ExpectedRefundAmount),
                 "EGP"
@@ -630,14 +651,58 @@ public sealed class AdminBookingService
         return Result.Success();
     }
 
+    private static decimal CalculateEffectiveCommission(
+        decimal totalPrice,
+        decimal storedCommission,
+        DateTime startUtc,
+        DateTime endUtc,
+        VenueCommissionInfo? comm)
+    {
+        if (comm is { CustomCommissionEnabled: true })
+        {
+            if (comm.CommissionType == "Exempt")
+            {
+                return 0m;
+            }
+
+            if (comm.CommissionType == "Percentage")
+            {
+                var rate = comm.CommissionRate ?? 10m;
+                return decimal.Round(totalPrice * rate / 100m, 2, MidpointRounding.AwayFromZero);
+            }
+
+            if (comm.CommissionType == "PerHourFixed")
+            {
+                var rate = comm.CommissionRate ?? 50m;
+                var hours = (decimal)(endUtc - startUtc).TotalMinutes / 60m;
+                return decimal.Round(hours * rate, 2, MidpointRounding.AwayFromZero);
+            }
+        }
+
+        // If the booking already has a commission calculated from price quote, use it, or fallback to default 10%
+        if (storedCommission > 0)
+        {
+            return storedCommission;
+        }
+
+        return decimal.Round(totalPrice * 10m / 100m, 2, MidpointRounding.AwayFromZero);
+    }
+
     private static AdminBookingListItem ToItem(
         Domain.Booking b,
         string? venueName = null,
         string? pitchName = null,
         string? customerName = null,
-        string? customerPhone = null) =>
-        new(b.Id, b.BookingReference, b.VenueId, b.PitchId, b.PlayerId, b.Status.ToString(), b.StartUtc, b.EndUtc,
+        string? customerPhone = null,
+        VenueCommissionInfo? comm = null)
+    {
+        var commission = CalculateEffectiveCommission(b.TotalPrice.Amount, b.PlatformCommission.Amount, b.StartUtc, b.EndUtc, comm);
+        var venueNetAmount = Math.Max(0m, b.TotalPrice.Amount - commission);
+        var venuePayAmount = Math.Max(0m, b.TotalPrice.Amount - b.DepositAmount.Amount);
+
+        return new(b.Id, b.BookingReference, b.VenueId, b.PitchId, b.PlayerId, b.Status.ToString(), b.StartUtc, b.EndUtc,
             b.TotalPrice.Amount, b.DepositAmount.Amount, b.TotalPrice.Currency, b.IsManualBooking, b.CreatedAtUtc,
-            b.PlatformCommission.Amount, b.VenueNetAmount.Amount, b.OnlinePaidAmount.Amount, b.VenuePayAmount.Amount, b.IsCommissionPaid,
+            commission, venueNetAmount, b.OnlinePaidAmount.Amount, venuePayAmount, b.IsCommissionPaid,
             venueName, pitchName, customerName ?? b.CustomerName, customerPhone ?? b.CustomerPhone);
+    }
 }

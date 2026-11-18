@@ -570,16 +570,33 @@ function BookingDrawer({ bookingId, onClose, venueMap }: { bookingId: string | n
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-2 text-xs bg-white/90 p-3 rounded-xl border border-emerald-100">
-                    <div>
-                      <span className="text-slate-500 block text-[11px]">مبلغ العربون:</span>
-                      <strong className="text-sm font-bold text-emerald-700">{money(d.booking.depositAmount)}</strong>
-                    </div>
-                    <div>
-                      <span className="text-slate-500 block text-[11px]">عمولة المنصة:</span>
-                      <strong className="text-sm font-bold text-slate-800">{money((d.booking as any).platformCommission ?? 0)}</strong>
-                    </div>
-                  </div>
+                  {(() => {
+                    const depositAmt = d.booking.depositAmount;
+                    const commissionAmt = (d.booking as any).platformCommission ?? 0;
+                    const netDepositToVenue = Math.max(0, depositAmt - commissionAmt);
+                    const remainingCashAtVenue = Math.max(0, d.booking.totalPrice - depositAmt);
+
+                    return (
+                      <div className="grid grid-cols-2 gap-2 text-xs bg-white/90 p-3 rounded-xl border border-emerald-100">
+                        <div>
+                          <span className="text-slate-500 block text-[11px]">مبلغ العربون المحصل:</span>
+                          <strong className="text-sm font-bold text-emerald-700">{money(depositAmt)}</strong>
+                        </div>
+                        <div>
+                          <span className="text-slate-500 block text-[11px]">عمولة المنصة:</span>
+                          <strong className="text-sm font-bold text-purple-700">{money(commissionAmt)}</strong>
+                        </div>
+                        <div className="border-t border-slate-100 pt-2">
+                          <span className="text-slate-500 block text-[11px]">صافي العربون للملعب:</span>
+                          <strong className="text-xs font-semibold text-slate-800">{money(netDepositToVenue)}</strong>
+                        </div>
+                        <div className="border-t border-slate-100 pt-2">
+                          <span className="text-slate-500 block text-[11px]">المتبقي كاش يدفع بالملعب:</span>
+                          <strong className="text-xs font-semibold text-slate-800">{money(remainingCashAtVenue)}</strong>
+                        </div>
+                      </div>
+                    );
+                  })()}
 
                   <div className="flex items-center gap-2 pt-1">
                     <button

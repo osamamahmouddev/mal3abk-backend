@@ -97,18 +97,36 @@ public static class PricingCalculator
         var netPitchPrice = roundedSubtotal - roundedDiscount;
 
         var durationHours = minutes / 60m;
-        var commission = commissionType switch
+        decimal commission;
+        if (commissionType == CommissionType.Exempt)
         {
-            CommissionType.Exempt => 0m,
-            CommissionType.PerHourFixed => Round(durationHours * (commissionRate ?? defaultHourlyCommission)),
-            CommissionType.Percentage => Round(netPitchPrice * (commissionRate ?? 10m) / 100m),
-            CommissionType.PlatformDefault or _ => Round(durationHours * defaultHourlyCommission)
-        };
+            commission = 0m;
+        }
+        else if (commissionType == CommissionType.Percentage)
+        {
+            commission = Round(netPitchPrice * (commissionRate ?? 10m) / 100m);
+        }
+        else if (commissionType == CommissionType.PerHourFixed)
+        {
+            commission = Round(durationHours * (commissionRate ?? defaultHourlyCommission));
+        }
+        else if (commissionRate.HasValue)
+        {
+            commission = Round(netPitchPrice * commissionRate.Value / 100m);
+        }
+        else if (defaultHourlyCommission > 0)
+        {
+            commission = Round(durationHours * defaultHourlyCommission);
+        }
+        else
+        {
+            commission = Round(netPitchPrice * 10m / 100m);
+        }
 
-        var total = netPitchPrice + commission;
+        var total = netPitchPrice;
         var depositRule = deposit ?? DepositRule.Create(DepositType.Full, 0);
         var calculatedDeposit = depositRule.CalculateDeposit(total);
-        var onlineDepositAmount = commission > 0 ? commission : calculatedDeposit;
+        var onlineDepositAmount = calculatedDeposit;
         var venuePayAmount = Math.Max(0m, total - onlineDepositAmount);
 
         return Result.Success(new PriceQuote(

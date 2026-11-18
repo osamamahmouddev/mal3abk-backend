@@ -109,7 +109,7 @@ public sealed class BookingQuoteService : IBookingQuoteValidator
         var token = _signer.Protect(JsonSerializer.SerializeToUtf8Bytes(payload, _json));
 
         return Result.Success(new BookingQuoteDto(
-            token, expiresAt, quote.Currency, quote.Subtotal, quote.Discount, Fees: quote.PlatformCommission, quote.Total,
+            token, expiresAt, quote.Currency, quote.Subtotal, quote.Discount, Fees: 0m, quote.Total,
             quote.OnlineDepositAmount, quote.VenuePayAmount,
             SubjectToConfirmation: true,
             ConfirmationNote: policy is null

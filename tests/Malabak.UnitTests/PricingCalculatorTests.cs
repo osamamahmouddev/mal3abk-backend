@@ -206,9 +206,9 @@ public sealed class PricingCalculatorTests
         quote.Discount.Should().Be(0m);
         quote.NetPitchPrice.Should().Be(800m);
         quote.PlatformCommission.Should().Be(60m);
-        quote.Total.Should().Be(860m);
-        quote.OnlineDepositAmount.Should().Be(60m);
-        quote.VenuePayAmount.Should().Be(800m);
+        quote.Total.Should().Be(800m);
+        quote.OnlineDepositAmount.Should().Be(800m);
+        quote.VenuePayAmount.Should().Be(0m);
     }
 
     [Fact]
@@ -229,9 +229,9 @@ public sealed class PricingCalculatorTests
         quote.Subtotal.Should().Be(600m);
         quote.NetPitchPrice.Should().Be(600m);
         quote.PlatformCommission.Should().Be(60m);
-        quote.Total.Should().Be(660m);
-        quote.OnlineDepositAmount.Should().Be(60m);
-        quote.VenuePayAmount.Should().Be(600m);
+        quote.Total.Should().Be(600m);
+        quote.OnlineDepositAmount.Should().Be(600m);
+        quote.VenuePayAmount.Should().Be(0m);
     }
 
     [Fact]
@@ -254,9 +254,9 @@ public sealed class PricingCalculatorTests
         quote.Discount.Should().Be(50m);
         quote.NetPitchPrice.Should().Be(750m);
         quote.PlatformCommission.Should().Be(75m);
-        quote.Total.Should().Be(825m);
-        quote.OnlineDepositAmount.Should().Be(75m);
-        quote.VenuePayAmount.Should().Be(750m);
+        quote.Total.Should().Be(750m);
+        quote.OnlineDepositAmount.Should().Be(750m);
+        quote.VenuePayAmount.Should().Be(0m);
     }
 
     [Fact]
