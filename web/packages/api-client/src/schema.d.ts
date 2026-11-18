@@ -8961,6 +8961,8 @@ export interface components {
             totalVenueNetAmount: number;
             /** Format: double */
             totalDueAtVenueCash: number;
+            /** Format: double */
+            venueDepositShare?: number;
             /** Format: int32 */
             pendingRefundsCount: number;
             /** Format: double */

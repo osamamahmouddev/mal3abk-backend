@@ -90,6 +90,7 @@ public sealed record VenueFinancialSummaryItem(
     decimal TotalDueAtVenueCash,
     int PendingRefundsCount,
     decimal PendingRefundsAmount,
+    decimal VenueDepositShare = 0m,
     string Currency = "EGP");
 
 public static class AdminBookingErrors
@@ -592,6 +593,11 @@ public sealed class AdminBookingService
             var totalCommission = confirmed.Sum(b => CalculateEffectiveCommission(b.TotalPrice, b.PlatformCommission, b.StartUtc, b.EndUtc, comm));
             var totalVenueNet = Math.Max(0m, totalGross - totalCommission);
             var totalDueAtVenue = confirmed.Sum(b => Math.Max(0m, b.TotalPrice - b.DepositAmount));
+            var venueDepositShare = confirmed.Sum(b =>
+            {
+                var c = CalculateEffectiveCommission(b.TotalPrice, b.PlatformCommission, b.StartUtc, b.EndUtc, comm);
+                return Math.Max(0m, b.DepositAmount - c);
+            });
 
             return new VenueFinancialSummaryItem(
                 vId,
@@ -607,6 +613,7 @@ public sealed class AdminBookingService
                 totalDueAtVenue,
                 vRefunds.Count,
                 vRefunds.Sum(r => r.ExpectedRefundAmount),
+                venueDepositShare,
                 "EGP"
             );
         })

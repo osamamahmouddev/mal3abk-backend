@@ -46,6 +46,7 @@ interface VenueFinancialSummaryItem {
   totalPlatformCommission: number;
   totalVenueNetAmount: number;
   totalDueAtVenueCash: number;
+  venueDepositShare?: number;
   pendingRefundsCount: number;
   pendingRefundsAmount: number;
   currency: string;
@@ -110,6 +111,7 @@ export default function ReportsPage() {
         dueAtVenue: acc.dueAtVenue + v.totalDueAtVenueCash,
         refundsCount: acc.refundsCount + v.pendingRefundsCount,
         refundsAmount: acc.refundsAmount + v.pendingRefundsAmount,
+        depositShare: acc.depositShare + (v.venueDepositShare ?? Math.max(0, v.totalDepositAmount - v.totalPlatformCommission)),
       }),
       {
         bookings: 0,
@@ -122,6 +124,7 @@ export default function ReportsPage() {
         dueAtVenue: 0,
         refundsCount: 0,
         refundsAmount: 0,
+        depositShare: 0,
       },
     );
   }, [venuesList]);
@@ -133,11 +136,12 @@ export default function ReportsPage() {
       "إجمالي الحجوزات",
       "حجوزات مؤكدة",
       "حجوزات ملغية",
-      "إجمالي قيمة الحجوزات (ج.م)",
+      "إجمالي الحجز (ج.م)",
       "العربون المحصل (ج.م)",
       "عمولة المنصة (ج.م)",
-      "صافي فلوس الملعب (ج.م)",
-      "المطلوب تحصيله كاش بالملعب (ج.م)",
+      "نصيب الملعب من العربون (ج.م)",
+      "المتبقي كاش بالملعب (ج.م)",
+      "صافي مستحقات الملعب (ج.م)",
       "إحالات استرداد معلقة (عدد)",
       "مبالغ الاسترداد المعلقة (ج.م)",
     ];
@@ -150,8 +154,9 @@ export default function ReportsPage() {
       v.totalGrossAmount.toFixed(2),
       v.totalDepositAmount.toFixed(2),
       v.totalPlatformCommission.toFixed(2),
-      v.totalVenueNetAmount.toFixed(2),
+      ((v.venueDepositShare ?? Math.max(0, v.totalDepositAmount - v.totalPlatformCommission))).toFixed(2),
       v.totalDueAtVenueCash.toFixed(2),
+      v.totalVenueNetAmount.toFixed(2),
       v.pendingRefundsCount,
       v.pendingRefundsAmount.toFixed(2),
     ]);
@@ -196,63 +201,77 @@ export default function ReportsPage() {
       </div>
 
       {/* Primary KPI Section for Venues & Platform Commissions */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5">
         {/* Total Platform Commission */}
-        <div className="bg-gradient-to-br from-purple-50 to-indigo-50/70 border border-purple-200/80 rounded-2xl p-4.5 flex flex-col justify-between shadow-xs">
+        <div className="bg-gradient-to-br from-purple-50 to-indigo-50/70 border border-purple-200/80 rounded-2xl p-4 flex flex-col justify-between shadow-xs">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-purple-900">عمولة المنصة الإجمالية</span>
-            <div className="size-9 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center">
-              <Percent className="size-5" />
+            <span className="text-xs font-bold text-purple-900">عمولة المنصة</span>
+            <div className="size-8 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center">
+              <Percent className="size-4" />
             </div>
           </div>
-          <div className="mt-3">
+          <div className="mt-2.5">
             <strong className="text-2xl font-extrabold text-purple-950">{money(totals.commission)}</strong>
-            <span className="text-[11px] text-purple-700 block mt-0.5">دخل المنصة المباشر من الساعات المحجوزة</span>
+            <span className="text-[11px] text-purple-700 block mt-0.5">دخل المنصة المخصوم من العرابين</span>
           </div>
         </div>
 
         {/* Total Deposits Handled */}
-        <div className="bg-gradient-to-br from-emerald-50 to-teal-50/70 border border-emerald-200/80 rounded-2xl p-4.5 flex flex-col justify-between shadow-xs">
+        <div className="bg-gradient-to-br from-emerald-50 to-teal-50/70 border border-emerald-200/80 rounded-2xl p-4 flex flex-col justify-between shadow-xs">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-emerald-900">إجمالي العرابين المحصلة</span>
-            <div className="size-9 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center">
-              <Coins className="size-5" />
+            <div className="size-8 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center">
+              <Coins className="size-4" />
             </div>
           </div>
-          <div className="mt-3">
+          <div className="mt-2.5">
             <strong className="text-2xl font-extrabold text-emerald-950">{money(totals.deposits)}</strong>
-            <span className="text-[11px] text-emerald-700 block mt-0.5">مدفوعة للمنصة لتثبيت الحجز</span>
+            <span className="text-[11px] text-emerald-700 block mt-0.5">العربون المدفوع أونلاين لتثبيت الحجز</span>
+          </div>
+        </div>
+
+        {/* Remitted Deposits to Venues (Deposit - Commission) */}
+        <div className="bg-gradient-to-br from-teal-50 to-cyan-50/70 border border-teal-200/80 rounded-2xl p-4 flex flex-col justify-between shadow-xs">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-teal-900">مستحق للملاعب من العربون</span>
+            <div className="size-8 rounded-xl bg-teal-100 text-teal-700 flex items-center justify-center">
+              <Coins className="size-4" />
+            </div>
+          </div>
+          <div className="mt-2.5">
+            <strong className="text-2xl font-extrabold text-teal-950">{money(totals.depositShare)}</strong>
+            <span className="text-[11px] text-teal-700 block mt-0.5">العربون بعد خصم عمولة المنصة منه</span>
           </div>
         </div>
 
         {/* Total Net Due to Venues */}
-        <div className="bg-gradient-to-br from-blue-50 to-sky-50/70 border border-blue-200/80 rounded-2xl p-4.5 flex flex-col justify-between shadow-xs">
+        <div className="bg-gradient-to-br from-blue-50 to-sky-50/70 border border-blue-200/80 rounded-2xl p-4 flex flex-col justify-between shadow-xs">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-blue-900">صافي مستحقات الملاعب</span>
-            <div className="size-9 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center">
-              <Wallet className="size-5" />
+            <span className="text-xs font-bold text-blue-900">صافي مستحقات الملاعب الكلية</span>
+            <div className="size-8 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center">
+              <Wallet className="size-4" />
             </div>
           </div>
-          <div className="mt-3">
+          <div className="mt-2.5">
             <strong className="text-2xl font-extrabold text-blue-950">{money(totals.venueNet)}</strong>
-            <span className="text-[11px] text-blue-700 block mt-0.5">نصيب الملاعب بعد خصم نسبة العمولة</span>
+            <span className="text-[11px] text-blue-700 block mt-0.5">الإجمالي (كاش بالملعب + نصيب العربون)</span>
           </div>
         </div>
 
         {/* Pending Refunds (Cancelled by Venues) */}
-        <div className="bg-gradient-to-br from-amber-50 to-orange-50/70 border border-amber-200/80 rounded-2xl p-4.5 flex flex-col justify-between shadow-xs">
+        <div className="bg-gradient-to-br from-amber-50 to-orange-50/70 border border-amber-200/80 rounded-2xl p-4 flex flex-col justify-between shadow-xs">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-amber-900">إحالات استرداد معلقة للاعبين</span>
-            <div className="size-9 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center">
-              <AlertTriangle className="size-5" />
+            <span className="text-xs font-bold text-amber-900">إحالات استرداد معلقة</span>
+            <div className="size-8 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center">
+              <AlertTriangle className="size-4" />
             </div>
           </div>
-          <div className="mt-3">
+          <div className="mt-2.5">
             <div className="flex items-baseline gap-2">
               <strong className="text-2xl font-extrabold text-amber-950">{money(totals.refundsAmount)}</strong>
               <span className="text-xs text-amber-800 font-semibold">({toArabicDigits(totals.refundsCount)} إحالة)</span>
             </div>
-            <span className="text-[11px] text-amber-700 block mt-0.5">بسبب إلغاء الملاعب لحجوزات</span>
+            <span className="text-[11px] text-amber-700 block mt-0.5">بسبب إلغاء الملاعب للحجوزات</span>
           </div>
         </div>
       </div>
@@ -287,84 +306,92 @@ export default function ReportsPage() {
           </div>
         ) : (
           <div className="overflow-x-auto -mx-5 px-5">
-            <table className="w-full min-w-[960px] border-collapse text-sm">
+            <table className="w-full min-w-[1100px] border-collapse text-sm">
               <thead>
                 <tr className="bg-slate-50 text-slate-600 text-xs text-right border-y border-slate-200">
-                  <th scope="col" className="p-3.5 font-bold">الملعب</th>
-                  <th scope="col" className="p-3.5 font-bold text-center">إجمالي الحجوزات</th>
-                  <th scope="col" className="p-3.5 font-bold text-center">المؤكدة</th>
-                  <th scope="col" className="p-3.5 font-bold text-center">الملغية</th>
-                  <th scope="col" className="p-3.5 font-bold">قيمة الحجوزات</th>
-                  <th scope="col" className="p-3.5 font-bold">العربون المحصل</th>
-                  <th scope="col" className="p-3.5 font-bold text-purple-700">عمولة المنصة</th>
-                  <th scope="col" className="p-3.5 font-bold text-emerald-700">صافي فلوس الملعب</th>
-                  <th scope="col" className="p-3.5 font-bold">المتبقي كاش بالملعب</th>
-                  <th scope="col" className="p-3.5 font-bold text-amber-700">إحالات الاسترداد</th>
+                  <th scope="col" className="p-3 font-bold">الملعب</th>
+                  <th scope="col" className="p-3 font-bold text-center">إجمالي الحجوزات</th>
+                  <th scope="col" className="p-3 font-bold text-center">المؤكدة</th>
+                  <th scope="col" className="p-3 font-bold text-center">الملغية</th>
+                  <th scope="col" className="p-3 font-bold">إجمالي الحجز</th>
+                  <th scope="col" className="p-3 font-bold text-indigo-700">العربون المحصل</th>
+                  <th scope="col" className="p-3 font-bold text-purple-700">عمولة المنصة</th>
+                  <th scope="col" className="p-3 font-bold text-teal-700 bg-teal-50/50">نصيب الملعب من العربون</th>
+                  <th scope="col" className="p-3 font-bold text-slate-700">المتبقي كاش بالملعب</th>
+                  <th scope="col" className="p-3 font-bold text-emerald-700 bg-emerald-50/50">صافي مستحقات الملعب</th>
+                  <th scope="col" className="p-3 font-bold text-amber-700">إحالات الاسترداد</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {filteredVenues.map((v) => (
-                  <tr key={v.venueId} className="hover:bg-slate-50/80 transition-colors">
-                    <td className="p-3.5 font-bold text-slate-900">
-                      <div className="flex flex-col">
-                        <span>{v.venueName}</span>
-                        <span className="text-[10px] text-slate-400 font-mono" dir="ltr">
-                          {v.venueId.slice(0, 8)}…
+                {filteredVenues.map((v) => {
+                  const depositShare = v.venueDepositShare ?? Math.max(0, v.totalDepositAmount - v.totalPlatformCommission);
+                  return (
+                    <tr key={v.venueId} className="hover:bg-slate-50/80 transition-colors">
+                      <td className="p-3 font-bold text-slate-900">
+                        <div className="flex flex-col">
+                          <span>{v.venueName}</span>
+                          <span className="text-[10px] text-slate-400 font-mono" dir="ltr">
+                            {v.venueId.slice(0, 8)}…
+                          </span>
+                        </div>
+                      </td>
+                      <td className="p-3 text-center font-bold text-slate-800">
+                        {toArabicDigits(v.totalBookings)}
+                      </td>
+                      <td className="p-3 text-center">
+                        <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800">
+                          {toArabicDigits(v.confirmedBookings)}
                         </span>
-                      </div>
-                    </td>
-                    <td className="p-3.5 text-center font-bold text-slate-800">
-                      {toArabicDigits(v.totalBookings)}
-                    </td>
-                    <td className="p-3.5 text-center">
-                      <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800">
-                        {toArabicDigits(v.confirmedBookings)}
-                      </span>
-                    </td>
-                    <td className="p-3.5 text-center">
-                      <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${v.cancelledBookings > 0 ? "bg-red-100 text-red-800" : "bg-slate-100 text-slate-600"}`}>
-                        {toArabicDigits(v.cancelledBookings)}
-                      </span>
-                    </td>
-                    <td className="p-3.5 font-semibold text-slate-900 whitespace-nowrap">
-                      {money(v.totalGrossAmount)}
-                    </td>
-                    <td className="p-3.5 font-semibold text-slate-800 whitespace-nowrap">
-                      {money(v.totalDepositAmount)}
-                    </td>
-                    <td className="p-3.5 font-bold text-purple-700 whitespace-nowrap">
-                      {money(v.totalPlatformCommission)}
-                    </td>
-                    <td className="p-3.5 font-extrabold text-emerald-700 whitespace-nowrap bg-emerald-50/40">
-                      {money(v.totalVenueNetAmount)}
-                    </td>
-                    <td className="p-3.5 font-semibold text-slate-700 whitespace-nowrap">
-                      {money(v.totalDueAtVenueCash)}
-                    </td>
-                    <td className="p-3.5 whitespace-nowrap">
-                      {v.pendingRefundsCount > 0 ? (
-                        <span className="px-2 py-1 rounded-lg text-xs font-bold bg-amber-100 text-amber-900 border border-amber-200">
-                          {money(v.pendingRefundsAmount)} ({toArabicDigits(v.pendingRefundsCount)})
+                      </td>
+                      <td className="p-3 text-center">
+                        <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${v.cancelledBookings > 0 ? "bg-red-100 text-red-800" : "bg-slate-100 text-slate-600"}`}>
+                          {toArabicDigits(v.cancelledBookings)}
                         </span>
-                      ) : (
-                        <span className="text-slate-400 text-xs">لا يوجد</span>
-                      )}
-                    </td>
-                  </tr>
-                ))}
+                      </td>
+                      <td className="p-3 font-semibold text-slate-900 whitespace-nowrap">
+                        {money(v.totalGrossAmount)}
+                      </td>
+                      <td className="p-3 font-semibold text-indigo-700 whitespace-nowrap">
+                        {money(v.totalDepositAmount)}
+                      </td>
+                      <td className="p-3 font-bold text-purple-700 whitespace-nowrap">
+                        {money(v.totalPlatformCommission)}
+                      </td>
+                      <td className="p-3 font-bold text-teal-700 whitespace-nowrap bg-teal-50/40">
+                        {money(depositShare)}
+                      </td>
+                      <td className="p-3 font-semibold text-slate-700 whitespace-nowrap">
+                        {money(v.totalDueAtVenueCash)}
+                      </td>
+                      <td className="p-3 font-extrabold text-emerald-700 whitespace-nowrap bg-emerald-50/60">
+                        {money(v.totalVenueNetAmount)}
+                      </td>
+                      <td className="p-3 whitespace-nowrap">
+                        {v.pendingRefundsCount > 0 ? (
+                          <span className="px-2 py-1 rounded-lg text-xs font-bold bg-amber-100 text-amber-900 border border-amber-200">
+                            {money(v.pendingRefundsAmount)} ({toArabicDigits(v.pendingRefundsCount)})
+                          </span>
+                        ) : (
+                          <span className="text-slate-400 text-xs">لا يوجد</span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
               <tfoot>
                 <tr className="bg-slate-100 font-bold text-slate-900 border-t-2 border-slate-300">
-                  <td className="p-3.5">الإجمالي الكلي</td>
-                  <td className="p-3.5 text-center">{toArabicDigits(totals.bookings)}</td>
-                  <td className="p-3.5 text-center text-emerald-800">{toArabicDigits(totals.confirmed)}</td>
-                  <td className="p-3.5 text-center text-red-800">{toArabicDigits(totals.cancelled)}</td>
-                  <td className="p-3.5 whitespace-nowrap">{money(totals.gross)}</td>
-                  <td className="p-3.5 whitespace-nowrap">{money(totals.deposits)}</td>
-                  <td className="p-3.5 whitespace-nowrap text-purple-700">{money(totals.commission)}</td>
-                  <td className="p-3.5 whitespace-nowrap text-emerald-800 bg-emerald-100/40">{money(totals.venueNet)}</td>
-                  <td className="p-3.5 whitespace-nowrap">{money(totals.dueAtVenue)}</td>
-                  <td className="p-3.5 whitespace-nowrap text-amber-800">{money(totals.refundsAmount)}</td>
+                  <td className="p-3">الإجمالي الكلي</td>
+                  <td className="p-3 text-center">{toArabicDigits(totals.bookings)}</td>
+                  <td className="p-3 text-center text-emerald-800">{toArabicDigits(totals.confirmed)}</td>
+                  <td className="p-3 text-center text-red-800">{toArabicDigits(totals.cancelled)}</td>
+                  <td className="p-3 whitespace-nowrap">{money(totals.gross)}</td>
+                  <td className="p-3 whitespace-nowrap text-indigo-800">{money(totals.deposits)}</td>
+                  <td className="p-3 whitespace-nowrap text-purple-700">{money(totals.commission)}</td>
+                  <td className="p-3 whitespace-nowrap text-teal-800 bg-teal-100/40">{money(totals.depositShare)}</td>
+                  <td className="p-3 whitespace-nowrap">{money(totals.dueAtVenue)}</td>
+                  <td className="p-3 whitespace-nowrap text-emerald-800 bg-emerald-100/60">{money(totals.venueNet)}</td>
+                  <td className="p-3 whitespace-nowrap text-amber-800">{money(totals.refundsAmount)}</td>
                 </tr>
               </tfoot>
             </table>
