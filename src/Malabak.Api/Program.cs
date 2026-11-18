@@ -465,6 +465,14 @@ app.MapHealthChecks("/health/ready", new HealthCheckOptions
     ResponseWriter = HealthCheckResponseWriter.WriteResponseAsync
 }).AllowAnonymous();
 
+app.MapGet("/", () => Results.Ok(new
+{
+    service = "Malabak API",
+    status = "Operational",
+    version = "1.0",
+    docs = "/swagger"
+})).AllowAnonymous();
+
 // Minimal API test endpoint
 var apiVersionSet = app.NewApiVersionSet()
     .HasApiVersion(new ApiVersion(1, 0))
