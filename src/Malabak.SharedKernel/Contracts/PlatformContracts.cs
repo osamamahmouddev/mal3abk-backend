@@ -47,4 +47,6 @@ public static class PlatformSettingKeys
     public const string PlatformVodafoneCashNumber = "platform.deposit.vodafone_cash_number";
     public const string PlatformDepositRecipientName = "platform.deposit.recipient_name";
     public const string PlatformDepositInstructions = "platform.deposit.instructions";
+    public const string PlatformBankAccountIban = "platform.deposit.bank_account_iban";
+    public const string PlatformBankName = "platform.deposit.bank_name";
 }

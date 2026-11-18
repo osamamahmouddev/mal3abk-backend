@@ -40,6 +40,8 @@ public static class PlatformCatalog
         new(PlatformSettingKeys.PlatformVodafoneCashNumber, SettingType.Text, "01000000000", "رقم محفظة فودافون كاش / المحافظ الإلكترونية للمنصة لاستلام العربون.", MaxLength: 20),
         new(PlatformSettingKeys.PlatformDepositRecipientName, SettingType.Text, "منصة ملعبك", "اسم المستلم المعروض للاعب عند تحويل العربون.", MaxLength: 100),
         new(PlatformSettingKeys.PlatformDepositInstructions, SettingType.Text, "برجاء كتابة رقم الحجز في خانة الملاحظات أثناء التحويل ورفع صورة الإيصال بعد الدفع مباشرة.", "تعليمات تحويل العربون المعروضة للاعب في التطبيق.", MaxLength: 500),
+        new(PlatformSettingKeys.PlatformBankAccountIban, SettingType.Text, "", "رقم الحساب البنكي أو الآيبان (IBAN) للمنصة لتحويل العربون.", MaxLength: 50),
+        new(PlatformSettingKeys.PlatformBankName, SettingType.Text, "", "اسم البنك التابع له الحساب البنكي للمنصة.", MaxLength: 100),
     ];
 
     public static readonly IReadOnlyList<FlagDefinition> Flags =

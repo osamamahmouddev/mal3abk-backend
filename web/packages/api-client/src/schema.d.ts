@@ -6028,6 +6028,9 @@ export interface components {
             recipientName: string;
             accountDetails: string;
             instructions?: string | null;
+            isOnline: boolean;
+            isAvailable: boolean;
+            badge?: string | null;
         };
         BookingPolicyApiRequest: {
             depositType: components["schemas"]["DepositType"];

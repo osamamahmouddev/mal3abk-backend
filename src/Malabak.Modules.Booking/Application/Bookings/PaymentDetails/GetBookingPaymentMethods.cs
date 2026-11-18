@@ -6,7 +6,15 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Malabak.Modules.Booking.Application.Bookings.PaymentDetails;
 
-public sealed record BookingPaymentMethodDto(Guid Id, string MethodType, string RecipientName, string AccountDetails, string? Instructions);
+public sealed record BookingPaymentMethodDto(
+    Guid Id,
+    string MethodType,
+    string RecipientName,
+    string AccountDetails,
+    string? Instructions,
+    bool IsOnline = false,
+    bool IsAvailable = true,
+    string? Badge = null);
 
 public sealed record GetBookingPaymentMethodsQuery(Guid BookingId, Guid PlayerId) : IQuery<Result<IReadOnlyList<BookingPaymentMethodDto>>>;
 
@@ -16,8 +24,10 @@ public sealed record GetBookingPaymentMethodsQuery(Guid BookingId, Guid PlayerId
 /// </summary>
 public sealed class GetBookingPaymentMethodsHandler : IQueryHandler<GetBookingPaymentMethodsQuery, Result<IReadOnlyList<BookingPaymentMethodDto>>>
 {
+    private static readonly Guid _platformPaymobId = Guid.Parse("00000000-0000-0000-0000-000000000001");
     private static readonly Guid _platformInstaPayId = Guid.Parse("11111111-1111-1111-1111-111111111111");
     private static readonly Guid _platformWalletId = Guid.Parse("22222222-2222-2222-2222-222222222222");
+    private static readonly Guid _platformBankId = Guid.Parse("33333333-3333-3333-3333-333333333333");
 
     private readonly IBookingDbContext _dbContext;
     private readonly IVenuePaymentDirectory _payments;
@@ -59,22 +69,62 @@ public sealed class GetBookingPaymentMethodsHandler : IQueryHandler<GetBookingPa
             var recipient = await _platformSettings.GetStringAsync(PlatformSettingKeys.PlatformDepositRecipientName, cancellationToken);
             var instapay = await _platformSettings.GetStringAsync(PlatformSettingKeys.PlatformInstaPayAddress, cancellationToken);
             var wallet = await _platformSettings.GetStringAsync(PlatformSettingKeys.PlatformVodafoneCashNumber, cancellationToken);
+            var bankAccount = await _platformSettings.GetStringAsync(PlatformSettingKeys.PlatformBankAccountIban, cancellationToken);
+            var bankName = await _platformSettings.GetStringAsync(PlatformSettingKeys.PlatformBankName, cancellationToken);
             var instructions = await _platformSettings.GetStringAsync(PlatformSettingKeys.PlatformDepositInstructions, cancellationToken);
 
-            var platformMethods = new List<BookingPaymentMethodDto>();
+            var platformMethods = new List<BookingPaymentMethodDto>
+            {
+                new(
+                    _platformPaymobId,
+                    "Paymob",
+                    "بوابة Paymob للدفع الإلكتروني",
+                    "بطاقات بنكية (Visa / MasterCard / ميزة) ومحافظ إلكترونية",
+                    "الدفع الإلكتروني المباشر عبر Paymob غير متوفر حالياً وسيتاح قريباً. يرجى استخدام إنستاباي أو فودافون كاش أو التحويل البنكي.",
+                    IsOnline: true,
+                    IsAvailable: false,
+                    Badge: "قريباً")
+            };
+
             if (!string.IsNullOrWhiteSpace(instapay))
             {
-                platformMethods.Add(new BookingPaymentMethodDto(_platformInstaPayId, "InstaPay", recipient, instapay, instructions));
+                platformMethods.Add(new BookingPaymentMethodDto(
+                    _platformInstaPayId,
+                    "InstaPay",
+                    recipient,
+                    instapay,
+                    instructions,
+                    IsOnline: false,
+                    IsAvailable: true,
+                    Badge: "فوري"));
             }
             if (!string.IsNullOrWhiteSpace(wallet))
             {
-                platformMethods.Add(new BookingPaymentMethodDto(_platformWalletId, "MobileWallet", recipient, wallet, instructions));
+                platformMethods.Add(new BookingPaymentMethodDto(
+                    _platformWalletId,
+                    "MobileWallet",
+                    recipient,
+                    wallet,
+                    instructions,
+                    IsOnline: false,
+                    IsAvailable: true,
+                    Badge: "محفظة كاش"));
+            }
+            if (!string.IsNullOrWhiteSpace(bankAccount))
+            {
+                var bankDetails = !string.IsNullOrWhiteSpace(bankName) ? $"{bankName} - {bankAccount}" : bankAccount;
+                platformMethods.Add(new BookingPaymentMethodDto(
+                    _platformBankId,
+                    "BankTransfer",
+                    recipient,
+                    bankDetails,
+                    instructions,
+                    IsOnline: false,
+                    IsAvailable: true,
+                    Badge: "تحويل بنكي"));
             }
 
-            if (platformMethods.Count > 0)
-            {
-                return Result.Success<IReadOnlyList<BookingPaymentMethodDto>>(platformMethods);
-            }
+            return Result.Success<IReadOnlyList<BookingPaymentMethodDto>>(platformMethods);
         }
 
         var methods = await _payments.RevealForBookingAsync(booking.VenueId, booking.Id, query.PlayerId, cancellationToken);

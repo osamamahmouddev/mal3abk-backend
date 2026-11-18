@@ -35831,6 +35831,8 @@
         "required": [
           "accountDetails",
           "id",
+          "isAvailable",
+          "isOnline",
           "methodType",
           "recipientName"
         ],
@@ -35850,6 +35852,16 @@
             "type": "string"
           },
           "instructions": {
+            "type": "string",
+            "nullable": true
+          },
+          "isOnline": {
+            "type": "boolean"
+          },
+          "isAvailable": {
+            "type": "boolean"
+          },
+          "badge": {
             "type": "string",
             "nullable": true
           }
