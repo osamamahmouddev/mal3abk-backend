@@ -71,6 +71,22 @@ public sealed record AdminDepositReviewPage(
     int PageSize,
     int Total);
 
+public sealed record VenueFinancialSummaryItem(
+    Guid VenueId,
+    string VenueName,
+    int TotalBookings,
+    int ConfirmedBookings,
+    int CancelledBookings,
+    int PendingConfirmationBookings,
+    decimal TotalGrossAmount,
+    decimal TotalDepositAmount,
+    decimal TotalPlatformCommission,
+    decimal TotalVenueNetAmount,
+    decimal TotalDueAtVenueCash,
+    int PendingRefundsCount,
+    decimal PendingRefundsAmount,
+    string Currency = "EGP");
+
 public static class AdminBookingErrors
 {
     public static readonly Error InvalidFilter = Error.Validation("AdminBookings.InvalidFilter", "Invalid booking search filter.");
@@ -336,9 +352,30 @@ public sealed class AdminBookingService
             }
         }
 
-        var decision = approved
-            ? booking.Confirm(actor, nowUtc)
-            : booking.Reject(reason!, actor, nowUtc);
+        Result decision;
+        if (approved)
+        {
+            if (booking.Status is BookingStatus.ProofSubmitted or BookingStatus.UnderReview)
+            {
+                decision = booking.Confirm(actor, nowUtc);
+            }
+            else if (booking.IsManualBooking && booking.Status == BookingStatus.PendingDeposit)
+            {
+                decision = booking.Confirm(actor, nowUtc);
+            }
+            else if (booking.Status == BookingStatus.PendingDeposit)
+            {
+                decision = booking.ConfirmOnlinePayment("ADMIN", "ADMIN_CONFIRMED", booking.DepositAmount, nowUtc, actor);
+            }
+            else
+            {
+                decision = booking.Confirm(actor, nowUtc);
+            }
+        }
+        else
+        {
+            decision = booking.Reject(reason!, actor, nowUtc);
+        }
 
         if (decision.IsFailure)
         {
@@ -435,6 +472,115 @@ public sealed class AdminBookingService
                 }
             }
         }
+
+        return Result.Success();
+    }
+
+    /// <summary>Calculates comprehensive financial and commission breakdowns per venue.</summary>
+    public async Task<Result<IReadOnlyList<VenueFinancialSummaryItem>>> GetVenuesFinancialSummaryAsync(
+        DateTime? fromUtc, DateTime? toUtc, CancellationToken cancellationToken = default)
+    {
+        var query = _dbContext.Bookings.AsNoTracking().Where(b => !b.IsDeleted && b.Status != BookingStatus.Draft);
+        if (fromUtc.HasValue)
+        {
+            query = query.Where(b => b.StartUtc >= fromUtc.Value);
+        }
+        if (toUtc.HasValue)
+        {
+            query = query.Where(b => b.StartUtc <= toUtc.Value);
+        }
+
+        var bookings = await query
+            .Select(b => new
+            {
+                b.Id,
+                b.VenueId,
+                b.Status,
+                TotalPrice = b.TotalPrice.Amount,
+                DepositAmount = b.DepositAmount.Amount,
+                PlatformCommission = b.PlatformCommission.Amount,
+                VenueNetAmount = b.VenueNetAmount.Amount,
+                VenuePayAmount = b.VenuePayAmount.Amount,
+            })
+            .ToListAsync(cancellationToken);
+
+        var pendingRefunds = await _dbContext.BookingRefunds.AsNoTracking()
+            .Where(r => r.Status == RefundStatus.Pending)
+            .Select(r => new { r.BookingId, r.ExpectedRefundAmount })
+            .ToListAsync(cancellationToken);
+
+        var bookingVenueMap = bookings.ToDictionary(b => b.Id, b => b.VenueId);
+        var venueIds = bookings.Select(b => b.VenueId).Distinct().ToList();
+
+        var venueNames = _venues is not null
+            ? await _venues.GetVenueNamesAsync(venueIds, cancellationToken)
+            : new Dictionary<Guid, string>();
+
+        var summary = venueIds.Select(vId =>
+        {
+            var vBookings = bookings.Where(b => b.VenueId == vId).ToList();
+            var confirmed = vBookings.Where(b => b.Status is BookingStatus.Confirmed or BookingStatus.Completed).ToList();
+            var cancelled = vBookings.Where(b => b.Status == BookingStatus.Cancelled).ToList();
+            var pending = vBookings.Where(b => b.Status is BookingStatus.PendingDeposit or BookingStatus.ProofSubmitted or BookingStatus.UnderReview).ToList();
+
+            var vRefunds = pendingRefunds
+                .Where(r => bookingVenueMap.TryGetValue(r.BookingId, out var mappedId) && mappedId == vId)
+                .ToList();
+
+            return new VenueFinancialSummaryItem(
+                vId,
+                venueNames.GetValueOrDefault(vId) ?? "ملعب غير معروف",
+                vBookings.Count,
+                confirmed.Count,
+                cancelled.Count,
+                pending.Count,
+                confirmed.Sum(b => b.TotalPrice),
+                confirmed.Sum(b => b.DepositAmount) + pending.Sum(b => b.DepositAmount),
+                confirmed.Sum(b => b.PlatformCommission),
+                confirmed.Sum(b => b.VenueNetAmount),
+                confirmed.Sum(b => b.VenuePayAmount),
+                vRefunds.Count,
+                vRefunds.Sum(r => r.ExpectedRefundAmount),
+                "EGP"
+            );
+        })
+        .OrderByDescending(s => s.TotalBookings)
+        .ToList();
+
+        return Result.Success<IReadOnlyList<VenueFinancialSummaryItem>>(summary);
+    }
+
+    /// <summary>Records that platform administration processed and sent the deposit refund to the player.</summary>
+    public async Task<Result> ProcessRefundAsync(Guid refundId, string? notes, Guid adminUserId, CancellationToken cancellationToken = default)
+    {
+        var refund = await _dbContext.BookingRefunds.FirstOrDefaultAsync(r => r.Id == refundId, cancellationToken);
+        if (refund is null)
+        {
+            return Result.Failure(Error.NotFound("Refund.NotFound", "Refund record not found."));
+        }
+
+        var nowUtc = _clock.UtcNow;
+        var actor = adminUserId.ToString("D");
+        var result = refund.RecordManualRefund(
+            refund.ExpectedRefundAmount,
+            refund.ExpectedRefundAmount,
+            notes?.Trim() ?? "تم رد العربون للاعب بواسطة إدارة المنصة",
+            actor,
+            nowUtc);
+
+        if (result.IsFailure)
+        {
+            return result;
+        }
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+        await _audit.RecordAsync(new AuditEntry(
+            "admin.booking.refund_processed",
+            "BookingRefund",
+            refundId.ToString("D"),
+            adminUserId,
+            AuditActorType.Admin,
+            After: new { Status = nameof(RefundStatus.Refunded), refund.ExpectedRefundAmount, notes }), cancellationToken);
 
         return Result.Success();
     }

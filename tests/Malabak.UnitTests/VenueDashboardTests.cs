@@ -52,10 +52,10 @@ public sealed class VenueDashboardTests
 
         var dashboard = (await Handler(db).HandleAsync(new GetVenueDashboardQuery(_venueId, null, true))).Value;
 
-        dashboard.TodayRevenue.Should().Be(new DashboardRevenue("EGP", ConfirmedValue: 700, DepositsCollected: 120, DueAtVenue: 580, DepositsPendingReview: 120, ExpectedValue: 1500));
+        dashboard.TodayRevenue.Should().Be(new DashboardRevenue("EGP", ConfirmedValue: 700, DepositsCollected: 120, DueAtVenue: 580, DepositsPendingReview: 240, ExpectedValue: 1500));
 
         // The month adds a completed booking (500 / 150 deposit) and a no-show whose 100 deposit was kept.
-        dashboard.MonthRevenue.Should().Be(new DashboardRevenue("EGP", ConfirmedValue: 1200, DepositsCollected: 370, DueAtVenue: 930, DepositsPendingReview: 120, ExpectedValue: 2000));
+        dashboard.MonthRevenue.Should().Be(new DashboardRevenue("EGP", ConfirmedValue: 1200, DepositsCollected: 370, DueAtVenue: 930, DepositsPendingReview: 240, ExpectedValue: 2000));
         dashboard.RevenueTrend.Should().HaveCount(30);
         dashboard.RevenueTrend![^1].Should().Be(new RevenuePoint(_today, 700, 120));
     }

@@ -128,6 +128,36 @@ public static class AdminVenueBookingEndpoints
             .ProducesProblem(StatusCodes.Status404NotFound)
             .WithName("AdminMarkBookingUnderReview")
             .WithSummary("Mark a booking deposit proof as under review by admin staff");
+
+        bookings.MapGet("/financial-summary", async (
+                [FromQuery] DateTime? fromUtc,
+                [FromQuery] DateTime? toUtc,
+                HttpContext http,
+                AdminBookingService service,
+                CancellationToken ct) =>
+            {
+                AdminResults.NoStore(http);
+                var result = await service.GetVenuesFinancialSummaryAsync(fromUtc, toUtc, ct);
+                return AdminResults.From(result);
+            })
+            .Produces<IReadOnlyList<VenueFinancialSummaryItem>>()
+            .WithName("AdminGetVenuesFinancialSummary")
+            .WithSummary("Comprehensive financial and commission breakdown for all venues");
+
+        bookings.MapPost("/refunds/{refundId:guid}/process", async (
+                Guid refundId,
+                [FromBody] AdminProcessRefundApiRequest? request,
+                ClaimsPrincipal user,
+                AdminBookingService service,
+                CancellationToken ct) =>
+            {
+                var result = await service.ProcessRefundAsync(refundId, request?.Notes, user.GetUserId()!.Value, ct);
+                return AdminResults.From(result);
+            })
+            .Produces(StatusCodes.Status204NoContent)
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .WithName("AdminProcessBookingRefund")
+            .WithSummary("Record that platform administration processed and refunded deposit to the player");
     }
 }
 
@@ -136,3 +166,5 @@ public sealed record AdminNoteApiRequest(string? Note);
 public sealed record TransferOwnershipApiRequest(Guid NewOwnerId, string? Reason);
 
 public sealed record AdminReviewDepositApiRequest(bool Approved, string? RejectionReason = null);
+
+public sealed record AdminProcessRefundApiRequest(string? Notes = null);

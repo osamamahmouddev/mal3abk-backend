@@ -7,7 +7,7 @@ import { KV, Page, PageHeader, Pill, ReasonModal, type ReasonRequest, SearchBox,
 import { Drawer, Pager, QueryState, Section, Select, Table, fmtDateTime, useNotice } from "@/components/admin";
 import { api, unwrap } from "@/lib/api";
 import { useStepUp } from "@/lib/stepup";
-import { Building2, CalendarDays, ChevronLeft, LayoutGrid, NotebookPen, Smartphone, Table2 } from "lucide-react";
+import { Building2, CalendarDays, CheckCircle2, ChevronLeft, Clock, LayoutGrid, NotebookPen, ShieldAlert, Smartphone, Table2, XCircle } from "lucide-react";
 
 type Row = Schemas["AdminBookingListItem"];
 
@@ -260,6 +260,54 @@ function BookingDrawer({ bookingId, onClose, venueMap }: { bookingId: string | n
     onError: notice.fail,
   });
 
+  const confirmDeposit = useMutation({
+    mutationFn: () =>
+      unwrap(
+        (api.POST as any)("/api/v1/admin/bookings/{bookingId}/review-deposit", {
+          params: { path: { bookingId: bookingId! } },
+          body: { approved: true },
+        }),
+      ),
+    onSuccess: async () => {
+      notice.ok("تم تأكيد استلام العربون وتثبيت الحجز بنجاح!");
+      await queryClient.invalidateQueries({ queryKey: ["admin-booking"] });
+      await queryClient.invalidateQueries({ queryKey: ["admin-bookings"] });
+    },
+    onError: (e: any) => notice.fail(e?.message ?? "فشل تأكيد العربون"),
+  });
+
+  const rejectDeposit = useMutation({
+    mutationFn: (text: string) =>
+      unwrap(
+        (api.POST as any)("/api/v1/admin/bookings/{bookingId}/review-deposit", {
+          params: { path: { bookingId: bookingId! } },
+          body: { approved: false, rejectionReason: text },
+        }),
+      ),
+    onSuccess: async () => {
+      notice.ok("تم رفض العربون وإشعار اللاعب بنجاح.");
+      await queryClient.invalidateQueries({ queryKey: ["admin-booking"] });
+      await queryClient.invalidateQueries({ queryKey: ["admin-bookings"] });
+    },
+    onError: (e: any) => notice.fail(e?.message ?? "فشل رفض العربون"),
+  });
+
+  const processRefund = useMutation({
+    mutationFn: (refundId: string) =>
+      unwrap(
+        (api.POST as any)("/api/v1/admin/bookings/refunds/{refundId}/process", {
+          params: { path: { refundId } },
+          body: { notes: "تم تحويل العربون للاعب من الإدارة" },
+        }),
+      ),
+    onSuccess: async () => {
+      notice.ok("تم تسجيل إتمام رد العربون للاعب بنجاح.");
+      await queryClient.invalidateQueries({ queryKey: ["admin-booking"] });
+      await queryClient.invalidateQueries({ queryKey: ["admin-bookings"] });
+    },
+    onError: (e: any) => notice.fail(e?.message ?? "فشل تسجيل الاسترداد"),
+  });
+
   return (
     <Drawer title="تفاصيل الحجز" open={!!bookingId} onClose={() => { notice.clear(); onClose(); }}>
       {notice.node}
@@ -286,6 +334,86 @@ function BookingDrawer({ bookingId, onClose, venueMap }: { bookingId: string | n
               {d.rejectionReason && <KV k="سبب الرفض">{d.rejectionReason}</KV>}
               {d.policy && <KV k="سياسة الإلغاء">قبلها بـ {d.policy.cancellationDeadlineHours} ساعة · استرداد {d.policy.refundPercentage}٪</KV>}
             </div>
+
+            {/* Admin Deposit Confirmation / Review Box */}
+            {(d.booking.status === "PendingDeposit" || d.booking.status === "ProofSubmitted" || d.booking.status === "UnderReview") && (
+              <div className="bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-200/90 rounded-2xl p-4 flex flex-col gap-3 shadow-xs">
+                <div className="flex items-center gap-2.5">
+                  <div className="size-8 rounded-lg bg-emerald-600 text-white flex items-center justify-center shrink-0">
+                    <CheckCircle2 className="size-5" />
+                  </div>
+                  <div className="flex flex-col">
+                    <strong className="text-sm font-bold text-slate-900">مراجعة وتأكيد العربون (صلاحية الإدارة)</strong>
+                    <span className="text-[11px] text-slate-500">العمولة والعربون يدخلان لحساب المنصة وتأكيد الحجز يتم مركزياً</span>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 text-xs bg-white/90 p-3 rounded-xl border border-emerald-100">
+                  <div>
+                    <span className="text-slate-500 block text-[11px]">مبلغ العربون:</span>
+                    <strong className="text-sm font-bold text-emerald-700">{money(d.booking.depositAmount)}</strong>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 block text-[11px]">عمولة المنصة:</span>
+                    <strong className="text-sm font-bold text-slate-800">{money((d.booking as any).platformCommission ?? 0)}</strong>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 pt-1">
+                  <button
+                    type="button"
+                    disabled={confirmDeposit.isPending}
+                    onClick={() => confirmDeposit.mutate()}
+                    className="flex-1 min-h-[40px] px-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                  >
+                    <CheckCircle2 className="size-4" />
+                    {confirmDeposit.isPending ? "جاري الاعتماد…" : "تأكيد العربون وتثبيت الحجز"}
+                  </button>
+
+                  <button
+                    type="button"
+                    disabled={rejectDeposit.isPending}
+                    onClick={() =>
+                      setReason({
+                        title: "رفض العربون",
+                        body: "يرجى كتابة سبب عدم اعتماد العربون؛ سيتم إخطار اللاعب بالسبب وإلغاء الحجز.",
+                        confirmLabel: "تأكيد الرفض",
+                        onConfirm: (text) => rejectDeposit.mutate(text),
+                      })
+                    }
+                    className="min-h-[40px] px-3.5 rounded-xl border border-red-200 bg-white hover:bg-red-50 text-red-700 font-semibold text-xs transition-colors cursor-pointer"
+                  >
+                    رفض
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Cancelled by Venue - Pending Refund Alert */}
+            {d.booking.status === "Cancelled" && d.refunds.some((r) => r.status === "Pending") && (
+              <div className="bg-amber-50 border border-amber-300 rounded-2xl p-4 flex flex-col gap-2.5 shadow-xs">
+                <div className="flex items-center gap-2">
+                  <span className="text-lg">⚠️</span>
+                  <strong className="text-sm font-bold text-amber-950">إحالة استرداد عربون (إلغاء الملعب)</strong>
+                </div>
+                <p className="text-xs text-amber-900 leading-relaxed">
+                  قام الملعب بإلغاء هذا الحجز {d.cancellationReason ? `(السبب: ${d.cancellationReason})` : ""}. يتوجب على الإدارة إرجاع مبلغ العربون ({money(d.booking.depositAmount)}) للاعب.
+                </p>
+                {d.refunds.filter((r) => r.status === "Pending").map((r) => (
+                  <button
+                    key={r.id}
+                    type="button"
+                    disabled={processRefund.isPending}
+                    onClick={() => processRefund.mutate(r.id)}
+                    className="min-h-[38px] px-4 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs shadow-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer w-fit"
+                  >
+                    <CheckCircle2 className="size-4" />
+                    {processRefund.isPending ? "جاري التسجيل…" : `تسجيل إتمام رد العربون (${money(r.expectedAmount)})`}
+                  </button>
+                ))}
+              </div>
+            )}
+
             {ACTIVE.has(d.booking.status) && (
               <button
                 type="button"

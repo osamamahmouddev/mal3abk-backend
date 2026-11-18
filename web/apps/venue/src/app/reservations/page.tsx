@@ -156,22 +156,6 @@ export default function ReservationsPage() {
   const pitchName = (id: string) => venue?.pitches.find((p) => p.id === id)?.name ?? "ملعب";
   const refresh = () => queryClient.invalidateQueries({ predicate: (query) => String(query.queryKey[0]).startsWith("booking") || query.queryKey[0] === "dashboard" });
 
-  const [confirmingBooking, setConfirmingBooking] = useState<Item | null>(null);
-
-  const confirmDepositRow = useMutation({
-    mutationFn: (bookingId: string) =>
-      unwrap((api.POST as any)("/api/v1/venue-manager/venues/{venueId}/bookings/{id}/confirm-deposit", {
-        params: { path: { venueId: venueId!, id: bookingId } },
-        body: {},
-      })),
-    onSuccess: async () => {
-      setConfirmingBooking(null);
-      await refresh();
-      setToast("تم تأكيد استلام العربون وتثبيت الحجز بنجاح.");
-    },
-    onError: (e: Error) => setToast(e.message),
-  });
-
   const exportList = () => {
     downloadCsv(
       "reservations.csv",
@@ -340,7 +324,6 @@ export default function ReservationsPage() {
                   canReview={can(P.proofsReview)}
                   canApprove={can(P.bookingsApprove)}
                   onDetails={() => setSelId(b.id)}
-                  onConfirmDeposit={() => setConfirmingBooking(b)}
                   compact={false}
                 />
               </li>
@@ -405,7 +388,6 @@ export default function ReservationsPage() {
                         canReview={can(P.proofsReview)}
                         canApprove={can(P.bookingsApprove)}
                         onDetails={() => setSelId(b.id)}
-                        onConfirmDeposit={() => setConfirmingBooking(b)}
                         compact
                       />
                     </td>
@@ -466,61 +448,6 @@ export default function ReservationsPage() {
         )}
       </div>
 
-      {confirmingBooking && (
-        <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-navy-950/60 backdrop-blur-xs animate-fade-in">
-          <div className="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl flex flex-col gap-4 animate-scale-in">
-            <div className="flex items-center gap-3">
-              <span className="size-10 rounded-xl bg-emerald-50 text-emerald-600 grid place-items-center shrink-0">
-                <CheckCircle2 className="size-6" />
-              </span>
-              <div className="flex flex-col">
-                <h3 className="text-base font-bold text-slate-900">تأكيد استلام العربون</h3>
-                <span className="text-xs text-slate-500">حجز يدوي #{confirmingBooking.reference}</span>
-              </div>
-            </div>
-
-            <div className="bg-slate-50 rounded-xl p-3.5 flex flex-col gap-2 text-sm border border-slate-100">
-              <div className="flex justify-between">
-                <span className={muted}>العميل</span>
-                <span className="font-semibold text-slate-900">{confirmingBooking.customerName || "—"}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className={muted}>مبلغ العربون المستلم</span>
-                <span className="font-bold text-emerald-700">{money(confirmingBooking.depositAmount, confirmingBooking.currency)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className={muted}>السعر الإجمالي</span>
-                <span className="font-semibold text-slate-900">{money(confirmingBooking.totalPrice, confirmingBooking.currency)}</span>
-              </div>
-            </div>
-
-            <p className="text-xs text-slate-600 leading-relaxed">
-              بتأكيد استلام العربون، ستتحول حالة الحجز فوراً إلى <strong>مؤكد</strong> وسيتم تثبيت الحجز في جدول الملعب.
-            </p>
-
-            <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-slate-100">
-              <button
-                type="button"
-                onClick={() => setConfirmingBooking(null)}
-                disabled={confirmDepositRow.isPending}
-                className="px-4 py-2.5 rounded-xl border border-slate-200 text-slate-700 text-sm font-semibold hover:bg-slate-50"
-              >
-                إلغاء
-              </button>
-              <button
-                type="button"
-                onClick={() => confirmDepositRow.mutate(confirmingBooking.id)}
-                disabled={confirmDepositRow.isPending}
-                className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold shadow-xs flex items-center gap-1.5"
-              >
-                <CheckCircle2 className="size-4" />
-                {confirmDepositRow.isPending ? "جاري التأكيد…" : "تأكيد واستلام العربون"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       <Toast message={toast} onClose={() => setToast(null)} />
     </Page>
   );
@@ -531,35 +458,28 @@ function RowActions({
   canReview,
   canApprove,
   onDetails,
-  onConfirmDeposit,
   compact,
 }: {
   b: Item;
   canReview: boolean;
   canApprove: boolean;
   onDetails: () => void;
-  onConfirmDeposit: () => void;
   compact: boolean;
 }) {
   const size = compact ? "min-h-[34px] px-3 rounded-[9px] text-xs" : "min-h-[40px] px-3.5 rounded-[10px] text-[13px]";
   return (
-    <div className="flex flex-wrap gap-1.5">
-      {b.isManual && b.status === 2 && canApprove && (
-        <button
-          type="button"
-          onClick={onConfirmDeposit}
-          className={`${size} bg-emerald-600 hover:bg-emerald-700 text-white font-bold inline-flex items-center gap-1.5 transition-colors`}
-        >
-          <CheckCircle2 className="size-3.5" />
-          تأكيد العربون
-        </button>
+    <div className="flex flex-wrap gap-1.5 items-center">
+      {b.status === 2 && (
+        <span className={`${size} bg-amber-50 text-amber-800 border border-amber-200/80 font-bold inline-flex items-center gap-1.5`}>
+          بانتظار تأكيد الإدارة
+        </span>
       )}
-      {canReview && (b.status === 3 || b.status === 4) && (
-        <Link href={`/reservations/proof-review?booking=${b.id}`} className={`${size} bg-navy-900 text-white font-bold inline-flex items-center`}>
-          مراجعة الإيصال
-        </Link>
+      {(b.status === 3 || b.status === 4) && (
+        <span className={`${size} bg-blue-50 text-blue-800 border border-blue-200/80 font-bold inline-flex items-center gap-1.5`}>
+          الإيصال قيد مراجعة الإدارة
+        </span>
       )}
-      <button type="button" onClick={onDetails} className={`${size} bg-[#EEF1F7] text-navy-900 font-semibold`}>
+      <button type="button" onClick={onDetails} className={`${size} bg-[#EEF1F7] hover:bg-slate-200 text-navy-900 font-semibold transition-colors`}>
         التفاصيل
       </button>
     </div>
@@ -588,7 +508,6 @@ function BookingDrawer({
   const { can } = useVenue();
   const [cancelOpen, setCancelOpen] = useState(false);
   const [noShowOpen, setNoShowOpen] = useState(false);
-  const [confirmDepositOpen, setConfirmDepositOpen] = useState(false);
   const path = { venueId, id: bookingId };
 
   const detail = useQuery({
@@ -596,24 +515,11 @@ function BookingDrawer({
     queryFn: () => unwrap(api.GET("/api/v1/venue-manager/venues/{venueId}/bookings/{id}", { params: { path } })),
   });
 
-  const confirmDeposit = useMutation({
-    mutationFn: () =>
-      unwrap((api.POST as any)("/api/v1/venue-manager/venues/{venueId}/bookings/{id}/confirm-deposit", {
-        params: { path },
-        body: {},
-      })),
-    onSuccess: async () => {
-      setConfirmDepositOpen(false);
-      await onChanged("تم تأكيد استلام العربون وتثبيت الحجز بنجاح.");
-    },
-    onError: (e: Error) => onError(e.message),
-  });
-
   const cancel = useMutation({
     mutationFn: (reason: string) => unwrap(api.POST("/api/v1/venue-manager/venues/{venueId}/bookings/{id}/cancel", { params: { path }, body: { reason } })),
     onSuccess: async () => {
       setCancelOpen(false);
-      await onChanged("اتلغى الحجز ووصل للاعب إشعار بالسبب. سجّل الاسترداد بعد التحويل.");
+      await onChanged("تم إلغاء الحجز وإحالته لإدارة المنصة لإرجاع العربون إلى اللاعب.");
     },
     onError: (e: Error) => onError(e.message),
   });
@@ -683,21 +589,13 @@ function BookingDrawer({
           <Link href="/customers" className="text-[13px] font-semibold text-navy-900 underline hover:text-brand-red">
             ملف العميل وسجل حجوزاته
           </Link>
-          {(isManual || b.isManual) && b.status === 2 && can(P.bookingsApprove) && (
-            <button
-              type="button"
-              disabled={confirmDeposit.isPending}
-              onClick={() => setConfirmDepositOpen(true)}
-              className="min-h-[44px] rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold flex items-center justify-center gap-2 shadow-xs transition-colors"
-            >
-              <CheckCircle2 className="size-4" />
-              تأكيد استلام العربون
-            </button>
-          )}
-          {(b.status === 3 || b.status === 4) && can(P.proofsReview) && (
-            <Link href={`/reservations/proof-review?booking=${b.id}`} className="min-h-[44px] rounded-xl bg-navy-900 text-white text-sm font-bold flex items-center justify-center">
-              مراجعة الإيصال
-            </Link>
+          {(b.status === 2 || b.status === 3 || b.status === 4) && (
+            <div className="bg-amber-50/80 border border-amber-200/80 rounded-xl p-3.5 flex flex-col gap-1.5 text-xs text-amber-900">
+              <span className="font-bold text-amber-800">تأكيد العربون يتم مركزياً بواسطة إدارة المنصة</span>
+              <p className="leading-relaxed text-amber-800/90 text-[11px]">
+                مبلغ العربون وعمولة المنصة يتم تحصيلها وتأكيدها بواسطة الإدارة. يُحصّل الملعب باقي المبلغ كاش عند حضور اللاعب.
+              </p>
+            </div>
           )}
           {canNoShow && (
             <button type="button" onClick={() => setNoShowOpen(true)} className="min-h-[44px] rounded-xl border border-[#C9CFD9] bg-white text-navy-900 text-sm font-bold">
@@ -705,9 +603,18 @@ function BookingDrawer({
             </button>
           )}
           {canCancel && (
-            <button type="button" onClick={() => setCancelOpen(true)} className="min-h-[44px] rounded-xl border border-[#F3C4BF] bg-white text-[#A8261C] text-sm font-bold">
-              إلغاء الحجز (يتطلب سبب)
-            </button>
+            <div className="flex flex-col gap-1">
+              <button
+                type="button"
+                onClick={() => setCancelOpen(true)}
+                className="min-h-[44px] rounded-xl border border-[#F3C4BF] bg-white hover:bg-red-50 text-[#A8261C] text-sm font-bold transition-colors cursor-pointer"
+              >
+                إلغاء الحجز (إحالة للإدارة لرد العربون)
+              </button>
+              <span className="text-[11px] text-slate-500 text-center leading-tight">
+                عند إلغاء الملعب للحجز، يُحال الطلب للإدارة لرد العربون للاعب.
+              </span>
+            </div>
           )}
         </>
       )}
@@ -716,8 +623,8 @@ function BookingDrawer({
         <ReasonDialog
           title={`إلغاء حجز ${b.customerName || b.reference}`}
           presets={REASONS}
-          note="الإلغاء من الملعب = استرداد العربون كامل للاعب. هتسجّل الاسترداد يدوي بعد التحويل."
-          confirmLabel="تأكيد الإلغاء"
+          note={`الإلغاء من طرف الملعب يستوجب رد العربون (${money(b.depositAmount, b.currency)}) للاعب. سيتم إحالة الطلب تلقائياً لإدارة المنصة لرد المبلغ.`}
+          confirmLabel="تأكيد الإلغاء والإحالة للإدارة"
           busy={cancel.isPending}
           onConfirm={(reason) => cancel.mutate(reason)}
           onClose={() => setCancelOpen(false)}
@@ -733,60 +640,6 @@ function BookingDrawer({
           onConfirm={(reason) => noShow.mutate(reason)}
           onClose={() => setNoShowOpen(false)}
         />
-      )}
-      {confirmDepositOpen && b && (
-        <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-navy-950/60 backdrop-blur-xs animate-fade-in">
-          <div className="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl flex flex-col gap-4 animate-scale-in">
-            <div className="flex items-center gap-3">
-              <span className="size-10 rounded-xl bg-emerald-50 text-emerald-600 grid place-items-center shrink-0">
-                <CheckCircle2 className="size-6" />
-              </span>
-              <div className="flex flex-col">
-                <h3 className="text-base font-bold text-slate-900">تأكيد استلام العربون</h3>
-                <span className="text-xs text-slate-500">حجز يدوي #{b.reference}</span>
-              </div>
-            </div>
-
-            <div className="bg-slate-50 rounded-xl p-3.5 flex flex-col gap-2 text-sm border border-slate-100">
-              <div className="flex justify-between">
-                <span className={muted}>العميل</span>
-                <span className="font-semibold text-slate-900">{b.customerName || "—"}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className={muted}>مبلغ العربون المستلم</span>
-                <span className="font-bold text-emerald-700">{money(b.depositAmount, b.currency)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className={muted}>السعر الإجمالي</span>
-                <span className="font-semibold text-slate-900">{money(b.totalPrice, b.currency)}</span>
-              </div>
-            </div>
-
-            <p className="text-xs text-slate-600 leading-relaxed">
-              بتأكيد استلام العربون، ستتحول حالة الحجز فوراً إلى <strong>مؤكد</strong> وسيتم تثبيت الحجز بالملعب.
-            </p>
-
-            <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-slate-100">
-              <button
-                type="button"
-                onClick={() => setConfirmDepositOpen(false)}
-                disabled={confirmDeposit.isPending}
-                className="px-4 py-2.5 rounded-xl border border-slate-200 text-slate-700 text-sm font-semibold hover:bg-slate-50"
-              >
-                إلغاء
-              </button>
-              <button
-                type="button"
-                onClick={() => confirmDeposit.mutate()}
-                disabled={confirmDeposit.isPending}
-                className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold shadow-xs flex items-center gap-1.5"
-              >
-                <CheckCircle2 className="size-4" />
-                {confirmDeposit.isPending ? "جاري التأكيد…" : "تأكيد واستلام العربون"}
-              </button>
-            </div>
-          </div>
-        </div>
       )}
     </aside>
   );

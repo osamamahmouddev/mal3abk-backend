@@ -66,11 +66,11 @@ public sealed class VenueCancelBookingHandler : ICommandHandler<VenueCancelBooki
             return cancelled;
         }
 
-        if (!booking.IsManualBooking && booking.DepositAmount.Amount > 0
-            && oldStatus is BookingStatus.Confirmed or BookingStatus.ProofSubmitted or BookingStatus.UnderReview)
+        if (booking.DepositAmount.Amount > 0
+            && oldStatus is BookingStatus.Confirmed or BookingStatus.ProofSubmitted or BookingStatus.UnderReview or BookingStatus.PendingDeposit)
         {
             _dbContext.BookingRefunds.Add(BookingRefund.CreatePending(
-                Guid.NewGuid(), booking.Id, booking.DepositAmount.Amount, booking.DepositAmount.Currency, reason, "Cancelled by the venue: full deposit refund.", nowUtc));
+                Guid.NewGuid(), booking.Id, booking.DepositAmount.Amount, booking.DepositAmount.Currency, reason, "Cancelled by the venue: full deposit refund owed to player by admin.", nowUtc));
         }
 
         try
