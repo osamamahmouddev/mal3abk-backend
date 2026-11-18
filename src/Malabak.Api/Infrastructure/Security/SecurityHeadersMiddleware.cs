@@ -19,7 +19,10 @@ public sealed class SecurityHeadersMiddleware
         {
             var headers = context.Response.Headers;
 
-            headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains; preload";
+            if (context.Request.IsHttps)
+            {
+                headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains; preload";
+            }
             headers["Content-Security-Policy"] = "default-src 'self'; frame-ancestors 'none'; object-src 'none'; base-uri 'self'";
             headers["X-Content-Type-Options"] = "nosniff";
             headers["X-Frame-Options"] = "DENY";
