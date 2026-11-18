@@ -116,3 +116,100 @@ export function timeLeft(utc: string | null | undefined, now = Date.now()): stri
 }
 
 export const percent = (value: number) => `${digits(String(Math.round(value)))}٪`;
+
+export type TimePeriod = "night" | "day";
+
+/**
+ * Computes minutes from local midnight of the business date.
+ * Egyptian venues operate late nights after midnight (12 AM, 1 AM, 2 AM, 3 AM, 4 AM)
+ * which calendar-wise belong to the next calendar day, but culturally belong to that night's match session.
+ */
+export function computeStartMinutes(hour12: number, minute: number, period: TimePeriod): number {
+  let businessHour: number;
+  if (period === "night") {
+    // 12 midnight, 1 AM, 2 AM, 3 AM, 4 AM, 5 AM, 6 AM are late-night hours of this night's session
+    if (hour12 === 12) {
+      businessHour = 24; // 12:00 منتصف الليل (00:00 اليوم التالي)
+    } else if (hour12 >= 1 && hour12 <= 6) {
+      businessHour = 24 + hour12; // 1 AM -> 25, 2 AM -> 26, 3 AM -> 27, 4 AM -> 28
+    } else {
+      // 7 PM, 8 PM, 9 PM, 10 PM, 11 PM
+      businessHour = 12 + hour12; // 7 PM -> 19, 8 PM -> 20, ..., 11 PM -> 23
+    }
+  } else {
+    // "الصبح" (صباحاً / نهاراً)
+    if (hour12 === 12) {
+      businessHour = 12; // 12:00 الظهر
+    } else if (hour12 >= 1 && hour12 <= 6) {
+      businessHour = 12 + hour12; // 1:00 الظهر -> 13, 2:00 الظهر -> 14, 3:00 العصر -> 15, ..., 6:00 المغرب -> 18
+    } else {
+      // 7 AM, 8 AM, 9 AM, 10 AM, 11 AM
+      businessHour = hour12; // 7 AM -> 7, 8 AM -> 8, ..., 11 AM -> 11
+    }
+  }
+  return businessHour * 60 + minute;
+}
+
+/**
+ * Parses minutes from the business date start back into 12-hour, minute, and period.
+ */
+export function parseStartMinutes(totalMinutes: number): { hour12: number; minute: number; period: TimePeriod } {
+  const businessHour = Math.floor(totalMinutes / 60);
+  const minute = totalMinutes % 60;
+
+  if (businessHour >= 24) {
+    const h = businessHour - 24;
+    return {
+      hour12: h === 0 ? 12 : h,
+      minute,
+      period: "night",
+    };
+  }
+  if (businessHour >= 19) {
+    return {
+      hour12: businessHour - 12,
+      minute,
+      period: "night",
+    };
+  }
+  if (businessHour >= 12) {
+    return {
+      hour12: businessHour === 12 ? 12 : businessHour - 12,
+      minute,
+      period: "day",
+    };
+  }
+  if (businessHour >= 7) {
+    return {
+      hour12: businessHour,
+      minute,
+      period: "day",
+    };
+  }
+  // If businessHour is 0..6 (00:00 to 06:00): in Egyptian venues, this represents late night ("بليل")
+  return {
+    hour12: businessHour === 0 ? 12 : businessHour,
+    minute,
+    period: "night",
+  };
+}
+
+/**
+ * Explains the selected business slot clearly so the user sees both the match session day and the actual calendar instant.
+ * Example:
+ * - 1 AM on Nov 25 evening: "سهرة الأربعاء ٢٥ نوفمبر — تقويمياً: فجر الخميس ٢٦ نوفمبر (١:٠٠ بليل)"
+ * - 8 PM on Nov 25: "الأربعاء ٢٥ نوفمبر، ٨:٠٠ بليل"
+ */
+export function formatBusinessSlotSummary(date: string, startMinutes: number): string {
+  const dayStartMs = new Date(cairoDayStartUtc(date)).getTime();
+  const startUtc = new Date(dayStartMs + startMinutes * 60_000).toISOString();
+  const baseDay = new Date(`${date}T12:00:00Z`).toLocaleDateString("ar-EG", { timeZone: "UTC", weekday: "long", day: "numeric", month: "long" });
+
+  if (startMinutes >= 1440) {
+    const actualNextDay = new Date(startUtc).toLocaleDateString("ar-EG", { timeZone: CAIRO, weekday: "long", day: "numeric", month: "long" });
+    const timeStr = cairoTime(startUtc);
+    return `سهرة ${baseDay} — (تقويمياً: فجر ${actualNextDay}، ${timeStr})`;
+  }
+
+  return `${baseDay}، ${cairoTime(startUtc)}`;
+}

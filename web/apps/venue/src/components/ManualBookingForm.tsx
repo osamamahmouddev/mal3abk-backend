@@ -6,8 +6,8 @@ import { z } from "zod";
 import { inputClass, muted, primaryBtn, secondaryBtn, toArabicDigits } from "@/components/ui";
 import { useVenue } from "@/components/Providers";
 import { api, unwrap } from "@/lib/api";
-import { addDays, cairoDay, cairoDayStartUtc, cairoTime, cairoToday, money } from "@/lib/booking-format";
-import { CalendarDays, Check, ChevronLeft, ChevronRight, Clock, Lock, RefreshCw, TriangleAlert } from "lucide-react";
+import { addDays, cairoDay, cairoDayStartUtc, cairoTime, cairoToday, computeStartMinutes, formatBusinessSlotSummary, money, parseStartMinutes } from "@/lib/booking-format";
+import { CalendarDays, Check, ChevronLeft, ChevronRight, Clock, Lock, Moon, RefreshCw, Sun, TriangleAlert } from "lucide-react";
 
 export interface ManualBookingDefaults {
   pitchId?: string;
@@ -24,9 +24,9 @@ const LAST_HOUR = 26;
 const HOURS = Array.from({ length: LAST_HOUR - FIRST_HOUR }, (_, i) => FIRST_HOUR + i);
 
 const hourLabel = (h: number) => {
-  const norm = h % 24;
+  const norm = ((h % 24) + 24) % 24;
   const h12 = norm % 12 === 0 ? 12 : norm % 12;
-  const period = norm < 12 ? "ص" : "م";
+  const period = (h >= 24 || norm < 5 || norm >= 17) ? "بليل" : norm < 12 ? "الصبح" : "الضهر";
   return `${toArabicDigits(h12)}:00 ${period}`;
 };
 
@@ -67,8 +67,163 @@ function depositError(payment: Payment, price: number | undefined, deposit: stri
   return undefined;
 }
 
-const pad = (n: number) => String(n).padStart(2, "0");
-const toHhmm = (minutes: number) => `${pad(Math.floor(minutes / 60) % 24)}:${pad(minutes % 60)}`;
+function ArabicTimePicker({
+  date,
+  valueMinutes,
+  onChange,
+  error,
+}: {
+  date: string;
+  valueMinutes: number;
+  onChange: (minutes: number) => void;
+  error?: string;
+}) {
+  const { hour12, minute, period } = parseStartMinutes(valueMinutes);
+
+  const quickChips = [
+    { label: "8:00 بليل", mins: 20 * 60 },
+    { label: "9:00 بليل", mins: 21 * 60 },
+    { label: "10:00 بليل", mins: 22 * 60 },
+    { label: "11:00 بليل", mins: 23 * 60 },
+    { label: "12:00 بليل", mins: 24 * 60 },
+    { label: "1:00 بليل", mins: 25 * 60 },
+    { label: "2:00 بليل", mins: 26 * 60 },
+  ];
+
+  return (
+    <div className="flex flex-col gap-2 sm:col-span-2">
+      <div className="flex items-center justify-between">
+        <label htmlFor="arabic-time-hour" className="text-sm font-semibold text-slate-800">
+          الساعة والميعاد
+        </label>
+        <span className="text-xs text-slate-500">حجوزات السهرة بعد 12 بليل تُربط بسهرة نفس اليوم تلقائياً</span>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-12 gap-2.5 p-3.5 bg-slate-50 border border-slate-200 rounded-2xl">
+        {/* Hour */}
+        <div className="sm:col-span-5 flex flex-col gap-1">
+          <label htmlFor="arabic-time-hour" className="text-xs font-semibold text-slate-600">
+            الساعة
+          </label>
+          <select
+            id="arabic-time-hour"
+            value={hour12}
+            onChange={(e) => {
+              const newH = Number(e.target.value);
+              onChange(computeStartMinutes(newH, minute, period));
+            }}
+            className={`${inputClass} bg-white font-bold text-slate-900`}
+          >
+            <option value={12}>12 ({period === "night" ? "منتصف الليل" : "الظهر"})</option>
+            <option value={1}>1</option>
+            <option value={2}>2</option>
+            <option value={3}>3</option>
+            <option value={4}>4</option>
+            <option value={5}>5</option>
+            <option value={6}>6</option>
+            <option value={7}>7</option>
+            <option value={8}>8</option>
+            <option value={9}>9</option>
+            <option value={10}>10</option>
+            <option value={11}>11</option>
+          </select>
+        </div>
+
+        {/* Minute */}
+        <div className="sm:col-span-3 flex flex-col gap-1">
+          <label htmlFor="arabic-time-minute" className="text-xs font-semibold text-slate-600">
+            الدقيقة
+          </label>
+          <select
+            id="arabic-time-minute"
+            value={minute}
+            onChange={(e) => {
+              const newM = Number(e.target.value);
+              onChange(computeStartMinutes(hour12, newM, period));
+            }}
+            className={`${inputClass} bg-white text-slate-900`}
+          >
+            <option value={0}>:00 (على رأس الساعة)</option>
+            <option value={15}>:15 (وربع)</option>
+            <option value={30}>:30 (ونصف)</option>
+            <option value={45}>:45 (إلا ربع)</option>
+          </select>
+        </div>
+
+        {/* Period (الصبح أو بليل) */}
+        <div className="sm:col-span-4 flex flex-col gap-1">
+          <span className="text-xs font-semibold text-slate-600">الفترة</span>
+          <div className="grid grid-cols-2 gap-1.5 h-[42px]" role="group" aria-label="فترة الحجز">
+            <button
+              type="button"
+              onClick={() => onChange(computeStartMinutes(hour12, minute, "night"))}
+              className={`rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                period === "night"
+                  ? "bg-navy-900 text-white shadow-xs"
+                  : "bg-white border border-slate-300 text-slate-700 hover:bg-slate-100"
+              }`}
+            >
+              <Moon className="size-3.5" />
+              <span>بليل</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => onChange(computeStartMinutes(hour12, minute, "day"))}
+              className={`rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                period === "day"
+                  ? "bg-amber-600 text-white shadow-xs"
+                  : "bg-white border border-slate-300 text-slate-700 hover:bg-slate-100"
+              }`}
+            >
+              <Sun className="size-3.5" />
+              <span>الصبح</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Quick match time chips */}
+      <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+        <span className="text-[11px] text-slate-500 font-medium">مواعيد سريعة:</span>
+        {quickChips.map((chip) => (
+          <button
+            key={chip.mins}
+            type="button"
+            onClick={() => onChange(chip.mins)}
+            className={`px-2.5 py-1 text-[11px] rounded-lg border font-semibold transition-all cursor-pointer ${
+              valueMinutes === chip.mins
+                ? "bg-emerald-700 text-white border-emerald-700 shadow-2xs font-bold"
+                : "bg-white border-slate-200 text-slate-700 hover:bg-slate-100 hover:border-slate-300"
+            }`}
+          >
+            {chip.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Reassurance Banner */}
+      <div
+        className={`p-2.5 rounded-xl border text-xs flex items-center gap-2 transition-all ${
+          valueMinutes >= 1440
+            ? "bg-indigo-50/90 border-indigo-200 text-indigo-950 font-medium shadow-2xs"
+            : "bg-emerald-50/90 border-emerald-200 text-emerald-950 font-medium shadow-2xs"
+        }`}
+      >
+        <Clock className="size-4 shrink-0 text-slate-500" />
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="font-bold">الميعاد المحدد:</span>
+          <span>{formatBusinessSlotSummary(date, valueMinutes)}</span>
+        </div>
+      </div>
+
+      {error && (
+        <span role="alert" className="text-xs font-normal text-[#A8261C]">
+          {error}
+        </span>
+      )}
+    </div>
+  );
+}
 
 /**
  * Manual (phone / walk-in) booking: confirmed straight away, nothing paid through the app. The price is suggested from the
@@ -90,7 +245,10 @@ export function ManualBookingForm({
   const pitches = venue?.pitches.filter((p) => p.isActive) ?? [];
   const [pitchId, setPitchId] = useState(defaults?.pitchId ?? pitches[0]?.id ?? "");
   const [date, setDate] = useState(defaults?.date ?? cairoToday());
-  const [time, setTime] = useState(toHhmm(defaults?.startMinutes ?? 20 * 60));
+  const initialMinutes = typeof defaults?.startMinutes === "number" && defaults.startMinutes >= 0
+    ? defaults.startMinutes
+    : 20 * 60;
+  const [startMinutes, setStartMinutes] = useState<number>(initialMinutes);
   const [duration, setDuration] = useState<number>(60);
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
@@ -101,8 +259,19 @@ export function ManualBookingForm({
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [serverError, setServerError] = useState<string | null>(null);
 
-  const [h, m] = time.split(":").map(Number);
-  const startUtc = new Date(new Date(cairoDayStartUtc(date)).getTime() + (h * 60 + m) * 60_000).toISOString();
+  useEffect(() => {
+    if (typeof defaults?.startMinutes === "number" && defaults.startMinutes >= 0) {
+      setStartMinutes(defaults.startMinutes);
+    }
+    if (defaults?.date) {
+      setDate(defaults.date);
+    }
+    if (defaults?.pitchId) {
+      setPitchId(defaults.pitchId);
+    }
+  }, [defaults?.startMinutes, defaults?.date, defaults?.pitchId]);
+
+  const startUtc = new Date(new Date(cairoDayStartUtc(date)).getTime() + startMinutes * 60_000).toISOString();
   const endUtc = new Date(new Date(startUtc).getTime() + duration * 60_000).toISOString();
 
   // Fetch all calendar slots for this venue & date range
@@ -228,8 +397,13 @@ export function ManualBookingForm({
           </select>,
         )}
         {field("date", "اليوم", <input id="date" type="date" value={date} onChange={(e) => setDate(e.target.value)} className={inputClass} />)}
-        {field("time", "الساعة", <input id="time" type="time" step={900} value={time} onChange={(e) => setTime(e.target.value)} className={inputClass} />)}
-        <fieldset className="flex flex-col gap-1 text-sm font-semibold">
+        <ArabicTimePicker
+          date={date}
+          valueMinutes={startMinutes}
+          onChange={setStartMinutes}
+          error={errors.time}
+        />
+        <fieldset className="flex flex-col gap-1 text-sm font-semibold sm:col-span-2">
           <legend className="mb-1">المدة</legend>
           <div className="flex gap-2">
             {DURATIONS.map((d) => (
@@ -486,7 +660,6 @@ export function ManualBookingForm({
           ) : (
             HOURS.map((hourVal) => {
               const hourMinutes = hourVal * 60;
-              const slotTimeStr = toHhmm(hourMinutes);
               const slotStartMs = new Date(cairoDayStartUtc(date)).getTime() + hourMinutes * 60_000;
               const slotEndMs = slotStartMs + 60 * 60_000;
 
@@ -499,7 +672,7 @@ export function ManualBookingForm({
 
               // Is this slot currently requested by the form?
               const isSelectedByForm = slotStartMs < reqEndMs && slotEndMs > reqStartMs;
-              const isStartingHour = slotTimeStr === time;
+              const isStartingHour = hourMinutes === startMinutes;
 
               if (overlapping.length > 0) {
                 const first = overlapping[0];
@@ -574,7 +747,7 @@ export function ManualBookingForm({
                 <button
                   key={hourVal}
                   type="button"
-                  onClick={() => setTime(slotTimeStr)}
+                  onClick={() => setStartMinutes(hourMinutes)}
                   className={`p-3 rounded-xl border flex items-center justify-between gap-3 text-xs text-right transition-all group ${
                     isStartingHour
                       ? "bg-emerald-50 border-emerald-600 ring-2 ring-emerald-600 text-emerald-950 font-bold shadow-xs"
