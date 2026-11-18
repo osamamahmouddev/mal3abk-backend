@@ -134,12 +134,26 @@ public sealed class WaitlistTests
     private sealed class FakeFieldCipher : IFieldCipher
     {
         public ValueTask<byte[]> EncryptAsync(string plaintext, FieldEncryptionContext context, CancellationToken cancellationToken = default) =>
-            ValueTask.FromResult(System.Text.Encoding.UTF8.GetBytes("ENC:" + plaintext));
+            ValueTask.FromResult(System.Text.Encoding.UTF8.GetBytes($"ENC:{context.RowId}:{plaintext}"));
 
         public ValueTask<string> DecryptAsync(byte[] ciphertext, FieldEncryptionContext context, CancellationToken cancellationToken = default)
         {
             var str = System.Text.Encoding.UTF8.GetString(ciphertext);
-            return ValueTask.FromResult(str.StartsWith("ENC:") ? str[4..] : str);
+            if (!str.StartsWith("ENC:"))
+            {
+                throw new InvalidOperationException("Not valid ciphertext");
+            }
+            var parts = str[4..].Split(':', 2);
+            if (parts.Length == 2 && Guid.TryParse(parts[0], out var originalRowId))
+            {
+                if (originalRowId != context.RowId)
+                {
+                    throw new System.Security.Cryptography.CryptographicException(
+                        $"AAD mismatch: encrypted with {originalRowId}, decrypting with {context.RowId}");
+                }
+                return ValueTask.FromResult(parts[1]);
+            }
+            return ValueTask.FromResult(parts[0]);
         }
 
         public ValueTask<bool> NeedsReEncryptionAsync(byte[] ciphertext, CancellationToken cancellationToken = default) =>

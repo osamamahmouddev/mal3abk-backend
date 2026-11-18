@@ -29,6 +29,7 @@ public sealed class WaitlistEntry
     public string? UserAgent { get; private set; }
 
     public static WaitlistEntry Create(
+        Guid id,
         WaitlistAudience audience,
         string? chosenPlan,
         byte[] phoneEncrypted,
@@ -37,7 +38,7 @@ public sealed class WaitlistEntry
         string? userAgent,
         DateTime nowUtc) => new()
         {
-            Id = Guid.CreateVersion7(),
+            Id = id,
             Audience = audience,
             ChosenPlan = string.IsNullOrWhiteSpace(chosenPlan) ? null : chosenPlan.Trim(),
             PhoneEncrypted = phoneEncrypted,

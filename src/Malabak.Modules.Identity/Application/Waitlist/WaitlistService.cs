@@ -76,6 +76,7 @@ public sealed class WaitlistService : IWaitlistService
         var cipherBytes = await _fieldCipher.EncryptAsync(normalizedPhone, newContext, cancellationToken);
 
         var entry = WaitlistEntry.Create(
+            newId,
             audience,
             chosenPlan,
             cipherBytes,
