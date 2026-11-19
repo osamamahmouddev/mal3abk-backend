@@ -532,8 +532,8 @@ export function ManualBookingForm({
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-      {/* Left Column: Booking Form */}
-      <div className="lg:col-span-5 xl:col-span-5 bg-white rounded-[20px] p-5 shadow-sm border border-slate-200">
+      {/* Primary Column: Booking Form */}
+      <div className="lg:col-span-7 xl:col-span-8 bg-white rounded-[20px] p-5 sm:p-6 shadow-sm border border-slate-200">
         <div className="flex items-center justify-between pb-3 mb-4 border-b border-slate-100">
           <h2 className="text-base font-extrabold text-slate-900 flex items-center gap-2">
             <span className="size-2 rounded-full bg-emerald-600" />
@@ -544,18 +544,18 @@ export function ManualBookingForm({
         {formElement}
       </div>
 
-      {/* Right Column: Live Interactive Day Schedule */}
-      <div className="lg:col-span-7 xl:col-span-7 bg-white rounded-[20px] p-5 shadow-sm border border-slate-200 flex flex-col gap-4">
+      {/* Side Column: Live Interactive Day Schedule */}
+      <div className="lg:col-span-5 xl:col-span-4 bg-white rounded-[20px] p-4 sm:p-5 shadow-sm border border-slate-200 flex flex-col gap-3.5">
         {/* Header & Date Controls */}
-        <div className="flex flex-col gap-3 pb-3 border-b border-slate-100">
+        <div className="flex flex-col gap-2.5 pb-3 border-b border-slate-100">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-2">
-              <div className="size-9 rounded-xl bg-emerald-50 text-emerald-800 flex items-center justify-center font-bold">
-                <CalendarDays className="size-5" />
+              <div className="size-8 rounded-xl bg-emerald-50 text-emerald-800 flex items-center justify-center font-bold">
+                <CalendarDays className="size-4" />
               </div>
               <div>
-                <h2 className="text-base font-extrabold text-slate-900">جدول الحجوزات والمواعيد</h2>
-                <p className="text-xs text-slate-500">اضغط على أي وقت متاح لاختياره تلقائياً للنموذج</p>
+                <h2 className="text-sm font-extrabold text-slate-900">جدول المواعيد</h2>
+                <p className="text-[11px] text-slate-500">اضغط أي متاح لاختياره فوراً</p>
               </div>
             </div>
 
@@ -567,7 +567,7 @@ export function ManualBookingForm({
                     key={p.id}
                     type="button"
                     onClick={() => setPitchId(p.id)}
-                    className={`px-2.5 py-1 text-xs rounded-lg font-bold transition-all ${
+                    className={`px-2 py-0.5 text-xs rounded-lg font-bold transition-all ${
                       pitchId === p.id
                         ? "bg-navy-900 text-white shadow-xs"
                         : "bg-slate-100 text-slate-600 hover:bg-slate-200"
@@ -581,12 +581,12 @@ export function ManualBookingForm({
           </div>
 
           {/* Date Navigator Bar */}
-          <div className="flex flex-wrap items-center justify-between gap-2 p-2.5 rounded-xl bg-slate-50 border border-slate-200">
-            <div className="flex items-center gap-2">
+          <div className="flex items-center justify-between gap-1.5 p-2 rounded-xl bg-slate-50 border border-slate-200">
+            <div className="flex items-center gap-1">
               <button
                 type="button"
                 onClick={() => setDate(cairoToday())}
-                className={`px-2.5 py-1 text-xs font-bold rounded-lg transition-all ${
+                className={`px-2 py-0.5 text-xs font-bold rounded-lg transition-all ${
                   date === cairoToday()
                     ? "bg-emerald-700 text-white shadow-2xs"
                     : "bg-white border border-slate-300 text-slate-700 hover:bg-slate-100"
@@ -594,64 +594,59 @@ export function ManualBookingForm({
               >
                 اليوم
               </button>
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-0.5">
                 <button
                   type="button"
                   title="اليوم السابق"
                   onClick={() => setDate(addDays(date, -1))}
-                  className="p-1 rounded-lg border border-slate-300 bg-white text-slate-600 hover:bg-slate-100"
+                  className="p-1 rounded-lg border border-slate-300 bg-white text-slate-600 hover:bg-slate-100 cursor-pointer"
                 >
-                  <ChevronRight className="size-4" />
+                  <ChevronRight className="size-3.5" />
                 </button>
-                <span className="text-xs font-bold text-slate-900 px-2 min-w-[130px] text-center">
+                <span className="text-xs font-bold text-slate-900 px-1 min-w-[95px] text-center">
                   {cairoDay(cairoDayStartUtc(date))}
                 </span>
                 <button
                   type="button"
                   title="اليوم التالي"
                   onClick={() => setDate(addDays(date, 1))}
-                  className="p-1 rounded-lg border border-slate-300 bg-white text-slate-600 hover:bg-slate-100"
+                  className="p-1 rounded-lg border border-slate-300 bg-white text-slate-600 hover:bg-slate-100 cursor-pointer"
                 >
-                  <ChevronLeft className="size-4" />
+                  <ChevronLeft className="size-3.5" />
                 </button>
               </div>
             </div>
 
-            <div className="flex items-center gap-2 text-xs">
-              <span className="font-mono text-slate-600 bg-white px-2 py-0.5 rounded border border-slate-200" dir="ltr">
+            <div className="flex items-center gap-1 text-xs">
+              <span className="font-mono text-[11px] text-slate-600 bg-white px-1.5 py-0.5 rounded border border-slate-200" dir="ltr">
                 {date}
               </span>
-              {currentPitch && (
-                <span className="font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
-                  {currentPitch.name}
-                </span>
-              )}
             </div>
           </div>
 
           {/* Color Legend */}
-          <div className="flex flex-wrap items-center gap-3 text-xs pt-1 text-slate-600">
-            <span className="flex items-center gap-1.5 font-medium">
-              <span className="size-3 rounded-full bg-emerald-500 border border-emerald-600" />
-              متاح (اضغط لاختياره)
+          <div className="flex flex-wrap items-center gap-2 text-[11px] pt-0.5 text-slate-600">
+            <span className="flex items-center gap-1 font-medium">
+              <span className="size-2 rounded-full bg-emerald-500" />
+              متاح
             </span>
-            <span className="flex items-center gap-1.5 font-medium">
-              <span className="size-3 rounded-full bg-navy-900" />
-              محجوز ومؤكد
+            <span className="flex items-center gap-1 font-medium">
+              <span className="size-2 rounded-full bg-navy-900" />
+              محجوز
             </span>
-            <span className="flex items-center gap-1.5 font-medium">
-              <span className="size-3 rounded-full bg-amber-400 border border-amber-500" />
-              قيد المراجعة / العربون
+            <span className="flex items-center gap-1 font-medium">
+              <span className="size-2 rounded-full bg-amber-400" />
+              عربون
             </span>
-            <span className="flex items-center gap-1.5 font-medium">
-              <span className="size-3 rounded-full bg-slate-400 border border-slate-500" />
-              محظور ومغلق
+            <span className="flex items-center gap-1 font-medium">
+              <span className="size-2 rounded-full bg-slate-400" />
+              مغلق
             </span>
           </div>
         </div>
 
         {/* Slots Timeline */}
-        <div className="flex flex-col gap-2 max-h-[580px] overflow-y-auto pr-1">
+        <div className="flex flex-col gap-1.5 max-h-[600px] overflow-y-auto pr-1">
           {calendarQuery.isLoading ? (
             <div className="p-8 text-center text-sm text-slate-500 flex items-center justify-center gap-2">
               <RefreshCw className="size-4 animate-spin text-emerald-600" />
@@ -682,7 +677,7 @@ export function ManualBookingForm({
                 return (
                   <div
                     key={hourVal}
-                    className={`p-3 rounded-xl border flex items-center justify-between gap-3 text-xs transition-all ${
+                    className={`p-2.5 rounded-xl border flex items-center justify-between gap-2 text-xs transition-all ${
                       isSelectedByForm
                         ? "border-red-400 bg-red-50/60 ring-2 ring-red-400"
                         : isBlocked
@@ -692,42 +687,35 @@ export function ManualBookingForm({
                             : "bg-slate-50 border-slate-300 text-slate-900"
                     }`}
                   >
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <span className="font-mono font-bold text-slate-600 bg-white px-2 py-1 rounded border border-slate-200 shrink-0">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="font-mono text-xs font-bold text-slate-600 bg-white px-1.5 py-0.5 rounded border border-slate-200 shrink-0">
                         {hourLabel(hourVal)}
                       </span>
                       <div className="flex flex-col min-w-0">
-                        <div className="flex items-center gap-1.5 font-bold truncate">
+                        <div className="flex items-center gap-1 font-bold truncate">
                           {isBlocked ? (
                             <>
-                              <Lock className="size-3.5 text-slate-500 shrink-0" />
-                              <span className="text-slate-800">{first.reason || "فترة محظورة ومغلقة"}</span>
+                              <Lock className="size-3 text-slate-500 shrink-0" />
+                              <span className="text-slate-800 text-xs truncate">{first.reason || "محظور ومغلق"}</span>
                             </>
                           ) : (
-                            <>
-                              <span className="truncate">{first.customerName || "حجز مسجل"}</span>
-                              {first.bookingReference && (
-                                <span className="font-mono text-[10px] text-slate-500 bg-white px-1.5 py-0.2 rounded border border-slate-200">
-                                  #{first.bookingReference}
-                                </span>
-                              )}
-                            </>
+                            <span className="truncate text-xs">{first.customerName || "حجز مسجل"}</span>
                           )}
                         </div>
-                        <span className="text-[11px] text-slate-500 mt-0.5">
+                        <span className="text-[10px] text-slate-500">
                           {cairoTime(first.startUtc)} – {cairoTime(first.endUtc)}
                         </span>
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-2 shrink-0">
+                    <div className="flex items-center gap-1.5 shrink-0">
                       {isSelectedByForm && (
-                        <span className="text-[11px] font-bold text-red-600 bg-white px-2 py-0.5 rounded border border-red-200">
-                          يتعارض مع اختيارك!
+                        <span className="text-[10px] font-bold text-red-600 bg-white px-1.5 py-0.2 rounded border border-red-200">
+                          يتعارض!
                         </span>
                       )}
                       <span
-                        className={`font-bold px-2.5 py-1 rounded-lg text-[11px] ${
+                        className={`font-bold px-2 py-0.5 rounded text-[10px] ${
                           isBlocked
                             ? "bg-slate-200 text-slate-700"
                             : isPending
@@ -735,7 +723,7 @@ export function ManualBookingForm({
                               : "bg-navy-900 text-white"
                         }`}
                       >
-                        {isBlocked ? "محظور" : isPending ? "بانتظار العربون" : "محجوز"}
+                        {isBlocked ? "محظور" : isPending ? "عربون" : "محجوز"}
                       </span>
                     </div>
                   </div>
@@ -748,7 +736,7 @@ export function ManualBookingForm({
                   key={hourVal}
                   type="button"
                   onClick={() => setStartMinutes(hourMinutes)}
-                  className={`p-3 rounded-xl border flex items-center justify-between gap-3 text-xs text-right transition-all group ${
+                  className={`p-2.5 rounded-xl border flex items-center justify-between gap-2 text-xs text-right transition-all group cursor-pointer ${
                     isStartingHour
                       ? "bg-emerald-50 border-emerald-600 ring-2 ring-emerald-600 text-emerald-950 font-bold shadow-xs"
                       : isSelectedByForm
@@ -756,9 +744,9 @@ export function ManualBookingForm({
                         : "bg-white border-slate-200 hover:border-emerald-500 hover:bg-emerald-50/30 text-slate-800"
                   }`}
                 >
-                  <div className="flex items-center gap-2.5">
+                  <div className="flex items-center gap-2 min-w-0">
                     <span
-                      className={`font-mono px-2 py-1 rounded border shrink-0 transition-colors ${
+                      className={`font-mono text-xs px-1.5 py-0.5 rounded border shrink-0 transition-colors ${
                         isStartingHour
                           ? "bg-emerald-700 text-white border-emerald-700 font-bold"
                           : "bg-slate-100 text-slate-700 border-slate-200 group-hover:bg-white"
@@ -766,21 +754,21 @@ export function ManualBookingForm({
                     >
                       {hourLabel(hourVal)}
                     </span>
-                    <span className="font-semibold text-emerald-800 flex items-center gap-1.5">
+                    <span className="font-semibold text-emerald-800 flex items-center gap-1 text-xs truncate">
                       <span className="size-2 rounded-full bg-emerald-500 shrink-0" />
-                      متاح للحجز ({hourLabel(hourVal)} إلى {hourLabel(hourVal + 1)})
+                      متاح للحجز
                     </span>
                   </div>
 
-                  <div className="flex items-center gap-1.5 shrink-0">
+                  <div className="flex items-center gap-1 shrink-0">
                     {isStartingHour ? (
-                      <span className="bg-emerald-700 text-white text-[11px] font-bold px-2 py-0.5 rounded-md flex items-center gap-1">
+                      <span className="bg-emerald-700 text-white text-[10px] font-bold px-1.5 py-0.5 rounded flex items-center gap-1">
                         <Check className="size-3" />
-                        الميعاد المختار حالياً
+                        المختار
                       </span>
                     ) : (
                       <span className="text-[11px] text-slate-400 group-hover:text-emerald-700 font-medium transition-colors">
-                        اضغط للاختيار ‹
+                        اختيار ‹
                       </span>
                     )}
                   </div>
