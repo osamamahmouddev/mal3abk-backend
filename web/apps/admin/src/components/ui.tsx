@@ -155,9 +155,21 @@ export function Segmented<T extends string>({
   );
 }
 
-export function SearchBox({ value, onChange, placeholder }: { value: string; onChange: (v: string) => void; placeholder: string }) {
+export function SearchBox({
+  value,
+  onChange,
+  placeholder,
+  className = "",
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  placeholder: string;
+  className?: string;
+}) {
   return (
-    <div className="flex-[1_1_260px] min-w-0 flex items-center gap-2 min-h-[44px] bg-white border border-[#DCE0E8] rounded-xl px-3 transition-all duration-150 ease-out focus-within:border-ink focus-within:ring-2 focus-within:ring-ink focus-within:shadow-[0_0_0_3px_rgba(10,19,48,0.08)]">
+    <div
+      className={`w-full h-11 min-h-[44px] max-h-[44px] shrink-0 min-w-0 flex items-center gap-2 bg-white border border-[#DCE0E8] rounded-xl px-3 transition-all duration-150 ease-out focus-within:border-ink focus-within:ring-2 focus-within:ring-ink focus-within:shadow-[0_0_0_3px_rgba(10,19,48,0.08)] ${className}`}
+    >
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#5B6475" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
         <circle cx="11" cy="11" r="7" />
         <path d="M20 20l-4-4" />
@@ -167,7 +179,7 @@ export function SearchBox({ value, onChange, placeholder }: { value: string; onC
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
         aria-label="بحث"
-        className="flex-1 min-w-0 border-none outline-none text-sm bg-transparent text-slate-900"
+        className="flex-1 min-w-0 border-none outline-none text-sm bg-transparent text-slate-900 placeholder:text-slate-400"
       />
     </div>
   );

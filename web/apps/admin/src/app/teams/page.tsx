@@ -95,8 +95,12 @@ function Reports({ notice }: { notice: Notice }) {
   });
 
   return (
-    <>
-      <Select label="الحالة" value={status} onChange={(v) => { setStatus(v); setPage(1); }} options={REPORT_STATUS} />
+    <div className="flex flex-col gap-4">
+      <div className="bg-white p-3 sm:p-3.5 rounded-2xl border border-slate-200/90 shadow-xs flex flex-wrap items-center gap-3">
+        <div className="w-full sm:w-60">
+          <Select label="الحالة" value={status} onChange={(v) => { setStatus(v); setPage(1); }} options={REPORT_STATUS} />
+        </div>
+      </div>
       <QueryState
         query={reports}
         isEmpty={(d) => d.items.length === 0}
@@ -153,7 +157,7 @@ function Reports({ notice }: { notice: Notice }) {
           </div>
         )}
       </QueryState>
-    </>
+    </div>
   );
 }
 
@@ -286,8 +290,25 @@ function Teams({ notice }: { notice: Notice }) {
   });
 
   return (
-    <>
-      <SearchBox value={q} onChange={(v) => { setQ(v); setPage(1); }} placeholder="اسم الفريق أو المدينة" />
+    <div className="flex flex-col gap-4">
+      <div className="bg-white p-3 sm:p-3.5 rounded-2xl border border-slate-200/90 shadow-xs flex flex-wrap items-center justify-between gap-3">
+        <div className="w-full sm:w-80">
+          <SearchBox value={q} onChange={(v) => { setQ(v); setPage(1); }} placeholder="ابحث باسم الفريق أو المدينة..." />
+        </div>
+        {q && (
+          <button
+            type="button"
+            onClick={() => {
+              setQ("");
+              setPage(1);
+            }}
+            className="text-xs font-bold text-slate-500 hover:text-slate-800 px-3 py-1.5 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
+          >
+            إعادة ضبط
+          </button>
+        )}
+      </div>
+
       <QueryState
         query={teams}
         isEmpty={(d) => d.items.length === 0}
@@ -339,6 +360,6 @@ function Teams({ notice }: { notice: Notice }) {
         )}
       </QueryState>
       <ReasonModal request={reason} onClose={() => setReason(null)} />
-    </>
+    </div>
   );
 }
