@@ -7,11 +7,17 @@ using Microsoft.AspNetCore.SignalR;
 
 namespace Malabak.Api.Infrastructure.Realtime;
 
+/// <summary>
+/// A slot was held, booked or freed. <see cref="ChangedAtUtc"/> orders updates: a client keeps the newest one per
+/// slot and drops one that arrives late (after a reconnect, say).
+/// </summary>
 public sealed record SlotStatusChangedNotification(
     Guid PitchId,
     DateTime StartUtc,
     DateTime EndUtc,
-    string Status);
+    string Status,
+    Guid VenueId,
+    DateTime ChangedAtUtc);
 
 public sealed record BookingUpdatedNotification(
     Guid BookingId,
