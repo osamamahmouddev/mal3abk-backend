@@ -51,6 +51,11 @@ public sealed class DecideVenueApprovalHandler : ICommandHandler<DecideVenueAppr
             return Result.Failure<VenueApprovalDto>(transition.Error);
         }
 
+        if (command.Decision == VenueApprovalDecision.Approve)
+        {
+            venue.SetPublished(true, nowUtc);
+        }
+
         _dbContext.ApprovalEvents.Add(transition.Value);
         await _dbContext.SaveChangesAsync(cancellationToken);
 
