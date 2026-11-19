@@ -251,9 +251,9 @@ export default function WaitlistPage() {
       {notice.node}
 
       {/* Metric Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
         {/* Total Leads */}
-        <div className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-[0_1px_3px_rgba(15,23,42,0.05)] flex items-center justify-between relative overflow-hidden group hover:border-slate-300 transition-all">
+        <div className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs flex items-center justify-between relative overflow-hidden group hover:border-slate-300 transition-all">
           <div className="flex flex-col gap-1.5 z-10">
             <span className={`text-xs font-semibold ${muted}`}>إجمالي المسجلين في القائمة</span>
             <div className="flex items-baseline gap-2">
@@ -265,13 +265,13 @@ export default function WaitlistPage() {
               أعضاء مؤسسين (VIP Early Adopters)
             </span>
           </div>
-          <div className="size-13 rounded-2xl bg-gradient-to-br from-slate-100 to-slate-200/80 text-slate-700 flex items-center justify-center shadow-xs border border-slate-200/60 group-hover:scale-105 transition-transform">
-            <Users className="size-6 text-slate-700" />
+          <div className="w-12 h-12 rounded-2xl bg-slate-100 text-slate-700 flex items-center justify-center shadow-2xs border border-slate-200/80 group-hover:scale-105 transition-transform shrink-0">
+            <Users className="w-6 h-6 text-slate-700" />
           </div>
         </div>
 
         {/* Players in Current Page */}
-        <div className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-[0_1px_3px_rgba(15,23,42,0.05)] flex items-center justify-between relative overflow-hidden group hover:border-emerald-300 transition-all">
+        <div className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs flex items-center justify-between relative overflow-hidden group hover:border-emerald-300 transition-all">
           <div className="flex flex-col gap-1.5 z-10">
             <span className={`text-xs font-semibold ${muted}`}>اللاعبين في الصفحة الحالية</span>
             <div className="flex items-baseline gap-2">
@@ -283,13 +283,13 @@ export default function WaitlistPage() {
               مؤهلين لأول حجز بدون أي عمولة
             </span>
           </div>
-          <div className="size-13 rounded-2xl bg-gradient-to-br from-emerald-50 to-teal-100 text-emerald-700 flex items-center justify-center shadow-xs border border-emerald-200/60 group-hover:scale-105 transition-transform">
-            <Trophy className="size-6 text-emerald-700" />
+          <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-700 flex items-center justify-center shadow-2xs border border-emerald-200/80 group-hover:scale-105 transition-transform shrink-0">
+            <Trophy className="w-6 h-6 text-emerald-700" />
           </div>
         </div>
 
         {/* Venue Owners in Current Page */}
-        <div className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-[0_1px_3px_rgba(15,23,42,0.05)] flex items-center justify-between relative overflow-hidden group hover:border-amber-300 transition-all">
+        <div className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs flex items-center justify-between relative overflow-hidden group hover:border-amber-300 transition-all">
           <div className="flex flex-col gap-1.5 z-10">
             <span className={`text-xs font-semibold ${muted}`}>أصحاب الملاعب في الصفحة الحالية</span>
             <div className="flex items-baseline gap-2">
@@ -301,16 +301,16 @@ export default function WaitlistPage() {
               مؤهلين لفترة تجريبية مجانية موسعة
             </span>
           </div>
-          <div className="size-13 rounded-2xl bg-gradient-to-br from-amber-50 to-orange-100 text-amber-700 flex items-center justify-center shadow-xs border border-amber-200/60 group-hover:scale-105 transition-transform">
-            <Building2 className="size-6 text-amber-700" />
+          <div className="w-12 h-12 rounded-2xl bg-amber-50 text-amber-700 flex items-center justify-center shadow-2xs border border-amber-200/80 group-hover:scale-105 transition-transform shrink-0">
+            <Building2 className="w-6 h-6 text-amber-700" />
           </div>
         </div>
       </div>
 
       {/* Search & Filter Toolbar */}
-      <div className="flex flex-wrap gap-3 items-center justify-between bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs">
-        <div className="flex flex-wrap gap-2.5 items-center flex-1 min-w-[280px]">
-          <div className="flex-[1_1_260px] max-w-md">
+      <div className="bg-white p-3 sm:p-3.5 rounded-2xl border border-slate-200/90 shadow-xs flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-2.5 flex-1 min-w-[280px]">
+          <div className="w-full sm:w-72 lg:w-80 shrink-0">
             <SearchBox
               value={search}
               onChange={(v) => {
@@ -320,47 +320,80 @@ export default function WaitlistPage() {
               placeholder="ابحث برقم الموبايل، الكود أو الباقة..."
             />
           </div>
-          <Select
-            label="الجمهور"
-            value={audience}
-            onChange={(v) => {
-              setAudience(v);
-              setPage(1);
-            }}
-            options={AUDIENCE_OPTIONS}
-          />
-          <Select
-            label="الباقة المختارة"
-            value={plan}
-            onChange={(v) => {
-              setPlan(v);
-              setPage(1);
-            }}
-            options={PLAN_OPTIONS}
-          />
+
+          <div className="w-40 sm:w-44 shrink-0">
+            <select
+              aria-label="الجمهور"
+              value={audience}
+              onChange={(e) => {
+                setAudience(e.target.value);
+                setPage(1);
+              }}
+              className="w-full min-h-[44px] px-3 rounded-xl border border-[#C9CFD9] bg-white text-xs font-semibold text-slate-800 hover:border-slate-400 focus:outline-none focus:ring-2 focus:ring-ink focus:border-ink transition-all cursor-pointer"
+            >
+              {AUDIENCE_OPTIONS.map(([v, t]) => (
+                <option key={v} value={v}>
+                  {t}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="w-40 sm:w-44 shrink-0">
+            <select
+              aria-label="الباقة المختارة"
+              value={plan}
+              onChange={(e) => {
+                setPlan(e.target.value);
+                setPage(1);
+              }}
+              className="w-full min-h-[44px] px-3 rounded-xl border border-[#C9CFD9] bg-white text-xs font-semibold text-slate-800 hover:border-slate-400 focus:outline-none focus:ring-2 focus:ring-ink focus:border-ink transition-all cursor-pointer"
+            >
+              {PLAN_OPTIONS.map(([v, t]) => (
+                <option key={v} value={v}>
+                  {t}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {(audience || plan || search) && (
+            <button
+              type="button"
+              onClick={() => {
+                setAudience("");
+                setPlan("");
+                setSearch("");
+                setPage(1);
+              }}
+              className="min-h-[44px] px-3 rounded-xl text-xs font-bold text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors cursor-pointer"
+            >
+              إعادة ضبط
+            </button>
+          )}
         </div>
 
         {/* View Switcher: Cards vs Table */}
         <div className="inline-flex rounded-xl bg-slate-100 p-1 border border-slate-200 shrink-0">
           <button
             type="button"
-            className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all ${
+            className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
               viewMode === "cards" ? "bg-white text-slate-900 shadow-xs" : "text-[#5B6475] hover:text-slate-900"
             }`}
             onClick={() => setViewMode("cards")}
           >
             <LayoutGrid className="size-3.5" />
-            بطاقات
+            <span>بطاقات</span>
           </button>
           <button
             type="button"
-            className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all ${
+            className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
               viewMode === "table" ? "bg-white text-slate-900 shadow-xs" : "text-[#5B6475] hover:text-slate-900"
             }`}
             onClick={() => setViewMode("table")}
           >
             <Table2 className="size-3.5" />
-            جدول
+            <span>جدول</span>
           </button>
         </div>
       </div>
@@ -397,7 +430,7 @@ export default function WaitlistPage() {
                 <span className={`text-xs ${muted}`}>لا يوجد مسجل برقم الموبايل أو المعايير التي أدخلتها.</span>
               </div>
             ) : viewMode === "cards" ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4.5">
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5 sm:gap-6">
                 {filteredItems.map((item) => {
                   const isV = isVenue(item);
                   const phoneInfo = formatWaitlistPhone(item.phone);
@@ -406,19 +439,19 @@ export default function WaitlistPage() {
                   return (
                     <div
                       key={item.id}
-                      className="bg-white rounded-2xl p-5 flex flex-col justify-between gap-4 border border-slate-200/90 shadow-[0_1px_3px_rgba(15,23,42,0.04)] hover:shadow-lg hover:border-slate-300 transition-all relative overflow-hidden group"
+                      className="bg-white rounded-2xl p-5 flex flex-col justify-between gap-4 border border-slate-200 shadow-xs hover:shadow-md hover:border-slate-300 transition-all relative overflow-hidden group"
                     >
                       {/* Top Header Row */}
                       <div className="flex items-center justify-between gap-3">
                         <div className="flex items-center gap-3">
                           <div
-                            className={`size-11 rounded-2xl flex items-center justify-center shrink-0 ${
+                            className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 ${
                               isV
-                                ? "bg-gradient-to-br from-amber-50 to-orange-100/70 text-amber-700 border border-amber-200/80 shadow-xs"
-                                : "bg-gradient-to-br from-emerald-50 to-teal-100/70 text-emerald-700 border border-emerald-200/80 shadow-xs"
+                                ? "bg-amber-100/90 text-amber-800 border border-amber-200/80 shadow-xs"
+                                : "bg-emerald-100/90 text-emerald-800 border border-emerald-200/80 shadow-xs"
                             }`}
                           >
-                            {isV ? <Building2 className="size-5" /> : <Users className="size-5" />}
+                            {isV ? <Building2 className="w-5 h-5 text-amber-800" /> : <Users className="w-5 h-5 text-emerald-800" />}
                           </div>
                           <div className="flex flex-col">
                             <div className="flex items-center gap-2">
@@ -442,17 +475,17 @@ export default function WaitlistPage() {
                         </div>
 
                         <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-xl bg-gradient-to-r from-amber-50 to-amber-100/60 text-amber-800 border border-amber-300/60 shadow-2xs shrink-0">
-                          <Sparkles className="size-3 text-amber-600" />
+                          <Sparkles className="w-3.5 h-3.5 text-amber-600" />
                           مؤسس VIP
                         </span>
                       </div>
 
                       {/* Phone Box Container */}
-                      <div className="bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl p-3 flex items-center justify-between gap-3">
+                      <div className="bg-slate-50/80 border border-slate-200/80 rounded-xl p-3 flex items-center justify-between gap-3">
                         {phoneInfo.isEncrypted ? (
                           <div className="flex items-center gap-2.5">
-                            <div className="size-8 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center shrink-0">
-                              <AlertTriangle className="size-4" />
+                            <div className="w-9 h-9 rounded-lg bg-amber-50 text-amber-600 border border-amber-200/60 flex items-center justify-center shrink-0">
+                              <AlertTriangle className="w-4 h-4 text-amber-600" />
                             </div>
                             <div className="flex flex-col">
                               <span className="text-xs font-bold text-amber-900">سجل تجريبي سابق</span>
@@ -461,8 +494,8 @@ export default function WaitlistPage() {
                           </div>
                         ) : (
                           <div className="flex items-center gap-2.5">
-                            <div className="size-8 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
-                              <Phone className="size-4" />
+                            <div className="w-9 h-9 rounded-lg bg-emerald-100/80 text-emerald-800 border border-emerald-200/60 flex items-center justify-center shrink-0">
+                              <Phone className="w-4 h-4 text-emerald-700" />
                             </div>
                             <div className="flex flex-col">
                               <span className="text-base font-extrabold font-mono tracking-wider text-slate-900" dir="ltr">
@@ -482,7 +515,7 @@ export default function WaitlistPage() {
                               title="حذف هذا السجل التجريبي القديم"
                               className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 transition-colors cursor-pointer"
                             >
-                              <Trash2 className="size-3 text-rose-600" />
+                              <Trash2 className="w-3.5 h-3.5 text-rose-600" />
                               <span>حذف</span>
                             </button>
                           ) : (
@@ -493,7 +526,7 @@ export default function WaitlistPage() {
                                 title="نسخ الرقم"
                                 className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 shadow-2xs transition-colors cursor-pointer"
                               >
-                                {isCopied ? <Check className="size-3 text-emerald-600" /> : <Copy className="size-3" />}
+                                {isCopied ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
                                 <span>{isCopied ? "تم" : "نسخ"}</span>
                               </button>
 
@@ -505,7 +538,7 @@ export default function WaitlistPage() {
                                   title="محادثة واتساب مباشرة"
                                   className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold bg-[#25D366] hover:bg-[#20ba5a] text-white shadow-xs transition-colors"
                                 >
-                                  <MessageSquare className="size-3.5 fill-white text-white" />
+                                  <MessageSquare className="w-3.5 h-3.5 fill-white text-white" />
                                   <span>واتساب</span>
                                 </a>
                               )}
@@ -516,7 +549,7 @@ export default function WaitlistPage() {
                                   title="اتصال هاتفي مباشر"
                                   className="p-1.5 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-100 border border-slate-200 bg-white transition-colors"
                                 >
-                                  <PhoneCall className="size-3.5" />
+                                  <PhoneCall className="w-3.5 h-3.5" />
                                 </a>
                               )}
 
@@ -526,7 +559,7 @@ export default function WaitlistPage() {
                                 title="حذف السجل"
                                 className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 border border-transparent hover:border-rose-200 transition-colors cursor-pointer"
                               >
-                                <Trash2 className="size-3.5" />
+                                <Trash2 className="w-3.5 h-3.5" />
                               </button>
                             </>
                           )}
