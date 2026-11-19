@@ -73,6 +73,8 @@ jobs:
           development_settings.setdefault("ConnectionStrings", {})["Postgres"] = os.environ["PRODUCTION_POSTGRES_CONNECTION"]
           development_settings.setdefault("ConnectionStrings", {})["Redis"] = os.environ["PRODUCTION_REDIS_CONNECTION"]
           development_settings.setdefault("Database", {})["ConnectionString"] = os.environ["PRODUCTION_POSTGRES_CONNECTION"]
+          development_settings.setdefault("Database", {})["ResetOnStartup"] = True
+          development_settings.setdefault("Database", {})["SeedOnStartup"] = True
           development_settings.setdefault("Redis", {})["ConnectionString"] = os.environ["PRODUCTION_REDIS_CONNECTION"]
           development_settings["Redis"]["Ssl"] = True
           development_settings.setdefault("Identity", {}).setdefault("OtpDelivery", {})["Provider"] = "WhatsApp"
@@ -144,6 +146,8 @@ jobs:
           web_config = patch_environment_variable(web_config, "Security__StepUp__SecretKey", os.environ["SECURITY_STEPUP_SECRET"])
           web_config = patch_environment_variable(web_config, "Security__Turnstile__SecretKey", os.environ["SECURITY_TURNSTILE_SECRET"])
           web_config = patch_environment_variable(web_config, "Security__Turnstile__BypassInDevelopment", "true")
+          web_config = patch_environment_variable(web_config, "Database__ResetOnStartup", "true")
+          web_config = patch_environment_variable(web_config, "Database__SeedOnStartup", "true")
           web_config = patch_environment_variable(web_config, "Identity__OtpDelivery__Provider", "WhatsApp")
           web_config = patch_environment_variable(web_config, "Identity__OtpDelivery__WhatsApp__ApiKey", os.environ.get("OTP_WHATSAPP_API_KEY", "was_SBdrYUiYjK3_wxo_XtqIr9j5Gr_ehUZY"))
           web_config = patch_environment_variable(web_config, "Identity__OtpDelivery__Slack__WebhookUrl", os.environ["OTP_SLACK_WEBHOOK"])

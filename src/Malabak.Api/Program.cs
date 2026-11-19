@@ -354,7 +354,28 @@ if (args.Contains("--migrate"))
 }
 
 // Hosts without a release step or terminal (e.g. MonsterASP, Render free tier) migrate on startup instead; off by default.
-if (app.Configuration.GetValue<bool>("Database:MigrateOnStartup"))
+if (app.Configuration.GetValue<bool>("Database:ResetOnStartup"))
+{
+    using var scope = app.Services.CreateScope();
+    app.Logger.LogWarning("RESETTING DATABASE ON STARTUP (Database:ResetOnStartup is true)...");
+    await DatabaseMigrator.ResetAndMigrateAllAsync(scope.ServiceProvider);
+
+    if (app.Configuration.GetValue<bool>("Database:SeedOnStartup"))
+    {
+        var refSeeder = scope.ServiceProvider.GetRequiredService<ReferenceDataSeeder>();
+        await refSeeder.SeedAsync();
+
+        if (app.Environment.IsDevelopment())
+        {
+            var demoSeeder = scope.ServiceProvider.GetRequiredService<DemoDataSeeder>();
+            await demoSeeder.SeedAsync();
+
+            var devSeeder = scope.ServiceProvider.GetRequiredService<DevAccountsSeeder>();
+            await devSeeder.SeedAsync();
+        }
+    }
+}
+else if (app.Configuration.GetValue<bool>("Database:MigrateOnStartup"))
 {
     using var scope = app.Services.CreateScope();
     await DatabaseMigrator.MigrateAllAsync(scope.ServiceProvider);
@@ -367,11 +388,14 @@ if (app.Configuration.GetValue<bool>("Database:MigrateOnStartup"))
         var refSeeder = scope.ServiceProvider.GetRequiredService<ReferenceDataSeeder>();
         await refSeeder.SeedAsync();
 
-        var demoSeeder = scope.ServiceProvider.GetRequiredService<DemoDataSeeder>();
-        await demoSeeder.SeedAsync();
+        if (app.Environment.IsDevelopment())
+        {
+            var demoSeeder = scope.ServiceProvider.GetRequiredService<DemoDataSeeder>();
+            await demoSeeder.SeedAsync();
 
-        var devSeeder = scope.ServiceProvider.GetRequiredService<DevAccountsSeeder>();
-        await devSeeder.SeedAsync();
+            var devSeeder = scope.ServiceProvider.GetRequiredService<DevAccountsSeeder>();
+            await devSeeder.SeedAsync();
+        }
     }
 }
 
