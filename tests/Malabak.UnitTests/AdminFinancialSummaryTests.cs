@@ -56,6 +56,8 @@ public sealed class AdminFinancialSummaryTests
         row.CommissionCollected.Should().Be(40);
         row.CommissionOutstanding.Should().Be(40);
         row.PlatformOwesVenue.Should().Be(60);
+        row.VenueDepositShare.Should().Be(120, "deposits 200 minus commission 80");
+        (row.VenueDepositShare + row.TotalDueAtVenueCash).Should().Be(row.TotalVenueNetAmount);
 
         // What the venue ends up with = its own deposits + cash at the venue + what the platform pays it - commission it still owes.
         var venueDeposits = row.TotalDepositAmount - row.PlatformCollectedOnline;

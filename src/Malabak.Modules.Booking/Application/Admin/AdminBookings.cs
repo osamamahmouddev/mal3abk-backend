@@ -620,7 +620,9 @@ public sealed class AdminBookingService
                 TotalDueAtVenueCash: rows.Sum(r => Math.Max(0m, r.TotalPrice - r.DepositAmount)),
                 PendingRefundsCount: vRefunds.Count,
                 PendingRefundsAmount: vRefunds.Sum(r => r.ExpectedRefundAmount),
-                VenueDepositShare: platformOwesVenue,
+                // Deposit minus commission, signed: negative when the commission is larger than the deposits. With the cash due at
+                // the venue it always adds up to the venue's net.
+                VenueDepositShare: rows.Sum(r => r.DepositAmount - r.Commission),
                 Currency: "EGP",
                 ManualBookings: confirmed.Count(b => b.IsManualBooking),
                 PlatformCollectedOnline: rows.Sum(r => r.Online),
