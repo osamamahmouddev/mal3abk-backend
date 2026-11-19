@@ -587,6 +587,22 @@ function VenueDrawer({ venueId, onClose }: { venueId: string | null; onClose: ()
     onError: notice.fail,
   });
 
+  const togglePublish = useMutation({
+    mutationFn: (isPublished: boolean) =>
+      unwrap(
+        (api as any).POST("/api/v1/admin/venues/{venueId}/publish", {
+          params: { path: { venueId: venueId! } },
+          body: { isPublished },
+        }),
+      ),
+    onSuccess: async (_, isPublished) => {
+      notice.ok(isPublished ? "تم نشر الملعب بنجاح وهيظهر في التطبيق الآن." : "تم إلغاء نشر الملعب وتحويله لمسودة.");
+      await queryClient.invalidateQueries({ queryKey: ["admin-venue", venueId] });
+      await queryClient.invalidateQueries({ queryKey: ["admin-venues"] });
+    },
+    onError: notice.fail,
+  });
+
   type Kind = "suspend" | "reactivate" | "ask" | "note" | "owner";
   const action = useMutation({
     mutationFn: ({ kind, text }: { kind: Kind; text: string }) => {
@@ -797,6 +813,26 @@ function VenueDrawer({ venueId, onClose }: { venueId: string | null; onClose: ()
 
               {/* Action Buttons */}
               <div className="flex flex-wrap gap-2">
+                {v.approvalStatus === "Approved" && !v.isPublished && (
+                  <button
+                    type="button"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-emerald-600 text-white hover:bg-emerald-700 shadow-sm transition"
+                    onClick={() => togglePublish.mutate(true)}
+                    disabled={togglePublish.isPending}
+                  >
+                    {togglePublish.isPending ? "جاري النشر…" : "نشر الملعب للجمهور (تفعيل الظهور)"}
+                  </button>
+                )}
+                {v.approvalStatus === "Approved" && v.isPublished && (
+                  <button
+                    type="button"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-700 text-white hover:bg-slate-800 shadow-sm transition"
+                    onClick={() => togglePublish.mutate(false)}
+                    disabled={togglePublish.isPending}
+                  >
+                    {togglePublish.isPending ? "جاري التحديث…" : "إلغاء النشر (تحويل لمسودة)"}
+                  </button>
+                )}
                 {v.approvalStatus === "Approved" && (
                   <button type="button" className={btnDanger} onClick={() => ask("suspend", "إيقاف الملعب", "الملعب هيختفي من التطبيق ومحدش هيقدر يحجز، بس الحجوزات القديمة هتفضل.", "إيقاف")}>
                     إيقاف الملعب

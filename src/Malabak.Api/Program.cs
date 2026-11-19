@@ -423,6 +423,28 @@ if (args.Contains("--seed-dev-accounts"))
     return;
 }
 
+// Ensure all approved venues are published so they appear immediately in mobile app & explore
+using (var scope = app.Services.CreateScope())
+{
+    var venuesDb = scope.ServiceProvider.GetService<Malabak.Modules.Venues.Infrastructure.VenuesDbContext>();
+    if (venuesDb != null)
+    {
+        var unpublishedApproved = await venuesDb.Venues
+            .Where(v => v.ApprovalStatus == Malabak.Modules.Venues.Domain.VenueApprovalStatus.Approved && !v.IsPublished && !v.IsDeleted)
+            .ToListAsync();
+        if (unpublishedApproved.Count > 0)
+        {
+            var nowUtc = DateTime.UtcNow;
+            foreach (var v in unpublishedApproved)
+            {
+                v.SetPublished(true, nowUtc);
+            }
+            await venuesDb.SaveChangesAsync();
+            app.Logger.LogInformation("Auto-published {Count} approved venues on startup.", unpublishedApproved.Count);
+        }
+    }
+}
+
 // Configure Middleware Pipeline
 app.UseSerilogRequestLogging(options =>
 {

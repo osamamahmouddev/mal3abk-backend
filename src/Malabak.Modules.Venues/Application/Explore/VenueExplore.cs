@@ -541,6 +541,17 @@ public sealed partial class VenueExplore
             string.Equals(a.Code, key, StringComparison.OrdinalIgnoreCase)
             || string.Equals(a.NameEn, key, StringComparison.OrdinalIgnoreCase)
             || string.Equals(a.NameAr, key, StringComparison.Ordinal));
+
+        if (curated is null)
+        {
+            curated = EgyptReferenceData.Governorates
+                .SelectMany(g => g.Areas)
+                .FirstOrDefault(a =>
+                    string.Equals(a.Code, key, StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(a.NameEn, key, StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(a.NameAr, key, StringComparison.Ordinal));
+        }
+
         List<string> areas = curated is null
             ? [key.ToLowerInvariant()]
             : [curated.Code.ToLowerInvariant(), curated.NameEn.ToLowerInvariant(), curated.NameAr];

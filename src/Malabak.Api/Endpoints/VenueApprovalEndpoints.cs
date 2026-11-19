@@ -3,10 +3,12 @@ using Asp.Versioning.Builder;
 using Malabak.Api.Infrastructure.Authorization;
 using Malabak.Modules.Venues.Application.Admin;
 using Malabak.Modules.Venues.Application.Approvals;
+using Malabak.Modules.Venues.Infrastructure;
 using Malabak.SharedKernel;
 using Malabak.SharedKernel.Authorization;
 using Malabak.SharedKernel.Contracts;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace Malabak.Api.Endpoints;
 
@@ -107,7 +109,35 @@ public static class VenueApprovalEndpoints
         .Produces<VenueCommissionDto>()
         .WithName("GetVenueCommission")
         .WithSummary("Get the pricing model and platform commission configuration for a venue");
+
+        admin.MapPost("/{venueId:guid}/publish", async (
+            Guid venueId,
+            [FromBody] AdminPublishVenueRequest request,
+            VenuesDbContext dbContext,
+            CancellationToken ct) =>
+        {
+            var venue = await dbContext.Venues.FirstOrDefaultAsync(v => v.Id == venueId && !v.IsDeleted, ct);
+            if (venue is null)
+            {
+                return Results.NotFound(new { message = "Venue not found." });
+            }
+
+            if (request.IsPublished && !venue.IsApproved)
+            {
+                return Results.BadRequest(new { message = "Cannot publish a venue that is not approved." });
+            }
+
+            venue.SetPublished(request.IsPublished, DateTime.UtcNow);
+            await dbContext.SaveChangesAsync(ct);
+
+            return Results.Ok(new { message = request.IsPublished ? "Venue published successfully." : "Venue unpublished successfully.", isPublished = request.IsPublished });
+        })
+        .Produces<object>()
+        .WithName("AdminPublishVenue")
+        .WithSummary("Admin publish or unpublish a venue");
     }
+
+    public sealed record AdminPublishVenueRequest(bool IsPublished);
 
     public sealed record UpdateVenueCommissionRequest(
         PricingModel PricingModel,
