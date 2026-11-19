@@ -2,36 +2,29 @@
 
 import React, { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Page, PageHeader, SearchBox, btnOutline, btnPrimary, btnSmall, card, money, muted, toArabicDigits } from "@/components/ui";
+import { KpiCard, Page, PageHeader, SearchBox, Segmented, btnOutline, card, money, muted } from "@/components/ui";
 import { Field, QueryState, TextInput, num } from "@/components/admin";
 import { api, unwrap } from "@/lib/api";
-import {
-  AlertTriangle,
-  Building2,
-  CheckCircle2,
-  Coins,
-  Download,
-  Flame,
-  LayoutGrid,
-  Percent,
-  Search,
-  ShieldAlert,
-  Table2,
-  TrendingUp,
-  Users,
-  Wallet,
-} from "lucide-react";
+import { AlertTriangle, Coins, Download, Info, Percent, Wallet } from "lucide-react";
 
 const METHOD: Record<string, string> = { Cash: "كاش", BankTransfer: "تحويل بنكي", InstaPay: "إنستاباي", MobileWallet: "محفظة" };
 
+/** How each figure is computed. Kept in step with AdminBookingService.GetVenuesFinancialSummaryAsync. */
 const DEFINITIONS: [string, string][] = [
-  ["MRR", "الإيراد الشهري المتكرر دلوقتي: سعر الباقة الشهري للاشتراكات الشهرية، والسنوي ÷ ١٢ للسنوية. الاشتراكات النشطة وفترة السماح بس، من غير التجربة."],
-  ["الإيراد المحصّل", "فلوس اتسجل استلامها فعلًا في الفترة (بتاريخ الدفع)، من غير الدفعات اللي فاتورتها اتلغت. ده كاش، مش MRR."],
-  ["عمولة المنصة", "مجموع عمولات منصة ملعبك المحتسبة عن ساعات الحجز المنفذة في كل ملعب وتدخل حساب المنصة."],
-  ["العربون المحصّل", "مبالغ العربون المدفوعة مقدماً للمنصة لتثبيت الحجز، وتخصم منها عمولة المنصة."],
-  ["صافي مستحقات الملعب", "إجمالي نصيب صاحب الملعب الفعلي بعد خصم عمولة المنصة، ويشمل ما تم تحصيله أو ما سيُحصّل كاش عند الحضور."],
-  ["المطلوب تحصيله كاش بالملعب", "المبالغ المتبقية على اللاعبين التي تُسدد مباشرة لصاحب الملعب عند الحضور."],
-  ["إحالات استرداد العربون", "مبالغ العرابين المحالة لإدارة المنصة لردها للاعبين نتيجة إلغاء الملاعب للحجوزات."],
+  ["إجمالي الحجز", "مجموع سعر الحجوزات المؤكدة واللي اتلعبت في الفترة. الحجز اللي لسه مستني العربون مش محسوب."],
+  ["عمولة المنصة", "عمولة ملعبك على الحجوزات اللي جات من التطبيق. الحجز اليدوي اللي الملعب سجله بنفسه مالوش عمولة."],
+  ["العربون المحصّل", "عربون الحجوزات المؤكدة بس. عربون الحجز اللي لسه مستني الإيصال مش محسوب لأنه ما اتدفعش."],
+  ["صافي مستحقات الملعب", "نصيب الملعب من العربون: العربون ناقص عمولة المنصة. لو العمولة أكبر من العربون بيطلع بالسالب، يعني الملعب عليه الفرق للمنصة."],
+  ["المدفوع في الملعب", "باقي سعر الحجز اللي اللاعب بيدفعه للملعب لما ييجي. رقم للعلم بس، مش داخل في المستحقات."],
+  ["إحالات استرداد العربون", "عرابين لازم ترجع للاعبين لأن الملعب لغى الحجز."],
+  ["MRR", "الإيراد الشهري المتكرر من اشتراكات الملاك النشطة وفترة السماح (السنوي ÷ ١٢)، من غير التجربة."],
+];
+
+const RANGES: [string, string][] = [
+  ["7", "٧ أيام"],
+  ["30", "٣٠ يوم"],
+  ["90", "٣ شهور"],
+  ["custom", "تاريخ معيّن"],
 ];
 
 interface VenueFinancialSummaryItem {
@@ -49,17 +42,30 @@ interface VenueFinancialSummaryItem {
   venueDepositShare?: number;
   pendingRefundsCount: number;
   pendingRefundsAmount: number;
-  currency: string;
+  manualBookings?: number;
+  commissionCollected?: number;
+  commissionOutstanding?: number;
 }
 
 function isoDay(offsetDays: number) {
   return new Date(Date.now() + offsetDays * 86_400_000).toISOString().slice(0, 10);
 }
 
+/** Deposit minus commission, signed. Older API responses without the field get the same formula. */
+const depositShareOf = (v: VenueFinancialSummaryItem) => v.venueDepositShare ?? v.totalDepositAmount - v.totalPlatformCommission;
+
+/** A signed amount: negative shows as "عليه" so a venue's debt never reads like money it is owed. */
+function Signed({ value }: { value: number }) {
+  return value < 0 ? <span className="text-[#A8261C]">عليه {money(-value)}</span> : <>{money(value)}</>;
+}
+
 export default function ReportsPage() {
-  const [from, setFrom] = useState(isoDay(-29));
-  const [to, setTo] = useState(isoDay(0));
+  const [range, setRange] = useState("30");
+  const [customFrom, setCustomFrom] = useState(isoDay(-29));
+  const [customTo, setCustomTo] = useState(isoDay(0));
   const [venueSearch, setVenueSearch] = useState("");
+  const from = range === "custom" ? customFrom : isoDay(-(Number(range) - 1));
+  const to = range === "custom" ? customTo : isoDay(0);
   const valid = from <= to;
 
   const dashboard = useQuery({
@@ -74,96 +80,68 @@ export default function ReportsPage() {
     queryFn: () => unwrap(api.GET("/api/v1/admin/invoices/reconciliation", { params: { query: { from, to } } })),
   });
 
-  const financialSummaryQuery = useQuery({
+  const summary = useQuery({
     queryKey: ["admin-venues-financial-summary", from, to],
     enabled: valid,
     queryFn: () =>
       unwrap(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (api.GET as any)("/api/v1/admin/bookings/financial-summary", {
-          params: {
-            query: {
-              fromUtc: from ? `${from}T00:00:00Z` : undefined,
-              toUtc: to ? `${to}T23:59:59Z` : undefined,
-            },
-          },
+          params: { query: { fromUtc: `${from}T00:00:00Z`, toUtc: `${to}T23:59:59Z` } },
         }),
       ) as Promise<VenueFinancialSummaryItem[]>,
   });
 
-  const venuesList = financialSummaryQuery.data ?? [];
-  const filteredVenues = useMemo(() => {
-    if (!venueSearch.trim()) return venuesList;
+  const venues = useMemo(() => summary.data ?? [], [summary.data]);
+  const shown = useMemo(() => {
     const term = venueSearch.trim().toLowerCase();
-    return venuesList.filter((v) => v.venueName.toLowerCase().includes(term));
-  }, [venuesList, venueSearch]);
+    const list = term ? venues.filter((v) => v.venueName.toLowerCase().includes(term)) : venues;
+    return [...list].sort((a, b) => b.totalGrossAmount - a.totalGrossAmount);
+  }, [venues, venueSearch]);
 
-  // Aggregated totals across all venues
-  const totals = useMemo(() => {
-    return venuesList.reduce(
-      (acc, v) => ({
-        bookings: acc.bookings + v.totalBookings,
-        confirmed: acc.confirmed + v.confirmedBookings,
-        cancelled: acc.cancelled + v.cancelledBookings,
-        gross: acc.gross + v.totalGrossAmount,
-        deposits: acc.deposits + v.totalDepositAmount,
-        commission: acc.commission + v.totalPlatformCommission,
-        venueNet: acc.venueNet + v.totalVenueNetAmount,
-        dueAtVenue: acc.dueAtVenue + v.totalDueAtVenueCash,
-        refundsCount: acc.refundsCount + v.pendingRefundsCount,
-        refundsAmount: acc.refundsAmount + v.pendingRefundsAmount,
-        depositShare: acc.depositShare + (v.venueDepositShare ?? Math.max(0, v.totalDepositAmount - v.totalPlatformCommission)),
-      }),
-      {
-        bookings: 0,
-        confirmed: 0,
-        cancelled: 0,
-        gross: 0,
-        deposits: 0,
-        commission: 0,
-        venueNet: 0,
-        dueAtVenue: 0,
-        refundsCount: 0,
-        refundsAmount: 0,
-        depositShare: 0,
-      },
-    );
-  }, [venuesList]);
+  const t = useMemo(
+    () =>
+      venues.reduce(
+        (a, v) => ({
+          bookings: a.bookings + v.totalBookings,
+          confirmed: a.confirmed + v.confirmedBookings,
+          cancelled: a.cancelled + v.cancelledBookings,
+          manual: a.manual + (v.manualBookings ?? 0),
+          gross: a.gross + v.totalGrossAmount,
+          deposits: a.deposits + v.totalDepositAmount,
+          commission: a.commission + v.totalPlatformCommission,
+          collected: a.collected + (v.commissionCollected ?? 0),
+          outstanding: a.outstanding + (v.commissionOutstanding ?? 0),
+          depositShare: a.depositShare + depositShareOf(v),
+          dueAtVenue: a.dueAtVenue + v.totalDueAtVenueCash,
+          venueNet: a.venueNet + v.totalVenueNetAmount,
+          refunds: a.refunds + v.pendingRefundsAmount,
+          refundsCount: a.refundsCount + v.pendingRefundsCount,
+        }),
+        { bookings: 0, confirmed: 0, cancelled: 0, manual: 0, gross: 0, deposits: 0, commission: 0, collected: 0, outstanding: 0, depositShare: 0, dueAtVenue: 0, venueNet: 0, refunds: 0, refundsCount: 0 },
+      ),
+    [venues],
+  );
 
-  const handleExportVenuesCsv = () => {
-    if (venuesList.length === 0) return;
-    const headers = [
-      "اسم الملعب",
-      "إجمالي الحجوزات",
-      "حجوزات مؤكدة",
-      "حجوزات ملغية",
-      "إجمالي الحجز (ج.م)",
-      "العربون المحصل (ج.م)",
-      "عمولة المنصة (ج.م)",
-      "نصيب الملعب من العربون (ج.م)",
-      "المتبقي كاش بالملعب (ج.م)",
-      "صافي مستحقات الملعب (ج.م)",
-      "إحالات استرداد معلقة (عدد)",
-      "مبالغ الاسترداد المعلقة (ج.م)",
-    ];
-
-    const rows = venuesList.map((v) => [
+  const exportCsv = () => {
+    if (venues.length === 0) return;
+    const headers = ["اسم الملعب", "إجمالي الحجوزات", "حجوزات مؤكدة", "حجوزات ملغية", "حجوزات يدوية", "إجمالي الحجز (ج.م)", "العربون المحصل (ج.م)", "عمولة المنصة (ج.م)", "صافي مستحقات الملعب = العربون - العمولة (ج.م)", "إحالات استرداد معلقة (عدد)", "مبالغ الاسترداد المعلقة (ج.م)", "المدفوع في الملعب - للعلم (ج.م)"];
+    const rows = venues.map((v) => [
       `"${v.venueName.replace(/"/g, '""')}"`,
       v.totalBookings,
       v.confirmedBookings,
       v.cancelledBookings,
+      v.manualBookings ?? 0,
       v.totalGrossAmount.toFixed(2),
       v.totalDepositAmount.toFixed(2),
       v.totalPlatformCommission.toFixed(2),
-      ((v.venueDepositShare ?? Math.max(0, v.totalDepositAmount - v.totalPlatformCommission))).toFixed(2),
-      v.totalDueAtVenueCash.toFixed(2),
-      v.totalVenueNetAmount.toFixed(2),
+      depositShareOf(v).toFixed(2),
       v.pendingRefundsCount,
       v.pendingRefundsAmount.toFixed(2),
+      v.totalDueAtVenueCash.toFixed(2),
     ]);
-
-    const csvContent = "\uFEFF" + [headers.join(","), ...rows.map((r) => r.join(","))].join("\r\n");
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
+    const csv = "﻿" + [headers.join(","), ...rows.map((r) => r.join(","))].join("\r\n");
+    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8;" }));
     const link = document.createElement("a");
     link.href = url;
     link.download = `malabak-venues-financial-summary-${from}-to-${to}.csv`;
@@ -171,227 +149,148 @@ export default function ReportsPage() {
     URL.revokeObjectURL(url);
   };
 
+  const th = "py-2.5 px-2.5 font-semibold whitespace-nowrap";
+  const td = "py-3 px-2.5 whitespace-nowrap";
+
   return (
-    <Page>
+    <Page className="gap-5">
       <PageHeader
         title="الإيرادات والحسابات والتقارير المالية"
-        sub="تقرير شامل لعمولات المنصة، مبالغ العرابين، صافي مستحقات الملاعب بعد خصم العمولة، وإحالات الاسترداد."
-      />
-
-      {/* Date Filter Bar */}
-      <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
-        <div className="flex flex-wrap items-center gap-3">
-          <Field label="من تاريخ">
-            <TextInput type="date" value={from} max={to} onChange={(e) => setFrom(e.target.value)} />
-          </Field>
-          <Field label="إلى تاريخ">
-            <TextInput type="date" value={to} min={from} onChange={(e) => setTo(e.target.value)} />
-          </Field>
-        </div>
-
-        <button
-          type="button"
-          onClick={handleExportVenuesCsv}
-          disabled={venuesList.length === 0}
-          className={`${btnPrimary} gap-2 text-xs`}
-        >
-          <Download className="size-4" />
-          تصدير تقرير الملاعب المالي (CSV)
+        sub="عمولات المنصة، والعرابين، وصافي مستحقات الملاعب بعد العمولة، وإحالات الاسترداد."
+      >
+        <button type="button" onClick={exportCsv} disabled={venues.length === 0} className={`${btnOutline} text-[13px]`}>
+          <Download className="size-4" aria-hidden />
+          تصدير تقرير الملاعب (CSV)
         </button>
+      </PageHeader>
+
+      <div className="flex flex-wrap items-end gap-3">
+        <Segmented label="الفترة" items={RANGES} value={range} onChange={setRange} />
+        {range === "custom" && (
+          <div className="flex flex-wrap items-end gap-2">
+            <Field label="من تاريخ">
+              <TextInput type="date" value={customFrom} max={customTo} onChange={(e) => setCustomFrom(e.target.value)} />
+            </Field>
+            <Field label="إلى تاريخ">
+              <TextInput type="date" value={customTo} min={customFrom} onChange={(e) => setCustomTo(e.target.value)} />
+            </Field>
+          </div>
+        )}
+        {!valid && <span className="text-[13px] text-[#A8261C]">تاريخ البداية لازم يكون قبل النهاية.</span>}
       </div>
 
-      {/* Primary KPI Section for Venues & Platform Commissions */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5">
-        {/* Total Platform Commission */}
-        <div className="bg-gradient-to-br from-purple-50 to-indigo-50/70 border border-purple-200/80 rounded-2xl p-4 flex flex-col justify-between shadow-xs">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-purple-900">عمولة المنصة</span>
-            <div className="size-8 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center">
-              <Percent className="size-4" />
-            </div>
-          </div>
-          <div className="mt-2.5">
-            <strong className="text-2xl font-extrabold text-purple-950">{money(totals.commission)}</strong>
-            <span className="text-[11px] text-purple-700 block mt-0.5">دخل المنصة المخصوم من العرابين</span>
-          </div>
-        </div>
-
-        {/* Total Deposits Handled */}
-        <div className="bg-gradient-to-br from-emerald-50 to-teal-50/70 border border-emerald-200/80 rounded-2xl p-4 flex flex-col justify-between shadow-xs">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-emerald-900">إجمالي العرابين المحصلة</span>
-            <div className="size-8 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center">
-              <Coins className="size-4" />
-            </div>
-          </div>
-          <div className="mt-2.5">
-            <strong className="text-2xl font-extrabold text-emerald-950">{money(totals.deposits)}</strong>
-            <span className="text-[11px] text-emerald-700 block mt-0.5">العربون المدفوع أونلاين لتثبيت الحجز</span>
-          </div>
-        </div>
-
-        {/* Remitted Deposits to Venues (Deposit - Commission) */}
-        <div className="bg-gradient-to-br from-teal-50 to-cyan-50/70 border border-teal-200/80 rounded-2xl p-4 flex flex-col justify-between shadow-xs">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-teal-900">مستحق للملاعب من العربون</span>
-            <div className="size-8 rounded-xl bg-teal-100 text-teal-700 flex items-center justify-center">
-              <Coins className="size-4" />
-            </div>
-          </div>
-          <div className="mt-2.5">
-            <strong className="text-2xl font-extrabold text-teal-950">{money(totals.depositShare)}</strong>
-            <span className="text-[11px] text-teal-700 block mt-0.5">العربون بعد خصم عمولة المنصة منه</span>
-          </div>
-        </div>
-
-        {/* Total Net Due to Venues */}
-        <div className="bg-gradient-to-br from-blue-50 to-sky-50/70 border border-blue-200/80 rounded-2xl p-4 flex flex-col justify-between shadow-xs">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-blue-900">صافي مستحقات الملاعب الكلية</span>
-            <div className="size-8 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center">
-              <Wallet className="size-4" />
-            </div>
-          </div>
-          <div className="mt-2.5">
-            <strong className="text-2xl font-extrabold text-blue-950">{money(totals.venueNet)}</strong>
-            <span className="text-[11px] text-blue-700 block mt-0.5">الإجمالي (كاش بالملعب + نصيب العربون)</span>
-          </div>
-        </div>
-
-        {/* Pending Refunds (Cancelled by Venues) */}
-        <div className="bg-gradient-to-br from-amber-50 to-orange-50/70 border border-amber-200/80 rounded-2xl p-4 flex flex-col justify-between shadow-xs">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-amber-900">إحالات استرداد معلقة</span>
-            <div className="size-8 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center">
-              <AlertTriangle className="size-4" />
-            </div>
-          </div>
-          <div className="mt-2.5">
-            <div className="flex items-baseline gap-2">
-              <strong className="text-2xl font-extrabold text-amber-950">{money(totals.refundsAmount)}</strong>
-              <span className="text-xs text-amber-800 font-semibold">({toArabicDigits(totals.refundsCount)} إحالة)</span>
-            </div>
-            <span className="text-[11px] text-amber-700 block mt-0.5">بسبب إلغاء الملاعب للحجوزات</span>
-          </div>
-        </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
+        <KpiCard
+          icon={<Percent className="size-4" aria-hidden />}
+          tone="red"
+          label="عمولة المنصة"
+          value={money(t.commission)}
+          hint={t.commission > 0 ? `اتحصّل ${money(t.collected)} · لسه ${money(t.outstanding)}` : "مفيش عمولة في الفترة دي"}
+        />
+        <KpiCard
+          icon={<Coins className="size-4" aria-hidden />}
+          tone="navy"
+          label="إجمالي العرابين المحصّلة"
+          value={money(t.deposits)}
+          hint={`عربون ${num(t.confirmed)} حجز مؤكد`}
+        />
+        <KpiCard
+          icon={<Wallet className="size-4" aria-hidden />}
+          tone="green"
+          label="صافي مستحقات الملاعب"
+          value={<Signed value={t.depositShare} />}
+          hint="نصيب الملاعب من العربون بعد خصم العمولة"
+        />
+        <KpiCard
+          icon={<AlertTriangle className="size-4" aria-hidden />}
+          tone="amber"
+          label="إحالات استرداد معلّقة"
+          value={money(t.refunds)}
+          hint={t.refundsCount ? `${num(t.refundsCount)} حجز لغاه الملعب` : "مفيش"}
+        />
       </div>
 
-      {/* Detailed Per-Venue Financial Summary Table */}
-      <section className={`${card} rounded-2xl p-5 flex flex-col gap-4 border border-slate-200/90 shadow-xs`}>
+      <p className={`text-[13px] ${muted} -mt-1`}>
+        للعلم: المدفوع في الملاعب كاش <strong className="text-slate-700">{money(t.dueAtVenue)}</strong> (مش داخل في المستحقات).
+      </p>
+
+      <section className={`${card} rounded-2xl p-5 flex flex-col gap-4`}>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex flex-col gap-0.5">
-            <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
-              <Building2 className="size-5 text-brand-red" />
-              التقرير المالي وحسابات الملاعب والعمولات
-            </h2>
-            <span className={`text-xs ${muted}`}>
-              تفصيل عدد الحجوزات، العرابين، عمولة المنصة، وصافي مستحقات كل ملعب خلال الفترة المحددة.
-            </span>
+            <h2 className="text-[16px] font-bold">التقرير المالي لكل ملعب</h2>
+            <span className={`text-[13px] ${muted}`}>الحجوزات، والعرابين، وعمولة المنصة، وصافي مستحقات كل ملعب في الفترة.</span>
           </div>
-
           <div className="w-full sm:w-72">
-            <SearchBox
-              value={venueSearch}
-              onChange={setVenueSearch}
-              placeholder="ابحث باسم الملعب…"
-            />
+            <SearchBox value={venueSearch} onChange={setVenueSearch} placeholder="ابحث باسم الملعب" />
           </div>
         </div>
 
-        {financialSummaryQuery.isLoading ? (
-          <div className="p-10 text-center text-sm text-slate-500">جاري تحميل بيانات الملاعب المالية…</div>
-        ) : filteredVenues.length === 0 ? (
-          <div className="p-10 text-center text-sm text-slate-500 border border-dashed rounded-xl">
-            لا توجد حجوزات مسجلة للملاعب في هذه الفترة أو لا تطابق البحث.
+        {summary.isLoading ? (
+          <div className="flex flex-col gap-2" aria-busy="true">
+            {[0, 1, 2].map((i) => (
+              <div key={i} className="h-12 rounded-xl bg-slate-100 animate-pulse" />
+            ))}
           </div>
+        ) : summary.isError ? (
+          <p className="p-6 text-center text-sm text-[#A8261C]">مقدرناش نجيب الأرقام. جرّب تاني.</p>
+        ) : shown.length === 0 ? (
+          <p className={`p-8 text-center text-sm ${muted} border border-dashed border-slate-200 rounded-xl`}>
+            {venueSearch ? "مفيش ملعب بالاسم ده." : "مفيش حجوزات في الفترة دي."}
+          </p>
         ) : (
           <div className="overflow-x-auto -mx-5 px-5">
-            <table className="w-full min-w-[1100px] border-collapse text-sm">
+            <table className="w-full min-w-[980px] text-[14px]">
               <thead>
-                <tr className="bg-slate-50 text-slate-600 text-xs text-right border-y border-slate-200">
-                  <th scope="col" className="p-3 font-bold">الملعب</th>
-                  <th scope="col" className="p-3 font-bold text-center">إجمالي الحجوزات</th>
-                  <th scope="col" className="p-3 font-bold text-center">المؤكدة</th>
-                  <th scope="col" className="p-3 font-bold text-center">الملغية</th>
-                  <th scope="col" className="p-3 font-bold">إجمالي الحجز</th>
-                  <th scope="col" className="p-3 font-bold text-indigo-700">العربون المحصل</th>
-                  <th scope="col" className="p-3 font-bold text-purple-700">عمولة المنصة</th>
-                  <th scope="col" className="p-3 font-bold text-teal-700 bg-teal-50/50">نصيب الملعب من العربون</th>
-                  <th scope="col" className="p-3 font-bold text-slate-700">المتبقي كاش بالملعب</th>
-                  <th scope="col" className="p-3 font-bold text-emerald-700 bg-emerald-50/50">صافي مستحقات الملعب</th>
-                  <th scope="col" className="p-3 font-bold text-amber-700">إحالات الاسترداد</th>
+                <tr className={`text-right text-[12px] ${muted} border-b border-slate-200`}>
+                  <th scope="col" className={th}>الملعب</th>
+                  <th scope="col" className={`${th} text-center`}>إجمالي الحجوزات</th>
+                  <th scope="col" className={`${th} text-center`}>المؤكدة</th>
+                  <th scope="col" className={`${th} text-center`}>الملغية</th>
+                  <th scope="col" className={th}>إجمالي الحجز</th>
+                  <th scope="col" className={th}>العربون المحصّل</th>
+                  <th scope="col" className={`${th} text-[#C7362A]`}>عمولة المنصة</th>
+                  <th scope="col" className={`${th} text-[#1F6B3A]`}>صافي مستحقات الملعب</th>
+                  <th scope="col" className={th}>إحالات الاسترداد</th>
+                  <th scope="col" className={`${th} text-[11px] font-normal`}>المدفوع في الملعب (للعلم)</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {filteredVenues.map((v) => {
-                  const depositShare = v.venueDepositShare ?? Math.max(0, v.totalDepositAmount - v.totalPlatformCommission);
-                  return (
-                    <tr key={v.venueId} className="hover:bg-slate-50/80 transition-colors">
-                      <td className="p-3 font-bold text-slate-900">
-                        <div className="flex flex-col">
-                          <span>{v.venueName}</span>
-                          <span className="text-[10px] text-slate-400 font-mono" dir="ltr">
-                            {v.venueId.slice(0, 8)}…
-                          </span>
-                        </div>
-                      </td>
-                      <td className="p-3 text-center font-bold text-slate-800">
-                        {toArabicDigits(v.totalBookings)}
-                      </td>
-                      <td className="p-3 text-center">
-                        <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800">
-                          {toArabicDigits(v.confirmedBookings)}
-                        </span>
-                      </td>
-                      <td className="p-3 text-center">
-                        <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${v.cancelledBookings > 0 ? "bg-red-100 text-red-800" : "bg-slate-100 text-slate-600"}`}>
-                          {toArabicDigits(v.cancelledBookings)}
-                        </span>
-                      </td>
-                      <td className="p-3 font-semibold text-slate-900 whitespace-nowrap">
-                        {money(v.totalGrossAmount)}
-                      </td>
-                      <td className="p-3 font-semibold text-indigo-700 whitespace-nowrap">
-                        {money(v.totalDepositAmount)}
-                      </td>
-                      <td className="p-3 font-bold text-purple-700 whitespace-nowrap">
-                        {money(v.totalPlatformCommission)}
-                      </td>
-                      <td className="p-3 font-bold text-teal-700 whitespace-nowrap bg-teal-50/40">
-                        {money(depositShare)}
-                      </td>
-                      <td className="p-3 font-semibold text-slate-700 whitespace-nowrap">
-                        {money(v.totalDueAtVenueCash)}
-                      </td>
-                      <td className="p-3 font-extrabold text-emerald-700 whitespace-nowrap bg-emerald-50/60">
-                        {money(v.totalVenueNetAmount)}
-                      </td>
-                      <td className="p-3 whitespace-nowrap">
-                        {v.pendingRefundsCount > 0 ? (
-                          <span className="px-2 py-1 rounded-lg text-xs font-bold bg-amber-100 text-amber-900 border border-amber-200">
-                            {money(v.pendingRefundsAmount)} ({toArabicDigits(v.pendingRefundsCount)})
-                          </span>
-                        ) : (
-                          <span className="text-slate-400 text-xs">لا يوجد</span>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
+                {shown.map((v) => (
+                  <tr key={v.venueId} className="hover:bg-slate-50/70 transition-colors">
+                    <td className={`${td} font-bold text-slate-900`}>{v.venueName}</td>
+                    <td className={`${td} text-center font-semibold`}>{num(v.totalBookings)}</td>
+                    <td className={`${td} text-center`}>
+                      {num(v.confirmedBookings)}
+                      {v.manualBookings ? <span className={`block text-[11px] ${muted}`}>{num(v.manualBookings)} يدوي</span> : null}
+                    </td>
+                    <td className={`${td} text-center ${v.cancelledBookings ? "text-[#A8261C]" : "text-slate-400"}`}>{num(v.cancelledBookings)}</td>
+                    <td className={`${td} font-semibold`}>{money(v.totalGrossAmount)}</td>
+                    <td className={td}>{money(v.totalDepositAmount)}</td>
+                    <td className={`${td} font-semibold text-[#C7362A]`}>{money(v.totalPlatformCommission)}</td>
+                    <td className={`${td} font-bold text-[#1F6B3A] bg-[#F1F9F3]`}><Signed value={depositShareOf(v)} /></td>
+                    <td className={td}>
+                      {v.pendingRefundsCount > 0 ? (
+                        <span className="text-[#9A5B00] font-semibold">{money(v.pendingRefundsAmount)} ({num(v.pendingRefundsCount)})</span>
+                      ) : (
+                        <span className="text-slate-400">لا يوجد</span>
+                      )}
+                    </td>
+                    <td className={`${td} text-[12px] text-slate-400`}>{money(v.totalDueAtVenueCash)}</td>
+                  </tr>
+                ))}
               </tbody>
               <tfoot>
-                <tr className="bg-slate-100 font-bold text-slate-900 border-t-2 border-slate-300">
-                  <td className="p-3">الإجمالي الكلي</td>
-                  <td className="p-3 text-center">{toArabicDigits(totals.bookings)}</td>
-                  <td className="p-3 text-center text-emerald-800">{toArabicDigits(totals.confirmed)}</td>
-                  <td className="p-3 text-center text-red-800">{toArabicDigits(totals.cancelled)}</td>
-                  <td className="p-3 whitespace-nowrap">{money(totals.gross)}</td>
-                  <td className="p-3 whitespace-nowrap text-indigo-800">{money(totals.deposits)}</td>
-                  <td className="p-3 whitespace-nowrap text-purple-700">{money(totals.commission)}</td>
-                  <td className="p-3 whitespace-nowrap text-teal-800 bg-teal-100/40">{money(totals.depositShare)}</td>
-                  <td className="p-3 whitespace-nowrap">{money(totals.dueAtVenue)}</td>
-                  <td className="p-3 whitespace-nowrap text-emerald-800 bg-emerald-100/60">{money(totals.venueNet)}</td>
-                  <td className="p-3 whitespace-nowrap text-amber-800">{money(totals.refundsAmount)}</td>
+                <tr className="border-t-2 border-slate-200 font-bold bg-slate-50">
+                  <td className={td}>الإجمالي الكلي</td>
+                  <td className={`${td} text-center`}>{num(t.bookings)}</td>
+                  <td className={`${td} text-center`}>{num(t.confirmed)}</td>
+                  <td className={`${td} text-center`}>{num(t.cancelled)}</td>
+                  <td className={td}>{money(t.gross)}</td>
+                  <td className={td}>{money(t.deposits)}</td>
+                  <td className={`${td} text-[#C7362A]`}>{money(t.commission)}</td>
+                  <td className={`${td} text-[#1F6B3A] bg-[#E6F4EA]`}><Signed value={t.depositShare} /></td>
+                  <td className={td}>{t.refundsCount ? money(t.refunds) : "—"}</td>
+                  <td className={`${td} text-[12px] font-normal text-slate-400`}>{money(t.dueAtVenue)}</td>
                 </tr>
               </tfoot>
             </table>
@@ -399,59 +298,63 @@ export default function ReportsPage() {
         )}
       </section>
 
-      {/* Platform General KPIs */}
       <QueryState query={dashboard}>
         {(d) => (
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-            <Tile label="MRR (الاشتراكات الشهرية)" value={money(d.figures["mrr"] ?? 0)} />
-            <Tile label="الإيراد المحصّل (اشتراكات)" value={money(d.figures["revenue.collected"] ?? 0)} />
-            <Tile label="اشتراكات ملاك نشطة" value={num(d.figures["subscriptions.active"])} />
-            <Tile label="ملاك في فترة التجربة" value={num(d.figures["subscriptions.trial"])} />
+            <Stat label="MRR (الاشتراكات الشهرية)" value={money(d.figures["mrr"] ?? 0)} />
+            <Stat label="الإيراد المحصّل (اشتراكات)" value={money(d.figures["revenue.collected"] ?? 0)} />
+            <Stat label="اشتراكات ملاك نشطة" value={num(d.figures["subscriptions.active"])} />
+            <Stat label="ملاك في فترة التجربة" value={num(d.figures["subscriptions.trial"])} />
           </div>
         )}
       </QueryState>
 
-      {/* Invoices Reconciliation Section */}
-      <section className={`${card} rounded-[18px] p-5 flex flex-col gap-3`}>
-        <h2 className="text-[15px] font-bold">مطابقة تحصيل الاشتراكات حسب طريقة الدفع</h2>
+      <section className={`${card} rounded-2xl p-5 flex flex-col gap-3`}>
+        <h2 className="text-[16px] font-bold">مطابقة تحصيل الاشتراكات حسب طريقة الدفع</h2>
         <QueryState query={reconciliation}>
           {(r) => (
-            <>
-              <div className="flex flex-wrap gap-4 text-sm font-semibold">
+            <div className="flex flex-col">
+              <div className="flex flex-wrap gap-x-5 gap-y-1 text-[14px] pb-2">
                 <span>فواتير الاشتراكات: <strong>{num(r.invoices)}</strong></span>
-                <span>المحصل: <strong>{money(r.collected)}</strong></span>
+                <span>المحصّل: <strong>{money(r.collected)}</strong></span>
                 <span>الملغي: <strong>{money(r.voided)}</strong></span>
               </div>
-              {r.byMethod.map((m) => (
-                <div key={m.method} className="flex justify-between text-[13px] border-t border-[#EEF0F5] pt-2">
-                  <span>{METHOD[m.method] ?? m.method} ({num(m.count)})</span>
-                  <strong>{money(m.amount)}</strong>
-                </div>
-              ))}
-            </>
+              {r.byMethod.length === 0 ? (
+                <p className={`text-[13px] ${muted} border-t border-slate-100 pt-2`}>مفيش فواتير اشتراكات في الفترة دي.</p>
+              ) : (
+                r.byMethod.map((m) => (
+                  <div key={m.method} className="flex justify-between text-[14px] border-t border-slate-100 py-2">
+                    <span>{METHOD[m.method] ?? m.method} <span className={muted}>({num(m.count)})</span></span>
+                    <strong>{money(m.amount)}</strong>
+                  </div>
+                ))
+              )}
+            </div>
           )}
         </QueryState>
       </section>
 
-      {/* Definitions Glossary */}
-      <section className={`${card} rounded-[18px] p-5 flex flex-col gap-3`}>
-        <h2 className="text-[15px] font-bold">تعريفات المصطلحات المالية</h2>
-        <dl className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+      <details className={`${card} rounded-2xl p-5`}>
+        <summary className="flex items-center gap-2 cursor-pointer text-[15px] font-bold list-none">
+          <Info className="size-4 text-slate-500" aria-hidden />
+          تعريفات المصطلحات المالية
+        </summary>
+        <dl className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-3 mt-4">
           {DEFINITIONS.map(([term, text]) => (
-            <div key={term} className="bg-slate-50 p-3 rounded-xl border border-slate-100">
-              <dt className="text-sm font-bold text-slate-900">{term}</dt>
-              <dd className={`text-[12px] ${muted} leading-relaxed mt-0.5`}>{text}</dd>
+            <div key={term}>
+              <dt className="text-[14px] font-bold">{term}</dt>
+              <dd className={`text-[13px] ${muted} leading-relaxed`}>{text}</dd>
             </div>
           ))}
         </dl>
-      </section>
+      </details>
     </Page>
   );
 }
 
-function Tile({ label, value }: { label: string; value: string }) {
+function Stat({ label, value }: { label: string; value: string }) {
   return (
-    <div className={`${card} rounded-[16px] p-4.5 flex flex-col gap-1`}>
+    <div className={`${card} rounded-2xl p-4 flex flex-col gap-1`}>
       <span className={`text-[13px] ${muted}`}>{label}</span>
       <strong className="text-[20px] font-extrabold text-slate-900">{value}</strong>
     </div>

@@ -521,3 +521,70 @@ export function EmptyState({
     </div>
   );
 }
+
+/** Icon-chip colours for KPI cards; one meaning each, the same on every page. */
+export const KPI_TONES = {
+  red: "bg-[#FDECEA] text-[#C7362A]",
+  navy: "bg-[#EAEEF6] text-[#0B1A3A]",
+  green: "bg-[#E6F4EA] text-[#1F6B3A]",
+  amber: "bg-[#FDF3DC] text-[#9A5B00]",
+  slate: "bg-slate-100 text-slate-600",
+} as const;
+
+export type KpiTone = keyof typeof KPI_TONES;
+
+/** The admin's one headline-number card: label and icon chip, the figure, one line of what it means. */
+export function KpiCard({
+  label,
+  value,
+  hint,
+  icon,
+  tone = "slate",
+  title,
+}: {
+  label: string;
+  value: React.ReactNode;
+  hint?: React.ReactNode;
+  icon?: React.ReactNode;
+  tone?: KpiTone;
+  title?: string;
+}) {
+  return (
+    <div className={`${card} rounded-2xl p-4 flex flex-col gap-2 min-w-0`} title={title}>
+      <div className="flex items-center justify-between gap-2">
+        <span className={`text-[13px] font-semibold ${muted}`}>{label}</span>
+        {icon && <span className={`size-8 shrink-0 rounded-xl flex items-center justify-center ${KPI_TONES[tone]}`}>{icon}</span>}
+      </div>
+      <strong className="text-[24px] leading-tight font-extrabold text-slate-900 truncate">{value}</strong>
+      {hint && <span className={`text-[12px] ${muted} leading-snug`}>{hint}</span>}
+    </div>
+  );
+}
+
+/** A section of a page: a white card with a title, an optional line under it and actions on the other side. */
+export function SectionCard({
+  title,
+  sub,
+  actions,
+  children,
+  className = "",
+}: {
+  title: React.ReactNode;
+  sub?: React.ReactNode;
+  actions?: React.ReactNode;
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <section className={`${card} rounded-2xl p-5 flex flex-col gap-4 ${className}`}>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-col gap-0.5 min-w-0">
+          <h2 className="text-[16px] font-bold">{title}</h2>
+          {sub && <span className={`text-[13px] ${muted}`}>{sub}</span>}
+        </div>
+        {actions}
+      </div>
+      {children}
+    </section>
+  );
+}

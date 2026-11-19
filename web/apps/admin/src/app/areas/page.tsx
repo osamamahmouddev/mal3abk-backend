@@ -4,10 +4,10 @@ import React, { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useConfirm } from "@malabak/ui";
 import type { Schemas } from "@malabak/api-client";
-import { Page, PageHeader, Pill, btnOutline, btnPrimary, btnSmall, card, chip, muted, redShadow } from "@/components/ui";
+import { KpiCard, Page, PageHeader, Pill, btnOutline, btnPrimary, btnSmall, card, chip, muted, redShadow } from "@/components/ui";
 import { Field, QueryState, Select, Table, TextInput, fmtDate, num, useNotice } from "@/components/admin";
 import { api, unwrap } from "@/lib/api";
-import { Star } from "lucide-react";
+import { CirclePause, CircleCheck, MapPin, Star } from "lucide-react";
 
 type Row = Schemas["CustomAreaDto"];
 type StatusFilter = "all" | "active" | "focus" | "inactive" | "custom";
@@ -166,22 +166,10 @@ export default function AreasPage() {
 
       {/* KPI Stats Cards */}
       <section className="grid grid-cols-2 md:grid-cols-4 gap-3 animate-fade-in">
-        <div className={`${card} rounded-[18px] p-4 flex flex-col gap-1`}>
-          <span className={`text-xs font-semibold ${muted}`}>إجمالي المناطق المعروضة</span>
-          <strong className="text-2xl font-black text-ink">{num(stats.total)}</strong>
-        </div>
-        <div className={`${card} rounded-[18px] p-4 flex flex-col gap-1 border-r-4 border-r-emerald-500`}>
-          <span className={`text-xs font-semibold text-emerald-800`}>المناطق النشطة</span>
-          <strong className="text-2xl font-black text-emerald-700">{num(stats.active)}</strong>
-        </div>
-        <div className={`${card} rounded-[18px] p-4 flex flex-col gap-1 border-r-4 border-r-amber-500`}>
-          <span className="text-xs font-semibold text-amber-800 flex items-center gap-1">مناطق التركيز <Star className="size-3.5 fill-amber-400 text-amber-500" /></span>
-          <strong className="text-2xl font-black text-amber-700">{num(stats.focus)}</strong>
-        </div>
-        <div className={`${card} rounded-[18px] p-4 flex flex-col gap-1 border-r-4 border-r-rose-400`}>
-          <span className={`text-xs font-semibold text-rose-800`}>المناطق الموقوفة</span>
-          <strong className="text-2xl font-black text-rose-600">{num(stats.inactive)}</strong>
-        </div>
+        <KpiCard label="إجمالي المناطق المعروضة" value={num(stats.total)} icon={<MapPin className="size-4" aria-hidden />} tone="navy" />
+        <KpiCard label="المناطق النشطة" value={num(stats.active)} icon={<CircleCheck className="size-4" aria-hidden />} tone="green" />
+        <KpiCard label="مناطق التركيز" value={num(stats.focus)} icon={<Star className="size-4" aria-hidden />} tone="amber" />
+        <KpiCard label="المناطق الموقوفة" value={num(stats.inactive)} icon={<CirclePause className="size-4" aria-hidden />} tone="red" />
       </section>
 
       {/* Foldable Add Area Form */}

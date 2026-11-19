@@ -9100,6 +9100,16 @@ export interface components {
             /** Format: double */
             venueDepositShare: number;
             currency: string;
+            /** Format: int32 */
+            manualBookings: number;
+            /** Format: double */
+            platformCollectedOnline: number;
+            /** Format: double */
+            commissionCollected: number;
+            /** Format: double */
+            commissionOutstanding: number;
+            /** Format: double */
+            platformOwesVenue: number;
         };
         VenuePermissionsResponse: {
             /** Format: uuid */

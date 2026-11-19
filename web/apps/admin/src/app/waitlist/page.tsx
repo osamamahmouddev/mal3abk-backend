@@ -3,7 +3,7 @@
 import React, { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useConfirm } from "@malabak/ui";
-import { Page, PageHeader, Pill, SearchBox, btnOutline, btnPrimary, btnSmall, card, muted, toArabicDigits } from "@/components/ui";
+import { KpiCard, Page, PageHeader, Pill, SearchBox, btnOutline, btnPrimary, btnSmall, muted, toArabicDigits } from "@/components/ui";
 import { Pager, QueryState, Select, Table, fmtDateTime, useNotice } from "@/components/admin";
 import { api, downloadFile, unwrap } from "@/lib/api";
 import {
@@ -15,7 +15,6 @@ import {
   Copy,
   Download,
   ExternalLink,
-  Flame,
   LayoutGrid,
   Lock,
   MessageSquare,
@@ -272,60 +271,28 @@ export default function WaitlistPage() {
       {notice.node}
 
       {/* Metric Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
-        {/* Total Leads */}
-        <div className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs flex items-center justify-between relative overflow-hidden group hover:border-slate-300 transition-all">
-          <div className="flex flex-col gap-1.5 z-10">
-            <span className={`text-xs font-semibold ${muted}`}>إجمالي المسجلين في القائمة</span>
-            <div className="flex items-baseline gap-2">
-              <b className="text-3xl font-extrabold text-slate-900 tracking-tight">{toArabicDigits(totalCount)}</b>
-              <span className="text-xs text-slate-500 font-medium">مهتم بالتطبيق</span>
-            </div>
-            <span className="text-[11px] text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md w-fit flex items-center gap-1 font-semibold border border-emerald-200/60 mt-1">
-              <Sparkles className="size-3 text-emerald-600" />
-              أعضاء مؤسسين (VIP Early Adopters)
-            </span>
-          </div>
-          <div className="w-12 h-12 rounded-2xl bg-slate-100 text-slate-700 flex items-center justify-center shadow-2xs border border-slate-200/80 group-hover:scale-105 transition-transform shrink-0">
-            <Users className="w-6 h-6 text-slate-700" />
-          </div>
-        </div>
-
-        {/* Players in Current Page */}
-        <div className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs flex items-center justify-between relative overflow-hidden group hover:border-emerald-300 transition-all">
-          <div className="flex flex-col gap-1.5 z-10">
-            <span className={`text-xs font-semibold ${muted}`}>اللاعبين في الصفحة الحالية</span>
-            <div className="flex items-baseline gap-2">
-              <b className="text-3xl font-extrabold text-emerald-700 tracking-tight">{toArabicDigits(totalPlayersInPage)}</b>
-              <span className="text-xs text-emerald-600/80 font-medium">لاعب</span>
-            </div>
-            <span className="text-[11px] text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md w-fit flex items-center gap-1 font-semibold border border-emerald-200/60 mt-1">
-              <CheckCircle2 className="size-3 text-emerald-600" />
-              مؤهلين لأول حجز بدون أي عمولة
-            </span>
-          </div>
-          <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-700 flex items-center justify-center shadow-2xs border border-emerald-200/80 group-hover:scale-105 transition-transform shrink-0">
-            <Trophy className="w-6 h-6 text-emerald-700" />
-          </div>
-        </div>
-
-        {/* Venue Owners in Current Page */}
-        <div className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs flex items-center justify-between relative overflow-hidden group hover:border-amber-300 transition-all">
-          <div className="flex flex-col gap-1.5 z-10">
-            <span className={`text-xs font-semibold ${muted}`}>أصحاب الملاعب في الصفحة الحالية</span>
-            <div className="flex items-baseline gap-2">
-              <b className="text-3xl font-extrabold text-amber-700 tracking-tight">{toArabicDigits(totalVenuesInPage)}</b>
-              <span className="text-xs text-amber-600/80 font-medium">منشأة رياضية</span>
-            </div>
-            <span className="text-[11px] text-amber-800 bg-amber-50 px-2 py-0.5 rounded-md w-fit flex items-center gap-1 font-semibold border border-amber-200/60 mt-1">
-              <Flame className="size-3 text-amber-600" />
-              مؤهلين لفترة تجريبية مجانية موسعة
-            </span>
-          </div>
-          <div className="w-12 h-12 rounded-2xl bg-amber-50 text-amber-700 flex items-center justify-center shadow-2xs border border-amber-200/80 group-hover:scale-105 transition-transform shrink-0">
-            <Building2 className="w-6 h-6 text-amber-700" />
-          </div>
-        </div>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <KpiCard
+          label="إجمالي المسجلين في القائمة"
+          value={toArabicDigits(totalCount)}
+          hint="مهتمين بالتطبيق قبل الإطلاق (أعضاء مؤسسين)"
+          icon={<Users className="size-4" aria-hidden />}
+          tone="navy"
+        />
+        <KpiCard
+          label="اللاعبين في الصفحة الحالية"
+          value={toArabicDigits(totalPlayersInPage)}
+          hint="مؤهلين لأول حجز من غير عمولة"
+          icon={<Trophy className="size-4" aria-hidden />}
+          tone="green"
+        />
+        <KpiCard
+          label="أصحاب الملاعب في الصفحة الحالية"
+          value={toArabicDigits(totalVenuesInPage)}
+          hint="مؤهلين لفترة تجريبية مجانية أطول"
+          icon={<Building2 className="size-4" aria-hidden />}
+          tone="amber"
+        />
       </div>
 
       {/* Search & Filter Toolbar */}

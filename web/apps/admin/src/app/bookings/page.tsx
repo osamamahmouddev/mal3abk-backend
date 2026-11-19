@@ -602,9 +602,9 @@ function BookingDrawer({ bookingId, onClose, venueMap }: { bookingId: string | n
 
               {/* Admin Deposit Confirmation / Review Box */}
               {isDepositPending && (
-                <div className="bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-200/90 rounded-2xl p-4 flex flex-col gap-3 shadow-xs">
+                <div className={`${card} rounded-2xl p-4 flex flex-col gap-3`}>
                   <div className="flex items-center gap-2.5">
-                    <div className="size-8 rounded-lg bg-emerald-600 text-white flex items-center justify-center shrink-0">
+                    <div className="size-8 rounded-xl bg-[#E6F4EA] text-[#1F6B3A] flex items-center justify-center shrink-0">
                       <CheckCircle2 className="size-5" />
                     </div>
                     <div className="flex flex-col">
@@ -616,22 +616,25 @@ function BookingDrawer({ bookingId, onClose, venueMap }: { bookingId: string | n
                   {(() => {
                     const depositAmt = d.booking.depositAmount;
                     const commissionAmt = (d.booking as any).platformCommission ?? 0;
-                    const netDepositToVenue = Math.max(0, depositAmt - commissionAmt);
+                    // Signed: a commission larger than the deposit leaves the venue owing the difference.
+                    const netDepositToVenue = depositAmt - commissionAmt;
                     const remainingCashAtVenue = Math.max(0, d.booking.totalPrice - depositAmt);
 
                     return (
-                      <div className="grid grid-cols-2 gap-2 text-xs bg-white/90 p-3 rounded-xl border border-emerald-100">
+                      <div className="grid grid-cols-2 gap-2 text-xs bg-slate-50 p-3 rounded-xl">
                         <div>
                           <span className="text-slate-500 block text-[11px]">مبلغ العربون المحصل:</span>
                           <strong className="text-sm font-bold text-emerald-700">{money(depositAmt)}</strong>
                         </div>
                         <div>
                           <span className="text-slate-500 block text-[11px]">عمولة المنصة:</span>
-                          <strong className="text-sm font-bold text-purple-700">{money(commissionAmt)}</strong>
+                          <strong className="text-sm font-bold text-[#C7362A]">{money(commissionAmt)}</strong>
                         </div>
                         <div className="border-t border-slate-100 pt-2">
                           <span className="text-slate-500 block text-[11px]">صافي العربون للملعب:</span>
-                          <strong className="text-xs font-semibold text-slate-800">{money(netDepositToVenue)}</strong>
+                          <strong className={`text-xs font-semibold ${netDepositToVenue < 0 ? "text-[#A8261C]" : "text-slate-800"}`}>
+                            {netDepositToVenue < 0 ? `عليه ${money(-netDepositToVenue)}` : money(netDepositToVenue)}
+                          </strong>
                         </div>
                         <div className="border-t border-slate-100 pt-2">
                           <span className="text-slate-500 block text-[11px]">المتبقي كاش يدفع بالملعب:</span>
