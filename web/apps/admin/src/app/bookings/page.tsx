@@ -7,7 +7,7 @@ import { KV, Page, PageHeader, Pill, ReasonModal, type ReasonRequest, SearchBox,
 import { Drawer, Pager, QueryState, Section, Select, Table, fmtDateTime, useNotice } from "@/components/admin";
 import { api, unwrap } from "@/lib/api";
 import { useStepUp } from "@/lib/stepup";
-import { Building2, CalendarDays, CheckCircle2, ChevronLeft, Clock, ExternalLink, FileText, LayoutGrid, NotebookPen, RotateCw, ShieldAlert, Smartphone, Table2, XCircle, ZoomIn, ZoomOut } from "lucide-react";
+import { Building2, CalendarDays, CheckCircle2, ChevronLeft, Clock, ExternalLink, FileText, LayoutGrid, NotebookPen, Phone, RotateCw, ShieldAlert, Smartphone, Table2, User, XCircle, ZoomIn, ZoomOut } from "lucide-react";
 
 type Row = Schemas["AdminBookingListItem"];
 
@@ -124,93 +124,121 @@ export default function BookingsPage() {
         {(data) => (
           <>
             {viewMode === "cards" ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5 sm:gap-6">
                 {data.items.map((r) => {
                   const isSelected = selected === r.id;
                   return (
                     <div
                       key={r.id}
                       onClick={() => setSelected(r.id)}
-                      className={`${card} rounded-[20px] p-5 flex flex-col justify-between gap-4 border transition-all cursor-pointer hover:border-slate-400 hover:shadow-md active:scale-[0.99] ${
-                        isSelected ? "border-brand-red ring-2 ring-brand-red/20 bg-[#FDFDFE]" : "border-[#E2E6EF]"
+                      className={`rounded-2xl p-5 flex flex-col justify-between gap-4 border bg-white transition-all duration-200 cursor-pointer group hover:shadow-lg hover:border-slate-300 relative ${
+                        isSelected
+                          ? "border-ink ring-2 ring-ink/15 shadow-md bg-slate-50/40"
+                          : "border-slate-200/90 shadow-[0_1px_3px_rgba(15,23,42,0.04)]"
                       }`}
                     >
                       {/* Top Header: Reference & Badges */}
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="flex flex-col gap-1 min-w-0">
-                          <span className="text-[11px] font-semibold text-[#5B6475]">رقم الحجز</span>
-                          <strong dir="ltr" className="font-inter text-base font-bold text-slate-900 tracking-wide text-right truncate">
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="flex flex-col gap-0.5 min-w-0">
+                          <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">رقم الحجز</span>
+                          <span dir="ltr" className="font-mono text-sm font-extrabold text-slate-900 tracking-wider">
                             {r.reference}
-                          </strong>
+                          </span>
                         </div>
-                        <div className="flex flex-col items-end gap-1.5 shrink-0">
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <span
+                            className={`inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-md font-bold ${
+                              r.isManual ? "bg-amber-50 text-amber-700 border border-amber-200/60" : "bg-sky-50 text-sky-700 border border-sky-200/60"
+                            }`}
+                          >
+                            {r.isManual ? <NotebookPen className="w-3 h-3" /> : <Smartphone className="w-3 h-3" />}
+                            <span>{r.isManual ? "يدوي" : "أونلاين"}</span>
+                          </span>
                           <Pill tone={TONE[r.status] ?? "neutral"}>
                             {STATUS_MAP[r.status] ?? r.status}
                           </Pill>
-                          <span className="text-[11px] px-2 py-0.5 rounded-md font-semibold bg-slate-100 text-slate-600 inline-flex items-center gap-1">
-                            {r.isManual ? <NotebookPen className="size-3" /> : <Smartphone className="size-3" />}
-                            {r.isManual ? "يدوي" : "أونلاين"}
-                          </span>
                         </div>
                       </div>
 
-                      {/* Venue info badge */}
-                      <div className="flex items-center gap-2.5 p-2.5 rounded-xl bg-slate-50 border border-slate-100 text-slate-800">
-                        <span className="grid place-items-center size-8 rounded-lg bg-white border border-[#E9EDF5] text-slate-600 shrink-0">
-                          <Building2 className="size-4" />
-                        </span>
-                        <div className="flex flex-col min-w-0 flex-1">
-                          <span className="text-[10px] text-[#5B6475] font-semibold">الملعب</span>
-                          <span className="text-xs font-bold truncate text-slate-900">
-                            {(r as any).venueName || venueMap.get(r.venueId) || "ملعب"}
-                          </span>
+                      {/* Venue and Pitch Info */}
+                      <div className="p-3 rounded-xl bg-slate-50/80 border border-slate-200/70 flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <div className="w-9 h-9 rounded-xl bg-white border border-slate-200/80 text-slate-700 flex items-center justify-center shadow-2xs shrink-0">
+                            <Building2 className="w-4 h-4 text-slate-600" />
+                          </div>
+                          <div className="flex flex-col min-w-0">
+                            <span className="text-[10px] text-slate-500 font-semibold">الملعب الرياضي</span>
+                            <span className="text-xs font-bold text-slate-900 truncate" title={(r as any).venueName || venueMap.get(r.venueId) || "ملعب"}>
+                              {(r as any).venueName || venueMap.get(r.venueId) || "ملعب"}
+                            </span>
+                          </div>
                         </div>
                         {Boolean((r as any).pitchName) && (
-                          <span className="text-[11px] text-slate-600 mr-auto shrink-0 bg-white px-2 py-0.5 rounded-md border border-slate-200">
+                          <span className="text-[11px] font-semibold text-slate-700 bg-white px-2 py-1 rounded-lg border border-slate-200 shadow-2xs shrink-0 max-w-[130px] truncate" title={(r as any).pitchName}>
                             {(r as any).pitchName}
                           </span>
                         )}
                       </div>
 
-                      {/* Customer / Player info */}
-                      {(r.customerName || (r as any).customerPhone) && (
-                        <div className="flex items-center justify-between text-xs px-1 text-slate-700">
-                          <span className="font-semibold text-slate-900 truncate">
+                      {/* Customer / Player Info */}
+                      <div className="flex items-center justify-between gap-2 px-1">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <div className="w-6 h-6 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-600 shrink-0">
+                            <User className="w-3.5 h-3.5 text-slate-600" />
+                          </div>
+                          <span className="text-xs font-bold text-slate-900 truncate">
                             {r.customerName || (r.isManual ? "حجز يدوي" : "لاعب مسجل")}
                           </span>
-                          {(r as any).customerPhone && (
-                            <span className="text-[11px] text-slate-500 font-mono shrink-0" dir="ltr">
-                              {(r as any).customerPhone}
-                            </span>
-                          )}
                         </div>
-                      )}
+                        {(r as any).customerPhone ? (
+                          <span className="text-[11px] font-mono font-semibold text-slate-600 bg-slate-50 px-2 py-0.5 rounded-md border border-slate-200/70 shrink-0" dir="ltr">
+                            {(r as any).customerPhone}
+                          </span>
+                        ) : (
+                          <span className="text-[11px] text-slate-400 font-medium">بدون هاتف</span>
+                        )}
+                      </div>
 
-                      {/* Center: Timing badge */}
-                      <div className="flex items-center gap-3 p-3 rounded-xl bg-[#F6F8FB] border border-[#E9EDF5]">
-                        <span className="grid place-items-center size-9 rounded-lg bg-white border border-[#E9EDF5] text-slate-600 shrink-0"><CalendarDays className="size-[18px]" /></span>
+                      {/* Timing / Schedule */}
+                      <div className="p-3 rounded-xl bg-slate-50/80 border border-slate-200/70 flex items-center gap-3">
+                        <div className="w-9 h-9 rounded-xl bg-white border border-slate-200/80 text-slate-700 flex items-center justify-center shadow-2xs shrink-0">
+                          <CalendarDays className="w-4 h-4 text-slate-600" />
+                        </div>
                         <div className="flex flex-col">
-                          <span className="text-xs text-[#5B6475]">تاريخ وميعاد الحجز</span>
-                          <span className="text-sm font-bold text-slate-800">{fmtDateTime(r.startUtc)}</span>
+                          <span className="text-[10px] text-slate-500 font-semibold">تاريخ وموعد المباراة</span>
+                          <span className="text-xs font-extrabold text-slate-900">
+                            {fmtDateTime(r.startUtc)}
+                          </span>
                         </div>
                       </div>
 
-                      {/* Bottom: Financials & Action */}
-                      <div className="flex flex-col gap-2 pt-2 border-t border-[#F0F2F6]">
-                        <div className="grid grid-cols-2 gap-2 text-xs">
-                          <div className="flex flex-col">
-                            <span className={muted}>السعر الإجمالي</span>
-                            <strong className="text-sm font-bold text-emerald-700">{money(r.totalPrice)}</strong>
-                          </div>
-                          <div className="flex flex-col text-left">
-                            <span className={muted}>العربون المدفوع</span>
-                            <strong className="text-sm font-bold text-slate-900">{money(r.depositAmount)}</strong>
+                      {/* Financials Breakdown */}
+                      <div className="pt-2 border-t border-slate-100 flex items-center justify-between gap-3 text-xs">
+                        <div className="flex flex-col">
+                          <span className="text-[10px] font-semibold text-slate-500">إجمالي الحجز</span>
+                          <span className="text-sm font-extrabold text-slate-900">{money(r.totalPrice)}</span>
+                        </div>
+                        <div className="flex flex-col text-left items-end">
+                          <span className="text-[10px] font-semibold text-slate-500">العربون المدفوع</span>
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-sm font-extrabold text-emerald-700">{money(r.depositAmount)}</span>
+                            {r.depositAmount >= r.totalPrice && r.totalPrice > 0 ? (
+                              <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded border border-emerald-200">
+                                بالكامل
+                              </span>
+                            ) : null}
                           </div>
                         </div>
+                      </div>
 
-                        <div className="flex items-center justify-between text-xs text-brand-red font-bold pt-2 border-t border-dashed border-[#EEF0F5]">
-                          <span>عرض تفاصيل الحجز والإلغاء</span>
-                          <ChevronLeft className="size-4" />
+                      {/* Action Footer */}
+                      <div className="w-full pt-1">
+                        <div className="w-full py-2 px-3 rounded-xl bg-slate-50 group-hover:bg-slate-100/90 border border-slate-200/70 text-slate-700 group-hover:text-slate-900 font-bold text-xs flex items-center justify-between transition-colors">
+                          <span className="flex items-center gap-1.5">
+                            <FileText className="w-3.5 h-3.5 text-slate-500 group-hover:text-slate-800 transition-colors" />
+                            <span>عرض تفاصيل الحجز</span>
+                          </span>
+                          <ChevronLeft className="w-4 h-4 text-slate-400 group-hover:text-slate-700 group-hover:-translate-x-0.5 transition-transform" />
                         </div>
                       </div>
                     </div>
