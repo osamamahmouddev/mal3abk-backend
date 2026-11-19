@@ -54,15 +54,33 @@ export default function UsersPage() {
       <PageHeader title="المستخدمين" sub="الأرقام مخفية في القائمة. فتح تفاصيل أي مستخدم بيتسجل في سجل التدقيق." />
       
       <div className="flex flex-wrap gap-2.5 items-center justify-between bg-white p-3.5 rounded-2xl border border-[#EEF1F6] shadow-xs">
-        <div className="flex flex-wrap gap-2 flex-1 min-w-[280px]">
-          <div className="flex-[1_1_240px]">
-            <SearchBox value={q} onChange={(v) => { setQ(v); setPage(1); }} placeholder="اسم، رقم، إيميل أو ID" />
+        <div className="flex flex-wrap items-center gap-2 flex-1 min-w-[280px]">
+          <div className="w-full sm:w-72 shrink-0">
+            <SearchBox value={q} onChange={(v) => { setQ(v); setPage(1); }} placeholder="ابحث باسم، رقم، إيميل أو ID..." />
           </div>
-          <Select label="الدور" value={role} onChange={(v) => { setRole(v); setPage(1); }} options={ROLES} />
-          <Select label="الحالة" value={status} onChange={(v) => { setStatus(v); setPage(1); }} options={STATUSES} />
+          <div className="w-36 sm:w-40 shrink-0">
+            <Select label="الدور" value={role} onChange={(v) => { setRole(v); setPage(1); }} options={ROLES} />
+          </div>
+          <div className="w-36 sm:w-40 shrink-0">
+            <Select label="الحالة" value={status} onChange={(v) => { setStatus(v); setPage(1); }} options={STATUSES} />
+          </div>
+          {(q || role || status) && (
+            <button
+              type="button"
+              onClick={() => {
+                setQ("");
+                setRole("");
+                setStatus("");
+                setPage(1);
+              }}
+              className="text-xs font-bold text-slate-500 hover:text-slate-800 px-3 py-1.5 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
+            >
+              إعادة ضبط
+            </button>
+          )}
         </div>
 
-        <div className="inline-flex rounded-xl bg-slate-100 p-1 border border-slate-200">
+        <div className="inline-flex rounded-xl bg-slate-100 p-1 border border-slate-200 shrink-0">
           <button
             type="button"
             className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
@@ -110,15 +128,17 @@ export default function UsersPage() {
         {(data) => (
           <>
             {viewMode === "cards" ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5 sm:gap-6">
                 {data.items.map((r) => {
                   const isSelected = selected === r.id;
                   return (
                     <div
                       key={r.id}
                       onClick={() => setSelected(r.id)}
-                      className={`${card} rounded-[20px] p-5 flex flex-col justify-between gap-4 border transition-all cursor-pointer hover:border-slate-400 hover:shadow-md active:scale-[0.99] ${
-                        isSelected ? "border-brand-red ring-2 ring-brand-red/20 bg-[#FDFDFE]" : "border-[#E2E6EF]"
+                      className={`rounded-2xl p-5 flex flex-col justify-between gap-4 border bg-white transition-all duration-200 cursor-pointer group hover:shadow-lg hover:border-slate-300 relative ${
+                        isSelected
+                          ? "border-ink ring-2 ring-ink/15 shadow-md bg-slate-50/40"
+                          : "border-slate-200/90 shadow-[0_1px_3px_rgba(15,23,42,0.04)]"
                       }`}
                     >
                       {/* Top: Name & Status */}
@@ -127,7 +147,7 @@ export default function UsersPage() {
                           <strong className="text-base font-bold text-slate-900 truncate">{r.fullName}</strong>
                           <div className="flex flex-wrap gap-1">
                             {r.roles.map((x) => (
-                              <span key={x} className="text-[11px] px-2 py-0.5 rounded-md font-semibold bg-slate-100 text-slate-700">
+                              <span key={x} className="text-[11px] px-2 py-0.5 rounded-md font-semibold bg-slate-100 text-slate-700 border border-slate-200/60">
                                 {ROLE_MAP[x] ?? x}
                               </span>
                             ))}
@@ -139,23 +159,24 @@ export default function UsersPage() {
                       </div>
 
                       {/* Contact Info */}
-                      <div className="flex flex-col gap-2 p-3 rounded-xl bg-[#F6F8FB] border border-[#E9EDF5] text-xs">
+                      <div className="flex flex-col gap-2 p-3 rounded-xl bg-slate-50/80 border border-slate-200/70 text-xs">
                         <div className="flex items-center justify-between gap-2">
-                          <span className={muted}>رقم الهاتف</span>
-                          <span dir="ltr" className="font-inter font-semibold text-slate-800">{r.maskedPhone}</span>
+                          <span className="text-slate-500 font-medium">رقم الهاتف</span>
+                          <span dir="ltr" className="font-mono font-semibold text-slate-800">{r.maskedPhone}</span>
                         </div>
                         <div className="flex items-center justify-between gap-2">
-                          <span className={muted}>البريد الإلكتروني</span>
+                          <span className="text-slate-500 font-medium">البريد الإلكتروني</span>
                           <span className="font-medium text-slate-800 truncate max-w-[180px]">{r.email ?? "—"}</span>
                         </div>
                       </div>
 
                       {/* Footer */}
-                      <div className="flex items-center justify-between text-xs pt-2 border-t border-[#F0F2F6]">
-                        <span className={muted}>انضم: {fmtDate(r.createdAtUtc)}</span>
-                        <span className="text-brand-red font-bold flex items-center gap-1">
-                          عرض الملف <ChevronLeft className="size-3.5" />
-                        </span>
+                      <div className="w-full pt-1 border-t border-slate-100 flex items-center justify-between gap-2 text-xs">
+                        <span className="text-[11px] text-slate-500 font-semibold">انضم: {fmtDate(r.createdAtUtc)}</span>
+                        <div className="py-1.5 px-3 rounded-lg bg-slate-50 group-hover:bg-slate-100 border border-slate-200/70 text-slate-700 group-hover:text-slate-900 font-bold flex items-center gap-1 transition-colors">
+                          <span>عرض الملف</span>
+                          <ChevronLeft className="size-3.5 group-hover:-translate-x-0.5 transition-transform" />
+                        </div>
                       </div>
                     </div>
                   );

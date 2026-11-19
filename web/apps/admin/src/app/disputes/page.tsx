@@ -58,11 +58,25 @@ export default function DisputesPage() {
       <PageHeader title="نزاعات الإيصالات" sub="الأقدم الأول. كل قرار محتاج سبب وتأكيد هوية، وبيوصل للطرفين." />
       
       <div className="flex flex-wrap gap-2.5 items-center justify-between bg-white p-3.5 rounded-2xl border border-[#EEF1F6] shadow-xs">
-        <div className="flex-[1_1_240px] max-w-sm">
-          <Select label="الحالة" value={status} onChange={(v) => { setStatus(v); setPage(1); }} options={STATUSES} />
+        <div className="flex items-center gap-2.5 flex-1 min-w-[240px]">
+          <div className="w-full sm:w-60 shrink-0">
+            <Select label="الحالة" value={status} onChange={(v) => { setStatus(v); setPage(1); }} options={STATUSES} />
+          </div>
+          {status && (
+            <button
+              type="button"
+              onClick={() => {
+                setStatus("");
+                setPage(1);
+              }}
+              className="text-xs font-bold text-slate-500 hover:text-slate-800 px-3 py-1.5 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
+            >
+              إعادة ضبط
+            </button>
+          )}
         </div>
 
-        <div className="inline-flex rounded-xl bg-slate-100 p-1 border border-slate-200">
+        <div className="inline-flex rounded-xl bg-slate-100 p-1 border border-slate-200 shrink-0">
           <button
             type="button"
             className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
@@ -109,22 +123,24 @@ export default function DisputesPage() {
         {(data) => (
           <>
             {viewMode === "cards" ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5 sm:gap-6">
                 {data.items.map((r) => {
                   const isSelected = selected === r.id;
                   return (
                     <div
                       key={r.id}
                       onClick={() => setSelected(r.id)}
-                      className={`${card} rounded-[20px] p-5 flex flex-col justify-between gap-4 border transition-all cursor-pointer hover:border-slate-400 hover:shadow-md active:scale-[0.99] ${
-                        isSelected ? "border-brand-red ring-2 ring-brand-red/20 bg-[#FDFDFE]" : "border-[#E2E6EF]"
+                      className={`rounded-2xl p-5 flex flex-col justify-between gap-4 border bg-white transition-all duration-200 cursor-pointer group hover:shadow-lg hover:border-slate-300 relative ${
+                        isSelected
+                          ? "border-ink ring-2 ring-ink/15 shadow-md bg-slate-50/40"
+                          : "border-slate-200/90 shadow-[0_1px_3px_rgba(15,23,42,0.04)]"
                       }`}
                     >
                       {/* Top: Booking Ref & Dispute Status */}
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="flex flex-col gap-1 min-w-0">
-                          <span className="text-[11px] font-semibold text-[#5B6475]">رقم الحجز</span>
-                          <strong dir="ltr" className="font-inter text-base font-bold text-slate-900 tracking-wide text-right truncate">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex flex-col gap-0.5 min-w-0">
+                          <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">رقم الحجز</span>
+                          <strong dir="ltr" className="font-mono text-base font-extrabold text-slate-900 tracking-wider text-right truncate">
                             {r.bookingReference}
                           </strong>
                         </div>
@@ -134,27 +150,28 @@ export default function DisputesPage() {
                       </div>
 
                       {/* Dispute Details Box */}
-                      <div className="flex flex-col gap-2 p-3 rounded-xl bg-[#F6F8FB] border border-[#E9EDF5] text-xs">
+                      <div className="flex flex-col gap-2 p-3 rounded-xl bg-slate-50/80 border border-slate-200/70 text-xs">
                         <div className="flex items-center justify-between">
-                          <span className={muted}>الطرف الذي فتح النزاع</span>
-                          <span className="font-bold text-slate-800">{SIDE[r.openedBy] ?? r.openedBy}</span>
+                          <span className="text-slate-500 font-medium">الطرف الذي فتح النزاع</span>
+                          <span className="font-bold text-slate-900">{SIDE[r.openedBy] ?? r.openedBy}</span>
                         </div>
                         <div className="flex items-center justify-between">
-                          <span className={muted}>مبلغ العربون</span>
-                          <strong className="font-bold text-emerald-700">{money(r.depositAmount)}</strong>
+                          <span className="text-slate-500 font-medium">مبلغ العربون</span>
+                          <strong className="font-extrabold text-emerald-700">{money(r.depositAmount)}</strong>
                         </div>
                         <div className="flex items-center justify-between">
-                          <span className={muted}>حالة الحجز الحالية</span>
-                          <span className="font-medium text-slate-800">{BOOKING_STATUS_MAP[r.bookingStatus] ?? r.bookingStatus}</span>
+                          <span className="text-slate-500 font-medium">حالة الحجز الحالية</span>
+                          <span className="font-semibold text-slate-900">{BOOKING_STATUS_MAP[r.bookingStatus] ?? r.bookingStatus}</span>
                         </div>
                       </div>
 
                       {/* Footer */}
-                      <div className="flex items-center justify-between text-xs pt-2 border-t border-[#F0F2F6]">
-                        <span className={muted}>تاريخ الفتح: {fmtDateTime(r.createdAtUtc)}</span>
-                        <span className="text-brand-red font-bold flex items-center gap-1">
-                          الفصل في النزاع <ChevronLeft className="size-3.5" />
-                        </span>
+                      <div className="w-full pt-1 border-t border-slate-100 flex items-center justify-between gap-2 text-xs">
+                        <span className="text-[11px] text-slate-500 font-semibold">تاريخ الفتح: {fmtDateTime(r.createdAtUtc)}</span>
+                        <div className="py-1.5 px-3 rounded-lg bg-slate-50 group-hover:bg-slate-100 border border-slate-200/70 text-slate-700 group-hover:text-slate-900 font-bold flex items-center gap-1 transition-colors">
+                          <span>الفصل في النزاع</span>
+                          <ChevronLeft className="size-3.5 group-hover:-translate-x-0.5 transition-transform" />
+                        </div>
                       </div>
                     </div>
                   );

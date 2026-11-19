@@ -70,14 +70,29 @@ export default function BookingsPage() {
       <PageHeader title="الحجوزات" sub="كل الحجوزات في كل الملاعب. الإلغاء الإجباري بيرجّع العربون كامل للاعب وبيتسجل في التدقيق." />
       
       <div className="flex flex-wrap gap-2.5 items-center justify-between bg-white p-3.5 rounded-2xl border border-[#EEF1F6] shadow-xs">
-        <div className="flex flex-wrap gap-2 flex-1 min-w-[280px]">
-          <div className="flex-[1_1_240px]">
-            <SearchBox value={reference} onChange={(v) => { setReference(v); setPage(1); }} placeholder="رقم الحجز (MAL-…)" />
+        <div className="flex flex-wrap items-center gap-2.5 flex-1 min-w-[280px]">
+          <div className="w-full sm:w-80 shrink-0">
+            <SearchBox value={reference} onChange={(v) => { setReference(v); setPage(1); }} placeholder="رقم الحجز (MLB-…)" />
           </div>
-          <Select label="الحالة" value={status} onChange={(v) => { setStatus(v); setPage(1); }} options={STATUSES} />
+          <div className="w-40 sm:w-48 shrink-0">
+            <Select label="الحالة" value={status} onChange={(v) => { setStatus(v); setPage(1); }} options={STATUSES} />
+          </div>
+          {(reference || status) && (
+            <button
+              type="button"
+              onClick={() => {
+                setReference("");
+                setStatus("");
+                setPage(1);
+              }}
+              className="text-xs font-bold text-slate-500 hover:text-slate-800 px-3 py-1.5 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
+            >
+              إعادة ضبط
+            </button>
+          )}
         </div>
 
-        <div className="inline-flex rounded-xl bg-slate-100 p-1 border border-slate-200">
+        <div className="inline-flex rounded-xl bg-slate-100 p-1 border border-slate-200 shrink-0">
           <button
             type="button"
             className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${

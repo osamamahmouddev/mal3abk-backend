@@ -97,9 +97,9 @@ export default function VenuesPage() {
       />
 
       {/* Control & Search Bar */}
-      <div className="flex flex-wrap gap-3 items-center justify-between bg-white p-4 rounded-2xl border border-[#EEF1F6] shadow-xs">
+      <div className="flex flex-wrap gap-3 items-center justify-between bg-white p-3.5 rounded-2xl border border-[#EEF1F6] shadow-xs">
         <div className="flex flex-wrap gap-2.5 items-center flex-1 min-w-[280px]">
-          <div className="relative min-w-[240px] flex-1 max-w-md">
+          <div className="w-full sm:w-80 shrink-0">
             <SearchBox
               value={q}
               onChange={(v) => {
@@ -109,19 +109,34 @@ export default function VenuesPage() {
               placeholder="ابحث باسم الملعب، المدينة، المنطقة أو المالك..."
             />
           </div>
-          <Select
-            label="حالة الاعتماد"
-            value={status}
-            onChange={(v) => {
-              setStatus(v);
-              setPage(1);
-            }}
-            options={STATUSES}
-          />
+          <div className="w-40 sm:w-48 shrink-0">
+            <Select
+              label="حالة الاعتماد"
+              value={status}
+              onChange={(v) => {
+                setStatus(v);
+                setPage(1);
+              }}
+              options={STATUSES}
+            />
+          </div>
+          {(q || status) && (
+            <button
+              type="button"
+              onClick={() => {
+                setQ("");
+                setStatus("");
+                setPage(1);
+              }}
+              className="text-xs font-bold text-slate-500 hover:text-slate-800 px-3 py-1.5 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
+            >
+              إعادة ضبط
+            </button>
+          )}
         </div>
 
         {/* View Switcher: Cards vs Table */}
-        <div className="inline-flex rounded-xl bg-slate-100 p-1 border border-slate-200">
+        <div className="inline-flex rounded-xl bg-slate-100 p-1 border border-slate-200 shrink-0">
           <button
             type="button"
             className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
@@ -170,7 +185,7 @@ export default function VenuesPage() {
           if (viewMode === "cards") {
             return (
               <>
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5 sm:gap-6">
                   {data.items.map((r) => {
                     const subStatus = r.subscriptionStatus ?? "Default";
                     const planName = r.planName || "بدون باقة";

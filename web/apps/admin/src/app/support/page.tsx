@@ -52,14 +52,37 @@ export default function SupportPage() {
       <PageHeader title="تذاكر الدعم" sub="الأعجل الأول، وبعدين الأقدم انتظارًا. الملاحظات الداخلية مش بتوصل للعميل." />
       
       <div className="flex flex-wrap gap-2.5 items-center justify-between bg-white p-3.5 rounded-2xl border border-[#EEF1F6] shadow-xs">
-        <div className="flex flex-wrap gap-2 flex-1 min-w-[280px]">
-          <div className="flex-[1_1_220px]"><SearchBox value={q} onChange={(v) => { setQ(v); setPage(1); }} placeholder="رقم التذكرة أو الموضوع" /></div>
-          <Select label="الحالة" value={status} onChange={(v) => { setStatus(v); setPage(1); }} options={STATUSES} />
-          <Select label="النوع" value={category} onChange={(v) => { setCategory(v); setPage(1); }} options={CATEGORIES} />
-          <Select label="الإسناد" value={mine} onChange={(v) => { setMine(v as "all" | "unassigned"); setPage(1); }} options={[["all", "الكل"], ["unassigned", "غير مسندة"]]} />
+        <div className="flex flex-wrap items-center gap-2 flex-1 min-w-[280px]">
+          <div className="w-full sm:w-64 shrink-0">
+            <SearchBox value={q} onChange={(v) => { setQ(v); setPage(1); }} placeholder="رقم التذكرة أو الموضوع..." />
+          </div>
+          <div className="w-36 sm:w-40 shrink-0">
+            <Select label="الحالة" value={status} onChange={(v) => { setStatus(v); setPage(1); }} options={STATUSES} />
+          </div>
+          <div className="w-36 sm:w-40 shrink-0">
+            <Select label="النوع" value={category} onChange={(v) => { setCategory(v); setPage(1); }} options={CATEGORIES} />
+          </div>
+          <div className="w-36 sm:w-40 shrink-0">
+            <Select label="الإسناد" value={mine} onChange={(v) => { setMine(v as "all" | "unassigned"); setPage(1); }} options={[["all", "الكل"], ["unassigned", "غير مسندة"]]} />
+          </div>
+          {(q || status || category || mine !== "all") && (
+            <button
+              type="button"
+              onClick={() => {
+                setQ("");
+                setStatus("");
+                setCategory("");
+                setMine("all");
+                setPage(1);
+              }}
+              className="text-xs font-bold text-slate-500 hover:text-slate-800 px-3 py-1.5 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
+            >
+              إعادة ضبط
+            </button>
+          )}
         </div>
 
-        <div className="inline-flex rounded-xl bg-slate-100 p-1 border border-slate-200">
+        <div className="inline-flex rounded-xl bg-slate-100 p-1 border border-slate-200 shrink-0">
           <button
             type="button"
             className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
@@ -109,62 +132,65 @@ export default function SupportPage() {
         {(data) => (
           <>
             {viewMode === "cards" ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5 sm:gap-6">
                 {data.items.map((t) => {
                   const isSelected = selected === t.id;
                   return (
                     <div
                       key={t.id}
                       onClick={() => setSelected(t.id)}
-                      className={`${card} rounded-[20px] p-5 flex flex-col justify-between gap-4 border transition-all cursor-pointer hover:border-slate-400 hover:shadow-md active:scale-[0.99] ${
-                        isSelected ? "border-brand-red ring-2 ring-brand-red/20 bg-[#FDFDFE]" : "border-[#E2E6EF]"
+                      className={`rounded-2xl p-5 flex flex-col justify-between gap-4 border bg-white transition-all duration-200 cursor-pointer group hover:shadow-lg hover:border-slate-300 relative ${
+                        isSelected
+                          ? "border-ink ring-2 ring-ink/15 shadow-md bg-slate-50/40"
+                          : "border-slate-200/90 shadow-[0_1px_3px_rgba(15,23,42,0.04)]"
                       }`}
                     >
                       {/* Top: Ticket Number, Badges & Priority */}
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="flex flex-col gap-1 min-w-0">
-                          <span dir="ltr" className="font-inter text-xs font-bold text-slate-700 text-right">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex flex-col gap-0.5 min-w-0">
+                          <span dir="ltr" className="font-mono text-xs font-extrabold text-slate-700 text-right">
                             {t.number}
                           </span>
-                          <strong className="text-base font-bold text-slate-900 truncate">
+                          <strong className="text-base font-bold text-slate-900 truncate" title={t.subject}>
                             {t.subject}
                           </strong>
                         </div>
-                        <div className="flex flex-col items-end gap-1 shrink-0">
+                        <div className="flex items-center gap-1.5 shrink-0">
                           <Pill tone={PRIORITY_TONE[t.priority] ?? "neutral"}>
                             {label(PRIORITIES, t.priority)}
                           </Pill>
-                          <span className="text-[11px] px-2 py-0.5 rounded-md font-semibold bg-slate-100 text-slate-700">
+                          <span className="text-[11px] px-2 py-0.5 rounded-md font-semibold bg-slate-100 text-slate-700 border border-slate-200/60">
                             {label(STATUSES, t.status)}
                           </span>
                         </div>
                       </div>
 
                       {/* Metadata Details */}
-                      <div className="flex flex-col gap-2 p-3 rounded-xl bg-[#F6F8FB] border border-[#E9EDF5] text-xs">
+                      <div className="flex flex-col gap-2 p-3 rounded-xl bg-slate-50/80 border border-slate-200/70 text-xs">
                         <div className="flex items-center justify-between">
-                          <span className={muted}>النوع والتصنيف</span>
-                          <span className="font-semibold text-slate-800">{label(CATEGORIES, t.category)}</span>
+                          <span className="text-slate-500 font-medium">النوع والتصنيف</span>
+                          <span className="font-semibold text-slate-900">{label(CATEGORIES, t.category)}</span>
                         </div>
                         <div className="flex items-center justify-between">
-                          <span className={muted}>نوع مقدم الطلب</span>
-                          <span className="font-medium text-slate-800 inline-flex items-center gap-1">
-                            {t.requesterKind === "Venue" ? <Pitch className="size-3.5 text-slate-500" /> : <SoccerBall className="size-3.5 text-slate-500" />}
+                          <span className="text-slate-500 font-medium">نوع مقدم الطلب</span>
+                          <span className="font-semibold text-slate-900 inline-flex items-center gap-1">
+                            {t.requesterKind === "Venue" ? <Pitch className="size-3.5 text-slate-600" /> : <SoccerBall className="size-3.5 text-slate-600" />}
                             {t.requesterKind === "Venue" ? "صاحب ملعب" : "لاعب"}
                           </span>
                         </div>
                         <div className="flex items-center justify-between">
-                          <span className={muted}>آخر نشاط</span>
-                          <span className="text-slate-700">{fmtDateTime(t.lastActivityAtUtc)}</span>
+                          <span className="text-slate-500 font-medium">آخر نشاط</span>
+                          <span className="text-slate-700 font-medium">{fmtDateTime(t.lastActivityAtUtc)}</span>
                         </div>
                       </div>
 
                       {/* Footer */}
-                      <div className="flex items-center justify-between text-xs pt-2 border-t border-[#F0F2F6]">
-                        <span className={muted}>{t.assigneeId ? "مُسندة لمشرف" : "غير مسندة"}</span>
-                        <span className="text-brand-red font-bold flex items-center gap-1">
-                          متابعة التذكرة <ChevronLeft className="size-3.5" />
-                        </span>
+                      <div className="w-full pt-1 border-t border-slate-100 flex items-center justify-between gap-2 text-xs">
+                        <span className="text-[11px] text-slate-500 font-semibold">{t.assigneeId ? "مُسندة لمشرف" : "غير مسندة"}</span>
+                        <div className="py-1.5 px-3 rounded-lg bg-slate-50 group-hover:bg-slate-100 border border-slate-200/70 text-slate-700 group-hover:text-slate-900 font-bold flex items-center gap-1 transition-colors">
+                          <span>متابعة التذكرة</span>
+                          <ChevronLeft className="size-3.5 group-hover:-translate-x-0.5 transition-transform" />
+                        </div>
                       </div>
                     </div>
                   );

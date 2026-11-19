@@ -230,25 +230,40 @@ function Subscriptions() {
   return (
     <>
       {notice.node}
-      <div className="flex flex-wrap gap-3 items-center justify-between bg-white p-4 rounded-2xl border border-[#EEF1F6] shadow-xs">
+      <div className="flex flex-wrap gap-3 items-center justify-between bg-white p-3.5 rounded-2xl border border-[#EEF1F6] shadow-xs">
         <div className="flex flex-wrap gap-2.5 items-center flex-1 min-w-[280px]">
-          <div className="relative min-w-[220px] flex-1 max-w-sm">
+          <div className="w-full sm:w-72 shrink-0">
             <TextInput
               placeholder="ابحث بالاسم، الموبايل، أو الملعب..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
           </div>
-          <Select label="الحالة" value={status} onChange={setStatus} options={STATUSES} />
-          <label className="flex gap-2 text-sm font-semibold items-center text-slate-700 cursor-pointer select-none">
+          <div className="w-36 sm:w-44 shrink-0">
+            <Select label="الحالة" value={status} onChange={setStatus} options={STATUSES} />
+          </div>
+          <label className="flex gap-2 text-xs font-semibold items-center text-slate-700 cursor-pointer select-none px-2 py-2 rounded-xl hover:bg-slate-50 transition-colors">
             <input
               type="checkbox"
-              className="w-4 h-4 rounded text-brand-red focus:ring-brand-red"
+              className="w-4 h-4 rounded text-ink focus:ring-ink"
               checked={expiring}
               onChange={(e) => setExpiring(e.target.checked)}
             />
             بتنتهي خلال ٧ أيام
           </label>
+          {(search || status || expiring) && (
+            <button
+              type="button"
+              onClick={() => {
+                setSearch("");
+                setStatus("");
+                setExpiring(false);
+              }}
+              className="text-xs font-bold text-slate-500 hover:text-slate-800 px-3 py-1.5 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
+            >
+              إعادة ضبط
+            </button>
+          )}
         </div>
 
         <div className="flex items-center gap-2">
@@ -959,8 +974,10 @@ function SubscriptionRequests() {
   return (
     <>
       {notice.node}
-      <div className="flex flex-wrap gap-2 items-center">
-        <Select label="الحالة" value={statusFilter} onChange={setStatusFilter} options={REQUEST_STATUSES} />
+      <div className="flex flex-wrap gap-2 items-center bg-white p-3 rounded-2xl border border-slate-200/90 shadow-xs mb-3">
+        <div className="w-full sm:w-56 shrink-0">
+          <Select label="الحالة" value={statusFilter} onChange={setStatusFilter} options={REQUEST_STATUSES} />
+        </div>
       </div>
       <QueryState
         query={requests}

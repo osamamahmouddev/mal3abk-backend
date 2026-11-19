@@ -320,9 +320,26 @@ export function TextInput(props: React.InputHTMLAttributes<HTMLInputElement>) {
   return <input {...props} className={`${inputClass} ${props.className ?? ""}`} />;
 }
 
-export function Select({ value, onChange, options, label }: { value: string; onChange: (v: string) => void; options: [string, string][]; label: string }) {
+export function Select({
+  value,
+  onChange,
+  options,
+  label,
+  className,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  options: [string, string][];
+  label: string;
+  className?: string;
+}) {
   return (
-    <select aria-label={label} value={value} onChange={(e) => onChange(e.target.value)} className={inputClass}>
+    <select
+      aria-label={label}
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      className={`min-h-[44px] px-3 rounded-xl border border-[#C9CFD9] bg-white text-xs font-semibold text-slate-800 hover:border-slate-400 focus:outline-none focus:ring-2 focus:ring-ink focus:border-ink transition-all cursor-pointer ${className ?? "w-full"}`}
+    >
       {options.map(([v, t]) => (
         <option key={v} value={v}>
           {t}
