@@ -14,9 +14,8 @@ const DEFINITIONS: [string, string][] = [
   ["إجمالي الحجز", "مجموع سعر الحجوزات المؤكدة واللي اتلعبت في الفترة. الحجز اللي لسه مستني العربون مش محسوب."],
   ["عمولة المنصة", "عمولة ملعبك على الحجوزات اللي جات من التطبيق. الحجز اليدوي اللي الملعب سجله بنفسه مالوش عمولة."],
   ["العربون المحصّل", "عربون الحجوزات المؤكدة بس. عربون الحجز اللي لسه مستني الإيصال مش محسوب لأنه ما اتدفعش."],
-  ["نصيب الملعب من العربون", "العربون ناقص عمولة المنصة. لو العمولة أكبر من العربون بيطلع بالسالب: الملعب عليه الفرق للمنصة."],
-  ["المتبقي كاش بالملعب", "باقي سعر الحجز اللي اللاعب بيدفعه للملعب لما ييجي."],
-  ["صافي مستحقات الملعب", "إجمالي الحجز ناقص العمولة، وهو نفسه نصيب الملعب من العربون + المتبقي كاش بالملعب."],
+  ["صافي مستحقات الملعب", "نصيب الملعب من العربون: العربون ناقص عمولة المنصة. لو العمولة أكبر من العربون بيطلع بالسالب، يعني الملعب عليه الفرق للمنصة."],
+  ["المدفوع في الملعب", "باقي سعر الحجز اللي اللاعب بيدفعه للملعب لما ييجي. رقم للعلم بس، مش داخل في المستحقات."],
   ["إحالات استرداد العربون", "عرابين لازم ترجع للاعبين لأن الملعب لغى الحجز."],
   ["MRR", "الإيراد الشهري المتكرر من اشتراكات الملاك النشطة وفترة السماح (السنوي ÷ ١٢)، من غير التجربة."],
 ];
@@ -126,7 +125,7 @@ export default function ReportsPage() {
 
   const exportCsv = () => {
     if (venues.length === 0) return;
-    const headers = ["اسم الملعب", "إجمالي الحجوزات", "حجوزات مؤكدة", "حجوزات ملغية", "حجوزات يدوية", "إجمالي الحجز (ج.م)", "العربون المحصل (ج.م)", "عمولة المنصة (ج.م)", "نصيب الملعب من العربون (ج.م)", "المتبقي كاش بالملعب (ج.م)", "صافي مستحقات الملعب (ج.م)", "إحالات استرداد معلقة (عدد)", "مبالغ الاسترداد المعلقة (ج.م)"];
+    const headers = ["اسم الملعب", "إجمالي الحجوزات", "حجوزات مؤكدة", "حجوزات ملغية", "حجوزات يدوية", "إجمالي الحجز (ج.م)", "العربون المحصل (ج.م)", "عمولة المنصة (ج.م)", "صافي مستحقات الملعب = العربون - العمولة (ج.م)", "إحالات استرداد معلقة (عدد)", "مبالغ الاسترداد المعلقة (ج.م)", "المدفوع في الملعب - للعلم (ج.م)"];
     const rows = venues.map((v) => [
       `"${v.venueName.replace(/"/g, '""')}"`,
       v.totalBookings,
@@ -137,10 +136,9 @@ export default function ReportsPage() {
       v.totalDepositAmount.toFixed(2),
       v.totalPlatformCommission.toFixed(2),
       depositShareOf(v).toFixed(2),
-      v.totalDueAtVenueCash.toFixed(2),
-      v.totalVenueNetAmount.toFixed(2),
       v.pendingRefundsCount,
       v.pendingRefundsAmount.toFixed(2),
+      v.totalDueAtVenueCash.toFixed(2),
     ]);
     const csv = "﻿" + [headers.join(","), ...rows.map((r) => r.join(","))].join("\r\n");
     const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8;" }));
@@ -181,7 +179,7 @@ export default function ReportsPage() {
         {!valid && <span className="text-[13px] text-[#A8261C]">تاريخ البداية لازم يكون قبل النهاية.</span>}
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
         <Kpi
           icon={<Percent className="size-4" aria-hidden />}
           tone="red"
@@ -197,18 +195,11 @@ export default function ReportsPage() {
           hint={`عربون ${num(t.confirmed)} حجز مؤكد`}
         />
         <Kpi
-          icon={<Coins className="size-4" aria-hidden />}
-          tone="navy"
-          label="نصيب الملاعب من العربون"
-          value={<Signed value={t.depositShare} />}
-          hint="العربون بعد خصم عمولة المنصة"
-        />
-        <Kpi
           icon={<Wallet className="size-4" aria-hidden />}
           tone="green"
           label="صافي مستحقات الملاعب"
-          value={money(t.venueNet)}
-          hint="نصيب العربون + المتبقي كاش بالملعب"
+          value={<Signed value={t.depositShare} />}
+          hint="نصيب الملاعب من العربون بعد خصم العمولة"
         />
         <Kpi
           icon={<AlertTriangle className="size-4" aria-hidden />}
@@ -218,6 +209,10 @@ export default function ReportsPage() {
           hint={t.refundsCount ? `${num(t.refundsCount)} حجز لغاه الملعب` : "مفيش"}
         />
       </div>
+
+      <p className={`text-[13px] ${muted} -mt-1`}>
+        للعلم: المدفوع في الملاعب كاش <strong className="text-slate-700">{money(t.dueAtVenue)}</strong> (مش داخل في المستحقات).
+      </p>
 
       <section className={`${card} rounded-2xl p-5 flex flex-col gap-4`}>
         <div className="flex flex-wrap items-center justify-between gap-3">
@@ -244,7 +239,7 @@ export default function ReportsPage() {
           </p>
         ) : (
           <div className="overflow-x-auto -mx-5 px-5">
-            <table className="w-full min-w-[1080px] text-[14px]">
+            <table className="w-full min-w-[980px] text-[14px]">
               <thead>
                 <tr className={`text-right text-[12px] ${muted} border-b border-slate-200`}>
                   <th scope="col" className={th}>الملعب</th>
@@ -254,10 +249,9 @@ export default function ReportsPage() {
                   <th scope="col" className={th}>إجمالي الحجز</th>
                   <th scope="col" className={th}>العربون المحصّل</th>
                   <th scope="col" className={`${th} text-[#C7362A]`}>عمولة المنصة</th>
-                  <th scope="col" className={th}>نصيب الملعب من العربون</th>
-                  <th scope="col" className={th}>المتبقي كاش بالملعب</th>
                   <th scope="col" className={`${th} text-[#1F6B3A]`}>صافي مستحقات الملعب</th>
                   <th scope="col" className={th}>إحالات الاسترداد</th>
+                  <th scope="col" className={`${th} text-[11px] font-normal`}>المدفوع في الملعب (للعلم)</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -273,9 +267,7 @@ export default function ReportsPage() {
                     <td className={`${td} font-semibold`}>{money(v.totalGrossAmount)}</td>
                     <td className={td}>{money(v.totalDepositAmount)}</td>
                     <td className={`${td} font-semibold text-[#C7362A]`}>{money(v.totalPlatformCommission)}</td>
-                    <td className={`${td} font-semibold`}><Signed value={depositShareOf(v)} /></td>
-                    <td className={td}>{money(v.totalDueAtVenueCash)}</td>
-                    <td className={`${td} font-bold text-[#1F6B3A] bg-[#F1F9F3]`}>{money(v.totalVenueNetAmount)}</td>
+                    <td className={`${td} font-bold text-[#1F6B3A] bg-[#F1F9F3]`}><Signed value={depositShareOf(v)} /></td>
                     <td className={td}>
                       {v.pendingRefundsCount > 0 ? (
                         <span className="text-[#9A5B00] font-semibold">{money(v.pendingRefundsAmount)} ({num(v.pendingRefundsCount)})</span>
@@ -283,6 +275,7 @@ export default function ReportsPage() {
                         <span className="text-slate-400">لا يوجد</span>
                       )}
                     </td>
+                    <td className={`${td} text-[12px] text-slate-400`}>{money(v.totalDueAtVenueCash)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -295,10 +288,9 @@ export default function ReportsPage() {
                   <td className={td}>{money(t.gross)}</td>
                   <td className={td}>{money(t.deposits)}</td>
                   <td className={`${td} text-[#C7362A]`}>{money(t.commission)}</td>
-                  <td className={td}><Signed value={t.depositShare} /></td>
-                  <td className={td}>{money(t.dueAtVenue)}</td>
-                  <td className={`${td} text-[#1F6B3A] bg-[#E6F4EA]`}>{money(t.venueNet)}</td>
+                  <td className={`${td} text-[#1F6B3A] bg-[#E6F4EA]`}><Signed value={t.depositShare} /></td>
                   <td className={td}>{t.refundsCount ? money(t.refunds) : "—"}</td>
+                  <td className={`${td} text-[12px] font-normal text-slate-400`}>{money(t.dueAtVenue)}</td>
                 </tr>
               </tfoot>
             </table>
