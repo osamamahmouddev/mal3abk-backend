@@ -4,6 +4,7 @@ import React, { Suspense, useState, useTransition } from "react";
 import Image from "next/image";
 import { useSearchParams } from "next/navigation";
 import { QRCodeSVG } from "qrcode.react";
+import { Check, Copy, Download } from "lucide-react";
 import { inputClass, muted, redShadow } from "@/components/ui";
 import { adminLogin, confirmTotpEnrollment, startTotpEnrollment } from "@/app/auth-actions";
 
@@ -29,6 +30,8 @@ function AdminLogin() {
   const [codeErr, setCodeErr] = useState<string | null>(null);
   const [enrollment, setEnrollment] = useState<{ secret: string; provisioningUri: string } | null>(null);
   const [recoveryCodes, setRecoveryCodes] = useState<string[]>([]);
+  const [enrolledCode, setEnrolledCode] = useState("");
+  const [copied, setCopied] = useState(false);
   const [pending, startTransition] = useTransition();
 
   const next = () => {
@@ -104,9 +107,67 @@ function AdminLogin() {
       const result = await confirmTotpEnrollment(cleanDigits);
       if (!result.ok) return setCodeErr(result.message ?? null);
       setRecoveryCodes(result.recoveryCodes ?? []);
+      setEnrolledCode(cleanDigits);
       setCode("");
       setCodeErr(null);
       setStep("codes");
+    });
+  };
+
+  const handleCopyCodes = async () => {
+    try {
+      const text = recoveryCodes.map((c) => c.toLowerCase()).join("\n");
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // Fallback
+    }
+  };
+
+  const handleDownloadCodes = () => {
+    const lines = [
+      "====================================================",
+      "ملعبك (Malabak) - رموز استرجاع حساب الإدارة",
+      `تاريخ الإنشاء: ${new Date().toLocaleDateString("ar-EG", { dateStyle: "full" })}`,
+      `البريد الإلكتروني: ${email.trim()}`,
+      "====================================================",
+      "",
+      "تنبيه أمني مهم:",
+      "- احتفظ بهذه الرموز في مكان آمن ومشفر.",
+      "- كل رمز يُستخدم لمرة واحدة فقط كبديل لرمز تطبيق المصادقة (TOTP).",
+      "- لا تشارك هذه الرموز مع أي شخص تحت أي ظرف.",
+      "",
+      "قائمة رموز الاسترجاع:",
+      ...recoveryCodes.map((c, i) => `${String(i + 1).padStart(2, "0")}. ${c.toLowerCase()}`),
+      "",
+      "====================================================",
+    ];
+    const blob = new Blob([lines.join("\n")], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `malabak-recovery-codes-${Date.now()}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleContinueFromCodes = () => {
+    startTransition(async () => {
+      if (enrolledCode && pass && email.trim()) {
+        const result = await adminLogin({
+          email: email.trim(),
+          password: pass,
+          totpCode: enrolledCode,
+        });
+        if (result.ok) return next();
+      }
+      setRecoveryCodes([]);
+      setCode("");
+      setCodeErr(null);
+      setStep("otp");
     });
   };
 
@@ -234,29 +295,74 @@ function AdminLogin() {
             </button>
           </form>
         ) : step === "codes" ? (
-          <div className="flex flex-col gap-3.5">
+          <div className="flex flex-col gap-4">
             <div>
-              <h1 className="text-[22px] font-bold">أكواد الاسترجاع</h1>
+              <h1 className="text-[22px] font-bold text-ink">رموز استرجاع الحساب</h1>
               <p className={`mt-1 text-sm ${muted}`}>
-                احفظهم في مكان آمن. كل كود بيشتغل مرة واحدة لو موبايلك ضاع. مش هيظهروا تاني.
+                احفظ هذه الرموز في مكان آمن. كل كود بيشتغل مرة واحدة لو موبايلك ضاع. مش هيظهروا تاني.
               </p>
             </div>
-            <ul dir="ltr" className="grid grid-cols-2 gap-2 bg-[#F3F5F9] rounded-xl p-3 font-mono text-sm">
-              {recoveryCodes.map((c) => (
-                <li key={c} className="text-center">
-                  {c}
-                </li>
-              ))}
-            </ul>
+
+            <div className="bg-[#EFF5F1] border border-[#D5E3DB] rounded-[20px] p-4 sm:p-5 shadow-sm">
+              <div dir="ltr" className="flex flex-col">
+                {Array.from({ length: Math.ceil(recoveryCodes.length / 2) }).map((_, rowIndex) => {
+                  const left = recoveryCodes[rowIndex * 2];
+                  const right = recoveryCodes[rowIndex * 2 + 1];
+                  const isLastRow = rowIndex === Math.ceil(recoveryCodes.length / 2) - 1;
+
+                  return (
+                    <div
+                      key={rowIndex}
+                      className={`grid grid-cols-2 py-2.5 text-center font-mono text-[14px] font-medium text-[#1E293B] tracking-wider ${
+                        !isLastRow ? "border-b border-dashed border-[#CBDDD2]" : ""
+                      }`}
+                    >
+                      <span className="select-all hover:text-[#0B6A3E] transition-colors">{left?.toLowerCase()}</span>
+                      <span className="select-all hover:text-[#0B6A3E] transition-colors">{right ? right.toLowerCase() : ""}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={handleCopyCodes}
+                dir="ltr"
+                className="flex items-center justify-center gap-2 py-2.5 px-3 rounded-full border border-[#D5E3DB] bg-white hover:bg-[#F2F7F4] text-[#1E293B] text-[13px] font-bold transition-all shadow-sm active:scale-[0.98] cursor-pointer"
+              >
+                {copied ? (
+                  <>
+                    <span className="text-[#0B6A3E]">تم النسخ!</span>
+                    <Check className="w-4 h-4 text-[#0B6A3E]" />
+                  </>
+                ) : (
+                  <>
+                    <span>نسخ الرموز</span>
+                    <Copy className="w-4 h-4 text-[#1E293B]" />
+                  </>
+                )}
+              </button>
+
+              <button
+                type="button"
+                onClick={handleDownloadCodes}
+                dir="ltr"
+                className="flex items-center justify-center gap-2 py-2.5 px-3 rounded-full border border-[#D5E3DB] bg-white hover:bg-[#F2F7F4] text-[#1E293B] text-[13px] font-bold transition-all shadow-sm active:scale-[0.98] cursor-pointer"
+              >
+                <span>تنزيل كملف</span>
+                <Download className="w-4 h-4 text-[#1E293B]" />
+              </button>
+            </div>
+
             <button
               type="button"
-              onClick={() => {
-                setRecoveryCodes([]);
-                setStep("otp");
-              }}
-              className={submitBtn}
+              disabled={pending}
+              onClick={handleContinueFromCodes}
+              className="w-full min-h-[50px] rounded-full bg-[#0B6A3E] hover:bg-[#085531] disabled:opacity-60 text-white text-[15px] font-bold transition-all shadow-sm active:scale-[0.99] flex items-center justify-center cursor-pointer mt-1"
             >
-              حفظتهم — كمّل الدخول
+              {pending ? "جاري المتابعة…" : "حفظتها، متابعة"}
             </button>
           </div>
         ) : (
@@ -268,12 +374,12 @@ function AdminLogin() {
             <input
               aria-label="كود التحقق"
               dir="ltr"
-              inputMode="numeric"
+              inputMode={useRecovery ? "text" : "numeric"}
               autoComplete="one-time-code"
               maxLength={useRecovery ? 20 : 7}
               value={code}
               onChange={(e) => handleCodeChange(e.target.value)}
-              placeholder={useRecovery ? "XXXX-XXXX" : "000 000"}
+              placeholder={useRecovery ? "xxxxx-xxxxx" : "000 000"}
               aria-invalid={!!codeErr}
               className={`min-h-[56px] border border-[#C9CFD9] rounded-xl px-3 text-2xl font-mono text-center focus:outline-none focus:ring-2 focus:ring-ink ${
                 useRecovery ? "tracking-[2px]" : "tracking-[6px]"
