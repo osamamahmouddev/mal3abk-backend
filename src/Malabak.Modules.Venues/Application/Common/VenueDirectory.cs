@@ -94,7 +94,7 @@ public sealed class VenueDirectory : IVenueDirectory
 
         var list = await _dbContext.Venues.IgnoreQueryFilters().AsNoTracking()
             .Where(v => venueIds.Contains(v.Id) && !v.IsDeleted)
-            .Select(v => new VenueCommissionInfo(v.Id, v.CustomCommissionEnabled, v.CommissionType.ToString(), v.CommissionRate))
+            .Select(v => new VenueCommissionInfo(v.Id, v.CustomCommissionEnabled, v.CommissionType.ToString(), v.CommissionRate, v.PricingModel.ToString()))
             .ToListAsync(cancellationToken);
 
         return list.ToDictionary(v => v.VenueId);

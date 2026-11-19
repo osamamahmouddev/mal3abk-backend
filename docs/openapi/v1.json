@@ -1704,6 +1704,100 @@
         }
       }
     },
+    "/api/v1/admin/auth/totp/reset": {
+      "post": {
+        "tags": [
+          "Admin Authentication"
+        ],
+        "summary": "Reset admin TOTP to allow re-enrollment with valid password",
+        "operationId": "AdminResetTotp",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResetTotpApiRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Bad Request (Validation failure, invalid inputs)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized (Missing or expired JWT access token)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (Insufficient role or permissions)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found (Resource does not exist)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict (Concurrent update or duplicate idempotency in flight)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity (Business rule violation or payload mismatch)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests (Rate limit exceeded, check Retry-After header)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/admin/auth/refresh": {
       "post": {
         "tags": [
@@ -10101,7 +10195,7 @@
         "tags": [
           "Admin Venue Approval"
         ],
-        "summary": "Configure custom platform commission for a specific venue",
+        "summary": "Configure pricing model and platform commission for a specific venue",
         "operationId": "UpdateVenueCommission",
         "parameters": [
           {
@@ -10211,7 +10305,7 @@
         "tags": [
           "Admin Venue Approval"
         ],
-        "summary": "Get the platform commission configuration for a venue",
+        "summary": "Get the pricing model and platform commission configuration for a venue",
         "operationId": "GetVenueCommission",
         "parameters": [
           {
@@ -14641,6 +14735,88 @@
       }
     },
     "/api/v1/test/client-ip": {
+      "get": {
+        "tags": [
+          "Malabak.Api"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Bad Request (Validation failure, invalid inputs)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized (Missing or expired JWT access token)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (Insufficient role or permissions)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found (Resource does not exist)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict (Concurrent update or duplicate idempotency in flight)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity (Business rule violation or payload mismatch)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests (Rate limit exceeded, check Retry-After header)",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/": {
       "get": {
         "tags": [
           "Malabak.Api"
@@ -35470,7 +35646,9 @@
           "approvalStatus",
           "area",
           "city",
+          "commissionType",
           "createdAtUtc",
+          "customCommissionEnabled",
           "history",
           "id",
           "isPublished",
@@ -35479,6 +35657,7 @@
           "ownerId",
           "phoneNumber",
           "pitches",
+          "pricingModel",
           "slug",
           "staffCount"
         ],
@@ -35565,6 +35744,20 @@
               "type": "string"
             },
             "nullable": true
+          },
+          "pricingModel": {
+            "type": "string"
+          },
+          "customCommissionEnabled": {
+            "type": "boolean"
+          },
+          "commissionType": {
+            "type": "string"
+          },
+          "commissionRate": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
           }
         },
         "additionalProperties": false
@@ -35613,7 +35806,8 @@
           "isPublished",
           "name",
           "ownerId",
-          "pitches"
+          "pitches",
+          "pricingModel"
         ],
         "type": "object",
         "properties": {
@@ -35670,6 +35864,9 @@
               "type": "string"
             },
             "nullable": true
+          },
+          "pricingModel": {
+            "type": "string"
           }
         },
         "additionalProperties": false
@@ -41220,6 +41417,14 @@
         "type": "integer",
         "format": "int32"
       },
+      "PricingModel": {
+        "enum": [
+          0,
+          1
+        ],
+        "type": "integer",
+        "format": "int32"
+      },
       "ProblemDetails": {
         "type": "object",
         "properties": {
@@ -41660,6 +41865,26 @@
           },
           "newPassword": {
             "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ResetTotpApiRequest": {
+        "required": [
+          "email",
+          "password"
+        ],
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string"
+          },
+          "password": {
+            "type": "string"
+          },
+          "turnstileToken": {
+            "type": "string",
+            "nullable": true
           }
         },
         "additionalProperties": false
@@ -44415,10 +44640,14 @@
       "UpdateVenueCommissionRequest": {
         "required": [
           "commissionType",
-          "customCommissionEnabled"
+          "customCommissionEnabled",
+          "pricingModel"
         ],
         "type": "object",
         "properties": {
+          "pricingModel": {
+            "$ref": "#/components/schemas/PricingModel"
+          },
           "customCommissionEnabled": {
             "type": "boolean"
           },
@@ -44984,6 +45213,7 @@
         "required": [
           "commissionType",
           "customCommissionEnabled",
+          "pricingModel",
           "venueId"
         ],
         "type": "object",
@@ -44991,6 +45221,9 @@
           "venueId": {
             "type": "string",
             "format": "uuid"
+          },
+          "pricingModel": {
+            "type": "string"
           },
           "customCommissionEnabled": {
             "type": "boolean"
@@ -45145,6 +45378,7 @@
           "phoneNumber",
           "photos",
           "pitches",
+          "pricingModel",
           "slug"
         ],
         "type": "object",
@@ -45215,6 +45449,9 @@
             "items": {
               "$ref": "#/components/schemas/PitchDto"
             }
+          },
+          "pricingModel": {
+            "type": "string"
           }
         },
         "additionalProperties": false
@@ -45233,6 +45470,7 @@
           "totalGrossAmount",
           "totalPlatformCommission",
           "totalVenueNetAmount",
+          "venueDepositShare",
           "venueId",
           "venueName"
         ],
@@ -45286,6 +45524,10 @@
             "format": "int32"
           },
           "pendingRefundsAmount": {
+            "type": "number",
+            "format": "double"
+          },
+          "venueDepositShare": {
             "type": "number",
             "format": "double"
           },

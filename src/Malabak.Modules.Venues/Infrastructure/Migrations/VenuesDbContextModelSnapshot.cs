@@ -711,6 +711,13 @@ namespace Malabak.Modules.Venues.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<string>("PricingModel")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasDefaultValue("Subscription");
+
                     b.Property<bool>("PublishedBeforeSuspension")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("boolean")

@@ -243,6 +243,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/auth/totp/reset": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reset admin TOTP to allow re-enrollment with valid password */
+        post: operations["AdminResetTotp"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/auth/refresh": {
         parameters: {
             query?: never;
@@ -1504,14 +1521,14 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get the platform commission configuration for a venue */
+        /** Get the pricing model and platform commission configuration for a venue */
         get: operations["GetVenueCommission"];
         put?: never;
         post?: never;
         delete?: never;
         options?: never;
         head?: never;
-        /** Configure custom platform commission for a specific venue */
+        /** Configure pricing model and platform commission for a specific venue */
         patch: operations["UpdateVenueCommission"];
         trace?: never;
     };
@@ -2680,6 +2697,102 @@ export interface paths {
         trace?: never;
     };
     "/api/v1/test/client-ip": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Bad Request (Validation failure, invalid inputs) */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Unauthorized (Missing or expired JWT access token) */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Forbidden (Insufficient role or permissions) */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Not Found (Resource does not exist) */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Conflict (Concurrent update or duplicate idempotency in flight) */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Unprocessable Entity (Business rule violation or payload mismatch) */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Too Many Requests (Rate limit exceeded, check Retry-After header) */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/": {
         parameters: {
             query?: never;
             header?: never;
@@ -5926,6 +6039,11 @@ export interface components {
             /** Format: date-time */
             createdAtUtc: string;
             photos?: string[] | null;
+            pricingModel: string;
+            customCommissionEnabled: boolean;
+            commissionType: string;
+            /** Format: double */
+            commissionRate?: number | null;
         };
         AdminVenueEventItem: {
             action: string;
@@ -5956,6 +6074,7 @@ export interface components {
             /** Format: date-time */
             createdAtUtc: string;
             photos?: string[] | null;
+            pricingModel: string;
         };
         AdminVenuePage: {
             items: components["schemas"]["AdminVenueListItem"][];
@@ -7720,6 +7839,11 @@ export interface components {
          * @enum {integer}
          */
         PriceRuleKind: 0 | 1 | 2 | 3 | 4 | 5;
+        /**
+         * Format: int32
+         * @enum {integer}
+         */
+        PricingModel: 0 | 1;
         ProblemDetails: {
             type?: string | null;
             title?: string | null;
@@ -7850,6 +7974,11 @@ export interface components {
         ResetPasswordApiRequest: {
             token: string;
             newPassword: string;
+        };
+        ResetTotpApiRequest: {
+            email: string;
+            password: string;
+            turnstileToken?: string | null;
         };
         ResolveDisputeApiRequest: {
             outcome?: string | null;
@@ -8703,6 +8832,7 @@ export interface components {
             photos?: string[] | null;
         };
         UpdateVenueCommissionRequest: {
+            pricingModel: components["schemas"]["PricingModel"];
             customCommissionEnabled: boolean;
             commissionType: components["schemas"]["CommissionType"];
             /** Format: double */
@@ -8881,6 +9011,7 @@ export interface components {
         VenueCommissionDto: {
             /** Format: uuid */
             venueId: string;
+            pricingModel: string;
             customCommissionEnabled: boolean;
             commissionType: string;
             /** Format: double */
@@ -8938,6 +9069,7 @@ export interface components {
             facilities: string[];
             photos: string[];
             pitches: components["schemas"]["PitchDto"][];
+            pricingModel: string;
         };
         VenueFinancialSummaryItem: {
             /** Format: uuid */
@@ -8961,12 +9093,12 @@ export interface components {
             totalVenueNetAmount: number;
             /** Format: double */
             totalDueAtVenueCash: number;
-            /** Format: double */
-            venueDepositShare?: number;
             /** Format: int32 */
             pendingRefundsCount: number;
             /** Format: double */
             pendingRefundsAmount: number;
+            /** Format: double */
+            venueDepositShare: number;
             currency: string;
         };
         VenuePermissionsResponse: {
@@ -10436,6 +10568,91 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["RecoveryCodesResponse"];
                 };
+            };
+            /** @description Bad Request (Validation failure, invalid inputs) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Unauthorized (Missing or expired JWT access token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Forbidden (Insufficient role or permissions) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Not Found (Resource does not exist) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Conflict (Concurrent update or duplicate idempotency in flight) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Unprocessable Entity (Business rule violation or payload mismatch) */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Too Many Requests (Rate limit exceeded, check Retry-After header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    AdminResetTotp: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ResetTotpApiRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Bad Request (Validation failure, invalid inputs) */
             400: {

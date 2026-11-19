@@ -24,6 +24,7 @@ public static class VenueMapper
             venue.IsPublished,
             venue.Facilities.ToList(),
             venue.Photos.ToList(),
-            venue.Pitches.Select(PitchMapper.ToDto).ToList());
+            venue.Pitches.Select(PitchMapper.ToDto).ToList(),
+            venue.PricingModel.ToString());
     }
 }

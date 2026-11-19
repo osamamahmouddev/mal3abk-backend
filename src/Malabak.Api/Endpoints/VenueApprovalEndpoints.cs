@@ -87,6 +87,7 @@ public static class VenueApprovalEndpoints
             var adminId = user.GetUserId() ?? Guid.Empty;
             var command = new UpdateVenueCommissionCommand(
                 venueId,
+                request.PricingModel,
                 request.CustomCommissionEnabled,
                 request.CommissionType,
                 request.CommissionRate,
@@ -96,7 +97,7 @@ public static class VenueApprovalEndpoints
         })
         .Produces<VenueCommissionDto>()
         .WithName("UpdateVenueCommission")
-        .WithSummary("Configure custom platform commission for a specific venue");
+        .WithSummary("Configure pricing model and platform commission for a specific venue");
 
         admin.MapGet("/{venueId:guid}/commission", async (
             Guid venueId,
@@ -105,10 +106,14 @@ public static class VenueApprovalEndpoints
             ToResult(await handler.HandleAsync(new GetVenueCommissionQuery(venueId), ct)))
         .Produces<VenueCommissionDto>()
         .WithName("GetVenueCommission")
-        .WithSummary("Get the platform commission configuration for a venue");
+        .WithSummary("Get the pricing model and platform commission configuration for a venue");
     }
 
-    public sealed record UpdateVenueCommissionRequest(bool CustomCommissionEnabled, CommissionType CommissionType, decimal? CommissionRate);
+    public sealed record UpdateVenueCommissionRequest(
+        PricingModel PricingModel,
+        bool CustomCommissionEnabled,
+        CommissionType CommissionType,
+        decimal? CommissionRate);
 
     private static async Task<IResult> DecideAsync(
         ICommandHandler<DecideVenueApprovalCommand, Result<VenueApprovalDto>> handler,

@@ -24,6 +24,7 @@ public sealed class DenyByDefaultSecurityTests : IClassFixture<WebApplicationFac
     private static readonly HashSet<string> _reviewedAnonymousAllowlist = new(StringComparer.OrdinalIgnoreCase)
     {
         // Platform & Health
+        "/",
         "/.well-known/security.txt",
         "/health/live",
         "/health/ready",
@@ -50,6 +51,7 @@ public sealed class DenyByDefaultSecurityTests : IClassFixture<WebApplicationFac
         "/api/v{version:apiVersion}/admin/auth/refresh",
         "/api/v{version:apiVersion}/admin/auth/totp/enroll",
         "/api/v{version:apiVersion}/admin/auth/totp/confirm",
+        "/api/v{version:apiVersion}/admin/auth/totp/reset",
 
         // Public Discovery & Reference Data (Unauthenticated Browsing)
         "/api/v{version:apiVersion}/home",

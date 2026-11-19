@@ -19,4 +19,5 @@ public sealed record VenueDto(
     bool IsPublished,
     IReadOnlyList<string> Facilities,
     IReadOnlyList<string> Photos,
-    IReadOnlyList<PitchDto> Pitches);
+    IReadOnlyList<PitchDto> Pitches,
+    string PricingModel = "Subscription");

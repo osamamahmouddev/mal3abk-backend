@@ -50,13 +50,16 @@ public sealed class CreatePitchHandler : ICommandHandler<CreatePitchCommand, Res
             return Result.Failure<PitchDto>(new Error("Venue.Forbidden", "You are not authorized to add pitches to this venue."));
         }
 
-        // Plan limit on pitches across all the owner's venues (staff adding a pitch count against the owner's plan).
-        var ownerVenues = _dbContext.Venues.Where(v => v.OwnerId == venue.OwnerId && !v.IsDeleted).Select(v => v.Id);
-        var pitchCount = await _dbContext.Pitches.CountAsync(p => ownerVenues.Contains(p.VenueId) && !p.IsDeleted, cancellationToken);
-        var allowed = await _entitlements.EnsureWithinLimitAsync(venue.OwnerId, EntitlementResource.Pitches, pitchCount, cancellationToken);
-        if (allowed.IsFailure)
+        // Plan limit on pitches across all the owner's venues (exempt if venue operates on commission model).
+        if (venue.PricingModel == PricingModel.Subscription)
         {
-            return Result.Failure<PitchDto>(allowed.Error);
+            var ownerVenues = _dbContext.Venues.Where(v => v.OwnerId == venue.OwnerId && !v.IsDeleted).Select(v => v.Id);
+            var pitchCount = await _dbContext.Pitches.CountAsync(p => ownerVenues.Contains(p.VenueId) && !p.IsDeleted, cancellationToken);
+            var allowed = await _entitlements.EnsureWithinLimitAsync(venue.OwnerId, EntitlementResource.Pitches, pitchCount, cancellationToken);
+            if (allowed.IsFailure)
+            {
+                return Result.Failure<PitchDto>(allowed.Error);
+            }
         }
 
         var pitch = Pitch.Create(

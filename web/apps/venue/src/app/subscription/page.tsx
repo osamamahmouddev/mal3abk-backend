@@ -7,7 +7,9 @@ import { Badge, Page, Toast, card, formatEGP, inputClass, muted, primaryBtn, sec
 import { api, unwrap } from "@/lib/api";
 import { uploadImage } from "@/lib/upload";
 import { InvoiceModal } from "@/components/invoice-modal";
-import { Check, Lightbulb, MessageSquare, ReceiptText } from "lucide-react";
+import { Check, Lightbulb, MessageSquare, ReceiptText, BadgePercent } from "lucide-react";
+import { useVenue } from "@/components/Providers";
+import Link from "next/link";
 
 type Plan = Schemas["PlanDto"];
 
@@ -136,6 +138,47 @@ export default function SubscriptionPage() {
     a.click();
     setTimeout(() => URL.revokeObjectURL(url), 30_000);
   };
+
+  const { venue } = useVenue();
+  const isCommissionVenue = venue && ((venue as any).pricingModel === "Commission" || (venue as any).pricingModel === 1);
+
+  if (isCommissionVenue) {
+    return (
+      <Page className="gap-5">
+        <h1 className="text-[26px] font-bold">الاشتراك والفواتير</h1>
+        <div className={`${card} rounded-[20px] p-8 text-center max-w-2xl mx-auto flex flex-col items-center gap-4 border border-purple-200 bg-gradient-to-b from-purple-50/40 to-white mt-4`}>
+          <div className="w-16 h-16 rounded-2xl bg-purple-100 text-purple-700 flex items-center justify-center shadow-xs">
+            <BadgePercent className="size-8" strokeWidth={1.75} />
+          </div>
+          <div className="space-y-1.5">
+            <h2 className="text-xl font-black text-slate-900">هذا الملعب يعمل بنظام العمولة</h2>
+            <p className="text-sm text-slate-600 max-w-lg leading-relaxed">
+              الملعب معفى تماماً من دفع أي باقات اشتراك شهرية أو سنوية. يتم احتساب عمولة المنصة المحددة من الإدارة تلقائياً على كل حجز مكتمل دون أي رسوم دورية.
+            </p>
+          </div>
+          <div className="w-full bg-white rounded-xl border border-purple-100 p-4 text-xs text-slate-600 flex flex-col gap-2.5 mt-2 shadow-2xs">
+            <div className="flex justify-between items-center py-1 border-b border-slate-100">
+              <span className="font-bold text-slate-700">الملعب الحالي:</span>
+              <span className="font-extrabold text-purple-950 text-sm">{venue.name}</span>
+            </div>
+            <div className="flex justify-between items-center py-1 border-b border-slate-100">
+              <span className="font-bold text-slate-700">نظام العمل:</span>
+              <span className="font-extrabold text-emerald-800 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
+                نظام العمولة (معفى من الاشتراك)
+              </span>
+            </div>
+            <div className="flex justify-between items-center py-1">
+              <span className="font-bold text-slate-700">رسوم الاشتراك الدورية:</span>
+              <span className="font-bold text-slate-500">٠ جنيه مصري / لا توجد مصاريف اشتراك</span>
+            </div>
+          </div>
+          <Link href="/overview" className={`${primaryBtn} mt-2`}>
+            العودة لنظرة عامة
+          </Link>
+        </div>
+      </Page>
+    );
+  }
 
   return (
     <Page className="gap-5">

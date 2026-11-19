@@ -22,7 +22,8 @@ public sealed record AdminVenueListItem(
     bool IsPublished,
     int Pitches,
     DateTime CreatedAtUtc,
-    IReadOnlyList<string>? Photos = null);
+    IReadOnlyList<string>? Photos = null,
+    string PricingModel = "Subscription");
 
 public sealed record AdminVenuePage(IReadOnlyList<AdminVenueListItem> Items, int Page, int PageSize, int Total);
 
@@ -51,7 +52,11 @@ public sealed record AdminVenueDetail(
     VenueBookingStats Last30Days,
     IReadOnlyList<AdminVenueEventItem> History,
     DateTime CreatedAtUtc,
-    IReadOnlyList<string>? Photos = null);
+    IReadOnlyList<string>? Photos = null,
+    string PricingModel = "Subscription",
+    bool CustomCommissionEnabled = false,
+    string CommissionType = "PlatformDefault",
+    decimal? CommissionRate = null);
 
 public static class AdminVenueErrors
 {
@@ -147,6 +152,7 @@ public sealed class AdminVenueService
                 v.IsPublished,
                 v.CreatedAtUtc,
                 v.Photos,
+                v.PricingModel,
                 Pitches = _dbContext.Pitches.Count(p => p.VenueId == v.Id && !p.IsDeleted)
             })
             .ToListAsync(cancellationToken);
@@ -185,7 +191,8 @@ public sealed class AdminVenueService
                 v.IsPublished,
                 v.Pitches,
                 v.CreatedAtUtc,
-                v.Photos.ToList());
+                v.Photos.ToList(),
+                v.PricingModel.ToString());
         }).ToList();
 
         return Result.Success(new AdminVenuePage(items, search.Page, search.PageSize, total));
@@ -223,7 +230,11 @@ public sealed class AdminVenueService
             ownerName, ownerSummary?.MaskedPhone, sub?.PlanName, sub?.Status, venue.ApprovalStatus.ToString(), venue.IsPublished, venue.AdminNote, staff, pitches, stats,
             history.Select(e => new AdminVenueEventItem(e.Action.ToString(), e.FromStatus.ToString(), e.ToStatus.ToString(), e.ActorUserId, e.Message, e.CreatedAtUtc)).ToList(),
             venue.CreatedAtUtc,
-            venue.Photos.ToList()));
+            venue.Photos.ToList(),
+            venue.PricingModel.ToString(),
+            venue.CustomCommissionEnabled,
+            venue.CommissionType.ToString(),
+            venue.CommissionRate));
     }
 
     public async Task<Result<AdminVenueDetail>> SetAdminNoteAsync(Guid venueId, string? note, Guid adminId, CancellationToken cancellationToken = default)
@@ -356,6 +367,7 @@ public sealed class AdminVenueService
 
 public sealed record UpdateVenueCommissionCommand(
     Guid VenueId,
+    PricingModel PricingModel,
     bool CustomCommissionEnabled,
     CommissionType CommissionType,
     decimal? CommissionRate,
@@ -365,6 +377,7 @@ public sealed record GetVenueCommissionQuery(Guid VenueId) : IQuery<Result<Venue
 
 public sealed record VenueCommissionDto(
     Guid VenueId,
+    string PricingModel,
     bool CustomCommissionEnabled,
     string CommissionType,
     decimal? CommissionRate);
@@ -379,7 +392,7 @@ public sealed class GetVenueCommissionHandler : IQueryHandler<GetVenueCommission
     {
         var commission = await _dbContext.Venues.AsNoTracking()
             .Where(v => v.Id == query.VenueId && !v.IsDeleted)
-            .Select(v => new VenueCommissionDto(v.Id, v.CustomCommissionEnabled, v.CommissionType.ToString(), v.CommissionRate))
+            .Select(v => new VenueCommissionDto(v.Id, v.PricingModel.ToString(), v.CustomCommissionEnabled, v.CommissionType.ToString(), v.CommissionRate))
             .FirstOrDefaultAsync(cancellationToken);
 
         return commission is null
@@ -411,6 +424,7 @@ public sealed class UpdateVenueCommissionHandler : ICommandHandler<UpdateVenueCo
 
         var before = new
         {
+            PricingModel = venue.PricingModel.ToString(),
             venue.CustomCommissionEnabled,
             CommissionType = venue.CommissionType.ToString(),
             venue.CommissionRate
@@ -419,7 +433,7 @@ public sealed class UpdateVenueCommissionHandler : ICommandHandler<UpdateVenueCo
         var now = _clock.UtcNow;
         try
         {
-            venue.SetCommission(command.CustomCommissionEnabled, command.CommissionType, command.CommissionRate, now);
+            venue.SetCommercialModel(command.PricingModel, command.CustomCommissionEnabled, command.CommissionType, command.CommissionRate, now);
         }
         catch (ArgumentException ex)
         {
@@ -437,14 +451,16 @@ public sealed class UpdateVenueCommissionHandler : ICommandHandler<UpdateVenueCo
             Before: before,
             After: new
             {
+                PricingModel = venue.PricingModel.ToString(),
                 venue.CustomCommissionEnabled,
                 CommissionType = venue.CommissionType.ToString(),
                 venue.CommissionRate
             },
-            Reason: "Admin updated venue commission configuration"), cancellationToken);
+            Reason: "Admin updated venue commercial model and commission configuration"), cancellationToken);
 
         return Result.Success(new VenueCommissionDto(
             venue.Id,
+            venue.PricingModel.ToString(),
             venue.CustomCommissionEnabled,
             venue.CommissionType.ToString(),
             venue.CommissionRate));

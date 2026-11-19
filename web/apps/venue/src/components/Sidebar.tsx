@@ -136,7 +136,14 @@ export const Sidebar: React.FC<SidebarProps> = memo(({ user, onClose }) => {
       </div>
 
       <nav aria-label="أقسام اللوحة" className="flex-1 overflow-y-auto flex flex-col gap-0.5 pe-1 py-0.5">
-        {NAV_ITEMS.filter((item) => !item.permission || !venue || can(item.permission)).map((item) => {
+        {NAV_ITEMS.filter((item) => {
+          const pm = (venue as any)?.pricingModel;
+          const isCommission = pm === "Commission" || pm === 1;
+          if (item.href === "/subscription" && isCommission) {
+            return false;
+          }
+          return !item.permission || !venue || can(item.permission);
+        }).map((item) => {
           const isItemActive = checkIsActive(item.href);
           const isPending = pendingHref === item.href && !isItemActive;
           return (

@@ -1,5 +1,11 @@
 namespace Malabak.SharedKernel.Contracts;
 
+public enum PricingModel
+{
+    Subscription = 0,
+    Commission = 1
+}
+
 public enum CommissionType
 {
     PlatformDefault = 0,

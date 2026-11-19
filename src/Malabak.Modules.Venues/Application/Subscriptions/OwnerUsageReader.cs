@@ -86,7 +86,21 @@ public sealed class EntitlementStaffQuotaPolicy : IStaffQuotaPolicy
             return false;
         }
 
-        var ownerId = await _dbContext.Venues.AsNoTracking().Where(v => v.Id == venueId).Select(v => (Guid?)v.OwnerId).FirstOrDefaultAsync(cancellationToken);
-        return ownerId is { } owner && (await _entitlements.EnsureWithinLimitAsync(owner, EntitlementResource.StaffPerVenue, currentCount, cancellationToken)).IsSuccess;
+        var venueInfo = await _dbContext.Venues.AsNoTracking()
+            .Where(v => v.Id == venueId)
+            .Select(v => new { v.OwnerId, v.PricingModel })
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (venueInfo is null)
+        {
+            return false;
+        }
+
+        if (venueInfo.PricingModel == PricingModel.Commission)
+        {
+            return true;
+        }
+
+        return (await _entitlements.EnsureWithinLimitAsync(venueInfo.OwnerId, EntitlementResource.StaffPerVenue, currentCount, cancellationToken)).IsSuccess;
     }
 }

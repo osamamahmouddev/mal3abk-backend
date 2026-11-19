@@ -6,8 +6,13 @@ public sealed record VenueSummary(Guid Id, string Name, string Address, double? 
 /// <summary>A period the venue closed a pitch (maintenance, private event), for the manager's calendar.</summary>
 public sealed record VenueBlockedPeriod(Guid Id, Guid PitchId, DateTime StartUtc, DateTime EndUtc, string Reason);
 
-/// <summary>The commission settings configured for a venue.</summary>
-public sealed record VenueCommissionInfo(Guid VenueId, bool CustomCommissionEnabled, string CommissionType, decimal? CommissionRate);
+/// <summary>The commission and commercial model settings configured for a venue.</summary>
+public sealed record VenueCommissionInfo(
+    Guid VenueId,
+    bool CustomCommissionEnabled,
+    string CommissionType,
+    decimal? CommissionRate,
+    string PricingModel = "Subscription");
 
 /// <summary>
 /// Venues-module contract for the questions other modules (Booking) must ask about venues without reading Venues' tables:

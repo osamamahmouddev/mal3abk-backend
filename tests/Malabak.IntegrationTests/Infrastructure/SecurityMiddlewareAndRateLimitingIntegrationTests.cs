@@ -23,7 +23,7 @@ public sealed class SecurityMiddlewareAndRateLimitingIntegrationTests : IClassFi
         var client = _factory.CreateClient();
 
         // Act
-        var response = await client.GetAsync("/api/v1/ping");
+        var response = await client.GetAsync("https://localhost/api/v1/ping");
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.OK);

@@ -30,6 +30,7 @@ public sealed class Venue : Entity<Guid>
     public string PhoneNumber { get; private set; } = string.Empty;
     public VenueApprovalStatus ApprovalStatus { get; private set; }
 
+    public PricingModel PricingModel { get; private set; } = PricingModel.Subscription;
     public bool CustomCommissionEnabled { get; private set; }
     public CommissionType CommissionType { get; private set; } = CommissionType.PlatformDefault;
     public decimal? CommissionRate { get; private set; }
@@ -363,6 +364,21 @@ public sealed class Venue : Entity<Guid>
         _photos.RemoveAt(index);
         UpdatedAtUtc = nowUtc;
         return true;
+    }
+
+    public void SetCommercialModel(
+        PricingModel pricingModel,
+        bool customCommissionEnabled,
+        CommissionType commissionType,
+        decimal? commissionRate,
+        DateTime nowUtc)
+    {
+        PricingModel = pricingModel;
+        var effectiveCustomCommission = pricingModel == PricingModel.Commission
+            ? (customCommissionEnabled || commissionType != CommissionType.PlatformDefault || commissionRate.HasValue)
+            : customCommissionEnabled;
+
+        SetCommission(effectiveCustomCommission, commissionType, commissionRate, nowUtc);
     }
 
     public void SetCommission(bool customCommissionEnabled, CommissionType commissionType, decimal? commissionRate, DateTime nowUtc)
