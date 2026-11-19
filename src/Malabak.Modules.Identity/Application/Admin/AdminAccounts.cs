@@ -157,7 +157,9 @@ public sealed class AdminAccountService
         }
 
         var before = user.Roles.ToList();
-        var losesAdmin = before.Contains(UserRole.Admin, StringComparer.OrdinalIgnoreCase) && !roles.Contains(UserRole.Admin);
+        var isCurrentlyAdmin = before.Contains(UserRole.Admin, StringComparer.OrdinalIgnoreCase) || before.Contains(UserRole.SuperAdmin, StringComparer.OrdinalIgnoreCase);
+        var willRemainAdmin = roles.Contains(UserRole.Admin) || roles.Contains(UserRole.SuperAdmin);
+        var losesAdmin = isCurrentlyAdmin && !willRemainAdmin;
         if (losesAdmin && accountId == adminId)
         {
             return Result.Failure<AdminAccountDto>(AdminAccountErrors.CannotChangeSelf);
@@ -214,7 +216,8 @@ public sealed class AdminAccountService
             return Result.Failure<AdminAccountDto>(AdminAccountErrors.AlreadyDisabled);
         }
 
-        if (user.Roles.Contains(UserRole.Admin, StringComparer.OrdinalIgnoreCase) && await ActiveAdminCountAsync(cancellationToken) <= 1)
+        var isAdmin = user.Roles.Contains(UserRole.Admin, StringComparer.OrdinalIgnoreCase) || user.Roles.Contains(UserRole.SuperAdmin, StringComparer.OrdinalIgnoreCase);
+        if (isAdmin && await ActiveAdminCountAsync(cancellationToken) <= 1)
         {
             return Result.Failure<AdminAccountDto>(AdminAccountErrors.LastAdmin);
         }
@@ -255,16 +258,17 @@ public sealed class AdminAccountService
 
     private IQueryable<User> StaffQuery()
     {
-        // Union of the three staff roles; the role filter is an allow-listed text match (see UserQueries.WithRole).
+        // Union of all staff roles; the role filter is an allow-listed text match (see UserQueries.WithRole).
         var admins = UserQueries.WithRole(_dbContext, UserRole.Admin).Select(u => u.Id);
+        var superAdmins = UserQueries.WithRole(_dbContext, UserRole.SuperAdmin).Select(u => u.Id);
         var support = UserQueries.WithRole(_dbContext, UserRole.SupportAgent).Select(u => u.Id);
         var finance = UserQueries.WithRole(_dbContext, UserRole.Finance).Select(u => u.Id);
-        var ids = admins.Union(support).Union(finance);
+        var ids = admins.Union(superAdmins).Union(support).Union(finance);
         return _dbContext.Users.Where(u => ids.Contains(u.Id));
     }
 
     private Task<int> ActiveAdminCountAsync(CancellationToken cancellationToken) =>
-        UserQueries.WithRole(_dbContext, UserRole.Admin).CountAsync(u => u.SuspendedAtUtc == null, cancellationToken);
+        _dbContext.Users.CountAsync(u => u.SuspendedAtUtc == null && !u.IsDeleted && (u.Roles.Contains(UserRole.Admin) || u.Roles.Contains(UserRole.SuperAdmin)), cancellationToken);
 
     private static List<string>? NormalizeRoles(IReadOnlyList<string>? roles)
     {

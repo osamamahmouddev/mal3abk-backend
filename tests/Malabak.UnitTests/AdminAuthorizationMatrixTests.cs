@@ -24,7 +24,7 @@ namespace Malabak.UnitTests;
 /// </summary>
 public sealed class AdminAuthorizationMatrixTests : IClassFixture<AdminAuthorizationMatrixTests.ApiFactory>
 {
-    private static readonly string[] _staffRoles = [UserRole.Admin, UserRole.SupportAgent, UserRole.Finance];
+    private static readonly string[] _staffRoles = [UserRole.Admin, UserRole.SuperAdmin, UserRole.SupportAgent, UserRole.Finance];
 
     /// <summary>The only admin-area endpoints reachable without a token: the staff sign-in steps.</summary>
     private static readonly string[] _anonymousAdminEndpoints =
@@ -113,20 +113,20 @@ public sealed class AdminAuthorizationMatrixTests : IClassFixture<AdminAuthoriza
     }
 
     [Theory]
-    [InlineData("GET /api/v{version:apiVersion}/admin/users/", "Admin,SupportAgent")]
-    [InlineData("POST /api/v{version:apiVersion}/admin/users/{userId:guid}/suspend", "Admin")]
-    [InlineData("GET /api/v{version:apiVersion}/admin/accounts/", "Admin")]
-    [InlineData("GET /api/v{version:apiVersion}/admin/settings", "Admin")]
-    [InlineData("GET /api/v{version:apiVersion}/admin/support/tickets/", "Admin,SupportAgent")]
-    [InlineData("GET /api/v{version:apiVersion}/admin/bookings/", "Admin,SupportAgent")]
-    [InlineData("POST /api/v{version:apiVersion}/admin/bookings/{bookingId:guid}/force-cancel", "Admin")]
-    [InlineData("POST /api/v{version:apiVersion}/admin/disputes/{disputeId:guid}/resolve", "Admin")]
-    [InlineData("GET /api/v{version:apiVersion}/admin/plans/", "Admin,Finance")]
-    [InlineData("POST /api/v{version:apiVersion}/admin/subscriptions/owners/{ownerId:guid}/payments", "Admin,Finance")]
-    [InlineData("GET /api/v{version:apiVersion}/admin/invoices/", "Admin,Finance")]
-    [InlineData("GET /api/v{version:apiVersion}/admin/audit-logs", "Admin")]
-    [InlineData("POST /api/v{version:apiVersion}/admin/impersonate", "Admin,SupportAgent")]
-    [InlineData("GET /api/v{version:apiVersion}/admin/navigation", "Admin,SupportAgent,Finance")]
+    [InlineData("GET /api/v{version:apiVersion}/admin/users/", "Admin,SuperAdmin,SupportAgent")]
+    [InlineData("POST /api/v{version:apiVersion}/admin/users/{userId:guid}/suspend", "Admin,SuperAdmin")]
+    [InlineData("GET /api/v{version:apiVersion}/admin/accounts/", "Admin,SuperAdmin")]
+    [InlineData("GET /api/v{version:apiVersion}/admin/settings", "Admin,SuperAdmin")]
+    [InlineData("GET /api/v{version:apiVersion}/admin/support/tickets/", "Admin,SuperAdmin,SupportAgent")]
+    [InlineData("GET /api/v{version:apiVersion}/admin/bookings/", "Admin,SuperAdmin,SupportAgent")]
+    [InlineData("POST /api/v{version:apiVersion}/admin/bookings/{bookingId:guid}/force-cancel", "Admin,SuperAdmin")]
+    [InlineData("POST /api/v{version:apiVersion}/admin/disputes/{disputeId:guid}/resolve", "Admin,SuperAdmin")]
+    [InlineData("GET /api/v{version:apiVersion}/admin/plans/", "Admin,SuperAdmin,Finance")]
+    [InlineData("POST /api/v{version:apiVersion}/admin/subscriptions/owners/{ownerId:guid}/payments", "Admin,SuperAdmin,Finance")]
+    [InlineData("GET /api/v{version:apiVersion}/admin/invoices/", "Admin,SuperAdmin,Finance")]
+    [InlineData("GET /api/v{version:apiVersion}/admin/audit-logs", "Admin,SuperAdmin")]
+    [InlineData("POST /api/v{version:apiVersion}/admin/impersonate", "Admin,SuperAdmin,SupportAgent")]
+    [InlineData("GET /api/v{version:apiVersion}/admin/navigation", "Admin,SuperAdmin,SupportAgent,Finance")]
     public void EachStaffRole_GetsOnlyWhatItsJobNeeds(string key, string expected)
     {
         var endpoint = _endpoints.SingleOrDefault(e => e.Key == key);

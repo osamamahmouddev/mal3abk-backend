@@ -12,12 +12,14 @@ import { Check } from "lucide-react";
 type Account = Schemas["AdminAccountDto"];
 
 const STAFF_ROLES: [string, string][] = [
+  ["SuperAdmin", "مدير النظام الأعلى (SuperAdmin)"],
   ["Admin", "مسؤول عام (كل الصلاحيات)"],
   ["SupportAgent", "دعم فني"],
   ["Finance", "مالية واشتراكات"],
 ];
 
 const ROLE_LABELS: Record<string, string> = {
+  SuperAdmin: "مدير النظام الأعلى",
   Admin: "مسؤول عام",
   SupportAgent: "دعم فني",
   Finance: "مسؤول مالي",

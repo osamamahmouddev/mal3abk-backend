@@ -7,6 +7,7 @@ using Malabak.Modules.Identity.Infrastructure;
 using Malabak.SharedKernel;
 using Malabak.SharedKernel.Security;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
@@ -64,6 +65,7 @@ public sealed class AdminAuthHandlers :
     public static readonly IReadOnlySet<string> AdminRoles = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
     {
         UserRole.Admin,
+        UserRole.SuperAdmin,
         UserRole.SupportAgent,
         UserRole.Finance
     };
@@ -81,6 +83,7 @@ public sealed class AdminAuthHandlers :
     private readonly IClock _clock;
     private readonly JwtOptions _jwtOptions;
     private readonly ILogger<AdminAuthHandlers> _logger;
+    private readonly IHostEnvironment? _environment;
 
     public AdminAuthHandlers(
         IdentityDbContext dbContext,
@@ -93,7 +96,8 @@ public sealed class AdminAuthHandlers :
         ITurnstileValidator turnstile,
         IClock clock,
         IOptions<JwtOptions> jwtOptions,
-        ILogger<AdminAuthHandlers> logger)
+        ILogger<AdminAuthHandlers> logger,
+        IHostEnvironment? environment = null)
     {
         _dbContext = dbContext;
         _hasher = hasher;
@@ -106,6 +110,7 @@ public sealed class AdminAuthHandlers :
         _clock = clock;
         _jwtOptions = jwtOptions.Value;
         _logger = logger;
+        _environment = environment;
     }
 
     public async Task<Result<AdminLoginResponse>> HandleAsync(AdminLoginCommand command, CancellationToken cancellationToken = default)
@@ -248,7 +253,9 @@ public sealed class AdminAuthHandlers :
         }
 
         var user = await _dbContext.Users.FirstOrDefaultAsync(u => u.Id == token.UserId && !u.IsDeleted, cancellationToken);
-        if (token.IsExpired(nowUtc) || user is null || user.IsSuspended || !user.Roles.Any(AdminRoles.Contains) || !user.TwoFactorEnabled
+        var allowsDevBypass = _environment != null && IdentityEnvironment.AllowsDevelopmentShortcuts(_environment);
+        if (token.IsExpired(nowUtc) || user is null || user.IsSuspended || !user.Roles.Any(AdminRoles.Contains)
+            || (!user.TwoFactorEnabled && !allowsDevBypass)
             || !await _sessions.TouchAsync(token.FamilyId, cancellationToken))
         {
             token.Revoke("admin_session_ended", nowUtc);

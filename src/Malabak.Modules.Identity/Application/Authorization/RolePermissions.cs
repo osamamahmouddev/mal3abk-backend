@@ -31,6 +31,22 @@ public static class RolePermissions
                 Permissions.SubscriptionsManage,
                 Permissions.InvoicesView
             ],
+            [UserRole.SuperAdmin] =
+            [
+                Permissions.ProfileManage,
+                Permissions.AdminUsersView,
+                Permissions.AdminUsersManage,
+                Permissions.AdminAccountsManage,
+                Permissions.AdminImpersonate,
+                Permissions.AdminVenuesApprove,
+                Permissions.AdminBookingsView,
+                Permissions.AdminDisputesResolve,
+                Permissions.AdminSettingsManage,
+                Permissions.AuditLogView,
+                Permissions.SupportTicketsManage,
+                Permissions.SubscriptionsManage,
+                Permissions.InvoicesView
+            ],
             [UserRole.SupportAgent] =
             [
                 Permissions.ProfileManage,

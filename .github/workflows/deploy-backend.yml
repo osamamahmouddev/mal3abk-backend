@@ -146,7 +146,7 @@ jobs:
           web_config = patch_environment_variable(web_config, "Security__StepUp__SecretKey", os.environ["SECURITY_STEPUP_SECRET"])
           web_config = patch_environment_variable(web_config, "Security__Turnstile__SecretKey", os.environ["SECURITY_TURNSTILE_SECRET"])
           web_config = patch_environment_variable(web_config, "Security__Turnstile__BypassInDevelopment", "true")
-          web_config = patch_environment_variable(web_config, "Database__ResetOnStartup", "true")
+          web_config = patch_environment_variable(web_config, "Database__ResetOnStartup", "false")
           web_config = patch_environment_variable(web_config, "Database__SeedOnStartup", "true")
           web_config = patch_environment_variable(web_config, "Identity__OtpDelivery__Provider", "WhatsApp")
           web_config = patch_environment_variable(web_config, "Identity__OtpDelivery__WhatsApp__ApiKey", os.environ.get("OTP_WHATSAPP_API_KEY", "was_SBdrYUiYjK3_wxo_XtqIr9j5Gr_ehUZY"))
