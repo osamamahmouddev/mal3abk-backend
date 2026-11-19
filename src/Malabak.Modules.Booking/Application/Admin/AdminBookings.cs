@@ -91,7 +91,12 @@ public sealed record VenueFinancialSummaryItem(
     int PendingRefundsCount,
     decimal PendingRefundsAmount,
     decimal VenueDepositShare = 0m,
-    string Currency = "EGP");
+    string Currency = "EGP",
+    int ManualBookings = 0,
+    decimal PlatformCollectedOnline = 0m,
+    decimal CommissionCollected = 0m,
+    decimal CommissionOutstanding = 0m,
+    decimal PlatformOwesVenue = 0m);
 
 public static class AdminBookingErrors
 {
@@ -549,11 +554,11 @@ public sealed class AdminBookingService
                 b.Status,
                 b.StartUtc,
                 b.EndUtc,
+                b.IsManualBooking,
                 TotalPrice = b.TotalPrice.Amount,
                 DepositAmount = b.DepositAmount.Amount,
                 PlatformCommission = b.PlatformCommission.Amount,
-                VenueNetAmount = b.VenueNetAmount.Amount,
-                VenuePayAmount = b.VenuePayAmount.Amount,
+                OnlinePaidAmount = b.OnlinePaidAmount.Amount,
             })
             .ToListAsync(cancellationToken);
 
@@ -573,6 +578,11 @@ public sealed class AdminBookingService
             ? await _venues.GetVenueCommissionsAsync(venueIds, cancellationToken)
             : new Dictionary<Guid, VenueCommissionInfo>();
 
+        // Money only counts once a booking is confirmed or played. The deposit of a booking still waiting for its proof has
+        // not been paid yet, so it is never reported as collected. Per confirmed booking:
+        //   commission C (0 for a venue's own manual booking), online paid O (Paymob, held by the platform),
+        //   venue net = total - C, cash at the venue = total - deposit,
+        //   platform owes the venue max(0, O - C), the venue owes the platform the commission O did not cover.
         var summary = venueIds.Select(vId =>
         {
             var vBookings = bookings.Where(b => b.VenueId == vId).ToList();
@@ -585,19 +595,16 @@ public sealed class AdminBookingService
                 .ToList();
 
             venueCommissions.TryGetValue(vId, out var comm);
-
-            var totalGross = confirmed.Sum(b => b.TotalPrice);
-            var totalDeposit = confirmed.Sum(b => b.DepositAmount) + pending.Sum(b => b.DepositAmount);
-
-            // Compute platform commission dynamically based on venue rules if available
-            var totalCommission = confirmed.Sum(b => CalculateEffectiveCommission(b.TotalPrice, b.PlatformCommission, b.StartUtc, b.EndUtc, comm));
-            var totalVenueNet = Math.Max(0m, totalGross - totalCommission);
-            var totalDueAtVenue = confirmed.Sum(b => Math.Max(0m, b.TotalPrice - b.DepositAmount));
-            var venueDepositShare = confirmed.Sum(b =>
+            var rows = confirmed.Select(b =>
             {
-                var c = CalculateEffectiveCommission(b.TotalPrice, b.PlatformCommission, b.StartUtc, b.EndUtc, comm);
-                return Math.Max(0m, b.DepositAmount - c);
-            });
+                var commission = CalculateEffectiveCommission(b.TotalPrice, b.PlatformCommission, b.StartUtc, b.EndUtc, comm, b.IsManualBooking);
+                var collected = Math.Min(commission, b.OnlinePaidAmount);
+                return (b.TotalPrice, b.DepositAmount, Commission: commission, Online: b.OnlinePaidAmount, Collected: collected,
+                    OwedToVenue: Math.Max(0m, b.OnlinePaidAmount - commission));
+            }).ToList();
+
+            var totalCommission = rows.Sum(r => r.Commission);
+            var platformOwesVenue = rows.Sum(r => r.OwedToVenue);
 
             return new VenueFinancialSummaryItem(
                 vId,
@@ -606,16 +613,20 @@ public sealed class AdminBookingService
                 confirmed.Count,
                 cancelled.Count,
                 pending.Count,
-                totalGross,
-                totalDeposit,
-                totalCommission,
-                totalVenueNet,
-                totalDueAtVenue,
-                vRefunds.Count,
-                vRefunds.Sum(r => r.ExpectedRefundAmount),
-                venueDepositShare,
-                "EGP"
-            );
+                TotalGrossAmount: rows.Sum(r => r.TotalPrice),
+                TotalDepositAmount: rows.Sum(r => r.DepositAmount),
+                TotalPlatformCommission: totalCommission,
+                TotalVenueNetAmount: rows.Sum(r => r.TotalPrice - r.Commission),
+                TotalDueAtVenueCash: rows.Sum(r => Math.Max(0m, r.TotalPrice - r.DepositAmount)),
+                PendingRefundsCount: vRefunds.Count,
+                PendingRefundsAmount: vRefunds.Sum(r => r.ExpectedRefundAmount),
+                VenueDepositShare: platformOwesVenue,
+                Currency: "EGP",
+                ManualBookings: confirmed.Count(b => b.IsManualBooking),
+                PlatformCollectedOnline: rows.Sum(r => r.Online),
+                CommissionCollected: rows.Sum(r => r.Collected),
+                CommissionOutstanding: totalCommission - rows.Sum(r => r.Collected),
+                PlatformOwesVenue: platformOwesVenue);
         })
         .OrderByDescending(s => s.TotalBookings)
         .ToList();
@@ -663,8 +674,15 @@ public sealed class AdminBookingService
         decimal storedCommission,
         DateTime startUtc,
         DateTime endUtc,
-        VenueCommissionInfo? comm)
+        VenueCommissionInfo? comm,
+        bool isManualBooking = false)
     {
+        // A booking the venue entered itself (walk-in, phone) did not come through the platform: no commission.
+        if (isManualBooking)
+        {
+            return 0m;
+        }
+
         if (comm is { CustomCommissionEnabled: true })
         {
             if (comm.CommissionType == "Exempt")
@@ -703,7 +721,7 @@ public sealed class AdminBookingService
         string? customerPhone = null,
         VenueCommissionInfo? comm = null)
     {
-        var commission = CalculateEffectiveCommission(b.TotalPrice.Amount, b.PlatformCommission.Amount, b.StartUtc, b.EndUtc, comm);
+        var commission = CalculateEffectiveCommission(b.TotalPrice.Amount, b.PlatformCommission.Amount, b.StartUtc, b.EndUtc, comm, b.IsManualBooking);
         var venueNetAmount = Math.Max(0m, b.TotalPrice.Amount - commission);
         var venuePayAmount = Math.Max(0m, b.TotalPrice.Amount - b.DepositAmount.Amount);
 

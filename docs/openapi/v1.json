@@ -45459,11 +45459,16 @@
       "VenueFinancialSummaryItem": {
         "required": [
           "cancelledBookings",
+          "commissionCollected",
+          "commissionOutstanding",
           "confirmedBookings",
           "currency",
+          "manualBookings",
           "pendingConfirmationBookings",
           "pendingRefundsAmount",
           "pendingRefundsCount",
+          "platformCollectedOnline",
+          "platformOwesVenue",
           "totalBookings",
           "totalDepositAmount",
           "totalDueAtVenueCash",
@@ -45533,6 +45538,26 @@
           },
           "currency": {
             "type": "string"
+          },
+          "manualBookings": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "platformCollectedOnline": {
+            "type": "number",
+            "format": "double"
+          },
+          "commissionCollected": {
+            "type": "number",
+            "format": "double"
+          },
+          "commissionOutstanding": {
+            "type": "number",
+            "format": "double"
+          },
+          "platformOwesVenue": {
+            "type": "number",
+            "format": "double"
           }
         },
         "additionalProperties": false
