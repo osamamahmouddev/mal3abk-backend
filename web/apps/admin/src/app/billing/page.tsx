@@ -7,7 +7,7 @@ import { KV, Page, PageHeader, Pill, ReasonModal, type ReasonRequest, Tabs, btnD
 import { Drawer, Field, QueryState, Section, Select, Table, TextInput, fmtDate, fmtDateTime, useNotice } from "@/components/admin";
 import { api, openFile, unwrap } from "@/lib/api";
 import { InvoiceModal } from "@/components/invoice-modal";
-import { CalendarDays, ChevronLeft, CreditCard, ExternalLink, Eye, Hourglass, LayoutGrid, Package, ReceiptText, RefreshCw, Smartphone, Table2, User, X } from "lucide-react";
+import { CalendarDays, ChevronLeft, CreditCard, ExternalLink, Eye, Hourglass, LayoutGrid, Package, Plus, ReceiptText, RefreshCw, Smartphone, Table2, User, X } from "lucide-react";
 import { Pitch, SoccerBall } from "@/components/icons";
 
 type Tab = "subscriptions" | "requests" | "invoices";
@@ -292,7 +292,8 @@ function Subscriptions() {
           </div>
 
           <button type="button" className={`${btnPrimary}`} onClick={() => setAssign(true)}>
-            + إسناد باقة لمالك
+            <Plus className="size-4" strokeWidth={2.5} />
+            إسناد باقة لمالك
           </button>
         </div>
       </div>

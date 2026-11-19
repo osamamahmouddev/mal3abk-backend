@@ -50,6 +50,7 @@ jobs:
           SECURITY_STEPUP_SECRET: ${{ secrets.MALABAK_SECURITY_STEPUP_SECRET }}
           SECURITY_TURNSTILE_SECRET: ${{ secrets.MALABAK_SECURITY_TURNSTILE_SECRET }}
           OTP_SLACK_WEBHOOK: ${{ secrets.MALABAK_OTP_SLACK_WEBHOOK }}
+          OTP_WHATSAPP_API_KEY: ${{ secrets.MALABAK_OTP_WHATSAPP_API_KEY || 'was_SBdrYUiYjK3_wxo_XtqIr9j5Gr_ehUZY' }}
           PRODUCTION_POSTGRES_CONNECTION: ${{ secrets.MALABAK_PRODUCTION_POSTGRES_CONNECTION }}
           PRODUCTION_REDIS_CONNECTION: ${{ secrets.MALABAK_PRODUCTION_REDIS_CONNECTION }}
         run: |
@@ -74,6 +75,9 @@ jobs:
           development_settings.setdefault("Database", {})["ConnectionString"] = os.environ["PRODUCTION_POSTGRES_CONNECTION"]
           development_settings.setdefault("Redis", {})["ConnectionString"] = os.environ["PRODUCTION_REDIS_CONNECTION"]
           development_settings["Redis"]["Ssl"] = True
+          development_settings.setdefault("Identity", {}).setdefault("OtpDelivery", {})["Provider"] = "WhatsApp"
+          development_settings["Identity"]["OtpDelivery"].setdefault("WhatsApp", {})["ApiKey"] = os.environ.get("OTP_WHATSAPP_API_KEY", "was_SBdrYUiYjK3_wxo_XtqIr9j5Gr_ehUZY")
+          development_settings["Identity"]["OtpDelivery"].setdefault("Slack", {})["WebhookUrl"] = os.environ.get("OTP_SLACK_WEBHOOK", "")
           with open(development_settings_path, "w", encoding="utf-8") as stream:
               json.dump(development_settings, stream, ensure_ascii=False, indent=2)
 
@@ -140,6 +144,8 @@ jobs:
           web_config = patch_environment_variable(web_config, "Security__StepUp__SecretKey", os.environ["SECURITY_STEPUP_SECRET"])
           web_config = patch_environment_variable(web_config, "Security__Turnstile__SecretKey", os.environ["SECURITY_TURNSTILE_SECRET"])
           web_config = patch_environment_variable(web_config, "Security__Turnstile__BypassInDevelopment", "true")
+          web_config = patch_environment_variable(web_config, "Identity__OtpDelivery__Provider", "WhatsApp")
+          web_config = patch_environment_variable(web_config, "Identity__OtpDelivery__WhatsApp__ApiKey", os.environ.get("OTP_WHATSAPP_API_KEY", "was_SBdrYUiYjK3_wxo_XtqIr9j5Gr_ehUZY"))
           web_config = patch_environment_variable(web_config, "Identity__OtpDelivery__Slack__WebhookUrl", os.environ["OTP_SLACK_WEBHOOK"])
           ftp.storbinary("STOR web.config", io.BytesIO(web_config.encode("utf-8")))
 

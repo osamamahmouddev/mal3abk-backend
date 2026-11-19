@@ -1,13 +1,13 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { z } from "zod";
 import { inputClass, muted, primaryBtn, secondaryBtn, toArabicDigits } from "@/components/ui";
 import { useVenue } from "@/components/Providers";
 import { api, unwrap } from "@/lib/api";
 import { addDays, cairoDay, cairoDayStartUtc, cairoTime, cairoToday, computeStartMinutes, formatBusinessSlotSummary, money, parseStartMinutes } from "@/lib/booking-format";
-import { CalendarDays, Check, ChevronLeft, ChevronRight, Clock, Lock, Moon, RefreshCw, Sun, TriangleAlert } from "lucide-react";
+import { CalendarDays, Check, ChevronLeft, ChevronRight, Clock, Lock, Moon, RefreshCw, Search, Sun, TriangleAlert, UserCheck, Users, X } from "lucide-react";
 
 export interface ManualBookingDefaults {
   pitchId?: string;
@@ -259,6 +259,81 @@ export function ManualBookingForm({
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [serverError, setServerError] = useState<string | null>(null);
 
+  // Customer autocomplete & picker state
+  const [customerSearch, setCustomerSearch] = useState("");
+  const [isCustomerDropdownOpen, setIsCustomerDropdownOpen] = useState(false);
+  const [selectedCustomerMeta, setSelectedCustomerMeta] = useState<{
+    totalBookings: number;
+    noShows: number;
+    isRegisteredPlayer: boolean;
+  } | null>(null);
+  const customerDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Debounced search query for venue customers
+  const [debouncedCustomerSearch, setDebouncedCustomerSearch] = useState("");
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedCustomerSearch(customerSearch.trim());
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [customerSearch]);
+
+  const customersQuery = useQuery({
+    queryKey: ["venue-customers-quick", venueId, debouncedCustomerSearch],
+    enabled: !!venueId && isCustomerDropdownOpen,
+    staleTime: 60_000,
+    queryFn: () =>
+      unwrap(
+        api.GET("/api/v1/venue-manager/venues/{venueId}/customers", {
+          params: {
+            path: { venueId: venueId! },
+            query: {
+              search: debouncedCustomerSearch || undefined,
+              page: 1,
+              pageSize: 20,
+            },
+          },
+        }),
+      ),
+  });
+
+  // Close customer dropdown on outside click
+  useEffect(() => {
+    if (!isCustomerDropdownOpen) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (customerDropdownRef.current && !customerDropdownRef.current.contains(e.target as Node)) {
+        setIsCustomerDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [isCustomerDropdownOpen]);
+
+  const handleSelectCustomer = (customer: {
+    name: string;
+    phone?: string | null;
+    totalBookings: number;
+    noShows: number;
+    isRegisteredPlayer: boolean;
+  }) => {
+    setCustomerName(customer.name);
+    if (customer.phone) {
+      setCustomerPhone(customer.phone);
+    }
+    setSelectedCustomerMeta({
+      totalBookings: customer.totalBookings,
+      noShows: customer.noShows,
+      isRegisteredPlayer: customer.isRegisteredPlayer,
+    });
+    setIsCustomerDropdownOpen(false);
+    setErrors((prev) => {
+      const next = { ...prev };
+      delete next.customerName;
+      delete next.customerPhone;
+      return next;
+    });
+  };
+
   useEffect(() => {
     if (typeof defaults?.startMinutes === "number" && defaults.startMinutes >= 0) {
       setStartMinutes(defaults.startMinutes);
@@ -270,6 +345,25 @@ export function ManualBookingForm({
       setPitchId(defaults.pitchId);
     }
   }, [defaults?.startMinutes, defaults?.date, defaults?.pitchId]);
+
+  // Synchronize pitchId when pitches load asynchronously to avoid desync with <select>
+  useEffect(() => {
+    if (pitches.length > 0) {
+      const isValid = pitches.some((p) => p.id === pitchId);
+      if (!isValid) {
+        const nextId =
+          defaults?.pitchId && pitches.some((p) => p.id === defaults.pitchId)
+            ? defaults.pitchId
+            : pitches[0].id;
+        setPitchId(nextId);
+        setErrors((prev) => {
+          if (!prev.pitchId) return prev;
+          const { pitchId: _, ...rest } = prev;
+          return rest;
+        });
+      }
+    }
+  }, [pitches, pitchId, defaults?.pitchId]);
 
   const startUtc = new Date(new Date(cairoDayStartUtc(date)).getTime() + startMinutes * 60_000).toISOString();
   const endUtc = new Date(new Date(startUtc).getTime() + duration * 60_000).toISOString();
@@ -358,7 +452,15 @@ export function ManualBookingForm({
       return;
     }
 
-    const parsed = schema.safeParse({ pitchId, customerName, customerPhone, price: price === "" ? undefined : Number(price), notes: notes || undefined });
+    const effectivePitchId = pitchId || (pitches.length > 0 ? pitches[0].id : "");
+
+    const parsed = schema.safeParse({
+      pitchId: effectivePitchId,
+      customerName,
+      customerPhone,
+      price: price === "" ? undefined : Number(price),
+      notes: notes || undefined,
+    });
     const found: Record<string, string> = parsed.success ? {} : Object.fromEntries(parsed.error.issues.map((i) => [String(i.path[0]), i.message]));
     const problem = depositError(payment, price === "" ? undefined : Number(price), deposit);
     if (problem) found.deposit = problem;
@@ -388,12 +490,29 @@ export function ManualBookingForm({
         {field(
           "pitchId",
           "الملعب",
-          <select id="pitchId" value={pitchId} onChange={(e) => setPitchId(e.target.value)} className={inputClass} aria-invalid={!!errors.pitchId}>
-            {pitches.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-              </option>
-            ))}
+          <select
+            id="pitchId"
+            value={pitchId || pitches[0]?.id || ""}
+            onChange={(e) => {
+              setPitchId(e.target.value);
+              setErrors((prev) => {
+                if (!prev.pitchId) return prev;
+                const { pitchId: _, ...rest } = prev;
+                return rest;
+              });
+            }}
+            className={inputClass}
+            aria-invalid={!!errors.pitchId}
+          >
+            {pitches.length === 0 ? (
+              <option value="">لا توجد ملاعب نشطة</option>
+            ) : (
+              pitches.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))
+            )}
           </select>,
         )}
         {field("date", "اليوم", <input id="date" type="date" value={date} onChange={(e) => setDate(e.target.value)} className={inputClass} />)}
@@ -419,11 +538,127 @@ export function ManualBookingForm({
             ))}
           </div>
         </fieldset>
-        {field(
-          "customerName",
-          "اسم العميل",
-          <input id="customerName" value={customerName} maxLength={100} onChange={(e) => setCustomerName(e.target.value)} className={inputClass} aria-invalid={!!errors.customerName} />,
-        )}
+        {/* Customer Name with Registered Customers Autocomplete */}
+        <div className="flex flex-col gap-1 text-sm font-semibold relative" ref={customerDropdownRef}>
+          <div className="flex items-center justify-between">
+            <label htmlFor="customerName">اسم العميل</label>
+            <button
+              type="button"
+              onClick={() => {
+                setIsCustomerDropdownOpen((v) => !v);
+                setCustomerSearch(customerName || "");
+              }}
+              className="text-xs font-semibold text-emerald-700 hover:text-emerald-800 flex items-center gap-1 cursor-pointer transition-colors"
+            >
+              <Users className="size-3.5" />
+              <span>{isCustomerDropdownOpen ? "إغلاق القائمة" : "عميل مسجل مسبقاً؟"}</span>
+            </button>
+          </div>
+
+          <div className="relative">
+            <input
+              id="customerName"
+              value={customerName}
+              maxLength={100}
+              onChange={(e) => {
+                setCustomerName(e.target.value);
+                if (selectedCustomerMeta) setSelectedCustomerMeta(null);
+                if (errors.customerName) {
+                  setErrors((prev) => {
+                    const next = { ...prev };
+                    delete next.customerName;
+                    return next;
+                  });
+                }
+              }}
+              placeholder="اكتب اسم العميل أو اختر عميلاً مسجلاً"
+              className={inputClass}
+              aria-invalid={!!errors.customerName}
+            />
+          </div>
+
+          {errors.customerName && (
+            <span id="customerName-error" role="alert" className="text-xs font-normal text-[#A8261C]">
+              {errors.customerName}
+            </span>
+          )}
+
+          {/* Autocomplete Dropdown */}
+          {isCustomerDropdownOpen && (
+            <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-2xl shadow-2xl z-40 p-2.5 max-h-[300px] flex flex-col gap-2 animate-modal-in">
+              <div className="flex items-center gap-2 px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-xl">
+                <Search className="size-3.5 text-slate-400 shrink-0" />
+                <input
+                  type="text"
+                  value={customerSearch}
+                  onChange={(e) => setCustomerSearch(e.target.value)}
+                  placeholder="ابحث بالاسم أو رقم الموبايل…"
+                  className="w-full text-xs font-medium outline-none bg-transparent placeholder-slate-400 text-slate-900"
+                  autoFocus
+                />
+                {customerSearch && (
+                  <button
+                    type="button"
+                    onClick={() => setCustomerSearch("")}
+                    className="text-xs text-slate-400 hover:text-slate-600"
+                  >
+                    مسح
+                  </button>
+                )}
+              </div>
+
+              <div className="overflow-y-auto max-h-[220px] flex flex-col gap-1 divide-y divide-slate-100">
+                {customersQuery.isLoading ? (
+                  <div className="p-4 text-center text-xs text-slate-500 flex items-center justify-center gap-2">
+                    <RefreshCw className="size-3.5 animate-spin text-slate-400" />
+                    <span>جاري البحث في قاعدة عملاء الملعب…</span>
+                  </div>
+                ) : (customersQuery.data?.items ?? []).length === 0 ? (
+                  <div className="p-4 text-center text-xs text-slate-500">
+                    {customerSearch
+                      ? "لا يوجد عملاء يطابقون هذا البحث."
+                      : "لا يوجد عملاء سابقين مسجلين لهذا الملعب حتى الآن."}
+                  </div>
+                ) : (
+                  (customersQuery.data?.items ?? []).map((c) => (
+                    <button
+                      key={c.customerKey}
+                      type="button"
+                      onClick={() => handleSelectCustomer(c)}
+                      className="flex items-center justify-between p-2 rounded-xl hover:bg-slate-50 text-right transition-colors cursor-pointer group pt-2"
+                    >
+                      <div className="flex flex-col">
+                        <span className="text-sm font-bold text-slate-900 group-hover:text-emerald-700">
+                          {c.name}
+                        </span>
+                        <span className="text-xs text-slate-500 font-mono" dir="ltr">
+                          {c.phone || "بدون رقم مسجل"}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        {c.totalBookings > 0 && (
+                          <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-slate-100 text-slate-700">
+                            {c.totalBookings} حجز
+                          </span>
+                        )}
+                        {c.noShows > 0 && (
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-rose-100 text-rose-800">
+                            {c.noShows} غياب
+                          </span>
+                        )}
+                        <span className="text-xs font-bold text-emerald-700 bg-emerald-50 group-hover:bg-emerald-100 px-2.5 py-1 rounded-lg transition-colors">
+                          اختيار
+                        </span>
+                      </div>
+                    </button>
+                  ))
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Customer Phone */}
         {field(
           "customerPhone",
           "موبايل العميل",
@@ -432,11 +667,49 @@ export function ManualBookingForm({
             dir="ltr"
             inputMode="tel"
             value={customerPhone}
-            onChange={(e) => setCustomerPhone(e.target.value)}
+            onChange={(e) => {
+              setCustomerPhone(e.target.value);
+              if (errors.customerPhone) {
+                setErrors((prev) => {
+                  const next = { ...prev };
+                  delete next.customerPhone;
+                  return next;
+                });
+              }
+            }}
             placeholder="01xxxxxxxxx"
             className={inputClass}
             aria-invalid={!!errors.customerPhone}
           />,
+        )}
+
+        {/* Selected Registered Customer Info Badge */}
+        {selectedCustomerMeta && (
+          <div className="sm:col-span-2 flex flex-wrap items-center justify-between gap-2 p-2.5 rounded-xl bg-emerald-50/90 border border-emerald-200 text-xs">
+            <div className="flex items-center gap-2 text-emerald-950 font-medium">
+              <UserCheck className="size-4 text-emerald-600 shrink-0" />
+              <span>
+                تم اختيار عميل مسجل: <b>{customerName}</b> ({selectedCustomerMeta.totalBookings} حجز سابق)
+              </span>
+              {selectedCustomerMeta.noShows > 0 && (
+                <span className="font-bold text-rose-800 bg-rose-100 px-2 py-0.5 rounded-md text-[11px]">
+                  ⚠️ لديه {selectedCustomerMeta.noShows} عدم حضور سابق
+                </span>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedCustomerMeta(null);
+                setCustomerName("");
+                setCustomerPhone("");
+              }}
+              className="text-slate-500 hover:text-rose-700 font-semibold cursor-pointer underline text-[11px] flex items-center gap-1"
+            >
+              <X className="size-3" />
+              <span>تغيير العميل</span>
+            </button>
+          </div>
         )}
         {field(
           "price",

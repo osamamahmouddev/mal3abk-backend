@@ -4,7 +4,7 @@ import React, { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { QRCodeSVG } from "qrcode.react";
-import { Eye, EyeOff, X } from "lucide-react";
+import { Eye, EyeOff, ImagePlus, Loader2, X } from "lucide-react";
 import { Page, Toast, card, chip, inputClass, muted, redShadow, toArabicDigits } from "@/components/ui";
 import { useVenue } from "@/components/Providers";
 import { AddAreaInline } from "@/components/AddAreaInline";
@@ -274,7 +274,8 @@ function VenueInfo({ onMessage }: { onMessage: (message: string) => void }) {
           }}
         />
         <button type="button" disabled={upload.isPending} onClick={() => fileInput.current?.click()} className={smallBtn}>
-          {upload.isPending ? "جاري الرفع…" : "+ رفع صورة"}
+          {upload.isPending ? <Loader2 className="size-4 animate-spin" /> : <ImagePlus className="size-4" />}
+          {upload.isPending ? "جاري الرفع…" : "رفع صورة"}
         </button>
         <span className={`text-xs ${muted}`}>JPG أو PNG أو WebP، لحد ٨ ميجا. بنشيل بيانات الموقع من الصورة أوتوماتيك.</span>
       </section>

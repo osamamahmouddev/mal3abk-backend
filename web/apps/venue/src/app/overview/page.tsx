@@ -9,7 +9,7 @@ import { useVenue } from "@/components/Providers";
 import { api, unwrap } from "@/lib/api";
 import { APPROVAL_LABELS } from "@/lib/venue-format";
 import { BOOKING_STATUS, DEPOSIT_STATE, cairoDateTime, cairoTime, money, percent, timeLeft } from "@/lib/booking-format";
-import { CircleX, Hourglass, NotebookPen, TriangleAlert } from "lucide-react";
+import { Activity, Ban, CalendarCheck, CalendarDays, ChevronLeft, CircleX, Gauge, Hourglass, NotebookPen, Plus, ReceiptText, TriangleAlert, type LucideIcon } from "lucide-react";
 
 type Dashboard = Schemas["VenueDashboardDto"];
 type Row = Schemas["DashboardBooking"];
@@ -47,7 +47,7 @@ export default function OverviewPage() {
       {venue && venue.approvalStatus !== "Approved" && (
         <>
           {venue.approvalStatus === "NeedsInfo" && (
-            <div role="status" className="bg-[#FEF3D6] border border-[#F5D485] text-[#7A4D00] rounded-[16px] p-4 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-xs animate-fadeIn">
+            <div role="status" className="bg-[#FEF3D6] border border-[#F5D485] text-[#7A4D00] rounded-[16px] p-4 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-xs animate-fade-in-down">
               <div className="flex items-start gap-3 flex-1 min-w-0">
                 <span className="w-10 h-10 rounded-full bg-[#F5D485]/60 flex items-center justify-center shrink-0"><TriangleAlert className="size-5" /></span>
                 <div className="flex flex-col gap-1.5 flex-1 min-w-0">
@@ -70,13 +70,13 @@ export default function OverviewPage() {
                 className="btn-press shrink-0 inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-[#7A4D00] hover:bg-[#5C3A00] text-white text-sm font-bold rounded-xl transition-all shadow-sm"
               >
                 <span>تعديل واستكمال البيانات</span>
-                <span className="text-base font-bold">←</span>
+                <ChevronLeft className="size-4" />
               </Link>
             </div>
           )}
 
           {venue.approvalStatus === "Rejected" && (
-            <div role="status" className="bg-[#FDECEA] border border-[#F5C2BD] text-[#A8261C] rounded-[16px] p-4 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-xs animate-fadeIn">
+            <div role="status" className="bg-[#FDECEA] border border-[#F5C2BD] text-[#A8261C] rounded-[16px] p-4 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-xs animate-fade-in-down">
               <div className="flex items-start gap-3 flex-1 min-w-0">
                 <span className="w-10 h-10 rounded-full bg-[#F5C2BD]/60 flex items-center justify-center shrink-0"><CircleX className="size-5" /></span>
                 <div className="flex flex-col gap-1.5 flex-1 min-w-0">
@@ -99,13 +99,13 @@ export default function OverviewPage() {
                 className="btn-press shrink-0 inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-[#A8261C] hover:bg-[#8A1F17] text-white text-sm font-bold rounded-xl transition-all shadow-sm"
               >
                 <span>تعديل البيانات وإعادة الإرسال</span>
-                <span className="text-base font-bold">←</span>
+                <ChevronLeft className="size-4" />
               </Link>
             </div>
           )}
 
           {venue.approvalStatus === "Submitted" && (
-            <div role="status" className="bg-[#FEF3D6] border border-[#F5D485] text-[#7A4D00] rounded-[16px] p-4 flex items-center gap-3 shadow-xs animate-fadeIn">
+            <div role="status" className="bg-[#FEF3D6] border border-[#F5D485] text-[#7A4D00] rounded-[16px] p-4 flex items-center gap-3 shadow-xs animate-fade-in-down">
               <span className="w-10 h-10 rounded-full bg-[#F5D485]/60 flex items-center justify-center shrink-0"><Hourglass className="size-5" /></span>
               <div className="flex flex-col gap-0.5">
                 <div className="flex items-center gap-2 flex-wrap">
@@ -118,7 +118,7 @@ export default function OverviewPage() {
           )}
 
           {venue.approvalStatus !== "NeedsInfo" && venue.approvalStatus !== "Rejected" && venue.approvalStatus !== "Submitted" && (
-            <div role="status" className="bg-slate-100 border border-slate-200 text-slate-800 rounded-[16px] p-4 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-xs animate-fadeIn">
+            <div role="status" className="bg-slate-100 border border-slate-200 text-slate-800 rounded-[16px] p-4 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-xs animate-fade-in-down">
               <div className="flex items-center gap-3">
                 <span className="w-10 h-10 rounded-full bg-slate-200 flex items-center justify-center shrink-0 text-slate-600"><NotebookPen className="size-5" /></span>
                 <div className="flex flex-col gap-0.5">
@@ -131,7 +131,7 @@ export default function OverviewPage() {
                 className="btn-press shrink-0 inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-navy-900 hover:bg-navy-800 text-white text-sm font-bold rounded-xl transition-all shadow-sm"
               >
                 <span>كمّل الإعداد الآن</span>
-                <span className="text-base font-bold">←</span>
+                <ChevronLeft className="size-4" />
               </Link>
             </div>
           )}
@@ -187,27 +187,35 @@ function DashboardBody({
     <>
       {/* KPIs */}
       <div className="grid gap-3 grid-cols-2 md:grid-cols-[repeat(auto-fit,minmax(min(190px,100%),1fr))] animate-fade-in-up">
-        <Kpi label="حجوزات اليوم" value={toArabicDigits(data.today.todayBookings)} hint={`${toArabicDigits(data.today.confirmed)} مؤكدة`} />
+        <Kpi icon={CalendarCheck} label="حجوزات اليوم" value={toArabicDigits(data.today.todayBookings)} hint={`${toArabicDigits(data.today.confirmed)} مؤكدة`} />
         <Kpi
+          icon={Hourglass}
           label="طلبات بانتظار العربون"
           value={toArabicDigits(data.today.pendingDeposit)}
           hint={nextHold ? `أقرب انتهاء خلال ${timeLeft(nextHold)}` : "مفيش طلبات معلقة"}
         />
-        <Link
+        <Kpi
+          icon={ReceiptText}
+          label="إيصالات للمراجعة"
+          value={toArabicDigits(data.proofsAwaitingReview.length)}
           href="/reservations/proof-review"
-          className="bg-white border-2 border-brand-gold rounded-[14px] p-[15px] flex flex-col gap-1.5 text-slate-900 no-underline interactive-card cursor-pointer"
-        >
-          <span className="text-[13px] text-[#7A4D00] font-semibold">إيصالات للمراجعة</span>
-          <span className="text-[30px] font-bold">{toArabicDigits(data.proofsAwaitingReview.length)}</span>
-          <span className="text-xs text-navy-900 font-semibold underline">راجع الآن ←</span>
-        </Link>
-        <div className={`${card} interactive-card rounded-[18px] p-4 flex flex-col gap-1.5 cursor-default`}>
-          <span className={`text-[13px] ${muted}`}>إشغال اليوم</span>
-          <span className="text-[30px] font-bold text-slate-900">{percent(data.todayOccupancy.percent)}</span>
-          <div className="h-1.5 rounded-[3px] bg-[#E4E7EC] overflow-hidden" aria-hidden="true">
-            <div className="h-full bg-navy-900 transition-all duration-700 ease-out" style={{ width: `${Math.min(100, data.todayOccupancy.percent)}%` }} />
-          </div>
-        </div>
+          highlight={data.proofsAwaitingReview.length > 0}
+          hint={
+            <span className="inline-flex items-center gap-1 font-semibold text-navy-900">
+              راجع الآن <ChevronLeft className="size-3.5" />
+            </span>
+          }
+        />
+        <Kpi
+          icon={Gauge}
+          label="إشغال اليوم"
+          value={percent(data.todayOccupancy.percent)}
+          hint={
+            <span className="block h-1.5 rounded-full bg-[#E4E7EC] overflow-hidden mt-1" aria-hidden="true">
+              <span className="block h-full rounded-full bg-navy-900 transition-[width] duration-700 ease-spring" style={{ width: `${Math.min(100, data.todayOccupancy.percent)}%` }} />
+            </span>
+          }
+        />
       </div>
 
       {data.todayRevenue && data.monthRevenue && <FinanceStrip today={data.todayRevenue} month={data.monthRevenue} />}
@@ -218,12 +226,25 @@ function DashboardBody({
             <h2 id="timeline-title" className="text-base font-bold">
               حجوزات النهارده
             </h2>
-            <Link href="/calendar?view=day" className="text-[13px] font-semibold text-navy-900 hover:text-brand-red">
+            <Link href="/calendar?view=day" className="text-[13px] font-semibold text-navy-900 hover:text-brand-red inline-flex items-center gap-1 transition-colors">
               فتح التقويم
+              <ChevronLeft className="size-3.5" />
             </Link>
           </div>
           {data.timeline.length === 0 ? (
-            <p className={`px-5 py-8 text-sm text-center ${muted}`}>مفيش حجوزات النهارده لسه.</p>
+            <div className="px-5 py-12 flex flex-col items-center text-center gap-3 animate-fade-in">
+              <span className="grid place-items-center size-14 rounded-2xl bg-[#F3F5F9] text-[#8A93A3]">
+                <CalendarDays className="size-7" strokeWidth={1.5} />
+              </span>
+              <div className="flex flex-col gap-1">
+                <strong className="text-[15px] text-slate-900">مفيش حجوزات النهارده لسه</strong>
+                <span className={`text-[13px] ${muted}`}>أول ما حد يحجز من التطبيق أو تسجّل حجز يدوي هيظهر هنا.</span>
+              </div>
+              <Link href="/reservations/manual" className={`mt-1 min-h-[40px] px-4 rounded-xl bg-navy-900 hover:bg-navy-800 text-white text-sm font-bold inline-flex items-center gap-2 transition-colors`}>
+                <Plus className="size-4" strokeWidth={2.5} />
+                سجّل حجز يدوي
+              </Link>
+            </div>
           ) : (
             <BookingTable rows={data.timeline} pitchName={pitchName} />
           )}
@@ -250,34 +271,60 @@ function QuickActions() {
     <div className="flex flex-wrap gap-2">
       <Link
         href="/calendar?view=day"
-        className="min-h-[44px] px-4 rounded-[10px] border border-[#C9CFD9] bg-white text-navy-900 text-sm font-semibold flex items-center gap-2 hover:bg-slate-50"
+        className="btn-press min-h-[44px] px-4 rounded-[10px] border border-[#C9CFD9] bg-white text-navy-900 text-sm font-semibold flex items-center gap-2 hover:bg-slate-50 hover:border-slate-400 transition-colors"
       >
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
-          <circle cx="12" cy="12" r="9" />
-          <path d="M6 6l12 12" />
-        </svg>
+        <Ban className="size-[18px]" />
         حظر ميعاد
       </Link>
       <Link
         href="/reservations/manual"
-        className={`min-h-[44px] px-[18px] rounded-[10px] bg-brand-red hover:bg-brand-red-hover text-white text-sm font-bold flex items-center gap-2 ${redShadow}`}
+        className={`btn-press min-h-[44px] px-[18px] rounded-[10px] bg-brand-red hover:bg-brand-red-hover text-white text-sm font-bold flex items-center gap-2 transition-colors ${redShadow}`}
       >
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden="true">
-          <path d="M12 5v14M5 12h14" />
-        </svg>
+        <Plus className="size-[18px]" strokeWidth={2.5} />
         حجز يدوي
       </Link>
     </div>
   );
 }
 
-function Kpi({ label, value, hint }: { label: string; value: string; hint: string }) {
-  return (
-    <div className={`${card} interactive-card rounded-[18px] p-4 flex flex-col gap-1.5 cursor-default`}>
-      <span className={`text-[13px] ${muted}`}>{label}</span>
-      <span className="text-[30px] font-bold text-slate-900">{value}</span>
+function Kpi({
+  icon: Icon,
+  label,
+  value,
+  hint,
+  href,
+  highlight,
+}: {
+  icon: LucideIcon;
+  label: string;
+  value: string;
+  hint: React.ReactNode;
+  href?: string;
+  highlight?: boolean;
+}) {
+  const body = (
+    <>
+      <div className="flex items-start justify-between gap-2">
+        <span className={`text-[13px] font-medium ${highlight ? "text-[#7A4D00]" : muted}`}>{label}</span>
+        <span
+          className={`grid place-items-center size-9 rounded-xl shrink-0 transition-colors ${
+            highlight ? "bg-[#FEF3D6] text-[#B7791F]" : "bg-[#F3F5F9] text-navy-900"
+          }`}
+        >
+          <Icon className="size-[18px]" strokeWidth={1.75} />
+        </span>
+      </div>
+      <span className="text-[30px] leading-none font-bold text-slate-900 tabular-nums">{value}</span>
       <span className={`text-xs ${muted}`}>{hint}</span>
-    </div>
+    </>
+  );
+  const cls = `${card} interactive-card rounded-[18px] p-4 flex flex-col gap-2.5 ${highlight ? "!border-brand-gold ring-1 ring-brand-gold/40" : ""}`;
+  return href ? (
+    <Link href={href} className={`${cls} text-slate-900 no-underline cursor-pointer`}>
+      {body}
+    </Link>
+  ) : (
+    <div className={`${cls} cursor-default`}>{body}</div>
   );
 }
 
@@ -290,11 +337,14 @@ function FinanceStrip({ today, month }: { today: Schemas["DashboardRevenue"]; mo
     { label: "إيراد الشهر المؤكد", value: money(month.confirmedValue, month.currency), tone: "" },
   ];
   return (
-    <section aria-label="ملخص مالي" className={`${card} rounded-[18px] grid grid-cols-[repeat(auto-fit,minmax(min(190px,100%),1fr))]`}>
-      {items.map((f, i) => (
-        <div key={f.label} className={`px-5 py-4 flex flex-col gap-1 ${i < items.length - 1 ? "border-l border-[#E4E7EC]" : ""}`}>
-          <span className={`text-[13px] ${f.tone || muted}`}>{f.label}</span>
-          <span className={`text-[22px] font-bold ${f.tone}`}>{f.value}</span>
+    <section
+      aria-label="ملخص مالي"
+      className={`${card} !bg-[#EDF0F5] rounded-[18px] overflow-hidden grid gap-px grid-cols-2 md:grid-cols-[repeat(auto-fit,minmax(170px,1fr))] animate-fade-in-up`}
+    >
+      {items.map((f) => (
+        <div key={f.label} className="bg-white px-4 sm:px-5 py-4 flex flex-col gap-1 last:col-span-2 md:last:col-span-1">
+          <span className={`text-[12.5px] sm:text-[13px] ${f.tone || muted}`}>{f.label}</span>
+          <span className={`text-[19px] sm:text-[22px] font-bold tabular-nums ${f.tone}`}>{f.value}</span>
         </div>
       ))}
     </section>
@@ -356,14 +406,20 @@ function ProofsCard({ rows, pitchName }: { rows: Row[]; pitchName: (id: string) 
           الكل
         </Link>
       </div>
-      {rows.length === 0 && <p className={`text-sm ${muted}`}>مفيش إيصالات محتاجة مراجعة.</p>}
+      {rows.length === 0 && (
+        <p className={`text-sm ${muted} flex items-center gap-2 py-2`}>
+          <ReceiptText className="size-4 shrink-0" /> مفيش إيصالات محتاجة مراجعة.
+        </p>
+      )}
       {rows.slice(0, 4).map((p) => (
         <Link
           key={p.bookingId}
           href={`/reservations/proof-review?booking=${p.bookingId}`}
           className="flex gap-3 items-center p-2.5 rounded-[10px] bg-[#F8F9FB] text-slate-900 no-underline hover:bg-[#EEF1F7] transition-all duration-150 active:scale-[0.99]"
         >
-          <span className="w-10 h-12 rounded-md bg-[repeating-linear-gradient(135deg,#DCE0E8_0_5px,#EEF0F5_5px_10px)]" aria-hidden="true" />
+          <span className="grid place-items-center w-10 h-12 rounded-lg bg-white border border-[#E4E7EC] text-[#8A93A3] shrink-0">
+            <ReceiptText className="size-5" strokeWidth={1.5} />
+          </span>
           <span className="flex-1 flex flex-col gap-0.5 min-w-0">
             <span className="text-sm font-bold truncate">
               {p.customerName || "لاعب"} · {money(p.depositAmount, p.currency)}
@@ -442,7 +498,11 @@ function UpcomingCard({ rows, pitchName }: { rows: Row[]; pitchName: (id: string
       <h2 id="upcoming-title" className="text-base font-bold">
         الحجوزات الجاية
       </h2>
-      {rows.length === 0 && <p className={`text-sm ${muted}`}>مفيش حجوزات جاية.</p>}
+      {rows.length === 0 && (
+        <p className={`text-sm ${muted} flex items-center gap-2 py-2`}>
+          <CalendarDays className="size-4 shrink-0" /> مفيش حجوزات جاية.
+        </p>
+      )}
       {rows.map((b) => (
         <div key={b.bookingId} className="flex items-center gap-3 text-sm">
           <span className="font-semibold whitespace-nowrap w-[120px]">{cairoDateTime(b.startUtc)}</span>
@@ -498,7 +558,11 @@ function ActivityCard({ items }: { items: Schemas["DashboardActivity"][] }) {
       <h2 id="activity-title" className="text-base font-bold">
         آخر النشاط
       </h2>
-      {items.length === 0 && <p className={`text-sm ${muted}`}>مفيش نشاط لسه.</p>}
+      {items.length === 0 && (
+        <p className={`text-sm ${muted} flex items-center gap-2 py-2`}>
+          <Activity className="size-4 shrink-0" /> مفيش نشاط لسه.
+        </p>
+      )}
       {items.map((a) => (
         <div key={`${a.bookingId}-${a.changedAtUtc}-${a.toStatus}`} className="flex gap-2.5 text-sm items-center">
           <span

@@ -63,7 +63,7 @@ export default function PlansPage() {
         emptyDescription="لم يتم إنشاء أي باقات اشتراك لأصحاب الملاعب حتى الآن. يمكنك البدء بإضافة الباقة الأولى الآن وتحديد مزاياها وأسعارها."
         emptyIcon="receipt"
         emptyAction={{
-          label: "+ إضافة باقة جديدة الآن",
+          label: "إضافة باقة جديدة الآن",
           onClick: () => setEditing({ id: null, form: empty }),
           variant: "primary",
         }}

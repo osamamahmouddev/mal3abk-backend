@@ -2,6 +2,7 @@
 
 import React from "react";
 import type { Schemas } from "@malabak/api-client";
+import { useConfirm } from "@malabak/ui";
 import { formatEGP, toArabicDigits, primaryBtn, secondaryBtn } from "@/components/ui";
 import { openFile } from "@/lib/api";
 import { Check, Download, Printer, ReceiptText, X } from "lucide-react";
@@ -16,6 +17,8 @@ const fmtDate = (iso?: string | null) =>
   iso ? new Intl.DateTimeFormat("ar-EG", { dateStyle: "medium", timeZone: "Africa/Cairo" }).format(new Date(iso)) : "—";
 
 export function InvoiceModal({ invoice, onClose }: InvoiceModalProps) {
+  const confirm = useConfirm();
+
   if (!invoice) return null;
 
   const handlePrint = () => {
@@ -29,6 +32,21 @@ export function InvoiceModal({ invoice, onClose }: InvoiceModalProps) {
   const ownerLabel = invoice.ownerName || "مالك الحساب";
   const ownerPhone = invoice.ownerPhone ? toArabicDigits(invoice.ownerPhone) : "—";
   const downloadUrl = `/api/v1/venue-manager/billing/invoices/${invoice.id}/pdf`;
+
+  const handleDownloadPdf = async () => {
+    try {
+      await openFile(downloadUrl);
+    } catch {
+      await confirm({
+        title: "تعذر تحميل ملف PDF",
+        message: "لم نتمكن من تنزيل الفاتورة بصيغة PDF في الوقت الحالي. تأكد من اتصال الإنترنت وحاول ثانية.",
+        confirmLabel: "حسناً",
+        cancelLabel: null,
+        type: "warning",
+        badge: "تحميل الفاتورة",
+      });
+    }
+  };
 
   return (
     <div
@@ -65,8 +83,8 @@ export function InvoiceModal({ invoice, onClose }: InvoiceModalProps) {
             </button>
             <button
               type="button"
-              onClick={() => openFile(downloadUrl).catch(() => alert("تعذر تحميل ملف PDF"))}
-              className={`${secondaryBtn} min-h-[36px] px-3 text-xs bg-white/10 hover:bg-white/20 text-white border-white/20 gap-1.5`}
+              onClick={handleDownloadPdf}
+              className={`${secondaryBtn} min-h-[36px] px-3 text-xs bg-white/10 hover:bg-white/20 text-white border-white/20 gap-1.5 cursor-pointer`}
             >
               <Download className="size-3.5" />
               تحميل PDF
@@ -262,8 +280,8 @@ export function InvoiceModal({ invoice, onClose }: InvoiceModalProps) {
           <div className="flex items-center gap-2">
             <button
               type="button"
-              onClick={() => openFile(downloadUrl).catch(() => alert("تعذر تحميل ملف PDF"))}
-              className={secondaryBtn}
+              onClick={handleDownloadPdf}
+              className={`${secondaryBtn} cursor-pointer`}
             >
               تحميل ملف PDF
             </button>

@@ -2,6 +2,7 @@
 
 import React, { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useConfirm } from "@malabak/ui";
 import type { Schemas } from "@malabak/api-client";
 import { Page, PageHeader, Pill, btnOutline, btnPrimary, btnSmall, card, chip, muted, redShadow } from "@/components/ui";
 import { Field, QueryState, Select, Table, TextInput, fmtDate, num, useNotice } from "@/components/admin";
@@ -14,6 +15,7 @@ type StatusFilter = "all" | "active" | "focus" | "inactive" | "custom";
 export default function AreasPage() {
   const queryClient = useQueryClient();
   const notice = useNotice();
+  const confirm = useConfirm();
 
   // Filters & Search
   const [selectedGov, setSelectedGov] = useState<string>("all");
@@ -377,10 +379,19 @@ export default function AreasPage() {
                   a.isCustom ? (
                     <button
                       type="button"
-                      className={`${btnSmall} text-rose-600 hover:bg-rose-50 hover:border-rose-200`}
+                      className={`${btnSmall} text-rose-600 hover:bg-rose-50 hover:border-rose-200 cursor-pointer`}
                       disabled={remove.isPending}
-                      onClick={() => {
-                        if (confirm(`هل أنت متأكد من حذف منطقة "${a.nameAr}"؟`)) {
+                      onClick={async () => {
+                        const ok = await confirm({
+                          title: "حذف المنطقة المخصصة",
+                          message: "هل أنت متأكد من حذف هذه المنطقة؟ سيتم إزالتها من قوائم وتصنيفات النظام.",
+                          itemHighlight: `المنطقة: ${a.nameAr}${a.nameEn ? ` (${a.nameEn})` : ""}`,
+                          confirmLabel: "نعم، احذف المنطقة",
+                          cancelLabel: "إلغاء",
+                          destructive: true,
+                          badge: "المناطق الجغرافية",
+                        });
+                        if (ok) {
                           remove.mutate(a.id);
                         }
                       }}

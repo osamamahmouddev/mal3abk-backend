@@ -5,6 +5,7 @@ import { useMutation } from "@tanstack/react-query";
 import type { Schemas } from "@malabak/api-client";
 import { api, unwrap } from "@/lib/api";
 import { METHOD_LABELS } from "@/lib/venue-format";
+import { Plus } from "lucide-react";
 
 const field = "min-h-[46px] border border-[#C9CFD9] rounded-xl px-3 text-[15px] text-slate-900 bg-white focus:outline-none focus:ring-2 focus:ring-navy-900";
 
@@ -94,9 +95,10 @@ export function PaymentMethodForm({ venueId, onAdded }: { venueId: string; onAdd
         type="button"
         disabled={!draft.recipientName.trim() || !draft.accountDetails.trim() || add.isPending}
         onClick={() => add.mutate()}
-        className="sm:col-span-2 min-h-[46px] rounded-xl bg-navy-900 disabled:opacity-60 text-white text-sm font-bold"
+        className="btn-press sm:col-span-2 min-h-[46px] rounded-xl bg-navy-900 hover:bg-navy-800 disabled:opacity-60 text-white text-sm font-bold inline-flex items-center justify-center gap-2 transition-colors"
       >
-        + إضافة طريقة دفع
+        <Plus className="size-4" strokeWidth={2.5} />
+        إضافة طريقة دفع
       </button>
     </div>
   );

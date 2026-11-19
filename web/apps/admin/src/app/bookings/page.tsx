@@ -7,7 +7,7 @@ import { KV, Page, PageHeader, Pill, ReasonModal, type ReasonRequest, SearchBox,
 import { Drawer, Pager, QueryState, Section, Select, Table, fmtDateTime, useNotice } from "@/components/admin";
 import { api, unwrap } from "@/lib/api";
 import { useStepUp } from "@/lib/stepup";
-import { Building2, CalendarDays, CheckCircle2, ChevronLeft, Clock, ExternalLink, FileText, LayoutGrid, NotebookPen, Phone, RotateCw, ShieldAlert, Smartphone, Table2, User, XCircle, ZoomIn, ZoomOut } from "lucide-react";
+import { Building2, CalendarDays, CheckCircle2, ChevronLeft, Clock, ExternalLink, FileText, LayoutGrid, NotebookPen, Phone, ReceiptText, RotateCw, ShieldAlert, Smartphone, Table2, TriangleAlert, User, XCircle, ZoomIn, ZoomOut } from "lucide-react";
 
 type Row = Schemas["AdminBookingListItem"];
 
@@ -565,7 +565,7 @@ function BookingDrawer({ bookingId, onClose, venueMap }: { bookingId: string | n
                 <div className="bg-slate-50 border border-slate-200/90 rounded-2xl p-4 flex flex-col gap-3 shadow-xs">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <span className="text-base">🧾</span>
+                      <ReceiptText className="size-4 text-slate-500" />
                       <strong className="text-sm font-bold text-slate-900">إيصال التحويل المرفوع</strong>
                     </div>
                     <span className="text-[11px] text-slate-500 font-medium">
@@ -675,7 +675,7 @@ function BookingDrawer({ bookingId, onClose, venueMap }: { bookingId: string | n
             {d.booking.status === "Cancelled" && d.refunds.some((r) => r.status === "Pending") && (
               <div className="bg-amber-50 border border-amber-300 rounded-2xl p-4 flex flex-col gap-2.5 shadow-xs">
                 <div className="flex items-center gap-2">
-                  <span className="text-lg">⚠️</span>
+                  <TriangleAlert className="size-[18px] text-amber-600 shrink-0" />
                   <strong className="text-sm font-bold text-amber-950">إحالة استرداد عربون (إلغاء الملعب)</strong>
                 </div>
                 <p className="text-xs text-amber-900 leading-relaxed">

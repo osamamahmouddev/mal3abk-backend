@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { ConfirmProvider } from "@malabak/ui";
 import { ApiError } from "@/lib/api";
 import { StepUpProvider } from "@/lib/stepup";
 
@@ -21,7 +22,9 @@ export function Providers({ children }: { children: React.ReactNode }) {
   );
   return (
     <QueryClientProvider client={client}>
-      <StepUpProvider>{children}</StepUpProvider>
+      <StepUpProvider>
+        <ConfirmProvider>{children}</ConfirmProvider>
+      </StepUpProvider>
     </QueryClientProvider>
   );
 }

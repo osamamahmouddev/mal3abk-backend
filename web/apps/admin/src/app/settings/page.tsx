@@ -6,7 +6,7 @@ import type { Schemas } from "@malabak/api-client";
 import { Page, PageHeader, Pill, ReasonModal, type ReasonRequest, Switch, Tabs, btnSmall, card, muted } from "@/components/ui";
 import { QueryState, TextInput, fmtDateTime, useNotice } from "@/components/admin";
 import { api, unwrap } from "@/lib/api";
-import { Building2, Check, CreditCard, ShieldCheck, Smartphone, Sparkles, Wrench } from "lucide-react";
+import { Building2, Check, CreditCard, ShieldCheck, Smartphone, Sparkles, Wrench, Zap } from "lucide-react";
 
 type Tab = "deposits" | "settings" | "flags" | "sessions";
 
@@ -190,8 +190,8 @@ function DepositSettings() {
           {/* InstaPay */}
           <div className={`${card} rounded-[20px] p-5 flex flex-col gap-3.5 border border-slate-200`}>
             <div className="flex items-center gap-2.5 pb-2 border-b border-slate-100">
-              <div className="size-9 rounded-xl bg-purple-50 text-purple-700 flex items-center justify-center font-bold">
-                ⚡
+              <div className="size-9 rounded-xl bg-purple-50 text-purple-700 flex items-center justify-center">
+                <Zap className="size-[18px]" />
               </div>
               <div>
                 <h4 className="text-sm font-black text-slate-900">إنستاباي (InstaPay)</h4>

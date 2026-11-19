@@ -261,10 +261,28 @@ public static class IdentityModule
             .Validate(
                 options => options.Provider != OtpDeliveryProvider.Slack || IsSlackWebhookUrl(options.Slack.WebhookUrl),
                 $"{OtpDeliveryOptions.SectionName}:Slack:WebhookUrl must be an https://hooks.slack.com/ Incoming Webhook URL.")
+            .Validate(
+                options => options.Provider != OtpDeliveryProvider.WhatsApp || !string.IsNullOrWhiteSpace(options.WhatsApp.ApiKey),
+                $"{OtpDeliveryOptions.SectionName}:WhatsApp:ApiKey is required when WhatsApp provider is selected.")
+            .Validate(
+                options => options.Provider != OtpDeliveryProvider.MetaWhatsApp || (!string.IsNullOrWhiteSpace(options.MetaWhatsApp.AccessToken) && !string.IsNullOrWhiteSpace(options.MetaWhatsApp.PhoneNumberId)),
+                $"{OtpDeliveryOptions.SectionName}:MetaWhatsApp:AccessToken and PhoneNumberId are required when MetaWhatsApp provider is selected.")
             .ValidateOnStart();
 
         var provider = configuration.GetSection(OtpDeliveryOptions.SectionName).GetValue<OtpDeliveryProvider>(nameof(OtpDeliveryOptions.Provider));
-        if (provider == OtpDeliveryProvider.Slack)
+        if (provider == OtpDeliveryProvider.MetaWhatsApp)
+        {
+            AddMetaWhatsAppClient(services);
+            services.AddTransient<IOtpSender, MetaWhatsAppOtpSender>();
+            services.AddTransient<ISmsAlertService, MetaWhatsAppSmsAlertService>();
+        }
+        else if (provider == OtpDeliveryProvider.WhatsApp)
+        {
+            AddCodeFiyeClient(services);
+            services.AddTransient<IOtpSender, WhatsAppOtpSender>();
+            services.AddTransient<ISmsAlertService, WhatsAppSmsAlertService>();
+        }
+        else if (provider == OtpDeliveryProvider.Slack)
         {
             AddSlackWebhookClient(services);
             services.AddTransient<IOtpSender, SlackOtpSender>();
@@ -333,6 +351,46 @@ public static class IdentityModule
         services.AddHttpClient<SlackWebhookClient>(client => client.Timeout = TimeSpan.FromSeconds(10))
             // The default HttpClient logging writes the request URL, and the webhook URL is a credential.
             .RemoveAllLoggers();
+    }
+
+    private static void AddCodeFiyeClient(IServiceCollection services)
+    {
+        AddSlackWebhookClient(services);
+
+        if (services.Any(d => d.ServiceType == typeof(CodeFiyeClient)))
+        {
+            return;
+        }
+
+        services.AddHttpClient<CodeFiyeClient>((sp, client) =>
+        {
+            var options = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<OtpDeliveryOptions>>().Value;
+            var baseUrl = string.IsNullOrWhiteSpace(options.WhatsApp.BaseUrl)
+                ? "https://wa.codefiye.com"
+                : options.WhatsApp.BaseUrl;
+            client.BaseAddress = new Uri(baseUrl);
+            client.Timeout = TimeSpan.FromSeconds(15);
+        }).RemoveAllLoggers();
+    }
+
+    private static void AddMetaWhatsAppClient(IServiceCollection services)
+    {
+        AddSlackWebhookClient(services);
+
+        if (services.Any(d => d.ServiceType == typeof(MetaWhatsAppClient)))
+        {
+            return;
+        }
+
+        services.AddHttpClient<MetaWhatsAppClient>((sp, client) =>
+        {
+            var options = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<OtpDeliveryOptions>>().Value;
+            var baseUrl = string.IsNullOrWhiteSpace(options.MetaWhatsApp.BaseUrl)
+                ? "https://graph.facebook.com"
+                : options.MetaWhatsApp.BaseUrl;
+            client.BaseAddress = new Uri(baseUrl);
+            client.Timeout = TimeSpan.FromSeconds(15);
+        }).RemoveAllLoggers();
     }
 
     private static bool IsSlackWebhookUrl(string? url) =>

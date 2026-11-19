@@ -15,7 +15,7 @@ import { AddAreaInline } from "@/components/AddAreaInline";
 import { PaymentMethodForm } from "@/components/PaymentMethodForm";
 import { mediaIdOf, mediaSrc, uploadImage } from "@/lib/upload";
 import { ImageLightbox, type LightboxPhoto } from "@/components/ImageLightbox";
-import { Check, CircleCheck, CircleX, Eye, TriangleAlert, X } from "lucide-react";
+import { Check, CircleCheck, CircleX, Eye, Loader2, Plus, TriangleAlert, X } from "lucide-react";
 
 const pitchPattern =
   "radial-gradient(closest-side circle at 50% 50%, transparent 0 32%, rgba(255,255,255,0.55) 32% 36%, transparent 36%), linear-gradient(90deg, transparent calc(50% - 1px), rgba(255,255,255,0.55) calc(50% - 1px) calc(50% + 1px), transparent calc(50% + 1px)), repeating-linear-gradient(90deg, #2E8B55 0 12.5%, #287D4C 12.5% 25%)";
@@ -205,7 +205,7 @@ export default function SetupPage() {
 
         <main className={`flex-[999_1_560px] min-w-0 ${card} rounded-[20px] p-5 sm:p-7 flex flex-col gap-5`}>
           {approvalStatus === "NeedsInfo" && lastAdminNote && (
-            <div className="bg-[#FEF3D6] border border-[#F5D485] text-[#7A4D00] rounded-[16px] p-4 flex items-start gap-3 shadow-xs animate-fadeIn">
+            <div className="bg-[#FEF3D6] border border-[#F5D485] text-[#7A4D00] rounded-[16px] p-4 flex items-start gap-3 shadow-xs animate-fade-in-down">
               <span className="w-8 h-8 rounded-full bg-[#F5D485]/60 flex items-center justify-center shrink-0"><TriangleAlert className="size-4" /></span>
               <div className="flex flex-col gap-1 flex-1 min-w-0">
                 <span className="font-bold text-[15px]">طلب استكمال بيانات من إدارة ملعبك:</span>
@@ -217,7 +217,7 @@ export default function SetupPage() {
             </div>
           )}
           {approvalStatus === "Rejected" && lastAdminNote && (
-            <div className="bg-[#FDECEA] border border-[#F5C2BD] text-[#A8261C] rounded-[16px] p-4 flex items-start gap-3 shadow-xs animate-fadeIn">
+            <div className="bg-[#FDECEA] border border-[#F5C2BD] text-[#A8261C] rounded-[16px] p-4 flex items-start gap-3 shadow-xs animate-fade-in-down">
               <span className="w-8 h-8 rounded-full bg-[#F5C2BD]/60 flex items-center justify-center shrink-0"><CircleX className="size-4" /></span>
               <div className="flex flex-col gap-1 flex-1 min-w-0">
                 <span className="font-bold text-[15px]">سبب عدم الموافقة على الملعب:</span>
@@ -738,9 +738,10 @@ function PitchesStep({ venueId }: { venueId: string }) {
           type="button"
           disabled={!draft.name.trim() || add.isPending || draftUploading}
           onClick={() => add.mutate()}
-          className="self-end min-h-[44px] px-6 rounded-xl bg-navy-900 disabled:opacity-60 text-white text-sm font-bold shadow transition-colors"
+          className="btn-press self-end min-h-[44px] px-6 rounded-xl bg-navy-900 hover:bg-navy-800 disabled:opacity-60 text-white text-sm font-bold shadow transition-colors inline-flex items-center gap-2"
         >
-          {add.isPending ? "جاري الإضافة…" : "+ إضافة الملعب"}
+          {add.isPending ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" strokeWidth={2.5} />}
+          {add.isPending ? "جاري الإضافة…" : "إضافة الملعب"}
         </button>
       </div>
       {error && (

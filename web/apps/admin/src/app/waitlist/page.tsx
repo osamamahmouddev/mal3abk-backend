@@ -2,6 +2,7 @@
 
 import React, { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useConfirm } from "@malabak/ui";
 import { Page, PageHeader, Pill, SearchBox, btnOutline, btnPrimary, btnSmall, card, muted, toArabicDigits } from "@/components/ui";
 import { Pager, QueryState, Select, Table, fmtDateTime, useNotice } from "@/components/admin";
 import { api, downloadFile, unwrap } from "@/lib/api";
@@ -114,6 +115,7 @@ export default function WaitlistPage() {
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [isExporting, setIsExporting] = useState(false);
   const notice = useNotice();
+  const confirm = useConfirm();
 
   const waitlistQuery = useQuery({
     queryKey: ["admin-waitlist", audience, plan, page],
@@ -157,8 +159,18 @@ export default function WaitlistPage() {
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm("هل أنت متأكد من حذف هذا السجل من قائمة الانتظار؟")) return;
+  const handleDelete = async (id: string, entryLabel?: string) => {
+    const ok = await confirm({
+      title: "حذف من قائمة الانتظار",
+      message: "هل أنت متأكد من حذف هذا السجل من قائمة الانتظار؟ لن يمكنك التراجع عن هذا الإجراء.",
+      itemHighlight: entryLabel,
+      confirmLabel: "نعم، احذف السجل",
+      cancelLabel: "إلغاء",
+      destructive: true,
+      badge: "قائمة الانتظار",
+    });
+    if (!ok) return;
+
     try {
       await unwrap(
         api.DELETE("/api/v1/admin/waitlist/{id}", {
@@ -178,7 +190,16 @@ export default function WaitlistPage() {
       notice.ok("لا توجد سجلات تجريبية تالفة في هذه الصفحة.");
       return;
     }
-    if (!confirm(`هل أنت متأكد من حذف (${corrupted.length}) سجل تجريبي قديم غير قابل للقراءة؟`)) return;
+    const ok = await confirm({
+      title: "تنظيف السجلات التجريبية التالفة",
+      message: `هل أنت متأكد من حذف (${corrupted.length}) سجل تجريبي قديم غير قابل للقراءة؟ سيتم تنظيف هذه البيانات نهائياً لتطهير القائمة.`,
+      confirmLabel: `حذف ${corrupted.length} سجل نهائياً`,
+      cancelLabel: "تراجع",
+      destructive: true,
+      badge: "تنظيف وتطهير البيانات",
+    });
+    if (!ok) return;
+
     try {
       await Promise.all(
         corrupted.map((item) =>
@@ -511,7 +532,7 @@ export default function WaitlistPage() {
                           {phoneInfo.isEncrypted ? (
                             <button
                               type="button"
-                              onClick={() => handleDelete(item.id)}
+                              onClick={() => handleDelete(item.id, "سجل تجريبي قديم")}
                               title="حذف هذا السجل التجريبي القديم"
                               className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 transition-colors cursor-pointer"
                             >
@@ -555,7 +576,7 @@ export default function WaitlistPage() {
 
                               <button
                                 type="button"
-                                onClick={() => handleDelete(item.id)}
+                                onClick={() => handleDelete(item.id, `المسجل: ${phoneInfo.formattedDisplay}`)}
                                 title="حذف السجل"
                                 className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 border border-transparent hover:border-rose-200 transition-colors cursor-pointer"
                               >
@@ -693,7 +714,7 @@ export default function WaitlistPage() {
                         return (
                           <button
                             type="button"
-                            onClick={() => handleDelete(r.id)}
+                            onClick={() => handleDelete(r.id, "سجل تجريبي قديم")}
                             className="inline-flex items-center gap-1 text-xs text-rose-700 hover:text-rose-900 bg-rose-50 hover:bg-rose-100 px-2 py-1 rounded border border-rose-200 transition-colors cursor-pointer"
                             title="حذف هذا السجل التجريبي القديم"
                           >
@@ -727,7 +748,7 @@ export default function WaitlistPage() {
 
                           <button
                             type="button"
-                            onClick={() => handleDelete(r.id)}
+                            onClick={() => handleDelete(r.id, `المسجل: ${phoneInfo.formattedDisplay}`)}
                             className="text-slate-400 hover:text-rose-600 p-1 cursor-pointer transition-colors"
                             title="حذف السجل"
                           >

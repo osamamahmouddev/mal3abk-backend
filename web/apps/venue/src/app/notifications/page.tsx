@@ -8,16 +8,18 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { Schemas } from "@malabak/api-client";
 import { Page, Switch, Toast, card, chip, muted, toArabicDigits } from "@/components/ui";
 import { api, unwrap } from "@/lib/api";
+import { BellOff, CalendarCheck, Megaphone, ReceiptText, ShieldAlert, Users, type LucideIcon } from "lucide-react";
+import { Pitch } from "@/components/icons";
 
 type Filter = "all" | "unread";
 
-const CATEGORY: Record<string, { value: Schemas["NotificationCategory"]; label: string; icon: [string, string] }> = {
-  Bookings: { value: 0, label: "الحجوزات", icon: ["ح", "bg-[#E5F5EB] text-[#1B6E3E]"] },
-  Payments: { value: 1, label: "المدفوعات وإثباتات الدفع", icon: ["ج", "bg-[#FEF3D6] text-[#7A4D00]"] },
-  Venues: { value: 2, label: "الملعب والمراجعة", icon: ["م", "bg-[#E8EEF9] text-[#0F1B3D]"] },
-  Teams: { value: 3, label: "الفرق", icon: ["ف", "bg-[#EEF0F5] text-[#3B4352]"] },
-  Security: { value: 4, label: "أمان الحساب", icon: ["!", "bg-[#FDECEA] text-[#A8261C]"] },
-  Marketing: { value: 5, label: "عروض وأخبار", icon: ["ع", "bg-[#EEF0F5] text-[#3B4352]"] },
+const CATEGORY: Record<string, { value: Schemas["NotificationCategory"]; label: string; icon: [LucideIcon | typeof Pitch, string] }> = {
+  Bookings: { value: 0, label: "الحجوزات", icon: [CalendarCheck, "bg-[#E5F5EB] text-[#1B6E3E]"] },
+  Payments: { value: 1, label: "المدفوعات وإثباتات الدفع", icon: [ReceiptText, "bg-[#FEF3D6] text-[#7A4D00]"] },
+  Venues: { value: 2, label: "الملعب والمراجعة", icon: [Pitch, "bg-[#E8EEF9] text-[#0F1B3D]"] },
+  Teams: { value: 3, label: "الفرق", icon: [Users, "bg-[#EEF0F5] text-[#3B4352]"] },
+  Security: { value: 4, label: "أمان الحساب", icon: [ShieldAlert, "bg-[#FDECEA] text-[#A8261C]"] },
+  Marketing: { value: 5, label: "عروض وأخبار", icon: [Megaphone, "bg-[#EEF0F5] text-[#3B4352]"] },
 };
 
 function timeAgo(iso: string) {
@@ -117,9 +119,17 @@ export default function NotificationsPage() {
           </div>
           <section className={`${card} rounded-[20px] overflow-hidden`}>
             {page.isLoading && <div className="h-20 m-4 rounded-xl skeleton-shimmer" />}
-            {!page.isLoading && items.length === 0 && <p className={`p-8 text-center text-sm ${muted}`}>مفيش إشعارات.</p>}
+            {!page.isLoading && items.length === 0 && (
+              <div className="px-6 py-14 flex flex-col items-center gap-3 text-center animate-fade-in">
+                <span className="grid place-items-center size-14 rounded-2xl bg-[#F3F5F9] text-[#8A93A3]">
+                  <BellOff className="size-7" strokeWidth={1.5} />
+                </span>
+                <strong className="text-[15px]">{filter === "unread" ? "كله مقروء" : "مفيش إشعارات"}</strong>
+                <span className={`text-[13px] ${muted}`}>أي حجز جديد أو إيصال عربون هيوصلك هنا على طول.</span>
+              </div>
+            )}
             {items.map((n) => {
-              const [letter, tone] = CATEGORY[n.category]?.icon ?? ["•", "bg-[#EEF0F5] text-[#3B4352]"];
+              const [Icon, tone] = CATEGORY[n.category]?.icon ?? [Megaphone, "bg-[#EEF0F5] text-[#3B4352]"];
               return (
                 <button
                   key={n.id}
@@ -129,7 +139,9 @@ export default function NotificationsPage() {
                     n.isRead ? "" : "bg-[#F7F9FD]"
                   }`}
                 >
-                  <span className={`w-10 h-10 rounded-full shrink-0 flex items-center justify-center text-sm font-bold shadow-xs ${tone}`}>{letter}</span>
+                  <span className={`w-10 h-10 rounded-xl shrink-0 flex items-center justify-center ${tone}`}>
+                    <Icon className="size-[18px]" strokeWidth={1.75} />
+                  </span>
                   <span className="flex-1 min-w-0 flex flex-col gap-0.5">
                     <span className="flex items-center gap-2">
                       <span className={`text-sm ${n.isRead ? "font-semibold" : "font-bold text-slate-900"}`}>{n.title}</span>

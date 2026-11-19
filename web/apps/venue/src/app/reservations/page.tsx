@@ -11,7 +11,7 @@ import { BOOKING_STATUS, type BookingStatus, addDays, cairoDateTime, cairoDaySta
 import { downloadCsv } from "@/lib/csv";
 import { P } from "@/lib/permissions";
 import { ReasonDialog } from "@/components/ReasonDialog";
-import { CheckCircle2, X } from "lucide-react";
+import { CheckCircle2, Download, Plus, X } from "lucide-react";
 
 type Item = Schemas["VenueBookingItemDto"];
 type Tab = "pending" | "ok" | "closed" | "all";
@@ -179,11 +179,13 @@ export default function ReservationsPage() {
       <div className="flex flex-wrap items-center gap-3">
         <h1 className="flex-[1_1_240px] text-[26px] font-bold">الحجوزات</h1>
         <button type="button" onClick={exportList} disabled={list.length === 0} className={`${secondaryBtn} rounded-xl disabled:opacity-50`}>
+          <Download className="size-4" />
           تصدير الصفحة
         </button>
         {can(P.bookingsApprove) && (
           <Link href="/reservations/manual" className={primaryBtn}>
-            + حجز يدوي
+            <Plus className="size-4" strokeWidth={2.5} />
+            حجز يدوي
           </Link>
         )}
       </div>
@@ -352,7 +354,7 @@ export default function ReservationsPage() {
                       b.id === selId ? "bg-[#F3F5FA] shadow-[inset_-3px_0_0_#0F1B3D]" : ""
                     }`}
                   >
-                    <td dir="ltr" className="px-[18px] py-3 text-right text-[13px] text-[#3B4352]">
+                    <td dir="ltr" className="px-[18px] py-3 text-right text-[12.5px] font-mono tracking-tight text-[#3B4352] whitespace-nowrap">
                       {b.reference}
                     </td>
                     <td className="p-3">

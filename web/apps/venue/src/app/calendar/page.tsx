@@ -11,7 +11,7 @@ import { ManualBookingForm, type ManualBookingDefaults } from "@/components/Manu
 import { api, unwrap } from "@/lib/api";
 import { addDays, cairoDayStartUtc, cairoHourLabel, cairoTime, cairoToday } from "@/lib/booking-format";
 import { P } from "@/lib/permissions";
-import { X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, X } from "lucide-react";
 
 type View = "day" | "week" | "month";
 type Slot = Schemas["CalendarSlotDto"];
@@ -147,9 +147,9 @@ function Calendar() {
             type="button"
             aria-label="السابق"
             onClick={() => switchTo(view, view === "month" ? addDays(monthStart(date), -1) : addDays(date, -step))}
-            className="w-10 h-10 rounded-[10px] border border-[#EDF0F5] bg-white hover:bg-slate-50 active:scale-95 transition-all cursor-pointer flex items-center justify-center font-bold"
+            className="w-10 h-10 rounded-[10px] border border-[#EDF0F5] bg-white hover:bg-slate-50 hover:border-slate-300 active:scale-95 transition-all cursor-pointer flex items-center justify-center"
           >
-            ›
+            <ChevronRight className="size-5" />
           </button>
           <span className="min-w-[180px] text-center text-sm font-bold" aria-live="polite">
             {title}
@@ -158,20 +158,20 @@ function Calendar() {
             type="button"
             aria-label="التالي"
             onClick={() => switchTo(view, view === "month" ? addDays(monthEnd(date), 1) : addDays(date, step))}
-            className="w-10 h-10 rounded-[10px] border border-[#EDF0F5] bg-white hover:bg-slate-50 active:scale-95 transition-all cursor-pointer flex items-center justify-center font-bold"
+            className="w-10 h-10 rounded-[10px] border border-[#EDF0F5] bg-white hover:bg-slate-50 hover:border-slate-300 active:scale-95 transition-all cursor-pointer flex items-center justify-center"
           >
-            ‹
+            <ChevronLeft className="size-5" />
           </button>
           <button
             type="button"
             onClick={() => switchTo(view, cairoToday())}
-            className="min-h-[40px] px-3 rounded-[10px] border border-[#EDF0F5] bg-white hover:bg-slate-50 active:scale-95 transition-all text-[13px] font-semibold cursor-pointer"
+            className="min-h-[40px] px-3 rounded-[10px] border border-[#EDF0F5] bg-white hover:bg-slate-50 hover:border-slate-300 active:scale-95 transition-all text-[13px] font-semibold cursor-pointer"
           >
             النهارده
           </button>
         </div>
         {view === "week" && (
-          <select aria-label="الملعب" value={weekPitch} onChange={(e) => setWeekPitch(e.target.value)} className={inputClass}>
+          <select aria-label="الملعب" value={weekPitch} onChange={(e) => setWeekPitch(e.target.value)} className={`${inputClass} !w-auto min-w-[200px] max-w-[280px] min-h-[40px] cursor-pointer`}>
             {pitches.map((p) => (
               <option key={p.id} value={p.id}>
                 {p.name}
@@ -183,9 +183,10 @@ function Calendar() {
           <button
             type="button"
             onClick={() => setEmpty({ date, startMinutes: 20 * 60, pitchId: pitches[0]?.id })}
-            className={`min-h-[44px] px-[18px] rounded-[10px] bg-brand-red text-white text-sm font-bold ${redShadow}`}
+            className={`btn-press min-h-[40px] px-4 rounded-[10px] bg-brand-red hover:bg-brand-red-hover text-white text-sm font-bold inline-flex items-center gap-2 transition-colors ${redShadow}`}
           >
-            + حجز يدوي
+            <Plus className="size-4" strokeWidth={2.5} />
+            حجز يدوي
           </button>
         )}
       </div>
@@ -270,7 +271,7 @@ function ViewSwitch({ view, onChange }: { view: View; onChange: (v: View) => voi
           type="button"
           aria-pressed={view === id}
           onClick={() => onChange(id)}
-          className={`min-h-[36px] px-3.5 rounded-[9px] text-[13px] ${view === id ? "bg-navy-900 text-white font-bold" : "text-[#3B4352]"}`}
+          className={`min-h-[36px] px-3.5 rounded-[9px] text-[13px] transition-all duration-150 ease-spring ${view === id ? "bg-navy-900 text-white font-bold shadow-sm" : "text-[#3B4352] hover:bg-slate-100"}`}
         >
           {label}
         </button>

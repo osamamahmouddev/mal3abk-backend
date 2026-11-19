@@ -13,7 +13,7 @@ import { BOOKING_STATUS, cairoDateTime, money, timeLeft } from "@/lib/booking-fo
 import { P } from "@/lib/permissions";
 import { useVenueRealtime } from "@/lib/realtime";
 import { mediaSrc } from "@/lib/upload";
-import { FileText, X } from "lucide-react";
+import { ChevronLeft, FileText, X } from "lucide-react";
 
 type Item = Schemas["VenueBookingItemDto"];
 type Proof = Schemas["VenueProofItemDto"];
@@ -76,12 +76,13 @@ function ProofReview() {
     <Page className="gap-4">
       <div className="flex flex-wrap items-end gap-3">
         <div className="flex-[1_1_280px] flex flex-col gap-0.5">
-          <span className={`text-[13px] ${muted}`}>
+          <nav aria-label="مسار الصفحة" className={`text-[13px] ${muted} flex items-center gap-1`}>
             <Link href="/reservations" className="hover:text-brand-red">
               الحجوزات
-            </Link>{" "}
-            ‹ إيصالات العربون
-          </span>
+            </Link>
+          <ChevronLeft className="size-3.5" />
+          <span aria-current="page">إيصالات العربون</span>
+          </nav>
           <h1 className="text-[26px] font-bold">مراجعة إيصالات العربون</h1>
         </div>
         <span className={`text-[13px] ${muted} flex items-center gap-1.5`}>

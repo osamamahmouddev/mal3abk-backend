@@ -8,7 +8,7 @@ import { Drawer, Field, Pager, QueryState, Section, Select, Table, TextInput, fm
 import { api, unwrap } from "@/lib/api";
 import { useStepUp } from "@/lib/stepup";
 import { ImageLightbox } from "@/components/ImageLightbox";
-import { Camera, ChevronLeft, Eye, Image as ImageIcon, LayoutGrid, MapPin, Package, Smartphone, Table2, X, BadgePercent } from "lucide-react";
+import { Camera, Check, ChevronLeft, Eye, Image as ImageIcon, LayoutGrid, MapPin, Package, Smartphone, Table2, X, BadgePercent } from "lucide-react";
 import { Pitch, SoccerBall } from "@/components/icons";
 
 type Row = Schemas["AdminVenueListItem"];
@@ -572,14 +572,14 @@ function VenueDrawer({ venueId, onClose }: { venueId: string | null; onClose: ()
           params: { path: { venueId: venueId! } },
           body: {
             pricingModel: Number(pricingModel) as 0 | 1,
-            customCommissionEnabled: pricingModel === "1" ? (commissionEnabled || commissionType !== "0") : commissionEnabled,
-            commissionType: Number(commissionType) as 0 | 1 | 2 | 3,
-            commissionRate: commissionRate.trim() ? Number(commissionRate) : null,
+            customCommissionEnabled: pricingModel === "1",
+            commissionType: pricingModel === "1" ? (Number(commissionType) as 0 | 1 | 2 | 3) : 3,
+            commissionRate: pricingModel === "1" && commissionRate.trim() ? Number(commissionRate) : null,
           },
         }),
       ),
     onSuccess: async () => {
-      notice.ok("اتحفظ نظام التشغيل وإعدادات العمولة للملعب.");
+      notice.ok("اتحفظ نظام التشغيل وإعدادات الملعب بنجاح.");
       await queryClient.invalidateQueries({ queryKey: ["admin-venue-commission", venueId] });
       await queryClient.invalidateQueries({ queryKey: ["admin-venue", venueId] });
       await queryClient.invalidateQueries({ queryKey: ["admin-venues"] });
@@ -770,39 +770,16 @@ function VenueDrawer({ venueId, onClose }: { venueId: string | null; onClose: ()
                         </div>
                       </div>
                     ) : (
-                      <div className="flex flex-col gap-3">
-                        <Switch
-                          on={commissionEnabled}
-                          label="تخصيص عمولة إضافية للمنصة بجانب باقة الاشتراك (اختياري)"
-                          onToggle={() => setCommissionEnabled((value) => !value)}
-                        />
-                        {commissionEnabled && (
-                          <div className="grid gap-3 sm:grid-cols-2">
-                            <Field label="نوع العمولة">
-                              <select
-                                value={commissionType}
-                                onChange={(e) => setCommissionType(e.target.value as "0" | "1" | "2" | "3")}
-                                className="w-full min-h-[40px] rounded-xl border border-slate-200 bg-white px-3 text-sm"
-                              >
-                                <option value="1">مبلغ ثابت لكل ساعة</option>
-                                <option value="2">نسبة مئوية من الإيجار</option>
-                                <option value="3">معفي من العمولة</option>
-                              </select>
-                            </Field>
-                            {commissionType !== "3" && (
-                              <Field label={commissionType === "2" ? "النسبة المئوية" : "المبلغ لكل ساعة"}>
-                                <TextInput
-                                  type="number"
-                                  min="0"
-                                  step="0.01"
-                                  value={commissionRate}
-                                  onChange={(e) => setCommissionRate(e.target.value)}
-                                  placeholder={commissionType === "2" ? "مثلاً 10" : "مثلاً 30"}
-                                />
-                              </Field>
-                            )}
-                          </div>
-                        )}
+                      <div className="p-4 rounded-xl bg-emerald-50/70 border border-emerald-200/80 text-xs text-emerald-950 flex items-start gap-3">
+                        <Check className="size-4 text-emerald-600 shrink-0 mt-0.5" />
+                        <div className="flex flex-col gap-1">
+                          <span className="font-bold text-emerald-900 text-sm">
+                            الملعب معتمد بنظام باقات الاشتراك فقط
+                          </span>
+                          <span className="text-emerald-800 leading-relaxed">
+                            يسدد صاحب الملعب رسوم باقة الاشتراك الدورية (شهرياً أو سنوياً)، ولا يتم خصم أي عمولة منصة على حجوزاته. وتظهر له تبويبة الاشتراكات والفواتير في لوحة تحكمه.
+                          </span>
+                        </div>
                       </div>
                     )}
 

@@ -9,6 +9,7 @@ import { useVenue } from "@/components/Providers";
 import { api, unwrap } from "@/lib/api";
 import { BOOKING_STATUS, cairoDateTime, cairoDay, money } from "@/lib/booking-format";
 import { downloadCsv } from "@/lib/csv";
+import { Download } from "lucide-react";
 
 type Customer = Schemas["CustomerSummaryDto"];
 type Filter = "all" | "regular" | "noshow";
@@ -93,6 +94,7 @@ export default function CustomersPage() {
           <span className={`text-[13px] ${muted}`}>بس اللي حجزوا في ملعبك — بياناتهم مش بتظهر لأي ملعب تاني.</span>
         </div>
         <button type="button" onClick={exportList} disabled={list.length === 0} className={`${secondaryBtn} rounded-xl disabled:opacity-50`}>
+          <Download className="size-4" />
           تصدير
         </button>
       </div>

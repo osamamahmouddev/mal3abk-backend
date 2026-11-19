@@ -88,6 +88,22 @@ a:hover {
   transform: scale(0.97);
 }
 
+/* Keyboard focus: one visible ring for every interactive element (mouse clicks don't show it). */
+:where(a, button, [role="button"], [role="switch"], [role="tab"], summary, [tabindex]:not([tabindex="-1"])):focus-visible {
+  outline: 2px solid #D63B2F;
+  outline-offset: 2px;
+}
+
+::selection {
+  background: rgba(214, 59, 47, 0.18);
+  color: inherit;
+}
+
+/* Numbers that update in place keep their width instead of jiggling. */
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
 /* Respect user accessibility preferences */
 @media (prefers-reduced-motion: reduce) {
   *, ::before, ::after {

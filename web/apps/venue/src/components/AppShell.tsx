@@ -11,6 +11,7 @@ import { Toast } from "./ui";
 import { RealtimeProvider, useVenueRealtime } from "@/lib/realtime";
 import { logout } from "@/app/auth-actions";
 import { TopProgressBar } from "./TopProgressBar";
+import { Menu } from "lucide-react";
 
 export interface AppShellProps {
   children: React.ReactNode;
@@ -99,9 +100,7 @@ export const AppShell: React.FC<AppShellProps> = ({ children, user }) => {
             aria-controls="venue-nav-drawer"
             className="w-10 h-10 -ms-1 rounded-[10px] flex items-center justify-center hover:bg-white/[0.08]"
           >
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
-              <path d="M4 7h16M4 12h16M4 17h16" />
-            </svg>
+            <Menu className="size-[22px]" />
           </button>
           <Image
             src="/venue/images/logo-horizontal-darkbg.png"

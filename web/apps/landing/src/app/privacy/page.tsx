@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { ArrowRight } from "lucide-react";
 
 export const metadata: Metadata = {
   title: "سياسة الخصوصية — ملعبك",
@@ -10,8 +11,9 @@ export default function PrivacyPage() {
   return (
     <main className="wrap" style={{ maxWidth: 860, margin: "40px auto", padding: "0 20px", lineHeight: 1.8 }}>
       <div style={{ marginBottom: 24 }}>
-        <Link href="/" className="link-btn" style={{ fontSize: 14 }}>
-          ← العودة للرئيسية
+        <Link href="/" className="link-btn" style={{ fontSize: 14, display: "inline-flex", alignItems: "center", gap: 6 }}>
+          <ArrowRight size={16} aria-hidden="true" />
+          العودة للرئيسية
         </Link>
       </div>
 

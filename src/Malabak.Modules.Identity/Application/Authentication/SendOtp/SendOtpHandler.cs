@@ -37,20 +37,7 @@ public sealed class SendOtpHandler : ICommandHandler<SendOtpCommand, Result<Send
         SendOtpCommand command,
         CancellationToken cancellationToken = default)
     {
-        // 1. Verify Cloudflare Turnstile token
-        var isTurnstileValid = await _turnstileValidator.ValidateTokenAsync(
-            command.TurnstileToken,
-            command.RemoteIp,
-            cancellationToken);
-
-        if (!isTurnstileValid)
-        {
-            return Result.Failure<SendOtpResponse>(new Error(
-                "Identity.InvalidTurnstileToken",
-                "Anti-bot verification failed. Please try again."));
-        }
-
-        // 2. Validate & normalize Egyptian E.164 phone number
+        // 1. Validate & normalize Egyptian E.164 phone number
         var normalizeResult = _normalizer.Normalize(command.PhoneNumber);
         if (normalizeResult.IsFailure)
         {
@@ -58,6 +45,25 @@ public sealed class SendOtpHandler : ICommandHandler<SendOtpCommand, Result<Send
         }
 
         var normalizedPhone = normalizeResult.Value;
+
+        // Official App Store / Google Play reviewer test account bypasses Turnstile bot-challenge
+        var isReviewer = normalizedPhone == "+201000000999";
+
+        // 2. Verify Cloudflare Turnstile token
+        if (!isReviewer)
+        {
+            var isTurnstileValid = await _turnstileValidator.ValidateTokenAsync(
+                command.TurnstileToken,
+                command.RemoteIp,
+                cancellationToken);
+
+            if (!isTurnstileValid)
+            {
+                return Result.Failure<SendOtpResponse>(new Error(
+                    "Identity.InvalidTurnstileToken",
+                    "Anti-bot verification failed. Please try again."));
+            }
+        }
 
         // 3. Enforce sliding window rate limit (max 3 requests per 10 minutes)
         var window = TimeSpan.FromMinutes(10);

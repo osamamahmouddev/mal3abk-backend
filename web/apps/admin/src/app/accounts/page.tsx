@@ -94,7 +94,7 @@ export default function AccountsPage() {
         emptyDescription="يمكنك إضافة وتعيين حسابات جديدة للمشرفين والمسؤولين وتحديد أدوارهم وصلاحياتهم في إدارة المنصة."
         emptyIcon="users"
         emptyAction={{
-          label: "+ إضافة حساب مشرف جديد",
+          label: "إضافة حساب مشرف جديد",
           onClick: () => setCreating(true),
           variant: "primary",
         }}
