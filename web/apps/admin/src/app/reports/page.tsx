@@ -2,7 +2,7 @@
 
 import React, { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Page, PageHeader, SearchBox, Segmented, btnOutline, card, money, muted } from "@/components/ui";
+import { KpiCard, Page, PageHeader, SearchBox, Segmented, btnOutline, card, money, muted } from "@/components/ui";
 import { Field, QueryState, TextInput, num } from "@/components/admin";
 import { api, unwrap } from "@/lib/api";
 import { AlertTriangle, Coins, Download, Info, Percent, Wallet } from "lucide-react";
@@ -180,28 +180,28 @@ export default function ReportsPage() {
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
-        <Kpi
+        <KpiCard
           icon={<Percent className="size-4" aria-hidden />}
           tone="red"
           label="عمولة المنصة"
           value={money(t.commission)}
           hint={t.commission > 0 ? `اتحصّل ${money(t.collected)} · لسه ${money(t.outstanding)}` : "مفيش عمولة في الفترة دي"}
         />
-        <Kpi
+        <KpiCard
           icon={<Coins className="size-4" aria-hidden />}
           tone="navy"
           label="إجمالي العرابين المحصّلة"
           value={money(t.deposits)}
           hint={`عربون ${num(t.confirmed)} حجز مؤكد`}
         />
-        <Kpi
+        <KpiCard
           icon={<Wallet className="size-4" aria-hidden />}
           tone="green"
           label="صافي مستحقات الملاعب"
           value={<Signed value={t.depositShare} />}
           hint="نصيب الملاعب من العربون بعد خصم العمولة"
         />
-        <Kpi
+        <KpiCard
           icon={<AlertTriangle className="size-4" aria-hidden />}
           tone="amber"
           label="إحالات استرداد معلّقة"
@@ -349,26 +349,6 @@ export default function ReportsPage() {
         </dl>
       </details>
     </Page>
-  );
-}
-
-const TONES = {
-  red: "bg-[#FDECEA] text-[#C7362A]",
-  navy: "bg-[#EAEEF6] text-[#0B1A3A]",
-  green: "bg-[#E6F4EA] text-[#1F6B3A]",
-  amber: "bg-[#FDF3DC] text-[#9A5B00]",
-} as const;
-
-function Kpi({ icon, tone, label, value, hint }: { icon: React.ReactNode; tone: keyof typeof TONES; label: string; value: React.ReactNode; hint: string }) {
-  return (
-    <div className={`${card} rounded-2xl p-4 flex flex-col gap-2`}>
-      <div className="flex items-center justify-between gap-2">
-        <span className={`text-[13px] font-semibold ${muted}`}>{label}</span>
-        <span className={`size-8 rounded-xl flex items-center justify-center ${TONES[tone]}`}>{icon}</span>
-      </div>
-      <strong className="text-[24px] leading-tight font-extrabold text-slate-900">{value}</strong>
-      <span className={`text-[12px] ${muted} leading-snug`}>{hint}</span>
-    </div>
   );
 }
 
