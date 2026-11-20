@@ -1,4 +1,4 @@
-import { expect, problem, test, waitForCall } from "./fixtures";
+import { expect, problem, test, waitForCall, openItem } from "./fixtures";
 
 /** TASK-719: role-based navigation, permission-denied states and step-up confirmation in the admin console. */
 
@@ -47,7 +47,7 @@ test("suspending a user needs a reason and a fresh authenticator code, sent as a
   api.on("POST", new RegExp(`^/api/v1/admin/users/${USER_ID}/suspend$`), () => ({ ...detail, status: "Suspended", activeSessions: 0 }));
 
   await page.goto("/admin/users");
-  await page.getByRole("row").filter({ hasText: "أحمد علي" }).click();
+  await openItem(page, "أحمد علي");
   await page.getByRole("button", { name: "إيقاف الحساب" }).click();
 
   await page.getByLabel("السبب (بيتسجل في سجل التدقيق)").fill("تكرار عدم الحضور");
@@ -79,7 +79,7 @@ test("a dispute decision needs an outcome and a reason before it can be sent", a
   api.on("POST", /\/resolve$/, () => ({ ...dispute, status: "Resolved", outcome: "ConfirmBooking", bookingStatus: "Confirmed" }));
 
   await page.goto("/admin/disputes");
-  await page.getByRole("row").filter({ hasText: "MAL-AB12CD" }).click();
+  await openItem(page, "MAL-AB12CD");
   const submit = page.getByRole("button", { name: "تسجيل القرار" });
   await expect(submit).toBeDisabled();
 

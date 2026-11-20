@@ -45,7 +45,7 @@ test("no subscription yet: the default plan is explained and unlimited usage has
   await expect(page.getByText("دي الباقة الافتراضية لحد ما تختار باقة.")).toBeVisible();
   await expect(page.getByText("٢ (بلا حدود)")).toBeVisible();
   await expect(page.getByRole("progressbar")).toHaveCount(0);
-  await expect(page.getByText("مفيش فواتير لسه.")).toBeVisible();
+  await expect(page.getByText(/لا توجد فواتير اشتراكات بعد/)).toBeVisible();
 });
 
 test("a voided invoice cannot be downloaded", async ({ page, api }) => {
@@ -56,7 +56,7 @@ test("a voided invoice cannot be downloaded", async ({ page, api }) => {
   await page.goto("/venue/subscription");
 
   await expect(page.getByText("INV-2026-000003")).toBeVisible();
-  await expect(page.getByText("ملغية")).toBeVisible();
+  await expect(page.getByText("ملغاة")).toBeVisible();
   await expect(page.getByRole("button", { name: "تحميل PDF" })).toHaveCount(0);
 });
 

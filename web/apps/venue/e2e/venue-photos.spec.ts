@@ -13,7 +13,7 @@ test.beforeEach(async ({ api }) => {
 test("a photo that is a full link is shown as it is, an uploaded one goes through the proxy", async ({ page }) => {
   await page.goto("/venue/settings");
 
-  const images = page.getByRole("img", { name: "صورة الملعب" });
+  const images = page.getByRole("img", { name: /^صورة المنشأة/ });
   await expect(images).toHaveCount(2);
   await expect(images.nth(0)).toHaveAttribute("src", EXTERNAL);
   await expect(images.nth(1)).toHaveAttribute("src", `/venue/bff${UPLOADED}`);

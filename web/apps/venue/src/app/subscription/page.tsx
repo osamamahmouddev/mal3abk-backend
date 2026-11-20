@@ -562,13 +562,17 @@ export default function SubscriptionPage() {
                   <ReceiptText className="size-4 shrink-0" />
                   <span>عرض الفاتورة</span>
                 </button>
-                <button
-                  type="button"
-                  className={`${secondaryBtn} min-h-[36px] px-3 text-xs`}
-                  onClick={() => downloadInvoice(inv)}
-                >
-                  PDF
-                </button>
+                {/* A voided invoice is no longer valid, so it is not offered for download. */}
+                {inv.status !== "Void" && (
+                  <button
+                    type="button"
+                    aria-label="تحميل PDF"
+                    className={`${secondaryBtn} min-h-[36px] px-3 text-xs`}
+                    onClick={() => downloadInvoice(inv)}
+                  >
+                    PDF
+                  </button>
+                )}
               </div>
             </div>
           </div>
