@@ -19,7 +19,7 @@ test("staff book a free slot from the day view with the suggested price", async 
   // 10 Jan 2030, winter: Cairo is UTC+2, so 8 PM local is 18:00 UTC.
   await page.goto("/venue/calendar?view=day&date=2030-01-10");
 
-  await page.getByRole("button", { name: "ملعب ١ ٨ م: ميعاد فاضي" }).click();
+  await page.getByRole("button", { name: "ملعب ١ ٨ بليل: ميعاد فاضي" }).click();
   const dialog = page.getByRole("dialog");
   await expect(dialog.getByLabel("السعر (ج.م)")).toHaveValue("400");
 
@@ -42,7 +42,7 @@ test("staff book a free slot from the day view with the suggested price", async 
 
 test("a customer who paid a deposit is booked and confirmed with the amount received", async ({ page, api }) => {
   await page.goto("/venue/calendar?view=day&date=2030-01-10");
-  await page.getByRole("button", { name: "ملعب ١ ٨ م: ميعاد فاضي" }).click();
+  await page.getByRole("button", { name: "ملعب ١ ٨ بليل: ميعاد فاضي" }).click();
   const dialog = page.getByRole("dialog");
   await dialog.getByLabel("اسم العميل").fill("م. فتحي");
   await dialog.getByLabel("موبايل العميل").fill("01012345678");
@@ -58,7 +58,7 @@ test("a customer who paid a deposit is booked and confirmed with the amount rece
 
 test("a customer who has not paid yet gets the slot held while the deposit is awaited", async ({ page, api }) => {
   await page.goto("/venue/calendar?view=day&date=2030-01-10");
-  await page.getByRole("button", { name: "ملعب ١ ٨ م: ميعاد فاضي" }).click();
+  await page.getByRole("button", { name: "ملعب ١ ٨ بليل: ميعاد فاضي" }).click();
   const dialog = page.getByRole("dialog");
   await dialog.getByLabel("اسم العميل").fill("م. فتحي");
   await dialog.getByLabel("موبايل العميل").fill("01012345678");
@@ -73,7 +73,7 @@ test("a customer who has not paid yet gets the slot held while the deposit is aw
 
 test("a partial payment needs an amount below the price, and fully paid needs none", async ({ page, api }) => {
   await page.goto("/venue/calendar?view=day&date=2030-01-10");
-  await page.getByRole("button", { name: "ملعب ١ ٨ م: ميعاد فاضي" }).click();
+  await page.getByRole("button", { name: "ملعب ١ ٨ بليل: ميعاد فاضي" }).click();
   const dialog = page.getByRole("dialog");
   await dialog.getByLabel("اسم العميل").fill("م. فتحي");
   await dialog.getByLabel("موبايل العميل").fill("01012345678");
@@ -92,7 +92,7 @@ test("a partial payment needs an amount below the price, and fully paid needs no
 test("the form refuses an invalid phone number before calling the API", async ({ page, api }) => {
   await page.goto("/venue/calendar?view=day&date=2030-01-10");
 
-  await page.getByRole("button", { name: "ملعب ١ ٨ م: ميعاد فاضي" }).click();
+  await page.getByRole("button", { name: "ملعب ١ ٨ بليل: ميعاد فاضي" }).click();
   const dialog = page.getByRole("dialog");
   await dialog.getByLabel("اسم العميل").fill("م. فتحي");
   await dialog.getByLabel("موبايل العميل").fill("123");
@@ -108,7 +108,7 @@ test.describe("browser outside Egypt", () => {
 
   test("the slot is still 8 PM Cairo time", async ({ page, api }) => {
     await page.goto("/venue/calendar?view=day&date=2030-01-10");
-    await page.getByRole("button", { name: "ملعب ١ ٨ م: ميعاد فاضي" }).click();
+    await page.getByRole("button", { name: "ملعب ١ ٨ بليل: ميعاد فاضي" }).click();
     const dialog = page.getByRole("dialog");
     await dialog.getByLabel("اسم العميل").fill("م. فتحي");
     await dialog.getByLabel("موبايل العميل").fill("01012345678");

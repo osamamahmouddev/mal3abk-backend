@@ -5,6 +5,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { Schemas } from "@malabak/api-client";
 import { KV, Page, PageHeader, Pill, ReasonModal, Switch, type ReasonRequest, SearchBox, btnDanger, btnOutline, btnPrimary, btnSmall, card, inputClass, money, muted, toArabicDigits } from "@/components/ui";
 import { Drawer, Field, Pager, QueryState, Section, Select, Table, TextInput, fmtDate, fmtDateTime, num, useNotice } from "@/components/admin";
+import { usePlaceNames } from "@/lib/place-names";
 import { api, unwrap } from "@/lib/api";
 import { useStepUp } from "@/lib/stepup";
 import { ImageLightbox } from "@/components/ImageLightbox";
@@ -53,6 +54,7 @@ const TONE: Record<string, "ok" | "warn" | "bad" | "neutral"> = {
 const PAGE_SIZE = 24;
 
 export default function VenuesPage() {
+  const place = usePlaceNames();
   const [q, setQ] = useState("");
   const [status, setStatus] = useState("");
   const [viewMode, setViewMode] = useState<"cards" | "table">("cards");
@@ -244,8 +246,8 @@ export default function VenuesPage() {
                             </h3>
                             <div className="flex items-center gap-1.5 text-xs text-[#5B6475] mt-0.5">
                               <MapPin className="size-3.5 shrink-0 text-slate-400" />
-                              <span className="font-semibold text-slate-700">{r.city}</span>
-                              {r.area && <span>· {r.area}</span>}
+                              <span className="font-semibold text-slate-700">{place.city(r.city)}</span>
+                              {r.area && <span>· {place.area(r.area, r.city)}</span>}
                             </div>
                           </div>
                         </div>
@@ -329,7 +331,7 @@ export default function VenuesPage() {
                         <strong className="text-slate-900 text-sm">{r.name}</strong>
                         <span className="text-xs text-[#5B6475] inline-flex items-center gap-1">
                           <MapPin className="size-3 shrink-0" />
-                          {r.city}، {r.area}
+                          {place.city(r.city)}، {place.area(r.area, r.city)}
                         </span>
                       </div>
                     ),
@@ -409,6 +411,7 @@ export default function VenuesPage() {
 }
 
 function VenueDrawer({ venueId, onClose }: { venueId: string | null; onClose: () => void }) {
+  const place = usePlaceNames();
   const queryClient = useQueryClient();
   const stepUp = useStepUp();
   const notice = useNotice();
@@ -547,7 +550,7 @@ function VenueDrawer({ venueId, onClose }: { venueId: string | null; onClose: ()
                 <div className="flex items-start justify-between gap-2">
                   <div>
                     <h3 className="text-lg font-extrabold text-slate-900">{v.name}</h3>
-                    <span className="text-xs text-[#5B6475] flex items-center gap-1"><MapPin className="size-3.5 shrink-0" /> {v.city}، {v.area} · {v.address}</span>
+                    <span className="text-xs text-[#5B6475] flex items-center gap-1"><MapPin className="size-3.5 shrink-0" /> {place.city(v.city)}، {place.area(v.area, v.city)} · {v.address}</span>
                   </div>
                   <Pill tone={TONE[v.approvalStatus] ?? "neutral"}>
                     {STATUS_MAP[v.approvalStatus] ?? v.approvalStatus}

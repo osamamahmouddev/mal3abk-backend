@@ -25,15 +25,15 @@ test("a payment proof notification opens the reservations: the platform team rev
   await page.goto("/venue/notifications");
   await page.getByRole("button", { name: /إيصال دفع جديد/ }).click();
 
-  await expect(page).toHaveURL(/\/venue\/reservations/);
+  await expect(page).toHaveURL(/\/venue\/reservations/, { timeout: 20_000 }); // the dev server compiles the page on first visit
 });
 
 test("an info request opens the setup and a payout notice opens the payouts", async ({ page }) => {
   await page.goto("/venue/notifications");
   await page.getByRole("button", { name: /مطلوب معلومات إضافية/ }).click();
-  await expect(page).toHaveURL(/\/venue\/setup/);
+  await expect(page).toHaveURL(/\/venue\/setup/, { timeout: 20_000 }); // the dev server compiles the page on first visit
 
   await page.goto("/venue/notifications");
   await page.getByRole("button", { name: /حوّلنالك فلوسك/ }).click();
-  await expect(page).toHaveURL(/\/venue\/payouts/);
+  await expect(page).toHaveURL(/\/venue\/payouts/, { timeout: 20_000 }); // the dev server compiles the page on first visit
 });
