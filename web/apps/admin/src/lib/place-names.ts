@@ -14,7 +14,8 @@ export function usePlaceNames() {
     staleTime: 5 * 60_000,
   });
 
-  const list = governorates.data ?? [];
+  // Until the list loads, or if it fails, names show as stored.
+  const list = Array.isArray(governorates.data) ? governorates.data : [];
   const same = (a: string, b?: string | null) => !!b && a.trim().toLowerCase() === b.trim().toLowerCase();
 
   const city = (value?: string | null) => {
