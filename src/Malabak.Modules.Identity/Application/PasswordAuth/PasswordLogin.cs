@@ -9,6 +9,7 @@ using Microsoft.Extensions.Logging;
 
 namespace Malabak.Modules.Identity.Application.PasswordAuth;
 
+/// <param name="Email">The email or the mobile number the account was registered with.</param>
 public sealed record PasswordLoginCommand(string Email, string Password, string? TotpCode, string? TurnstileToken, string? RemoteIp)
     : ICommand<Result<PasswordLoginResponse>>;
 
@@ -19,6 +20,7 @@ public sealed class PasswordLoginHandler : ICommandHandler<PasswordLoginCommand,
 
     private readonly IdentityDbContext _dbContext;
     private readonly IPasswordHasher _hasher;
+    private readonly IPhoneNumberNormalizer _phoneNormalizer;
     private readonly ITurnstileValidator _turnstile;
     private readonly ITotpService _totp;
     private readonly IFieldCipher _cipher;
@@ -30,6 +32,7 @@ public sealed class PasswordLoginHandler : ICommandHandler<PasswordLoginCommand,
     public PasswordLoginHandler(
         IdentityDbContext dbContext,
         IPasswordHasher hasher,
+        IPhoneNumberNormalizer phoneNormalizer,
         ITurnstileValidator turnstile,
         ITotpService totp,
         IFieldCipher cipher,
@@ -40,6 +43,7 @@ public sealed class PasswordLoginHandler : ICommandHandler<PasswordLoginCommand,
     {
         _dbContext = dbContext;
         _hasher = hasher;
+        _phoneNormalizer = phoneNormalizer;
         _turnstile = turnstile;
         _totp = totp;
         _cipher = cipher;
@@ -52,12 +56,21 @@ public sealed class PasswordLoginHandler : ICommandHandler<PasswordLoginCommand,
     public async Task<Result<PasswordLoginResponse>> HandleAsync(PasswordLoginCommand command, CancellationToken cancellationToken = default)
     {
         var nowUtc = _clock.UtcNow;
-        if (!PasswordAuthSupport.TryNormalizeEmail(command.Email, out var email))
+        User? user = null;
+        var identifier = command.Email ?? string.Empty;
+        if (identifier.Contains('@'))
         {
-            return Result.Failure<PasswordLoginResponse>(PasswordAuthErrors.InvalidCredentials);
+            if (PasswordAuthSupport.TryNormalizeEmail(identifier, out var email))
+            {
+                user = await _dbContext.Users.FirstOrDefaultAsync(u => u.Email == email && !u.IsDeleted, cancellationToken);
+            }
+        }
+        else if (_phoneNormalizer.Normalize(identifier) is { IsSuccess: true } phone)
+        {
+            user = await _dbContext.Users.FirstOrDefaultAsync(u => u.PhoneNumber == phone.Value && !u.IsDeleted, cancellationToken);
         }
 
-        var user = await _dbContext.Users.FirstOrDefaultAsync(u => u.Email == email && !u.IsDeleted, cancellationToken);
+        // Unknown or malformed identifiers take the same path and cost as a wrong password (no account probing).
         if (user?.PasswordHash is null)
         {
             _hasher.Verify(_dummyHash.Value, command.Password ?? string.Empty);
@@ -87,7 +100,7 @@ public sealed class PasswordLoginHandler : ICommandHandler<PasswordLoginCommand,
             return Result.Failure<PasswordLoginResponse>(PasswordAuthErrors.AccountSuspended);
         }
 
-        if (!user.IsEmailConfirmed)
+        if (!user.IsAccountActivated)
         {
             return Result.Failure<PasswordLoginResponse>(PasswordAuthErrors.EmailNotVerified);
         }

@@ -93,13 +93,15 @@ public static class VenueApprovalEndpoints
                 request.CustomCommissionEnabled,
                 request.CommissionType,
                 request.CommissionRate,
-                adminId);
+                adminId,
+                request.DepositType,
+                request.DepositValue);
 
             return ToResult(await handler.HandleAsync(command, ct));
         })
         .Produces<VenueCommissionDto>()
         .WithName("UpdateVenueCommission")
-        .WithSummary("Configure pricing model and platform commission for a specific venue");
+        .WithSummary("Set a venue's platform commission and the deposit its players pay to the platform");
 
         admin.MapGet("/{venueId:guid}/commission", async (
             Guid venueId,
@@ -143,7 +145,9 @@ public static class VenueApprovalEndpoints
         PricingModel PricingModel,
         bool CustomCommissionEnabled,
         CommissionType CommissionType,
-        decimal? CommissionRate);
+        decimal? CommissionRate,
+        Modules.Venues.Domain.DepositType? DepositType = null,
+        decimal? DepositValue = null);
 
     private static async Task<IResult> DecideAsync(
         ICommandHandler<DecideVenueApprovalCommand, Result<VenueApprovalDto>> handler,

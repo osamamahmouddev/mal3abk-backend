@@ -8,7 +8,7 @@ import { Badge, Page, card, muted, redShadow, toArabicDigits } from "@/component
 import { useVenue } from "@/components/Providers";
 import { api, unwrap } from "@/lib/api";
 import { APPROVAL_LABELS } from "@/lib/venue-format";
-import { BOOKING_STATUS, DEPOSIT_STATE, cairoDateTime, cairoTime, money, percent, timeLeft } from "@/lib/booking-format";
+import { BOOKING_STATUS, bookingStatusOf, DEPOSIT_STATE, cairoDateTime, cairoTime, money, percent, timeLeft } from "@/lib/booking-format";
 import { Activity, Ban, CalendarCheck, CalendarDays, ChevronLeft, CircleX, Gauge, Hourglass, NotebookPen, Plus, ReceiptText, TriangleAlert, type LucideIcon } from "lucide-react";
 
 type Dashboard = Schemas["VenueDashboardDto"];
@@ -196,15 +196,9 @@ function DashboardBody({
         />
         <Kpi
           icon={ReceiptText}
-          label="إيصالات للمراجعة"
+          label="عرابين تحت مراجعة المنصة"
           value={toArabicDigits(data.proofsAwaitingReview.length)}
-          href="/reservations/proof-review"
-          highlight={data.proofsAwaitingReview.length > 0}
-          hint={
-            <span className="inline-flex items-center gap-1 font-semibold text-navy-900">
-              راجع الآن <ChevronLeft className="size-3.5" />
-            </span>
-          }
+          hint="فريق ملعبك بيراجعها ويأكد الحجز"
         />
         <Kpi
           icon={Gauge}
@@ -385,7 +379,7 @@ function BookingTable({ rows, pitchName }: { rows: Row[]; pitchName: (id: string
                 </div>
               </td>
               <td className="px-5 py-3">
-                <Badge tone={BOOKING_STATUS[b.status].tone}>{BOOKING_STATUS[b.status].label}</Badge>
+                <Badge tone={bookingStatusOf(b).tone}>{bookingStatusOf(b).label}</Badge>
               </td>
             </tr>
           ))}
@@ -400,22 +394,22 @@ function ProofsCard({ rows, pitchName }: { rows: Row[]; pitchName: (id: string) 
     <section className={`${card} rounded-[18px] px-5 py-4 flex flex-col gap-3`} aria-labelledby="proofs-title">
       <div className="flex justify-between items-center">
         <h2 id="proofs-title" className="text-base font-bold">
-          إيصالات بانتظارك
+          عرابين تحت المراجعة
         </h2>
-        <Link href="/reservations/proof-review" className="text-xs font-semibold text-navy-900">
-          الكل
+        <Link href="/reservations" className="text-xs font-semibold text-navy-900">
+          الحجوزات
         </Link>
       </div>
+      <span className={`text-xs ${muted} -mt-1`}>العربون بيتدفع لحساب ملعبك، وفريقنا بيراجعه ويأكد الحجز.</span>
       {rows.length === 0 && (
         <p className={`text-sm ${muted} flex items-center gap-2 py-2`}>
-          <ReceiptText className="size-4 shrink-0" /> مفيش إيصالات محتاجة مراجعة.
+          <ReceiptText className="size-4 shrink-0" /> مفيش عرابين مستنية مراجعة.
         </p>
       )}
       {rows.slice(0, 4).map((p) => (
-        <Link
+        <div
           key={p.bookingId}
-          href={`/reservations/proof-review?booking=${p.bookingId}`}
-          className="flex gap-3 items-center p-2.5 rounded-[10px] bg-[#F8F9FB] text-slate-900 no-underline hover:bg-[#EEF1F7] transition-all duration-150 active:scale-[0.99]"
+          className="flex gap-3 items-center p-2.5 rounded-[10px] bg-[#F8F9FB] text-slate-900"
         >
           <span className="grid place-items-center w-10 h-12 rounded-lg bg-white border border-[#E4E7EC] text-[#8A93A3] shrink-0">
             <ReceiptText className="size-5" strokeWidth={1.5} />
@@ -428,8 +422,8 @@ function ProofsCard({ rows, pitchName }: { rows: Row[]; pitchName: (id: string) 
               {pitchName(p.pitchId)} · {cairoDateTime(p.startUtc)}
             </span>
           </span>
-          {p.deadlineUtc && <span className="text-xs font-bold text-[#7A4D00] whitespace-nowrap">{timeLeft(p.deadlineUtc)}</span>}
-        </Link>
+          <span className="text-[11px] font-bold text-[#7A4D00] bg-[#FEF3D6] rounded-full px-2 py-0.5 whitespace-nowrap">بيتراجع</span>
+        </div>
       ))}
     </section>
   );
@@ -509,7 +503,7 @@ function UpcomingCard({ rows, pitchName }: { rows: Row[]; pitchName: (id: string
           <span className="flex-1 min-w-0 truncate">
             {b.customerName || "—"} · {pitchName(b.pitchId)}
           </span>
-          <Badge tone={BOOKING_STATUS[b.status].tone}>{BOOKING_STATUS[b.status].label}</Badge>
+          <Badge tone={bookingStatusOf(b).tone}>{bookingStatusOf(b).label}</Badge>
         </div>
       ))}
     </section>

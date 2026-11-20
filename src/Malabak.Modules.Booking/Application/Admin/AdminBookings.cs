@@ -411,7 +411,11 @@ public sealed class AdminBookingService
         Result decision;
         if (approved)
         {
-            if (booking.Status is BookingStatus.ProofSubmitted or BookingStatus.UnderReview)
+            if (!booking.IsManualBooking && booking.Status is BookingStatus.ProofSubmitted or BookingStatus.UnderReview)
+            {
+                decision = booking.ConfirmPlatformDeposit(actor, nowUtc);
+            }
+            else if (booking.Status is BookingStatus.ProofSubmitted or BookingStatus.UnderReview)
             {
                 decision = booking.Confirm(actor, nowUtc);
             }
@@ -559,6 +563,7 @@ public sealed class AdminBookingService
                 DepositAmount = b.DepositAmount.Amount,
                 PlatformCommission = b.PlatformCommission.Amount,
                 OnlinePaidAmount = b.OnlinePaidAmount.Amount,
+                HasPriceSnapshot = b.PriceSnapshotJson != null,
             })
             .ToListAsync(cancellationToken);
 
@@ -597,7 +602,7 @@ public sealed class AdminBookingService
             venueCommissions.TryGetValue(vId, out var comm);
             var rows = confirmed.Select(b =>
             {
-                var commission = CalculateEffectiveCommission(b.TotalPrice, b.PlatformCommission, b.StartUtc, b.EndUtc, comm, b.IsManualBooking);
+                var commission = CalculateEffectiveCommission(b.TotalPrice, b.PlatformCommission, b.StartUtc, b.EndUtc, comm, b.IsManualBooking, b.HasPriceSnapshot);
                 var collected = Math.Min(commission, b.OnlinePaidAmount);
                 return (b.TotalPrice, b.DepositAmount, Commission: commission, Online: b.OnlinePaidAmount, Collected: collected,
                     OwedToVenue: Math.Max(0m, b.OnlinePaidAmount - commission));
@@ -677,12 +682,20 @@ public sealed class AdminBookingService
         DateTime startUtc,
         DateTime endUtc,
         VenueCommissionInfo? comm,
-        bool isManualBooking = false)
+        bool isManualBooking = false,
+        bool hasPriceSnapshot = false)
     {
         // A booking the venue entered itself (walk-in, phone) did not come through the platform: no commission.
         if (isManualBooking)
         {
             return 0m;
+        }
+
+        // The commission was fixed in the price quote the player agreed to (0 for an exempt venue); changing a venue's terms
+        // later only affects new bookings. Only bookings made before quotes were snapshotted are worked out from today's terms.
+        if (hasPriceSnapshot)
+        {
+            return storedCommission;
         }
 
         if (comm is { CustomCommissionEnabled: true })
@@ -723,7 +736,7 @@ public sealed class AdminBookingService
         string? customerPhone = null,
         VenueCommissionInfo? comm = null)
     {
-        var commission = CalculateEffectiveCommission(b.TotalPrice.Amount, b.PlatformCommission.Amount, b.StartUtc, b.EndUtc, comm, b.IsManualBooking);
+        var commission = CalculateEffectiveCommission(b.TotalPrice.Amount, b.PlatformCommission.Amount, b.StartUtc, b.EndUtc, comm, b.IsManualBooking, b.PriceSnapshotJson != null);
         var venueNetAmount = Math.Max(0m, b.TotalPrice.Amount - commission);
         var venuePayAmount = Math.Max(0m, b.TotalPrice.Amount - b.DepositAmount.Amount);
 

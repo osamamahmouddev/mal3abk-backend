@@ -32,7 +32,6 @@ public sealed class AdminAuthorizationMatrixTests : IClassFixture<AdminAuthoriza
         "POST /api/v{version:apiVersion}/admin/auth/login",
         "POST /api/v{version:apiVersion}/admin/auth/totp/enroll",
         "POST /api/v{version:apiVersion}/admin/auth/totp/confirm",
-        "POST /api/v{version:apiVersion}/admin/auth/totp/reset",
         "POST /api/v{version:apiVersion}/admin/auth/refresh",
     ];
 
@@ -49,6 +48,7 @@ public sealed class AdminAuthorizationMatrixTests : IClassFixture<AdminAuthoriza
         "POST /api/v{version:apiVersion}/admin/disputes/{disputeId:guid}/resolve",
         "POST /api/v{version:apiVersion}/admin/moderation/matches/{matchId:guid}/correct-result",
         "POST /api/v{version:apiVersion}/admin/impersonate",
+        "POST /api/v{version:apiVersion}/admin/payouts/venues/{venueId:guid}",
     ];
 
     private readonly IReadOnlyList<AdminEndpoint> _endpoints;
@@ -118,12 +118,14 @@ public sealed class AdminAuthorizationMatrixTests : IClassFixture<AdminAuthoriza
     [InlineData("GET /api/v{version:apiVersion}/admin/accounts/", "Admin,SuperAdmin")]
     [InlineData("GET /api/v{version:apiVersion}/admin/settings", "Admin,SuperAdmin")]
     [InlineData("GET /api/v{version:apiVersion}/admin/support/tickets/", "Admin,SuperAdmin,SupportAgent")]
-    [InlineData("GET /api/v{version:apiVersion}/admin/bookings/", "Admin,SuperAdmin,SupportAgent")]
+    [InlineData("GET /api/v{version:apiVersion}/admin/bookings/", "Admin,SuperAdmin,SupportAgent,Finance")]
     [InlineData("POST /api/v{version:apiVersion}/admin/bookings/{bookingId:guid}/force-cancel", "Admin,SuperAdmin")]
     [InlineData("POST /api/v{version:apiVersion}/admin/disputes/{disputeId:guid}/resolve", "Admin,SuperAdmin")]
-    [InlineData("GET /api/v{version:apiVersion}/admin/plans/", "Admin,SuperAdmin,Finance")]
-    [InlineData("POST /api/v{version:apiVersion}/admin/subscriptions/owners/{ownerId:guid}/payments", "Admin,SuperAdmin,Finance")]
-    [InlineData("GET /api/v{version:apiVersion}/admin/invoices/", "Admin,SuperAdmin,Finance")]
+    [InlineData("GET /api/v{version:apiVersion}/admin/bookings/deposit-reviews", "Admin,SuperAdmin,Finance")]
+    [InlineData("POST /api/v{version:apiVersion}/admin/bookings/{bookingId:guid}/review-deposit", "Admin,SuperAdmin,Finance")]
+    [InlineData("POST /api/v{version:apiVersion}/admin/bookings/refunds/{refundId:guid}/process", "Admin,SuperAdmin,Finance")]
+    [InlineData("GET /api/v{version:apiVersion}/admin/payouts/", "Admin,SuperAdmin,Finance")]
+    [InlineData("POST /api/v{version:apiVersion}/admin/payouts/venues/{venueId:guid}", "Admin,SuperAdmin,Finance")]
     [InlineData("GET /api/v{version:apiVersion}/admin/audit-logs", "Admin,SuperAdmin")]
     [InlineData("POST /api/v{version:apiVersion}/admin/impersonate", "Admin,SuperAdmin,SupportAgent")]
     [InlineData("GET /api/v{version:apiVersion}/admin/navigation", "Admin,SuperAdmin,SupportAgent,Finance")]

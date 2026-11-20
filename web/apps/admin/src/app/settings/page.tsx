@@ -125,8 +125,6 @@ function DepositSettings() {
     );
   };
 
-  const depositEnabled = getSetting("platform.deposit.enabled")?.value === "true";
-
   return (
     <>
       {notice.node}
@@ -152,32 +150,13 @@ function DepositSettings() {
           <span className={`text-[12px] ${muted} shrink-0`}>تفعيل البوابة قيد التجهيز</span>
         </div>
 
-        {/* 2. Platform Central Collection Switch */}
-        <div className={`${card} rounded-2xl p-5 flex flex-wrap items-center justify-between gap-4`}>
-          <div className="flex flex-col gap-1">
-            <div className="flex items-center gap-2">
-              <strong className="text-base font-bold text-slate-900">التحصيل المركزي للعربون لحسابات المنصة</strong>
-              <Pill tone={depositEnabled ? "ok" : "warn"}>{depositEnabled ? "مفعل" : "معطل"}</Pill>
-            </div>
-            <p className="text-xs text-slate-500">
-              عند التفعيل، تظهر بيانات التحويل الخاصة بالمنصة للاعب ويوجه العربون للإدارة. عند التعطيل، يوجه لحسابات الملعب المباشرة.
-            </p>
-          </div>
-          <Switch
-            on={depositEnabled}
-            label="التحصيل المركزي للعربون"
-            disabled={save.isPending}
-            onToggle={() =>
-              setReason({
-                title: depositEnabled ? "إيقاف التحصيل المركزي" : "تفعيل التحصيل المركزي",
-                body: depositEnabled
-                  ? "سيتم تحويل استلام العربون إلى حسابات الملاعب المباشرة بدلاً من المنصة."
-                  : "سيتم استلام العربون مركزياً على حسابات المنصة المحددة بالأسفل.",
-                confirmLabel: depositEnabled ? "إيقاف" : "تفعيل",
-                onConfirm: (text) => save.mutate({ key: "platform.deposit.enabled", value: depositEnabled ? "false" : "true", text }),
-              })
-            }
-          />
+        {/* 2. How deposits flow (commission model: always to the platform) */}
+        <div className={`${card} rounded-2xl p-5 flex flex-col gap-2`}>
+          <strong className="text-base font-bold text-slate-900">العربون بيتدفع لحسابات المنصة دايماً</strong>
+          <p className="text-[13px] text-slate-600 leading-relaxed">
+            اللاعب بيشوف الحسابات اللي تحت بس (الملاعب مبقاش ليها وسائل دفع). الفريق بيراجع الإيصال من صفحة «مراجعة العرابين» ويأكد الحجز،
+            وبعدين المنصة بتاخد عمولتها من العربون وتحوّل الباقي للملعب. باقي سعر الحجز اللاعب بيدفعه في الملعب.
+          </p>
         </div>
 
         {/* 3. Active Methods Grid */}

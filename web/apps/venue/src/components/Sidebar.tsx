@@ -12,7 +12,7 @@ import { api, unwrap } from "@/lib/api";
 import { useVenue } from "./Providers";
 import { P } from "@/lib/permissions";
 import { toArabicDigits } from "./ui";
-import { Bell, CalendarDays, ChartColumn, ChevronDown, ClipboardList, Clock, CreditCard, LayoutDashboard, LogOut, ScrollText, Settings, Tag, UserCog, Users, X, type LucideIcon } from "lucide-react";
+import { Bell, CalendarDays, ChartColumn, ChevronDown, ClipboardList, Clock, HandCoins, LayoutDashboard, LogOut, ScrollText, Settings, Tag, UserCog, Users, X, type LucideIcon } from "lucide-react";
 import { Pitch } from "./icons";
 
 export interface NavItem {
@@ -34,7 +34,7 @@ const NAV_ITEMS: readonly NavItem[] = [
   { title: "سياسات الحجز", href: "/policies", icon: ScrollText },
   { title: "العملاء", href: "/customers", permission: P.customersView, icon: Users },
   { title: "التقارير", href: "/reports", permission: P.reportsView, icon: ChartColumn },
-  { title: "الاشتراك والفواتير", href: "/subscription", icon: CreditCard },
+  { title: "مستحقاتك", href: "/payouts", permission: P.reportsView, icon: HandCoins },
   { title: "الإشعارات", href: "/notifications", icon: Bell },
   { title: "الموظفين والصلاحيات", href: "/staff", permission: P.staffManage, icon: UserCog },
   { title: "الإعدادات", href: "/settings", icon: Settings },
@@ -144,14 +144,7 @@ export const Sidebar: React.FC<SidebarProps> = memo(({ user, onClose }) => {
       </div>
 
       <nav aria-label="أقسام اللوحة" className="flex-1 overflow-y-auto flex flex-col gap-0.5 pe-1 py-0.5">
-        {NAV_ITEMS.filter((item) => {
-          const pm = (venue as any)?.pricingModel;
-          const isCommission = pm === "Commission" || pm === 1;
-          if (item.href === "/subscription" && isCommission) {
-            return false;
-          }
-          return !item.permission || !venue || can(item.permission);
-        }).map((item) => {
+        {NAV_ITEMS.filter((item) => !item.permission || !venue || can(item.permission)).map((item) => {
           const isItemActive = checkIsActive(item.href);
           const isPending = pendingHref === item.href && !isItemActive;
           return (

@@ -42,7 +42,6 @@ using Malabak.Modules.Venues.Infrastructure;
 using Malabak.SharedKernel;
 using Malabak.SharedKernel.Time;
 using Malabak.Modules.Audit;
-using Malabak.Modules.Subscriptions;
 using Malabak.Modules.Support;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
@@ -243,7 +242,9 @@ builder.Services.AddAuditModule();
 builder.Services.AddDbContext<Malabak.Modules.Subscriptions.Infrastructure.SubscriptionsDbContext>(options =>
     options.UseNpgsql(postgresConnectionString, npgsql =>
         npgsql.MigrationsHistoryTable("__EFMigrationsHistory", Malabak.Modules.Subscriptions.Infrastructure.SubscriptionsDbContext.Schema)));
-builder.Services.AddSubscriptionsModule();
+// Subscriptions are retired: venues pay a per-booking commission set by the platform. Only the context stays, so the
+// old plan, subscription and invoice tables keep their migrations and their data for accounting.
+builder.Services.AddScoped<Malabak.SharedKernel.Contracts.IEntitlementService, Malabak.Modules.Venues.Application.Subscriptions.NoPlanLimits>();
 
 builder.Services.AddDbContext<Malabak.Modules.Support.Infrastructure.SupportDbContext>(options =>
     options.UseNpgsql(postgresConnectionString, npgsql =>
@@ -582,7 +583,6 @@ app.MapAuthEndpoints(apiVersionSet);
 app.MapPhoneChangeEndpoints(apiVersionSet);
 app.MapVenueManagerEndpoints(apiVersionSet);
 app.MapMeEndpoints(apiVersionSet);
-app.MapPaymentMethodEndpoints(apiVersionSet);
 app.MapVenueApprovalEndpoints(apiVersionSet);
 app.MapBookingPolicyEndpoints(apiVersionSet);
 app.MapPasswordAuthEndpoints(apiVersionSet);
@@ -603,6 +603,8 @@ app.MapVenueReportEndpoints(apiVersionSet);
 app.MapAdminAuditEndpoints(apiVersionSet);
 app.MapAdminUserEndpoints(apiVersionSet);
 app.MapAdminVenueBookingEndpoints(apiVersionSet);
+app.MapVenuePayoutEndpoints(apiVersionSet);
+app.MapAdminCrmEndpoints(apiVersionSet);
 app.MapSupportEndpoints(apiVersionSet);
 app.MapDisputeEndpoints(apiVersionSet);
 app.MapAdminModerationEndpoints(apiVersionSet);
@@ -611,7 +613,6 @@ app.MapFeaturedVenueEndpoints(apiVersionSet);
 app.MapAreaEndpoints(apiVersionSet);
 app.MapImpersonationEndpoints(apiVersionSet);
 app.MapPlatformEndpoints(apiVersionSet);
-app.MapSubscriptionEndpoints(apiVersionSet);
 app.MapPlayerVenueListEndpoints(apiVersionSet);
 app.MapPrivacyEndpoints(apiVersionSet);
 app.MapRealtimeEndpoints(apiVersionSet);

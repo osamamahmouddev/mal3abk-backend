@@ -23,7 +23,7 @@ public sealed record AdminVenueListItem(
     int Pitches,
     DateTime CreatedAtUtc,
     IReadOnlyList<string>? Photos = null,
-    string PricingModel = "Subscription");
+    string PricingModel = "Commission");
 
 public sealed record AdminVenuePage(IReadOnlyList<AdminVenueListItem> Items, int Page, int PageSize, int Total);
 
@@ -53,7 +53,7 @@ public sealed record AdminVenueDetail(
     IReadOnlyList<AdminVenueEventItem> History,
     DateTime CreatedAtUtc,
     IReadOnlyList<string>? Photos = null,
-    string PricingModel = "Subscription",
+    string PricingModel = "Commission",
     bool CustomCommissionEnabled = false,
     string CommissionType = "PlatformDefault",
     decimal? CommissionRate = null);
@@ -371,7 +371,9 @@ public sealed record UpdateVenueCommissionCommand(
     bool CustomCommissionEnabled,
     CommissionType CommissionType,
     decimal? CommissionRate,
-    Guid ActorUserId) : ICommand<Result<VenueCommissionDto>>;
+    Guid ActorUserId,
+    DepositType? DepositType = null,
+    decimal? DepositValue = null) : ICommand<Result<VenueCommissionDto>>;
 
 public sealed record GetVenueCommissionQuery(Guid VenueId) : IQuery<Result<VenueCommissionDto>>;
 
@@ -380,7 +382,9 @@ public sealed record VenueCommissionDto(
     string PricingModel,
     bool CustomCommissionEnabled,
     string CommissionType,
-    decimal? CommissionRate);
+    decimal? CommissionRate,
+    string DepositType = nameof(Domain.DepositType.Percentage),
+    decimal DepositValue = 0m);
 
 public sealed class GetVenueCommissionHandler : IQueryHandler<GetVenueCommissionQuery, Result<VenueCommissionDto>>
 {
@@ -394,10 +398,13 @@ public sealed class GetVenueCommissionHandler : IQueryHandler<GetVenueCommission
             .Where(v => v.Id == query.VenueId && !v.IsDeleted)
             .Select(v => new VenueCommissionDto(v.Id, v.PricingModel.ToString(), v.CustomCommissionEnabled, v.CommissionType.ToString(), v.CommissionRate))
             .FirstOrDefaultAsync(cancellationToken);
+        if (commission is null)
+        {
+            return Result.Failure<VenueCommissionDto>(AdminVenueErrors.NotFound);
+        }
 
-        return commission is null
-            ? Result.Failure<VenueCommissionDto>(AdminVenueErrors.NotFound)
-            : Result.Success(commission);
+        var deposit = await VenueDeposits.CurrentAsync(_dbContext, query.VenueId, cancellationToken);
+        return Result.Success(commission with { DepositType = deposit.Type.ToString(), DepositValue = deposit.Value });
     }
 }
 
@@ -427,7 +434,8 @@ public sealed class UpdateVenueCommissionHandler : ICommandHandler<UpdateVenueCo
             PricingModel = venue.PricingModel.ToString(),
             venue.CustomCommissionEnabled,
             CommissionType = venue.CommissionType.ToString(),
-            venue.CommissionRate
+            venue.CommissionRate,
+            Deposit = (await VenueDeposits.CurrentAsync(_dbContext, venue.Id, cancellationToken)).ToString()
         };
 
         var now = _clock.UtcNow;
@@ -440,7 +448,35 @@ public sealed class UpdateVenueCommissionHandler : ICommandHandler<UpdateVenueCo
             return Result.Failure<VenueCommissionDto>(Error.Validation("Venue.InvalidCommission", ex.Message));
         }
 
+        DepositRule? newDeposit = null;
+        if (command.DepositType is { } depositType)
+        {
+            try
+            {
+                newDeposit = DepositRule.Create(depositType, command.DepositValue ?? 0m);
+            }
+            catch (ArgumentOutOfRangeException ex)
+            {
+                return Result.Failure<VenueCommissionDto>(Error.Validation("Venue.InvalidDeposit", ex.Message));
+            }
+        }
+
+        var depositBefore = await VenueDeposits.CurrentAsync(_dbContext, venue.Id, cancellationToken);
+        await using var transaction = await _dbContext.Database.BeginTransactionAsync(cancellationToken);
         await _dbContext.SaveChangesAsync(cancellationToken);
+        if (newDeposit is not null && newDeposit != depositBefore)
+        {
+            // A new policy version with only the deposit changed: bookings already made keep the version they snapshotted.
+            var current = await _dbContext.Policies.FirstOrDefaultAsync(p => p.VenueId == venue.Id && p.IsCurrent, cancellationToken);
+            var terms = (current?.ToTerms() ?? BookingPolicyTerms.Default) with { Deposit = newDeposit };
+            var next = VenuePolicy.CreateVersion(venue.Id, current, terms, command.ActorUserId, now);
+            await _dbContext.SaveChangesAsync(cancellationToken);
+            _dbContext.Policies.Add(next);
+            await _dbContext.SaveChangesAsync(cancellationToken);
+        }
+
+        await transaction.CommitAsync(cancellationToken);
+        var deposit = newDeposit ?? depositBefore;
 
         await _audit.RecordAsync(new AuditEntry(
             "admin.venue.commission_updated",
@@ -454,15 +490,32 @@ public sealed class UpdateVenueCommissionHandler : ICommandHandler<UpdateVenueCo
                 PricingModel = venue.PricingModel.ToString(),
                 venue.CustomCommissionEnabled,
                 CommissionType = venue.CommissionType.ToString(),
-                venue.CommissionRate
+                venue.CommissionRate,
+                DepositType = deposit.Type.ToString(),
+                DepositValue = deposit.Value
             },
-            Reason: "Admin updated venue commercial model and commission configuration"), cancellationToken);
+            Reason: "Admin updated venue commission and deposit"), cancellationToken);
 
         return Result.Success(new VenueCommissionDto(
             venue.Id,
             venue.PricingModel.ToString(),
             venue.CustomCommissionEnabled,
             venue.CommissionType.ToString(),
-            venue.CommissionRate));
+            venue.CommissionRate,
+            deposit.Type.ToString(),
+            deposit.Value));
+    }
+}
+
+/// <summary>The deposit a venue's players pay now: its current policy's, or the platform default before it has one.</summary>
+internal static class VenueDeposits
+{
+    public static async Task<DepositRule> CurrentAsync(VenuesDbContext dbContext, Guid venueId, CancellationToken cancellationToken)
+    {
+        var current = await dbContext.Policies.AsNoTracking()
+            .Where(p => p.VenueId == venueId && p.IsCurrent)
+            .Select(p => new { p.DepositType, p.DepositValue })
+            .FirstOrDefaultAsync(cancellationToken);
+        return current is null ? BookingPolicyTerms.DefaultDeposit : DepositRule.Create(current.DepositType, current.DepositValue);
     }
 }

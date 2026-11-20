@@ -17,6 +17,13 @@ export const BOOKING_STATUS: Record<BookingStatus, { key: string; label: string;
   10: { key: "NoShow", label: "لم يحضر", tone: "bad" },
 };
 
+/**
+ * The label a booking shows. A manual booking the venue marked as taken without asking for a deposit is "tentative" (not
+ * confirmed yet), not "waiting for the deposit".
+ */
+export const bookingStatusOf = (b: { status: BookingStatus; isManual?: boolean | null; depositAmount?: number | null }) =>
+  b.status === 2 && b.isManual && !b.depositAmount ? { key: "Tentative", label: "محجوز مبدئي", tone: "wait" as Tone } : BOOKING_STATUS[b.status];
+
 export const statusByKey = (key: string) =>
   (Object.entries(BOOKING_STATUS).find(([, v]) => v.key === key)?.[0] ?? null) as unknown as BookingStatus | null;
 

@@ -51,6 +51,109 @@ namespace Malabak.Modules.Identity.Infrastructure.Migrations
                     b.ToTable("admin_recovery_codes", "identity");
                 });
 
+            modelBuilder.Entity("Malabak.Modules.Identity.Domain.CrmContact", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Area")
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<Guid?>("AssignedToUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("CreatedByUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("LostReason")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<DateTime?>("NextFollowUpAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("PhoneBlindIndex")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<byte[]>("PhoneEncrypted")
+                        .IsRequired()
+                        .HasColumnType("bytea");
+
+                    b.Property<string>("Source")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("Stage")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<DateTime>("StageChangedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("VenueName")
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)");
+
+                    b.Property<Guid?>("WaitlistEntryId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PhoneBlindIndex")
+                        .IsUnique();
+
+                    b.HasIndex("Stage", "NextFollowUpAtUtc");
+
+                    b.ToTable("crm_contacts", "identity");
+                });
+
+            modelBuilder.Entity("Malabak.Modules.Identity.Domain.CrmNote", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("AuthorUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ContactId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("Text")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ContactId", "CreatedAtUtc");
+
+                    b.ToTable("crm_notes", "identity");
+                });
+
             modelBuilder.Entity("Malabak.Modules.Identity.Domain.EmailSuppression", b =>
                 {
                     b.Property<string>("EmailHash")
@@ -732,6 +835,15 @@ namespace Malabak.Modules.Identity.Infrastructure.Migrations
                     b.ToTable("outbox_messages", "identity");
                 });
 
+            modelBuilder.Entity("Malabak.Modules.Identity.Domain.CrmNote", b =>
+                {
+                    b.HasOne("Malabak.Modules.Identity.Domain.CrmContact", null)
+                        .WithMany("Notes")
+                        .HasForeignKey("ContactId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("Malabak.Modules.Identity.Domain.PhoneChangeRequest", b =>
                 {
                     b.HasOne("Malabak.Modules.Identity.Domain.User", null)
@@ -757,6 +869,11 @@ namespace Malabak.Modules.Identity.Infrastructure.Migrations
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("Malabak.Modules.Identity.Domain.CrmContact", b =>
+                {
+                    b.Navigation("Notes");
                 });
 #pragma warning restore 612, 618
         }

@@ -162,8 +162,7 @@ public sealed class PaymentMethodAndDisputeEdgeCaseTests
         db.Bookings.Add(booking);
         await db.SaveChangesAsync();
 
-        var fakePayments = new FakeVenuePaymentDirectory();
-        var handler = new GetBookingPaymentMethodsHandler(db, fakePayments, _clock);
+        var handler = new GetBookingPaymentMethodsHandler(db, _clock, new PlatformAccounts());
 
         // Act: Stranger attempts to view payment credentials of another player's booking
         var query = new GetBookingPaymentMethodsQuery(booking.Id, strangerPlayerId);
@@ -192,8 +191,7 @@ public sealed class PaymentMethodAndDisputeEdgeCaseTests
         db.Bookings.Add(booking);
         await db.SaveChangesAsync();
 
-        var fakePayments = new FakeVenuePaymentDirectory();
-        var handler = new GetBookingPaymentMethodsHandler(db, fakePayments, _clock);
+        var handler = new GetBookingPaymentMethodsHandler(db, _clock, new PlatformAccounts());
 
         // Act
         var query = new GetBookingPaymentMethodsQuery(booking.Id, playerId);
@@ -204,16 +202,15 @@ public sealed class PaymentMethodAndDisputeEdgeCaseTests
         result.Error.Should().Be(BookingErrors.HoldExpired);
     }
 
-    private sealed class FakeVenuePaymentDirectory : IVenuePaymentDirectory
+    private sealed class PlatformAccounts : IPlatformSettings
     {
-        public Task<IReadOnlyList<PayableVenuePaymentMethod>> RevealForBookingAsync(
-            Guid venueId, Guid bookingId, Guid playerId, CancellationToken cancellationToken = default)
-        {
-            var list = new List<PayableVenuePaymentMethod>
-            {
-                new(Guid.NewGuid(), "InstaPay", "Al Ahly SC", "ahly@instapay", "Write booking ref in notes")
-            };
-            return Task.FromResult<IReadOnlyList<PayableVenuePaymentMethod>>(list);
-        }
+        public Task<int> GetIntAsync(string key, CancellationToken cancellationToken = default) => Task.FromResult(0);
+
+        public Task<bool> GetBoolAsync(string key, CancellationToken cancellationToken = default) => Task.FromResult(false);
+
+        public Task<string> GetStringAsync(string key, CancellationToken cancellationToken = default) =>
+            Task.FromResult(key == PlatformSettingKeys.PlatformInstaPayAddress ? "malabak@instapay" : string.Empty);
+
+        public Task<decimal> GetDecimalAsync(string key, CancellationToken cancellationToken = default) => Task.FromResult(0m);
     }
 }

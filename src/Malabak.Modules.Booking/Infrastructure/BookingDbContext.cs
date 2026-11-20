@@ -20,6 +20,7 @@ public sealed class BookingDbContext : BaseDbContext, IBookingDbContext
     public DbSet<VenueCustomerNote> CustomerNotes => Set<VenueCustomerNote>();
     public DbSet<PaymentDispute> PaymentDisputes => Set<PaymentDispute>();
     public DbSet<DisputeEvidence> DisputeEvidence => Set<DisputeEvidence>();
+    public DbSet<VenuePayout> VenuePayouts => Set<VenuePayout>();
 
     public BookingDbContext(DbContextOptions<BookingDbContext> options, IClock? clock = null)
         : base(options, clock)
@@ -167,6 +168,19 @@ public sealed class BookingDbContext : BaseDbContext, IBookingDbContext
 
             // One refund record per booking: it tracks what is owed and what was paid, so a duplicate would double count.
             builder.HasIndex(r => r.BookingId).IsUnique();
+        });
+
+        modelBuilder.Entity<VenuePayout>(builder =>
+        {
+            builder.ToTable("venue_payouts");
+            builder.HasKey(p => p.Id);
+            builder.Property(p => p.Id).ValueGeneratedNever();
+            builder.Property(p => p.Amount).HasPrecision(18, 2).IsRequired();
+            builder.Property(p => p.Currency).HasMaxLength(3).IsRequired();
+            builder.Property(p => p.Method).HasMaxLength(20).IsRequired();
+            builder.Property(p => p.Reference).HasMaxLength(VenuePayout.MaxReferenceLength).IsRequired();
+            builder.Property(p => p.Notes).HasMaxLength(VenuePayout.MaxNotesLength);
+            builder.HasIndex(p => new { p.VenueId, p.PaidAtUtc });
         });
 
         modelBuilder.Entity<VenueCustomerNote>(builder =>

@@ -50,6 +50,11 @@ public sealed class SlackSmsAlertService : ISmsAlertService
                 النوع: دعوة للانضمام إلى {alert.VenueName} بدور {alert.Role}
                 رابط الدعوة (صالح 48 ساعة): {alert.InvitationLink}
                 """,
+            SecurityAlertKind.AccountActivation => $"""
+                {header}
+                النوع: تفعيل حساب ملعب جديد
+                فعّل حسابك من اللينك ده: {alert.ActivationLink}
+                """,
             _ => $"""
                 {header}
                 النوع: {alert.Kind}

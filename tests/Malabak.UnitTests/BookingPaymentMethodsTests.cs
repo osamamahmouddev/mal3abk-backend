@@ -16,7 +16,7 @@ public sealed class BookingPaymentMethodsTests
     private static readonly DateTime _now = new(2026, 11, 5, 10, 0, 0, DateTimeKind.Utc);
     private readonly Guid _player = Guid.NewGuid();
     private readonly Guid _venue = Guid.NewGuid();
-    private readonly RecordingPayments _payments = new();
+    private readonly PlatformAccounts _payments = new();
 
     [Fact]
     public async Task ThePlayer_SeesWhereToPayWhileTheHoldIsOpenAsync()
@@ -29,8 +29,9 @@ public sealed class BookingPaymentMethodsTests
         var result = await Handler(db).HandleAsync(new GetBookingPaymentMethodsQuery(booking.Id, _player));
 
         result.IsSuccess.Should().BeTrue();
-        result.Value.Should().ContainSingle().Which.AccountDetails.Should().Be("01000000000");
-        _payments.Reveals.Should().ContainSingle().Which.Should().Be((_venue, booking.Id, _player));
+        result.Value.Where(m => m.IsAvailable).Should().ContainSingle().Which.AccountDetails.Should().Be("01000000000");
+        result.Value.Should().OnlyContain(m => m.RecipientName == "Malabak" || m.MethodType == "Paymob", "deposits go to the platform, never the venue");
+        _payments.Reads.Should().BeGreaterThan(0);
     }
 
     [Fact]
@@ -44,7 +45,7 @@ public sealed class BookingPaymentMethodsTests
         var result = await Handler(db).HandleAsync(new GetBookingPaymentMethodsQuery(booking.Id, Guid.NewGuid()));
 
         result.Error.Should().Be(BookingErrors.NotFound);
-        _payments.Reveals.Should().BeEmpty("nothing may be decrypted for someone else's booking");
+        _payments.Reads.Should().Be(0, "the accounts aren't even looked up for someone else's booking");
     }
 
     [Fact]
@@ -58,7 +59,7 @@ public sealed class BookingPaymentMethodsTests
         var result = await Handler(db).HandleAsync(new GetBookingPaymentMethodsQuery(booking.Id, _player));
 
         result.Error.Should().Be(BookingErrors.HoldExpired);
-        _payments.Reveals.Should().BeEmpty();
+        _payments.Reads.Should().Be(0);
     }
 
     [Fact]
@@ -73,10 +74,10 @@ public sealed class BookingPaymentMethodsTests
         var result = await Handler(db).HandleAsync(new GetBookingPaymentMethodsQuery(booking.Id, _player));
 
         result.IsFailure.Should().BeTrue();
-        _payments.Reveals.Should().BeEmpty();
+        _payments.Reads.Should().Be(0);
     }
 
-    private GetBookingPaymentMethodsHandler Handler(BookingDbContext db) => new(db, _payments, new FakeClock(_now));
+    private GetBookingPaymentMethodsHandler Handler(BookingDbContext db) => new(db, new FakeClock(_now), _payments);
 
     private static BookingDbContext NewDb() =>
         new(new DbContextOptionsBuilder<BookingDbContext>().UseInMemoryDatabase(Guid.NewGuid().ToString()).Options);
@@ -89,16 +90,26 @@ public sealed class BookingPaymentMethodsTests
             null, null, created, "player").Value;
     }
 
-    private sealed class RecordingPayments : IVenuePaymentDirectory
+    /// <summary>The platform's deposit accounts as admins set them: a wallet only, and the recipient name.</summary>
+    private sealed class PlatformAccounts : IPlatformSettings
     {
-        public List<(Guid VenueId, Guid BookingId, Guid PlayerId)> Reveals { get; } = [];
+        public int Reads { get; private set; }
 
-        public Task<IReadOnlyList<PayableVenuePaymentMethod>> RevealForBookingAsync(
-            Guid venueId, Guid bookingId, Guid playerId, CancellationToken cancellationToken = default)
+        public Task<int> GetIntAsync(string key, CancellationToken cancellationToken = default) => Task.FromResult(0);
+
+        public Task<bool> GetBoolAsync(string key, CancellationToken cancellationToken = default) => Task.FromResult(false);
+
+        public Task<string> GetStringAsync(string key, CancellationToken cancellationToken = default)
         {
-            Reveals.Add((venueId, bookingId, playerId));
-            return Task.FromResult<IReadOnlyList<PayableVenuePaymentMethod>>(
-                [new PayableVenuePaymentMethod(Guid.NewGuid(), "MobileWallet", "Venue Owner", "01000000000", null)]);
+            Reads++;
+            return Task.FromResult(key switch
+            {
+                PlatformSettingKeys.PlatformVodafoneCashNumber => "01000000000",
+                PlatformSettingKeys.PlatformDepositRecipientName => "Malabak",
+                _ => string.Empty,
+            });
         }
+
+        public Task<decimal> GetDecimalAsync(string key, CancellationToken cancellationToken = default) => Task.FromResult(0m);
     }
 }

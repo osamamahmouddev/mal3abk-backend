@@ -101,6 +101,38 @@ public sealed class VenueBookingQueriesTests : IClassFixture<BookingDatabaseFixt
         result.Value[1].Id.Should().Be(bookingId);
     }
 
+    [Fact]
+    public async Task TheCalendar_SaysWhoBooked_AndWhichManualBookingsAreNotConfirmedYetAsync()
+    {
+        var day = _day.AddDays(3);
+        var appBooking = await SaveAsync(day.AddHours(8));
+        var tentative = Booking.CreateManual(
+            Guid.NewGuid(), $"MLB-{Guid.NewGuid():N}"[..10].ToUpperInvariant(), _venueId, _pitchId, Guid.NewGuid(), null, "01012345678",
+            day.AddHours(10), day.AddHours(11), Money.Create(300m, "EGP").Value, Money.Create(0m, "EGP").Value,
+            confirmedImmediately: false, holdExpiresAtUtc: day.AddHours(10), nowUtc: DateTime.UtcNow).Value;
+        await using (var save = _database.CreateContext())
+        {
+            save.Bookings.Add(tentative);
+            await save.SaveChangesAsync();
+        }
+
+        var walkIn = await SaveManualAsync(day.AddHours(12), "Captain Ali", "01099999999");
+        await using var context = _database.CreateContext();
+
+        var result = await new VenueBookingQueriesHandler(context, new FakeVenueDirectory(), new FakeUserAccounts())
+            .HandleAsync(new GetVenueCalendarQuery(_venueId, day, day.AddDays(1), null));
+
+        var slots = result.Value.ToDictionary(s => s.Id);
+        slots[appBooking].CustomerName.Should().Be("Player", "an app booking shows the player's account name");
+        slots[appBooking].CustomerPhone.Should().BeNull("a player's phone is not handed to the venue through the calendar");
+        slots[appBooking].IsTentative.Should().BeFalse();
+        slots[tentative.Id].IsTentative.Should().BeTrue();
+        slots[tentative.Id].CustomerName.Should().BeNull();
+        slots[tentative.Id].CustomerPhone.Should().Be("01012345678");
+        slots[walkIn].IsTentative.Should().BeFalse();
+        slots[walkIn].CustomerName.Should().Be("Captain Ali");
+    }
+
     [Theory]
     [InlineData(0)]
     [InlineData(-1)]

@@ -7,7 +7,7 @@ import type { Schemas } from "@malabak/api-client";
 import { Badge, Page, Toast, card, chip, muted, primaryBtn, secondaryBtn, toArabicDigits, useRevealOnSelect } from "@/components/ui";
 import { useVenue } from "@/components/Providers";
 import { api, unwrap } from "@/lib/api";
-import { BOOKING_STATUS, type BookingStatus, addDays, cairoDateTime, cairoDayStartUtc, cairoToday, money, timeLeft } from "@/lib/booking-format";
+import { BOOKING_STATUS, bookingStatusOf, type BookingStatus, addDays, cairoDateTime, cairoDayStartUtc, cairoToday, money, timeLeft } from "@/lib/booking-format";
 import { downloadCsv } from "@/lib/csv";
 import { P } from "@/lib/permissions";
 import { ReasonDialog } from "@/components/ReasonDialog";
@@ -168,7 +168,7 @@ export default function ReservationsPage() {
         cairoDateTime(b.startUtc),
         String(b.totalPrice),
         String(b.depositAmount),
-        BOOKING_STATUS[b.status].label,
+        bookingStatusOf(b).label,
       ]),
     );
     setToast(`اتنزّل ملف بـ ${toArabicDigits(list.length)} حجز. للفترات الطويلة استخدم تصدير التقارير.`);
@@ -312,7 +312,7 @@ export default function ReservationsPage() {
                     <span className="font-semibold">{b.customerName || "—"}</span>
                     <span className={`text-xs ${muted}`}>{b.isManual ? "حجز يدوي" : "من التطبيق"}</span>
                   </div>
-                  <Badge tone={BOOKING_STATUS[b.status].tone}>{BOOKING_STATUS[b.status].label}</Badge>
+                  <Badge tone={bookingStatusOf(b).tone}>{bookingStatusOf(b).label}</Badge>
                 </div>
                 <div className="text-sm">
                   {pitchName(b.pitchId)} · {cairoDateTime(b.startUtc)}
@@ -382,7 +382,7 @@ export default function ReservationsPage() {
                       </div>
                     </td>
                     <td className="p-3">
-                      <Badge tone={BOOKING_STATUS[b.status].tone}>{BOOKING_STATUS[b.status].label}</Badge>
+                      <Badge tone={bookingStatusOf(b).tone}>{bookingStatusOf(b).label}</Badge>
                     </td>
                     <td className="px-[18px] py-2 whitespace-nowrap">
                       <RowActions
@@ -551,8 +551,8 @@ function BookingDrawer({
       {detail.isError && <span className="text-sm text-[#A8261C]">{(detail.error as Error).message}</span>}
       {b && (
         <>
-          <Badge tone={BOOKING_STATUS[b.status].tone} className="self-start">
-            {BOOKING_STATUS[b.status].label}
+          <Badge tone={bookingStatusOf(b).tone} className="self-start">
+            {bookingStatusOf(b).label}
           </Badge>
           <dl className="flex flex-col gap-2 text-sm">
             {(

@@ -45,17 +45,17 @@ public sealed class DenyByDefaultSecurityTests : IClassFixture<WebApplicationFac
         "/api/v{version:apiVersion}/auth/email/verify",
         "/api/v{version:apiVersion}/auth/impersonation/exchange",
         "/api/v{version:apiVersion}/me/phone-change/recover",
+        "/api/v{version:apiVersion}/venue-invitations/preview",
+        "/api/v{version:apiVersion}/venue-invitations/register",
 
         // Admin Auth Bootstrap
         "/api/v{version:apiVersion}/admin/auth/login",
         "/api/v{version:apiVersion}/admin/auth/refresh",
         "/api/v{version:apiVersion}/admin/auth/totp/enroll",
         "/api/v{version:apiVersion}/admin/auth/totp/confirm",
-        "/api/v{version:apiVersion}/admin/auth/totp/reset",
 
         // Public Discovery & Reference Data (Unauthenticated Browsing)
         "/api/v{version:apiVersion}/home",
-        "/api/v{version:apiVersion}/plans",
         "/api/v{version:apiVersion}/waitlist",
         "/api/v{version:apiVersion}/teams/leaderboard",
         "/api/v{version:apiVersion}/media/{id:guid}/{variant}",

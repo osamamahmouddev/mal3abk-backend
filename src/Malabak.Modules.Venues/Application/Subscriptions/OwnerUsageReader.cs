@@ -88,7 +88,7 @@ public sealed class EntitlementStaffQuotaPolicy : IStaffQuotaPolicy
 
         var venueInfo = await _dbContext.Venues.AsNoTracking()
             .Where(v => v.Id == venueId)
-            .Select(v => new { v.OwnerId, v.PricingModel })
+            .Select(v => new { v.OwnerId })
             .FirstOrDefaultAsync(cancellationToken);
 
         if (venueInfo is null)
@@ -96,11 +96,18 @@ public sealed class EntitlementStaffQuotaPolicy : IStaffQuotaPolicy
             return false;
         }
 
-        if (venueInfo.PricingModel == PricingModel.Commission)
-        {
-            return true;
-        }
-
         return (await _entitlements.EnsureWithinLimitAsync(venueInfo.OwnerId, EntitlementResource.StaffPerVenue, currentCount, cancellationToken)).IsSuccess;
     }
+}
+
+/// <summary>
+/// Commission model: there are no subscription plans, so no plan limits venues, pitches or staff. The platform-wide safety
+/// caps (e.g. <see cref="DefaultStaffQuotaPolicy.MaxStaffPerVenue"/>) still apply where they are enforced.
+/// </summary>
+public sealed class NoPlanLimits : IEntitlementService
+{
+    public Task<Result> EnsureWithinLimitAsync(Guid ownerId, EntitlementResource resource, int currentCount, CancellationToken cancellationToken = default) =>
+        Task.FromResult(Result.Success());
+
+    public Task<bool> HasFeatureAsync(Guid ownerId, string feature, CancellationToken cancellationToken = default) => Task.FromResult(true);
 }

@@ -12,7 +12,7 @@ public sealed record VenueCommissionInfo(
     bool CustomCommissionEnabled,
     string CommissionType,
     decimal? CommissionRate,
-    string PricingModel = "Subscription");
+    string PricingModel = "Commission");
 
 /// <summary>
 /// Venues-module contract for the questions other modules (Booking) must ask about venues without reading Venues' tables:

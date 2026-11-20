@@ -14,4 +14,7 @@ public static class BlindIndexPurpose
 
     /// <summary>Landing page waitlist phone blind index (TASK-814).</summary>
     public const string WaitlistPhone = "waitlist-phone";
+
+    /// <summary>Phone numbers of the platform team's CRM contacts (venue owners and leads).</summary>
+    public const string CrmPhone = "crm-phone";
 }

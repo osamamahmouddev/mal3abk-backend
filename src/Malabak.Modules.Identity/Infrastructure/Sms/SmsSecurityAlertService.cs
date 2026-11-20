@@ -38,6 +38,9 @@ public sealed class SmsSecurityAlertService : ISmsAlertService
             SecurityAlertKind.StaffInvitation =>
                 $"ملعبك: اتدعيت للانضمام إلى {alert.VenueName} بدور {alert.Role}. اقبل الدعوة خلال 48 ساعة: {alert.InvitationLink}\n" +
                 $"Malabak: you're invited to join {alert.VenueName} as {alert.Role}. Accept within 48 hours: {alert.InvitationLink}",
+            SecurityAlertKind.AccountActivation =>
+                $"ملعبك: أهلاً بيك! فعّل حساب ملعبك من اللينك ده: {alert.ActivationLink}\n" +
+                $"Malabak: welcome! Activate your venue account: {alert.ActivationLink}",
             _ => throw new ArgumentOutOfRangeException(nameof(alert), alert.Kind, "Unknown security alert kind."),
         };
     }

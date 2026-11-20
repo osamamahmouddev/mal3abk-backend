@@ -73,7 +73,9 @@ public static class IdentityModule
         services.AddScoped<ICommandHandler<AdminConfirmTotpCommand, Result<IReadOnlyList<string>>>>(sp => sp.GetRequiredService<AdminAuthHandlers>());
         services.AddScoped<ICommandHandler<AdminRefreshCommand, Result<AdminTokens>>>(sp => sp.GetRequiredService<AdminAuthHandlers>());
         services.AddScoped<ICommandHandler<AdminLogoutCommand, Result>>(sp => sp.GetRequiredService<AdminAuthHandlers>());
-        services.AddScoped<ICommandHandler<AdminResetTotpCommand, Result>>(sp => sp.GetRequiredService<AdminAuthHandlers>());
+        services.AddScoped<ICommandHandler<AdminDisableTotpCommand, Result>>(sp => sp.GetRequiredService<AdminAuthHandlers>());
+        services.AddScoped<ICommandHandler<AdminStartTotpSetupCommand, Result<string>>>(sp => sp.GetRequiredService<AdminAuthHandlers>());
+        services.AddScoped<IQueryHandler<AdminTwoFactorStatusQuery, Result<AdminTwoFactorStatus>>>(sp => sp.GetRequiredService<AdminAuthHandlers>());
         services.AddScoped<IQueryHandler<ListAdminSessionsQuery, Result<IReadOnlyList<AdminSessionDto>>>>(sp => sp.GetRequiredService<AdminAuthHandlers>());
         services.AddScoped<ICommandHandler<RevokeAdminSessionCommand, Result>>(sp => sp.GetRequiredService<AdminAuthHandlers>());
 
@@ -88,6 +90,8 @@ public static class IdentityModule
         services.AddScoped<Malabak.Modules.Identity.Application.Admin.AdminAccountService>();
         services.AddScoped<Malabak.SharedKernel.Contracts.IAdminMetricsProvider, Malabak.Modules.Identity.Application.Admin.UserMetricsProvider>();
         services.AddScoped<Malabak.Modules.Identity.Application.Waitlist.IWaitlistService, Malabak.Modules.Identity.Application.Waitlist.WaitlistService>();
+        services.AddScoped<Malabak.Modules.Identity.Application.Crm.CrmService>();
+        services.AddScoped<Malabak.SharedKernel.Security.IReEncryptionTarget, Malabak.Modules.Identity.Infrastructure.CrmPhoneReEncryptionTarget>();
 
         // Player profile & onboarding
         services.AddScoped<Malabak.Modules.Identity.Application.Profile.ProfileHandlers>();

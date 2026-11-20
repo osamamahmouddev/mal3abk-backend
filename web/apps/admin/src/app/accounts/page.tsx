@@ -43,6 +43,7 @@ const PERMISSION_LABELS: Record<string, { label: string; desc: string; category:
   "admin.venues.approve": { label: "مراجعة واعتماد الملاعب", desc: "الموافقة على طلبات انضمام الملاعب وطلب معلومات إضافية", category: "الملاعب" },
 
   // Finance
+  "admin.payments.manage": { label: "إدارة فلوس المنصة", desc: "تأكيد عرابين الحجوزات، رد الفلوس للاعيبة، وتسجيل تحويلات مستحقات الملاعب", category: "المالية" },
   "finance.invoices.view": { label: "عرض الفواتير والمعاملات المالية", desc: "استعراض الفواتير وسجلات الدفع والعمولات", category: "المالية" },
   "finance.subscriptions.manage": { label: "إدارة باقات واشتراكات الملاعب", desc: "ترقية وتعديل باقات الملاعب والاشتراكات", category: "المالية" },
 

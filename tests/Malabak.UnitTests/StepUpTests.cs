@@ -92,8 +92,15 @@ public sealed class StepUpTests
             .Should().Be(StepUpErrors.UnknownScope);
         (await handlers.HandleAsync(new VerifyStepUpCommand(user.Id, StepUpScopes.DeleteAccount, StepUpMethod.Totp, "123456"))).Error
             .Should().Be(StepUpErrors.MethodNotAvailable, "TOTP isn't enabled for this user");
+        (await handlers.HandleAsync(new VerifyStepUpCommand(user.Id, StepUpScopes.AdminDestructive, StepUpMethod.Otp, "123456"))).Error
+            .Should().Be(StepUpErrors.MethodNotAvailable, "admin-destructive never accepts an SMS code");
+        (await handlers.HandleAsync(new VerifyStepUpCommand(user.Id, StepUpScopes.AdminDestructive, StepUpMethod.Password, _password))).IsSuccess
+            .Should().BeTrue("without an authenticator the password is the strongest factor the account has");
+        user.SetPendingTotpSecret([1, 2, 3], DateTime.UtcNow);
+        user.SetTwoFactorEnabled(true, DateTime.UtcNow);
+        await db.SaveChangesAsync();
         (await handlers.HandleAsync(new VerifyStepUpCommand(user.Id, StepUpScopes.AdminDestructive, StepUpMethod.Password, _password))).Error
-            .Should().Be(StepUpErrors.MethodNotAvailable, "admin-destructive requires TOTP");
+            .Should().Be(StepUpErrors.MethodNotAvailable, "once the authenticator is on, admin-destructive requires it");
     }
 
     [Fact]

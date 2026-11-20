@@ -46,6 +46,7 @@ public sealed class PasswordAccountHandlers :
     private readonly IPasswordPolicy _policy;
     private readonly IPhoneNumberNormalizer _phoneNormalizer;
     private readonly IEmailSender _emailSender;
+    private readonly ISmsAlertService _phoneAlerts;
     private readonly ITotpService _totp;
     private readonly IFieldCipher _cipher;
     private readonly IClock _clock;
@@ -58,6 +59,7 @@ public sealed class PasswordAccountHandlers :
         IPasswordPolicy policy,
         IPhoneNumberNormalizer phoneNormalizer,
         IEmailSender emailSender,
+        ISmsAlertService phoneAlerts,
         ITotpService totp,
         IFieldCipher cipher,
         IClock clock,
@@ -69,6 +71,7 @@ public sealed class PasswordAccountHandlers :
         _policy = policy;
         _phoneNormalizer = phoneNormalizer;
         _emailSender = emailSender;
+        _phoneAlerts = phoneAlerts;
         _totp = totp;
         _cipher = cipher;
         _clock = clock;
@@ -112,8 +115,8 @@ public sealed class PasswordAccountHandlers :
         var raw = IssueToken(user.Id, UserActionTokenPurpose.EmailVerification, nowUtc);
         await _dbContext.SaveChangesAsync(cancellationToken);
 
-        await SendSafelyAsync(email, EmailTemplates.EmailVerification($"{_dashboardUrl}/verify-email?token={raw}"), cancellationToken);
-        _logger.LogInformation("Venue owner {UserId} registered; verification email sent", user.Id);
+        await SendActivationAsync(user.PhoneNumber, raw, cancellationToken);
+        _logger.LogInformation("Venue owner {UserId} registered; activation link sent to the phone", user.Id);
         return Result.Success();
     }
 
@@ -125,7 +128,8 @@ public sealed class PasswordAccountHandlers :
             return Result.Failure(PasswordAuthErrors.InvalidToken);
         }
 
-        user.ConfirmEmail(_clock.UtcNow);
+        // The link went to the owner's phone, so opening it proves the number (not the email).
+        user.ConfirmPhoneNumber(_clock.UtcNow);
         await _dbContext.SaveChangesAsync(cancellationToken);
         return Result.Success();
     }
@@ -134,12 +138,13 @@ public sealed class PasswordAccountHandlers :
     {
         if (PasswordAuthSupport.TryNormalizeEmail(command.Email, out var email))
         {
-            var user = await _dbContext.Users.FirstOrDefaultAsync(u => u.Email == email && !u.IsDeleted && !u.IsEmailConfirmed, cancellationToken);
+            var user = await _dbContext.Users.FirstOrDefaultAsync(
+                u => u.Email == email && !u.IsDeleted && !u.IsEmailConfirmed && !u.IsPhoneNumberConfirmed && u.PhoneNumber != "", cancellationToken);
             if (user is not null && !await RecentlyIssuedAsync(user.Id, UserActionTokenPurpose.EmailVerification, cancellationToken))
             {
                 var raw = IssueToken(user.Id, UserActionTokenPurpose.EmailVerification, _clock.UtcNow);
                 await _dbContext.SaveChangesAsync(cancellationToken);
-                await SendSafelyAsync(email, EmailTemplates.EmailVerification($"{_dashboardUrl}/verify-email?token={raw}"), cancellationToken);
+                await SendActivationAsync(user.PhoneNumber, raw, cancellationToken);
             }
         }
 
@@ -297,6 +302,14 @@ public sealed class PasswordAccountHandlers :
             .ToListAsync(cancellationToken);
         open.ForEach(t => t.MarkUsed(nowUtc));
     }
+
+    /// <summary>
+    /// Sends the activation link to the owner's phone (WhatsApp or SMS, whichever provider is configured). The token is
+    /// already stored, so a failed delivery only means the owner asks for a new link; the link is never logged.
+    /// </summary>
+    private Task SendActivationAsync(string phoneNumber, string rawToken, CancellationToken cancellationToken) =>
+        _phoneAlerts.SendSecurityAlertAsync(
+            phoneNumber, SecurityAlert.AccountActivation($"{_dashboardUrl}/verify-email?token={rawToken}"), cancellationToken);
 
     private async Task SendSafelyAsync(string to, RenderedEmail email, CancellationToken cancellationToken)
     {

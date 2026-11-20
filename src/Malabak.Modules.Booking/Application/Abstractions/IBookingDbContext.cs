@@ -25,6 +25,8 @@ public interface IBookingDbContext
 
     DbSet<DisputeEvidence> DisputeEvidence { get; }
 
+    DbSet<VenuePayout> VenuePayouts { get; }
+
     DatabaseFacade Database { get; }
 
     ChangeTracker ChangeTracker { get; }

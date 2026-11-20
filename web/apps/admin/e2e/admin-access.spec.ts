@@ -6,14 +6,15 @@ const USER_ID = "b0000000-0000-4000-8000-000000000002";
 
 test("each staff role sees only the sections it may open", async ({ page, api }) => {
   await api.signInAs("Finance");
-  api.on("GET", /^\/api\/v1\/admin\/plans$/, () => []);
-  await page.goto("/admin/plans");
+  api.on("GET", /^\/api\/v1\/admin\/payouts$/, () => []);
+  await page.goto("/admin/payouts");
 
   // Phones keep the sections in a drawer behind the menu button.
   const menu = page.getByRole("button", { name: "فتح القائمة" });
   if (await menu.isVisible()) await menu.click();
   const nav = page.getByRole("navigation", { name: "أقسام الإدارة" }).last();
-  await expect(nav.getByRole("link", { name: "باقات الاشتراك" })).toBeVisible();
+  await expect(nav.getByRole("link", { name: "مستحقات الملاعب" })).toBeVisible();
+  await expect(nav.getByRole("link", { name: "مراجعة العرابين" })).toBeVisible();
   await expect(nav.getByRole("link", { name: "الإيرادات والتقارير" })).toBeVisible();
   await expect(nav.getByRole("link", { name: "المستخدمين" })).toHaveCount(0);
   await expect(nav.getByRole("link", { name: "حسابات الفريق" })).toHaveCount(0);

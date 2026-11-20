@@ -21,24 +21,76 @@ public sealed class AdminAuthTests
 {
     private const string _email = "admin@malabak.app";
     private const string _password = "very long admin passphrase";
+    private const string _wrongPassphrase = "wrong password here";
 
     private readonly MutableClock _clock = new();
     private readonly Pbkdf2PasswordHasher _hasher = new();
     private readonly TotpService _totp = new();
     private readonly XorCipher _cipher = new();
+    private IdentityDbContext? _db;
     private readonly IOptions<JwtOptions> _jwtOptions = Options.Create(new JwtOptions { CurrentKeyId = "test-key" });
 
     [Fact]
-    public async Task FirstLogin_WithoutTotp_ReturnsEnrollmentTicket_NotASessionAsync()
+    public async Task Login_WithoutTwoFactor_SignsInWithThePassword_AndTheTokenSaysPasswordOnlyAsync()
     {
         await using var db = NewDb();
         await SeedAdminAsync(db);
 
         var result = await Handlers(db).HandleAsync(Login());
 
-        result.Value.Tokens.Should().BeNull();
-        result.Value.EnrollmentToken.Should().NotBeNullOrEmpty();
-        (await db.RefreshTokens.AnyAsync()).Should().BeFalse();
+        result.Value.EnrollmentToken.Should().BeNull();
+        var jwt = new JwtSecurityTokenHandler().ReadJwtToken(result.Value.Tokens!.AccessToken);
+        jwt.Claims.Where(c => c.Type == "amr").Select(c => c.Value).Should().Equal("pwd");
+        (await db.RefreshTokens.SingleAsync()).IsAdminSession.Should().BeTrue();
+        (await Handlers(db).HandleAsync(Login() with { Password = _wrongPassphrase })).Error.Should().Be(PasswordAuthErrors.InvalidCredentials);
+    }
+
+    [Fact]
+    public async Task ResetWord_InTheRecoveryBox_NoLongerTurnsTwoFactorOffAsync()
+    {
+        await using var db = NewDb();
+        await SeedAdminAsync(db);
+        var handlers = Handlers(db);
+        await EnrollAsync(handlers);
+
+        (await handlers.HandleAsync(Login() with { RecoveryCode = "RESET-2FA" })).Error.Should().Be(PasswordAuthErrors.InvalidTotpCode);
+        (await db.Users.SingleAsync()).TwoFactorEnabled.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task Disable_NeedsACurrentCode_ThenLoginIsPasswordOnlyAgainAsync()
+    {
+        await using var db = NewDb();
+        var admin = await SeedAdminAsync(db);
+        var handlers = Handlers(db);
+        var (secret, _) = await EnrollAsync(handlers);
+
+        (await handlers.HandleAsync(new AdminDisableTotpCommand(admin.Id, null, null))).Error.Should().Be(PasswordAuthErrors.InvalidTotpCode);
+        (await handlers.HandleAsync(new AdminDisableTotpCommand(admin.Id, "000000", null))).Error.Should().Be(PasswordAuthErrors.InvalidTotpCode);
+        (await db.Users.SingleAsync()).TwoFactorEnabled.Should().BeTrue();
+
+        _clock.UtcNow = _clock.UtcNow.AddSeconds(31);
+        (await handlers.HandleAsync(new AdminDisableTotpCommand(admin.Id, CurrentCode(secret), null))).IsSuccess.Should().BeTrue();
+        var stored = await db.Users.SingleAsync();
+        stored.TwoFactorEnabled.Should().BeFalse();
+        stored.TotpSecretCiphertext.Should().BeNull();
+        (await db.AdminRecoveryCodes.AnyAsync(c => c.UsedAtUtc == null)).Should().BeFalse("old recovery codes die with the authenticator");
+        (await handlers.HandleAsync(new AdminTwoFactorStatusQuery(admin.Id))).Value.Should().Be(new AdminTwoFactorStatus(false, 0));
+        (await handlers.HandleAsync(Login())).Value.Tokens.Should().NotBeNull();
+        (await handlers.HandleAsync(new AdminDisableTotpCommand(admin.Id, CurrentCode(secret), null))).Error.Should().Be(AdminAuthErrors.TwoFactorNotEnabled);
+    }
+
+    [Fact]
+    public async Task Setup_IsRefusedWhileTwoFactorIsOn_AndForNonAdminsAsync()
+    {
+        await using var db = NewDb();
+        var admin = await SeedAdminAsync(db);
+        var handlers = Handlers(db);
+        await EnrollAsync(handlers);
+
+        (await handlers.HandleAsync(new AdminStartTotpSetupCommand(admin.Id))).Error.Should().Be(AdminAuthErrors.TwoFactorAlreadyEnabled);
+        (await handlers.HandleAsync(new AdminStartTotpSetupCommand(Guid.NewGuid()))).Error.Should().Be(AdminAuthErrors.InvalidSession);
+        (await handlers.HandleAsync(new AdminTwoFactorStatusQuery(admin.Id))).Value.Should().Be(new AdminTwoFactorStatus(true, AdminRecoveryCode.CodesPerUser));
     }
 
     [Fact]
@@ -109,7 +161,8 @@ public sealed class AdminAuthTests
         await using var db = NewDb();
         await SeedAdminAsync(db);
         var handlers = Handlers(db);
-        var ticket = (await handlers.HandleAsync(Login())).Value.EnrollmentToken!;
+        var admin = await db.Users.SingleAsync();
+        var ticket = (await handlers.HandleAsync(new AdminStartTotpSetupCommand(admin.Id))).Value;
         var (_, _) = await EnrollAsync(handlers, ticket);
 
         (await handlers.HandleAsync(new AdminEnrollTotpCommand(ticket))).Error.Should().Be(AdminAuthErrors.InvalidEnrollment);
@@ -191,7 +244,8 @@ public sealed class AdminAuthTests
 
     private async Task<(string Secret, IReadOnlyList<string> Codes)> EnrollAsync(AdminAuthHandlers handlers, string? ticket = null)
     {
-        ticket ??= (await handlers.HandleAsync(Login())).Value.EnrollmentToken!;
+        var admin = await _db!.Users.SingleAsync();
+        ticket ??= (await handlers.HandleAsync(new AdminStartTotpSetupCommand(admin.Id))).Value;
         var secret = (await handlers.HandleAsync(new AdminEnrollTotpCommand(ticket))).Value.Secret;
         var codes = (await handlers.HandleAsync(new AdminConfirmTotpCommand(ticket, CurrentCode(secret)))).Value;
         return (secret, codes);
@@ -207,6 +261,7 @@ public sealed class AdminAuthTests
 
     private AdminAuthHandlers Handlers(IdentityDbContext db)
     {
+        _db = db;
         var stepUp = new StepUpService(Options.Create(new StepUpOptions { SecretKey = TestSecrets.StepUpSecretKey }), _clock);
 
         return new AdminAuthHandlers(db, _hasher, _totp, _cipher, TokenService(), TestSessions.Create(db, _clock), stepUp,

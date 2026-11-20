@@ -19,8 +19,9 @@ public sealed record BookingPaymentMethodDto(
 public sealed record GetBookingPaymentMethodsQuery(Guid BookingId, Guid PlayerId) : IQuery<Result<IReadOnlyList<BookingPaymentMethodDto>>>;
 
 /// <summary>
-/// Where to send a booking's deposit. If platform deposit is enabled, returns the central platform payment accounts.
-/// Only the booking's player sees it, and only while the deposit can still be paid; anyone else gets "not found".
+/// Where to send a booking's deposit: always the platform's own accounts, set by admins (commission model; venues no
+/// longer receive deposits directly). Only the booking's player sees them, and only while the deposit can still be paid;
+/// anyone else gets "not found". The platform keeps its commission and settles the rest with the venue.
 /// </summary>
 public sealed class GetBookingPaymentMethodsHandler : IQueryHandler<GetBookingPaymentMethodsQuery, Result<IReadOnlyList<BookingPaymentMethodDto>>>
 {
@@ -30,18 +31,12 @@ public sealed class GetBookingPaymentMethodsHandler : IQueryHandler<GetBookingPa
     private static readonly Guid _platformBankId = Guid.Parse("33333333-3333-3333-3333-333333333333");
 
     private readonly IBookingDbContext _dbContext;
-    private readonly IVenuePaymentDirectory _payments;
     private readonly IClock _clock;
-    private readonly IPlatformSettings? _platformSettings;
+    private readonly IPlatformSettings _platformSettings;
 
-    public GetBookingPaymentMethodsHandler(
-        IBookingDbContext dbContext,
-        IVenuePaymentDirectory payments,
-        IClock clock,
-        IPlatformSettings? platformSettings = null)
+    public GetBookingPaymentMethodsHandler(IBookingDbContext dbContext, IClock clock, IPlatformSettings platformSettings)
     {
         _dbContext = dbContext;
-        _payments = payments;
         _clock = clock;
         _platformSettings = platformSettings;
     }
@@ -62,74 +57,64 @@ public sealed class GetBookingPaymentMethodsHandler : IQueryHandler<GetBookingPa
             return Result.Failure<IReadOnlyList<BookingPaymentMethodDto>>(BookingErrors.HoldExpired);
         }
 
-        var isPlatformDepositEnabled = _platformSettings is not null &&
-            await _platformSettings.GetBoolAsync(PlatformSettingKeys.PlatformDepositEnabled, cancellationToken);
-        if (isPlatformDepositEnabled && _platformSettings is not null)
+        var recipient = await _platformSettings.GetStringAsync(PlatformSettingKeys.PlatformDepositRecipientName, cancellationToken);
+        var instapay = await _platformSettings.GetStringAsync(PlatformSettingKeys.PlatformInstaPayAddress, cancellationToken);
+        var wallet = await _platformSettings.GetStringAsync(PlatformSettingKeys.PlatformVodafoneCashNumber, cancellationToken);
+        var bankAccount = await _platformSettings.GetStringAsync(PlatformSettingKeys.PlatformBankAccountIban, cancellationToken);
+        var bankName = await _platformSettings.GetStringAsync(PlatformSettingKeys.PlatformBankName, cancellationToken);
+        var instructions = await _platformSettings.GetStringAsync(PlatformSettingKeys.PlatformDepositInstructions, cancellationToken);
+
+        var platformMethods = new List<BookingPaymentMethodDto>
         {
-            var recipient = await _platformSettings.GetStringAsync(PlatformSettingKeys.PlatformDepositRecipientName, cancellationToken);
-            var instapay = await _platformSettings.GetStringAsync(PlatformSettingKeys.PlatformInstaPayAddress, cancellationToken);
-            var wallet = await _platformSettings.GetStringAsync(PlatformSettingKeys.PlatformVodafoneCashNumber, cancellationToken);
-            var bankAccount = await _platformSettings.GetStringAsync(PlatformSettingKeys.PlatformBankAccountIban, cancellationToken);
-            var bankName = await _platformSettings.GetStringAsync(PlatformSettingKeys.PlatformBankName, cancellationToken);
-            var instructions = await _platformSettings.GetStringAsync(PlatformSettingKeys.PlatformDepositInstructions, cancellationToken);
+            new(
+                _platformPaymobId,
+                "Paymob",
+                "بوابة Paymob للدفع الإلكتروني",
+                "بطاقات بنكية (Visa / MasterCard / ميزة) ومحافظ إلكترونية",
+                "الدفع الإلكتروني المباشر عبر Paymob غير متوفر حالياً وسيتاح قريباً. يرجى استخدام إنستاباي أو فودافون كاش أو التحويل البنكي.",
+                IsOnline: true,
+                IsAvailable: false,
+                Badge: "قريباً")
+        };
 
-            var platformMethods = new List<BookingPaymentMethodDto>
-            {
-                new(
-                    _platformPaymobId,
-                    "Paymob",
-                    "بوابة Paymob للدفع الإلكتروني",
-                    "بطاقات بنكية (Visa / MasterCard / ميزة) ومحافظ إلكترونية",
-                    "الدفع الإلكتروني المباشر عبر Paymob غير متوفر حالياً وسيتاح قريباً. يرجى استخدام إنستاباي أو فودافون كاش أو التحويل البنكي.",
-                    IsOnline: true,
-                    IsAvailable: false,
-                    Badge: "قريباً")
-            };
-
-            if (!string.IsNullOrWhiteSpace(instapay))
-            {
-                platformMethods.Add(new BookingPaymentMethodDto(
-                    _platformInstaPayId,
-                    "InstaPay",
-                    recipient,
-                    instapay,
-                    instructions,
-                    IsOnline: false,
-                    IsAvailable: true,
-                    Badge: "فوري"));
-            }
-            if (!string.IsNullOrWhiteSpace(wallet))
-            {
-                platformMethods.Add(new BookingPaymentMethodDto(
-                    _platformWalletId,
-                    "MobileWallet",
-                    recipient,
-                    wallet,
-                    instructions,
-                    IsOnline: false,
-                    IsAvailable: true,
-                    Badge: "محفظة كاش"));
-            }
-            if (!string.IsNullOrWhiteSpace(bankAccount))
-            {
-                var bankDetails = !string.IsNullOrWhiteSpace(bankName) ? $"{bankName} - {bankAccount}" : bankAccount;
-                platformMethods.Add(new BookingPaymentMethodDto(
-                    _platformBankId,
-                    "BankTransfer",
-                    recipient,
-                    bankDetails,
-                    instructions,
-                    IsOnline: false,
-                    IsAvailable: true,
-                    Badge: "تحويل بنكي"));
-            }
-
-            return Result.Success<IReadOnlyList<BookingPaymentMethodDto>>(platformMethods);
+        if (!string.IsNullOrWhiteSpace(instapay))
+        {
+            platformMethods.Add(new BookingPaymentMethodDto(
+                _platformInstaPayId,
+                "InstaPay",
+                recipient,
+                instapay,
+                instructions,
+                IsOnline: false,
+                IsAvailable: true,
+                Badge: "فوري"));
+        }
+        if (!string.IsNullOrWhiteSpace(wallet))
+        {
+            platformMethods.Add(new BookingPaymentMethodDto(
+                _platformWalletId,
+                "MobileWallet",
+                recipient,
+                wallet,
+                instructions,
+                IsOnline: false,
+                IsAvailable: true,
+                Badge: "محفظة كاش"));
+        }
+        if (!string.IsNullOrWhiteSpace(bankAccount))
+        {
+            var bankDetails = !string.IsNullOrWhiteSpace(bankName) ? $"{bankName} - {bankAccount}" : bankAccount;
+            platformMethods.Add(new BookingPaymentMethodDto(
+                _platformBankId,
+                "BankTransfer",
+                recipient,
+                bankDetails,
+                instructions,
+                IsOnline: false,
+                IsAvailable: true,
+                Badge: "تحويل بنكي"));
         }
 
-        var methods = await _payments.RevealForBookingAsync(booking.VenueId, booking.Id, query.PlayerId, cancellationToken);
-        return Result.Success<IReadOnlyList<BookingPaymentMethodDto>>(methods
-            .Select(m => new BookingPaymentMethodDto(m.Id, m.MethodType, m.RecipientName, m.AccountDetails, m.Instructions))
-            .ToList());
+        return Result.Success<IReadOnlyList<BookingPaymentMethodDto>>(platformMethods);
     }
 }

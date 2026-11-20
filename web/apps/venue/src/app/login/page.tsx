@@ -125,14 +125,18 @@ function LoginView() {
               </div>
               <div className="flex flex-col gap-1.5">
                 <label htmlFor="em" className="text-sm font-semibold">
-                  الإيميل
+                  الإيميل أو رقم الموبايل
                 </label>
                 <input
                   id="em"
                   dir="ltr"
-                  type="email"
+                  type="text"
+                  inputMode="email"
                   required
                   autoComplete="username"
+                  autoCapitalize="none"
+                  spellCheck={false}
+                  placeholder="01xxxxxxxxx"
                   value={user}
                   onChange={(e) => setUser(e.target.value)}
                   className={`${fieldClass} border border-[#C9CFD9] text-right`}

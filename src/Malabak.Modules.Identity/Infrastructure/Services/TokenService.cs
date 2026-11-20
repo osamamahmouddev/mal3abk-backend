@@ -38,10 +38,10 @@ public sealed class TokenService : ITokenService
         return Issue(user, _options.Audience, TimeSpan.FromMinutes(expirationMinutes), nowUtc.AddDays(refreshTokenDays), amr: null, sessionId);
     }
 
-    public TokenResult GenerateAdminTokens(User user, DateTime sessionExpiresAtUtc, Guid? sessionId = null)
+    public TokenResult GenerateAdminTokens(User user, DateTime sessionExpiresAtUtc, Guid? sessionId = null, bool secondFactor = true)
     {
         var minutes = _options.AdminAccessTokenExpirationMinutes > 0 ? _options.AdminAccessTokenExpirationMinutes : 5;
-        return Issue(user, _options.AdminAudience, TimeSpan.FromMinutes(minutes), sessionExpiresAtUtc, amr: ["pwd", "mfa"], sessionId);
+        return Issue(user, _options.AdminAudience, TimeSpan.FromMinutes(minutes), sessionExpiresAtUtc, amr: secondFactor ? ["pwd", "mfa"] : ["pwd"], sessionId);
     }
 
     public TokenResult GenerateImpersonationToken(User user, Guid sessionId, Guid actorId, TimeSpan lifetime) =>

@@ -1,4 +1,6 @@
 using Malabak.Modules.Identity.Application.Common;
+using Malabak.Modules.Identity.Application.PasswordAuth;
+using Malabak.Modules.Identity.Domain;
 using Malabak.SharedKernel;
 using Malabak.SharedKernel.Contracts;
 using Microsoft.EntityFrameworkCore;
@@ -13,6 +15,8 @@ public sealed class UserAccountsContract : IUserAccountsContract
     private readonly IPhoneNumberNormalizer _phoneNormalizer;
     private readonly IEmailSender _email;
     private readonly ISmsAlertService _sms;
+    private readonly IPasswordHasher _hasher;
+    private readonly IPasswordPolicy _policy;
     private readonly IClock _clock;
     private readonly ILogger<UserAccountsContract> _logger;
     private readonly string _dashboardUrl;
@@ -22,6 +26,8 @@ public sealed class UserAccountsContract : IUserAccountsContract
         IPhoneNumberNormalizer phoneNormalizer,
         IEmailSender email,
         ISmsAlertService sms,
+        IPasswordHasher hasher,
+        IPasswordPolicy policy,
         IClock clock,
         IConfiguration configuration,
         ILogger<UserAccountsContract> logger)
@@ -30,6 +36,8 @@ public sealed class UserAccountsContract : IUserAccountsContract
         _phoneNormalizer = phoneNormalizer;
         _email = email;
         _sms = sms;
+        _hasher = hasher;
+        _policy = policy;
         _clock = clock;
         _logger = logger;
         _dashboardUrl = (configuration["App:VenueDashboardUrl"] ?? "https://mal3abk-venue.vercel.app/venue").TrimEnd('/');
@@ -126,4 +134,49 @@ public sealed class UserAccountsContract : IUserAccountsContract
             _logger.LogError(ex, "Failed to deliver staff invitation for venue {VenueName}", venueName);
         }
     }
+
+    public async Task<Result<Guid>> CreateInvitedStaffAccountAsync(InvitedStaffAccount account, CancellationToken cancellationToken = default)
+    {
+        string? email = null;
+        if (!string.IsNullOrWhiteSpace(account.Email))
+        {
+            if (!PasswordAuthSupport.TryNormalizeEmail(account.Email, out var normalized))
+            {
+                return Result.Failure<Guid>(PasswordAuthErrors.InvalidEmail);
+            }
+
+            email = normalized;
+        }
+
+        if (string.IsNullOrWhiteSpace(account.FullName) || account.FullName.Trim().Length > 200)
+        {
+            return Result.Failure<Guid>(PasswordAuthErrors.RegistrationFailed);
+        }
+
+        var violations = await _policy.ValidateAsync(account.Password, email, cancellationToken);
+        if (violations.Count > 0)
+        {
+            return Result.Failure<Guid>(PasswordAuthErrors.WeakPassword(violations));
+        }
+
+        // Accounts in their deletion grace period still hold their number and email.
+        if (await _dbContext.Users.IgnoreQueryFilters()
+                .AnyAsync(u => u.PhoneNumber == account.NormalizedPhone || (email != null && u.Email == email), cancellationToken))
+        {
+            return Result.Failure<Guid>(StaffAccountErrors.AlreadyRegistered);
+        }
+
+        var user = User.CreateInvitedStaff(Guid.CreateVersion7(), email, account.NormalizedPhone, _hasher.Hash(account.Password),
+            account.FullName, account.EmailVerified, account.PhoneVerified, _clock.UtcNow);
+        _dbContext.Users.Add(user);
+        await _dbContext.SaveChangesAsync(cancellationToken);
+        _logger.LogInformation("Staff account {UserId} created from an invitation", user.Id);
+        return Result.Success(user.Id);
+    }
+}
+
+public static class StaffAccountErrors
+{
+    /// <summary>The number or email already has an account: the invitee should sign in and accept from there.</summary>
+    public static readonly Error AlreadyRegistered = new("Identity.AccountExists", "There's already an account with this phone number or email. Sign in to accept the invitation.");
 }

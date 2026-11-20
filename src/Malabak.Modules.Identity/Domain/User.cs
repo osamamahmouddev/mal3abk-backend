@@ -108,6 +108,34 @@ public sealed class User : Entity<Guid>
         return user;
     }
 
+    /// <summary>
+    /// Venue staff who signed up from an invitation. Email is optional; the contact the invitation was sent to is confirmed
+    /// (the invitee proved it by opening the link), anything else they typed starts unconfirmed.
+    /// </summary>
+    public static User CreateInvitedStaff(
+        Guid id, string? email, string phoneNumber, string passwordHash, string fullName, bool emailConfirmed, bool phoneConfirmed, DateTime createdAtUtc)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(phoneNumber);
+        ArgumentException.ThrowIfNullOrWhiteSpace(passwordHash);
+        ArgumentException.ThrowIfNullOrWhiteSpace(fullName);
+
+        var user = new User
+        {
+            Id = id,
+            Email = string.IsNullOrWhiteSpace(email) ? null : email.Trim().ToLowerInvariant(),
+            PhoneNumber = phoneNumber.Trim(),
+            PasswordHash = passwordHash,
+            FullName = fullName.Trim(),
+            SecurityStamp = Guid.NewGuid().ToString("N"),
+            IsEmailConfirmed = emailConfirmed && !string.IsNullOrWhiteSpace(email),
+            IsPhoneNumberConfirmed = phoneConfirmed,
+            CreatedAtUtc = createdAtUtc
+        };
+
+        user._roles.Add(UserRole.VenueStaff);
+        return user;
+    }
+
     /// <summary>Self-registered venue owner: email starts unconfirmed until the verification link is used.</summary>
     public static User CreateVenueOwner(Guid id, string email, string phoneNumber, string passwordHash, string fullName, DateTime createdAtUtc)
     {
@@ -235,6 +263,16 @@ public sealed class User : Entity<Guid>
         UpdatedAtUtc = nowUtc;
     }
 
+    /// <summary>The owner opened a link sent to this number, which proves they hold it.</summary>
+    public void ConfirmPhoneNumber(DateTime nowUtc)
+    {
+        IsPhoneNumberConfirmed = true;
+        UpdatedAtUtc = nowUtc;
+    }
+
+    /// <summary>Venue owners activate with a link sent to their phone; accounts made before that activated by email.</summary>
+    public bool IsAccountActivated => IsEmailConfirmed || IsPhoneNumberConfirmed;
+
     public bool IsLoginThrottled(DateTime nowUtc) => LoginThrottledUntilUtc is { } until && until > nowUtc;
 
     /// <summary>
@@ -316,6 +354,15 @@ public sealed class User : Entity<Guid>
     {
         TwoFactorEnabled = enabled;
         UpdatedAtUtc = nowUtc;
+    }
+
+    /// <summary>Turns the authenticator off and forgets its secret; the new stamp voids step-up tokens issued with it.</summary>
+    public void ClearTotp(DateTime nowUtc)
+    {
+        TwoFactorEnabled = false;
+        TotpSecretCiphertext = null;
+        TotpLastUsedStep = null;
+        UpdateSecurityStamp(nowUtc);
     }
 
     public const int MaxSuspensionReasonLength = 500;

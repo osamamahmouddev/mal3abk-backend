@@ -15,17 +15,27 @@ import { ChevronLeft, ChevronRight, Plus, X } from "lucide-react";
 
 type View = "day" | "week" | "month";
 type Slot = Schemas["CalendarSlotDto"];
-type Kind = "ok" | "rev" | "wait" | "blk";
+type Kind = "ok" | "tent" | "rev" | "wait" | "blk";
 
 const KIND: Record<Kind, { label: string; tone: Tone; box: string }> = {
   ok: { label: "مؤكد", tone: "ok", box: "bg-navy-900 text-white border border-navy-900" },
+  tent: { label: "محجوز مبدئي", tone: "wait", box: "bg-[#EEF1F7] text-navy-900 border-2 border-dashed border-navy-900" },
   rev: { label: "قيد المراجعة", tone: "warn", box: "bg-[#FEF3D6] text-[#6B4400] border-2 border-[#D9A21B]" },
   wait: { label: "بانتظار العربون", tone: "wait", box: "bg-white text-slate-900 border-2 border-dashed border-[#8A94AA]" },
   blk: { label: "محظور", tone: "block", box: "bg-[repeating-linear-gradient(135deg,#DCE0E8_0_5px,#EEF0F5_5px_10px)] text-[#3B4352] border border-[#C9CFD9]" },
 };
 
-const kindOf = (status: string): Kind =>
-  status === "Blocked" ? "blk" : status === "PendingDeposit" ? "wait" : status === "ProofSubmitted" || status === "UnderReview" ? "rev" : "ok";
+/** A manual booking the venue marked as taken but has not confirmed yet is "tentative", not "waiting for a deposit". */
+const kindOf = ({ status, isTentative }: Pick<Slot, "status" | "isTentative">): Kind =>
+  status === "Blocked"
+    ? "blk"
+    : isTentative
+      ? "tent"
+      : status === "PendingDeposit"
+        ? "wait"
+        : status === "ProofSubmitted" || status === "UnderReview"
+          ? "rev"
+          : "ok";
 
 /** Grid hours: 08:00 to 02:00 the next morning (most venues play late). */
 const FIRST_HOUR = 8;
@@ -231,6 +241,7 @@ function Calendar() {
           venueId={venueId}
           pitchName={pitchName}
           canUnblock={can(P.blockedSlotsManage)}
+          canDecide={can(P.bookingsApprove)}
           onClose={() => setSelected(null)}
           onDone={(m) => {
             setSelected(null);
@@ -359,7 +370,7 @@ function Grid({
               {mine.map((s) => {
                 const start = Math.max(minutesFrom(c.date, s.startUtc), firstHour * 60);
                 const end = Math.min(minutesFrom(c.date, s.endUtc), lastHour * 60);
-                const kind = kindOf(s.status);
+                const kind = kindOf(s);
                 return (
                   <button
                     key={s.id}
@@ -369,7 +380,7 @@ function Grid({
                     className={`absolute inset-x-1 rounded-lg px-2 py-1 text-right text-xs overflow-hidden ${KIND[kind].box}`}
                     style={{ top: ((start - firstHour * 60) / 60) * ROW + 2, height: Math.max(22, ((end - start) / 60) * ROW - 4) }}
                   >
-                    <span className="block font-bold truncate">{kind === "blk" ? s.reason || "محظور" : s.customerName || "—"}</span>
+                    <span className="block font-bold truncate">{kind === "blk" ? s.reason || "محظور" : s.customerName || (s.isManual ? "حجز يدوي" : "—")}</span>
                     <span className="block opacity-80">
                       {cairoTime(s.startUtc)} – {cairoTime(s.endUtc)}
                     </span>
@@ -405,7 +416,7 @@ function MonthGrid({ date, slots, onOpenDay }: { date: string; slots: Slot[]; on
         {Array.from({ length: days }, (_, i) => {
           const d = addDays(first, i);
           const list = byDay(d);
-          const review = list.filter((s) => kindOf(s.status) === "rev").length;
+          const review = list.filter((s) => kindOf(s) === "rev").length;
           return (
             <button
               key={d}
@@ -430,6 +441,7 @@ function SlotDrawer({
   venueId,
   pitchName,
   canUnblock,
+  canDecide,
   onClose,
   onDone,
 }: {
@@ -437,11 +449,12 @@ function SlotDrawer({
   venueId: string;
   pitchName: (id: string) => string;
   canUnblock: boolean;
+  canDecide: boolean;
   onClose: () => void;
   onDone: (message: string) => void;
 }) {
   const queryClient = useQueryClient();
-  const kind = kindOf(slot.status);
+  const kind = kindOf(slot);
   const unblock = useMutation({
     mutationFn: () => unwrap(api.DELETE("/api/v1/venue-manager/venues/{venueId}/blocked-slots/{id}", { params: { path: { venueId, id: slot.id } } })),
     onSuccess: async () => {
@@ -450,9 +463,29 @@ function SlotDrawer({
     },
     onError: (e: Error) => onDone(e.message),
   });
+  // A manual booking that is not confirmed yet (tentative, or waiting for its deposit) is settled here by the venue.
+  const pendingManual = slot.isManual && slot.status === "PendingDeposit";
+  const [cancelling, setCancelling] = useState(false);
+  const [cancelReason, setCancelReason] = useState("");
+  const settled = async (message: string) => {
+    await queryClient.invalidateQueries({ predicate: (q) => ["calendar", "dashboard", "manual-booking-calendar"].includes(String(q.queryKey[0])) || String(q.queryKey[0]).startsWith("booking") });
+    onDone(message);
+  };
+  const confirm = useMutation({
+    mutationFn: () =>
+      unwrap(api.POST("/api/v1/venue-manager/venues/{venueId}/bookings/{id}/confirm-deposit", { params: { path: { venueId, id: slot.id } }, body: {} })),
+    onSuccess: () => settled("اتثبت الحجز."),
+    onError: (e: Error) => onDone(e.message),
+  });
+  const cancel = useMutation({
+    mutationFn: () =>
+      unwrap(api.POST("/api/v1/venue-manager/venues/{venueId}/bookings/{id}/cancel", { params: { path: { venueId, id: slot.id } }, body: { reason: cancelReason.trim() } })),
+    onSuccess: () => settled("اتلغى الحجز والميعاد رجع متاح في التطبيق."),
+    onError: (e: Error) => onDone(e.message),
+  });
 
   return (
-    <Dialog title={kind === "blk" ? "ميعاد محظور" : slot.customerName || "تفاصيل الحجز"} onClose={onClose}>
+    <Dialog title={kind === "blk" ? "ميعاد محظور" : slot.customerName || (slot.isManual ? "حجز يدوي" : "تفاصيل الحجز")} onClose={onClose}>
       <Badge tone={KIND[kind].tone} className="self-start">
         {KIND[kind].label}
       </Badge>
@@ -479,18 +512,79 @@ function SlotDrawer({
             <dd>{slot.reason}</dd>
           </div>
         )}
-        {slot.isManual && <p className={`text-xs ${muted}`}>حجز يدوي — الدفع في الملعب.</p>}
+        {kind !== "blk" && (
+          <div className="flex justify-between">
+            <dt className={muted}>العميل</dt>
+            <dd>{slot.customerName || "من غير اسم"}</dd>
+          </div>
+        )}
+        {slot.customerPhone && (
+          <div className="flex justify-between">
+            <dt className={muted}>الموبايل</dt>
+            <dd dir="ltr">
+              <a href={`tel:${slot.customerPhone}`} className="underline underline-offset-2">
+                {slot.customerPhone}
+              </a>
+            </dd>
+          </div>
+        )}
+        {slot.isManual && (
+          <p className={`text-xs ${muted}`}>
+            {kind === "tent"
+              ? "حجز يدوي لسه مش متثبت: الميعاد مقفول في التطبيق لحد ما تثبّته أو تلغيه، ولو ماتثبتش بيتفتح وقت الماتش."
+              : "حجز يدوي — الدفع في الملعب."}
+          </p>
+        )}
       </dl>
       <div className="flex flex-wrap gap-2">
         {kind === "rev" && (
-          <Link href={`/reservations/proof-review?booking=${slot.id}`} className="min-h-[44px] px-4 rounded-xl bg-navy-900 text-white text-sm font-bold flex items-center">
-            مراجعة الإيصال
-          </Link>
+          <p className={`basis-full text-xs ${muted}`}>إيصال العربون عند فريق ملعبك للمراجعة، والحجز هيتأكد أول ما يتراجع.</p>
         )}
         {kind !== "blk" && (
           <Link href="/reservations" className="min-h-[44px] px-4 rounded-xl border border-[#C9CFD9] text-navy-900 text-sm font-semibold flex items-center">
             فتح في الحجوزات
           </Link>
+        )}
+        {pendingManual && canDecide && !cancelling && (
+          <>
+            <button
+              type="button"
+              onClick={() => confirm.mutate()}
+              disabled={confirm.isPending}
+              className="min-h-[44px] px-4 rounded-xl bg-navy-900 text-white text-sm font-bold"
+            >
+              {confirm.isPending ? "جاري…" : "ثبّت الحجز"}
+            </button>
+            <button
+              type="button"
+              onClick={() => setCancelling(true)}
+              className="min-h-[44px] px-4 rounded-xl border border-[#F3C4BF] text-[#A8261C] text-sm font-bold"
+            >
+              إلغاء الحجز
+            </button>
+          </>
+        )}
+        {pendingManual && canDecide && cancelling && (
+          <form
+            className="basis-full flex flex-col gap-2"
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (cancelReason.trim()) cancel.mutate();
+            }}
+          >
+            <label className="flex flex-col gap-1 text-sm font-semibold">
+              سبب الإلغاء
+              <input value={cancelReason} maxLength={500} onChange={(e) => setCancelReason(e.target.value)} className={inputClass} placeholder="مثلاً العميل اعتذر" />
+            </label>
+            <div className="flex gap-2">
+              <button type="submit" disabled={!cancelReason.trim() || cancel.isPending} className="min-h-[44px] px-4 rounded-xl bg-[#A8261C] text-white text-sm font-bold disabled:opacity-50">
+                {cancel.isPending ? "جاري…" : "تأكيد الإلغاء"}
+              </button>
+              <button type="button" onClick={() => setCancelling(false)} className="min-h-[44px] px-4 rounded-xl border border-[#C9CFD9] text-sm font-semibold">
+                رجوع
+              </button>
+            </div>
+          </form>
         )}
         {kind === "blk" && canUnblock && (
           <button type="button" onClick={() => unblock.mutate()} disabled={unblock.isPending} className="min-h-[44px] px-4 rounded-xl border border-[#F3C4BF] text-[#A8261C] text-sm font-bold">

@@ -1,10 +1,13 @@
 import { sealData } from "iron-session";
 import { SESSION_SECRET, expect, test, venue } from "./fixtures";
 
-// The banner lives in the app shell; any signed-in page works. Billing is mocked so the page renders without the API.
+// The banner lives in the app shell; any signed-in page works. Payouts are mocked so the page renders without the API.
 test.beforeEach(async ({ api }) => {
-  api.on("GET", /^\/api\/v1\/venue-manager\/billing$/, () => ({ usage: { venues: 1, pitches: 1, maxStaffInOneVenue: 0 }, invoices: [] }));
-  api.on("GET", /^\/api\/v1\/plans$/, () => []);
+  api.on("GET", /\/payouts$/, () => ({
+    balance: { venueId: "v", venueName: "ملعب", settledBookings: 0, depositsReceived: 0, commission: 0, refundedToPlayers: 0, venueShare: 0, paidOut: 0, balance: 0, lastPayoutAtUtc: null, currency: "EGP" },
+    payouts: [],
+    bookings: [],
+  }));
 });
 
 /** TASK-063: while support is signed in as the customer, a banner is always visible and the session is time-boxed. */
@@ -23,7 +26,7 @@ test("an impersonation session shows the support banner with the time left", asy
   );
   await context.addCookies([{ name: "malabak-venue", value: sealed, url: "http://localhost:3100" }]);
 
-  await page.goto("/venue/subscription");
+  await page.goto("/venue/payouts");
 
   const banner = page.getByRole("alert").filter({ hasText: "وضع الدعم" });
   await expect(banner).toBeVisible();
@@ -33,7 +36,7 @@ test("an impersonation session shows the support banner with the time left", asy
 
 test("an ordinary session has no support banner", async ({ page, api }) => {
   void api;
-  await page.goto("/venue/subscription");
+  await page.goto("/venue/payouts");
   await expect(page.getByRole("heading").first()).toBeVisible();
   await expect(page.getByText("وضع الدعم")).toHaveCount(0);
 });

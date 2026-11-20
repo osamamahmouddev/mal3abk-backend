@@ -77,7 +77,10 @@ public sealed record CalendarSlotDto(
     string? CustomerName,
     string BookingReference,
     bool IsManual,
-    string? Reason = null);
+    string? Reason = null,
+    string? CustomerPhone = null,
+    decimal DepositAmount = 0m,
+    bool IsTentative = false);
 
 public sealed record GetVenueBookingsQuery(
     Guid VenueId,
@@ -357,17 +360,35 @@ public sealed class VenueBookingQueriesHandler :
             bookingsQuery = bookingsQuery.Where(b => b.PitchId == query.PitchId.Value);
         }
 
-        var bookings = await bookingsQuery
-            .Select(b => new CalendarSlotDto(
-                b.Id,
-                b.PitchId,
-                b.StartUtc,
-                b.EndUtc,
-                b.Status.ToString(),
-                b.CustomerName,
-                b.BookingReference,
-                b.IsManual))
+        var rows = await bookingsQuery
+            .Select(b => new
+            {
+                Slot = new CalendarSlotDto(
+                    b.Id,
+                    b.PitchId,
+                    b.StartUtc,
+                    b.EndUtc,
+                    b.Status.ToString(),
+                    b.CustomerName,
+                    b.BookingReference,
+                    b.IsManualBooking,
+                    null,
+                    b.IsManualBooking ? b.CustomerPhone : null,
+                    b.DepositAmount.Amount,
+                    // Entered by the venue as taken but not confirmed yet: no deposit asked, held until it is confirmed.
+                    b.IsManualBooking && b.Status == BookingStatus.PendingDeposit && b.DepositAmount.Amount == 0),
+                b.PlayerId,
+            })
             .ToListAsync(cancellationToken);
+
+        // App bookings carry no typed name: show the player's account name so the venue knows who booked.
+        var players = rows.Where(r => !r.Slot.IsManual && string.IsNullOrWhiteSpace(r.Slot.CustomerName)).Select(r => r.PlayerId).Distinct().ToList();
+        var names = players.Count == 0 ? new Dictionary<Guid, string>() : await _users.GetFullNamesAsync(players, cancellationToken);
+        var bookings = rows
+            .Select(r => !r.Slot.IsManual && string.IsNullOrWhiteSpace(r.Slot.CustomerName) && names.TryGetValue(r.PlayerId, out var name)
+                ? r.Slot with { CustomerName = name }
+                : r.Slot)
+            .ToList();
 
         // Closed periods share the grid, so the manager sees why a slot cannot be sold.
         var blocked = await _venues.GetBlockedPeriodsAsync(query.VenueId, query.RangeStartUtc, query.RangeEndUtc, query.PitchId, cancellationToken);

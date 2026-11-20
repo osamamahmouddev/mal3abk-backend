@@ -4,7 +4,6 @@ import { expect, test, waitForCall } from "./fixtures";
 
 const VENUE_ID = "e0000000-0000-4000-8000-000000000005";
 const TICKET_ID = "f0000000-0000-4000-8000-000000000006";
-const PLAN_ID = "a1000000-0000-4000-8000-000000000007";
 const OWNER_ID = "a2000000-0000-4000-8000-000000000008";
 
 test.beforeEach(async ({ api }) => {
@@ -80,43 +79,41 @@ test("support agents reply, add internal notes and resolve tickets", async ({ pa
   expect(resolve.body).toEqual({ reason: "الملعب حوّل المبلغ" });
 });
 
-test("finance records a manual payment and gets the invoice number back", async ({ page, api }) => {
-  const plan = { id: PLAN_ID, code: "pro", name: "Pro", monthlyPrice: 900, annualPrice: 9000, currency: "EGP", features: [], trialDays: 14, graceDays: 7, isPublic: true, isDefault: false, sortOrder: 0, status: "Active", subscribers: 1, updatedAtUtc: "2026-11-01T00:00:00Z" };
-  api.on("GET", /^\/api\/v1\/admin\/plans$/, () => [plan]);
-  api.on("GET", /^\/api\/v1\/admin\/subscriptions$/, () => [{ id: "s1", ownerId: OWNER_ID, planCode: "pro", planName: "Pro", cycle: "Monthly", status: "Active", currentPeriodEndUtc: "2026-12-01T00:00:00Z", graceEndsAtUtc: null }]);
-  api.on("GET", new RegExp(`^/api/v1/admin/subscriptions/owners/${OWNER_ID}$`), () => ({
-    subscription: { id: "s1", ownerId: OWNER_ID, plan, cycle: "Monthly", status: "Active", startedAtUtc: "2026-11-01T00:00:00Z", currentPeriodEndUtc: "2026-12-01T00:00:00Z", graceEndsAtUtc: null, statusReason: null, allowsNewResources: true },
-    history: [], payments: [],
+test("a venue payout is recorded with a fresh authenticator code and can't exceed what is owed", async ({ page, api }) => {
+  const balance = {
+    venueId: VENUE_ID, venueName: "ملعب الزمالك", settledBookings: 2, depositsReceived: 300, commission: 120, refundedToPlayers: 0,
+    venueShare: 180, paidOut: 0, balance: 180, lastPayoutAtUtc: null, currency: "EGP",
+  };
+  api.on("GET", /^\/api\/v1\/admin\/payouts$/, () => [balance]);
+  api.on("GET", new RegExp(`^/api/v1/admin/payouts/venues/${VENUE_ID}$`), () => ({
+    balance,
+    payouts: [],
+    bookings: [{ bookingId: "b1", reference: "MAL-PAY001", status: "Confirmed", startUtc: "2026-11-20T18:00:00Z", totalPrice: 400, depositReceived: 150, commission: 60, refunded: 0, venueShare: 90 }],
   }));
-  api.on("POST", /\/payments$/, () => ({ id: "i1", number: "INV-2026-000042", ownerId: OWNER_ID, planCode: "pro", planName: "Pro", cycle: "Monthly", amount: 900, currency: "EGP", issuedAtUtc: "2026-11-07T10:00:00Z", periodStartUtc: "2026-11-01T00:00:00Z", periodEndUtc: "2026-12-01T00:00:00Z", status: "Paid", voidReason: null }));
+  api.on("POST", new RegExp(`^/api/v1/admin/payouts/venues/${VENUE_ID}$`), () => ({
+    id: "p1", venueId: VENUE_ID, amount: 180, currency: "EGP", method: "InstaPay", reference: "IP-778", notes: null, paidAtUtc: "2026-11-20T10:00:00Z", recordedAtUtc: "2026-11-20T10:00:00Z",
+  }));
 
-  await page.goto("/admin/billing");
-  await page.getByRole("row").filter({ hasText: "Pro" }).click();
-  await page.getByLabel("المبلغ").fill("900");
-  await page.getByLabel("الطريقة").last().selectOption("1");
-  await page.getByLabel("رقم العملية (اختياري)").fill("TRX-77");
-  await page.getByRole("button", { name: "تسجيل الدفعة" }).click();
+  await page.goto("/admin/payouts");
+  await page.getByRole("row").filter({ hasText: "ملعب الزمالك" }).click();
+  const drawer = page.getByRole("dialog", { name: "ملعب الزمالك" });
+  await expect(drawer.getByText("MAL-PAY001")).toBeVisible();
 
-  const call = await waitForCall(page, api.calls, (c) => c.method === "POST" && c.path.endsWith("/payments"));
-  expect(call.body).toMatchObject({ amount: 900, method: 1, reference: "TRX-77" });
-  await expect(page.getByRole("status").filter({ hasText: "INV-2026-000042" })).toBeVisible();
-});
+  await drawer.getByLabel("المبلغ (ج.م)").fill("200");
+  await drawer.getByLabel("رقم التحويل / المرجع").fill("IP-778");
+  await expect(drawer.getByText("المبلغ أكبر من المستحق للملعب.")).toBeVisible();
+  await expect(drawer.getByRole("button", { name: "سجّل التحويل" })).toBeDisabled();
 
-test("a new plan is created with its limits and features", async ({ page, api }) => {
-  api.on("GET", /^\/api\/v1\/admin\/plans$/, () => []);
-  api.on("POST", /^\/api\/v1\/admin\/plans$/, (route) => route.fulfill({ status: 201, contentType: "application/json", body: "{}" }));
+  await drawer.getByRole("button", { name: "المستحق كله" }).click();
+  await drawer.getByRole("button", { name: "سجّل التحويل" }).click();
+  const stepUpDialog = page.getByRole("dialog", { name: "تأكيد الهوية" });
+  await stepUpDialog.getByLabel("كود التحقق").fill("123456");
+  await stepUpDialog.getByRole("button", { name: "تأكيد" }).click();
 
-  await page.goto("/admin/plans");
-  await page.getByRole("button", { name: "باقة جديدة" }).click();
-  await page.getByLabel("الكود (إنجليزي، مش بيتغير بعد الاشتراك)").fill("Starter");
-  await page.getByLabel("الاسم", { exact: true }).fill("ستارتر");
-  await page.getByLabel("السعر الشهري").fill("300");
-  await page.getByLabel("أقصى ملاعب (فاضي = بلا حدود)").fill("");
-  await page.getByRole("checkbox", { name: "تصدير CSV" }).check();
-  await page.getByRole("button", { name: "حفظ" }).click();
-
-  const call = await waitForCall(page, api.calls, (c) => c.method === "POST" && c.path === "/api/v1/admin/plans");
-  expect(call.body).toMatchObject({ code: "starter", name: "ستارتر", monthlyPrice: 300, maxVenues: null, features: ["reports.csv_export"] });
+  const call = await waitForCall(page, api.calls, (c) => c.method === "POST" && c.path === `/api/v1/admin/payouts/venues/${VENUE_ID}`);
+  expect(call.headers["x-step-up-token"]).toBe("tok");
+  expect(call.body).toMatchObject({ amount: 180, method: "InstaPay", reference: "IP-778" });
+  await expect(page.getByRole("status").filter({ hasText: "اتسجّل التحويل" })).toBeVisible();
 });
 
 test("platform settings are saved with a reason, and flags toggle with one", async ({ page, api }) => {

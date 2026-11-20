@@ -39,39 +39,39 @@ public sealed class BookingHttpFlowTests : IClassFixture<BookingApiFactory>
     }
 
     [Fact]
-    public async Task FlowA_TheOwnerApprovesAProof_AndThePlayerSeesTheBookingConfirmedAsync()
+    public async Task FlowA_ThePlatformApprovesTheDeposit_ThePlayerSeesItConfirmed_AndTheVenueIsOwedItsShareAsync()
     {
-        var (owner, venueId, pitchId, ownerClient) = await _factory.CreateVenueOwnerAsync();
+        var (_, venueId, pitchId, ownerClient) = await _factory.CreateVenueOwnerAsync();
         var (playerId, player) = await _factory.CreatePlayerAsync();
+        var (_, admin) = await _factory.CreateAdminAsync();
         var bookingId = await SeedProofSubmittedAsync(playerId, venueId, pitchId);
 
-        var pending = await ownerClient.GetFromJsonAsync<JsonElement>($"/api/v1/venue-manager/venues/{venueId}/bookings/pending");
-        pending.EnumerateArray().Select(b => b.GetProperty("id").GetGuid()).Should().Contain(bookingId);
+        var queue = await admin.GetFromJsonAsync<JsonElement>("/api/v1/admin/bookings/deposit-reviews?pageSize=100");
+        queue.GetProperty("items").EnumerateArray().Select(b => b.GetProperty("bookingId").GetGuid()).Should().Contain(bookingId);
 
-        var review = await ownerClient.PostAsJsonAsync($"/api/v1/venue-manager/venues/{venueId}/bookings/{bookingId}/proof/review", new { approved = true });
-        review.StatusCode.Should().Be(HttpStatusCode.OK, await review.Content.ReadAsStringAsync());
+        var review = await admin.PostAsJsonAsync($"/api/v1/admin/bookings/{bookingId}/review-deposit", new { approved = true });
+        review.StatusCode.Should().Be(HttpStatusCode.NoContent, await review.Content.ReadAsStringAsync());
 
         var detail = await player.GetFromJsonAsync<JsonElement>($"/api/v1/me/bookings/{bookingId}");
         detail.GetProperty("status").GetInt32().Should().Be((int)BookingStatus.Confirmed);
-        detail.GetProperty("venue").GetProperty("name").GetString().Should().Be("Test Club");
-        pending = await ownerClient.GetFromJsonAsync<JsonElement>($"/api/v1/venue-manager/venues/{venueId}/bookings/pending");
-        pending.EnumerateArray().Select(b => b.GetProperty("id").GetGuid()).Should().NotContain(bookingId);
-        owner.Should().NotBeEmpty();
+        var statement = await ownerClient.GetFromJsonAsync<JsonElement>($"/api/v1/venue-manager/venues/{venueId}/payouts");
+        statement.GetProperty("bookings").EnumerateArray().Select(b => b.GetProperty("bookingId").GetGuid()).Should().Contain(bookingId);
     }
 
     [Fact]
     public async Task FlowB_ARejectionNeedsAReason_AndLeavesThePlayerAbleToSendANewProofAsync()
     {
-        var (_, venueId, pitchId, ownerClient) = await _factory.CreateVenueOwnerAsync();
+        var (_, venueId, pitchId, _) = await _factory.CreateVenueOwnerAsync();
         var (playerId, player) = await _factory.CreatePlayerAsync();
+        var (_, admin) = await _factory.CreateAdminAsync();
         var bookingId = await SeedProofSubmittedAsync(playerId, venueId, pitchId);
-        var url = $"/api/v1/venue-manager/venues/{venueId}/bookings/{bookingId}/proof/review";
+        var url = $"/api/v1/admin/bookings/{bookingId}/review-deposit";
 
-        var withoutReason = await ownerClient.PostAsJsonAsync(url, new { approved = false });
+        var withoutReason = await admin.PostAsJsonAsync(url, new { approved = false });
         withoutReason.StatusCode.Should().Be(HttpStatusCode.BadRequest);
 
-        var rejected = await ownerClient.PostAsJsonAsync(url, new { approved = false, rejectionReason = "Receipt is blurry" });
-        rejected.StatusCode.Should().Be(HttpStatusCode.OK, await rejected.Content.ReadAsStringAsync());
+        var rejected = await admin.PostAsJsonAsync(url, new { approved = false, rejectionReason = "Receipt is blurry" });
+        rejected.StatusCode.Should().Be(HttpStatusCode.NoContent, await rejected.Content.ReadAsStringAsync());
 
         var detail = await player.GetFromJsonAsync<JsonElement>($"/api/v1/me/bookings/{bookingId}");
         detail.GetProperty("allowedActions").GetProperty("canUploadProof").GetBoolean().Should().BeTrue("the hold is still running");
@@ -192,18 +192,23 @@ public sealed class BookingHttpFlowTests : IClassFixture<BookingApiFactory>
     }
 
     [Fact]
-    public async Task StaffRoles_DecideWhoMayReviewProofs_AReceptionistMayNot_AnAccountantMayAsync()
+    public async Task OnlyThePlatformTeam_ReviewsDeposits_TheVenueAndItsStaffCannotAsync()
     {
-        var (ownerId, venueId, pitchId, _) = await _factory.CreateVenueOwnerAsync();
+        var (ownerId, venueId, pitchId, ownerClient) = await _factory.CreateVenueOwnerAsync();
         var (playerId, _) = await _factory.CreatePlayerAsync();
-        var receptionist = await _factory.CreateStaffAsync(venueId, ownerId, VenueStaffRole.Receptionist);
         var accountant = await _factory.CreateStaffAsync(venueId, ownerId, VenueStaffRole.Accountant);
+        var (_, finance) = await _factory.CreateFinanceAsync();
         var bookingId = await SeedProofSubmittedAsync(playerId, venueId, pitchId);
-        var url = $"/api/v1/venue-manager/venues/{venueId}/bookings/{bookingId}/proof/review";
+        var url = $"/api/v1/admin/bookings/{bookingId}/review-deposit";
 
-        (await receptionist.PostAsJsonAsync(url, new { approved = true })).StatusCode.Should().Be(HttpStatusCode.Forbidden);
-        (await receptionist.GetAsync($"/api/v1/venue-manager/venues/{venueId}/bookings/pending")).StatusCode.Should().Be(HttpStatusCode.OK, "a receptionist may view bookings");
-        (await accountant.PostAsJsonAsync(url, new { approved = true })).StatusCode.Should().Be(HttpStatusCode.OK);
+        // The deposit was paid to the platform, so the venue's own review route is gone and the admin one is not theirs.
+        (await ownerClient.PostAsJsonAsync($"/api/v1/venue-manager/venues/{venueId}/bookings/{bookingId}/proof/review", new { approved = true }))
+            .StatusCode.Should().Be(HttpStatusCode.NotFound);
+        (await ownerClient.PostAsJsonAsync(url, new { approved = true })).StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        (await accountant.PostAsJsonAsync(url, new { approved = true })).StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        (await accountant.GetAsync($"/api/v1/venue-manager/venues/{venueId}/bookings/pending")).StatusCode.Should().Be(HttpStatusCode.OK, "staff still follow the booking");
+
+        (await finance.PostAsJsonAsync(url, new { approved = true })).StatusCode.Should().Be(HttpStatusCode.NoContent);
     }
 
     [Fact]

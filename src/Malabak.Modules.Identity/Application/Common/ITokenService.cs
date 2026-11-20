@@ -9,7 +9,8 @@ public interface ITokenService
     TokenResult GenerateTokens(User user, Guid? sessionId = null);
 
     /// <summary>Admin-audience tokens; the refresh token expires at the fixed end of the admin session.</summary>
-    TokenResult GenerateAdminTokens(User user, DateTime sessionExpiresAtUtc, Guid? sessionId = null);
+    /// <param name="secondFactor">Whether the sign-in used the authenticator; sets the token's <c>amr</c> to pwd+mfa or pwd.</param>
+    TokenResult GenerateAdminTokens(User user, DateTime sessionExpiresAtUtc, Guid? sessionId = null, bool secondFactor = true);
 
     /// <summary>
     /// Short-lived access token for support impersonation (TASK-063): issued for the customer, carrying the RFC 8693

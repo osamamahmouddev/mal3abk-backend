@@ -4,7 +4,7 @@ import React, { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import type { Schemas } from "@malabak/api-client";
 import { KpiCard, Page, PageHeader, Segmented, card, money, muted, type KpiTone } from "@/components/ui";
-import { AlertTriangle, CalendarCheck, CalendarPlus, Clock, Coins, CreditCard, Headphones, LayoutGrid, MapPin, TrendingUp, UserPlus, Users } from "lucide-react";
+import { AlertTriangle, CalendarCheck, CalendarPlus, Clock, Coins, Headphones, LayoutGrid, MapPin, TrendingUp, UserPlus, Users } from "lucide-react";
 import { QueryState, num } from "@/components/admin";
 import { api, unwrap } from "@/lib/api";
 
@@ -24,7 +24,6 @@ const TILES: { key: string; label: string; money?: boolean; hint: string; icon: 
   { key: "pitches.active", label: "ملاعب فرعية نشطة", hint: "الملاعب الفرعية الشغالة في ملاعب نشطة", icon: LayoutGrid, tone: "green" },
   { key: "bookings.created", label: "حجوزات اتعملت", hint: "حجوزات اتعملت في الفترة (من غير المسودات)", icon: CalendarPlus, tone: "navy" },
   { key: "bookings.confirmed", label: "حجوزات اتأكدت", hint: "حجوزات اتأكدت في الفترة (بوقت التأكيد)", icon: CalendarCheck, tone: "green" },
-  { key: "subscriptions.active", label: "اشتراكات مدفوعة", hint: "اشتراكات Active أو Grace دلوقتي", icon: CreditCard, tone: "navy" },
   { key: "mrr", label: "MRR", money: true, hint: "إيراد شهري متكرر: سعر الباقة الشهري، والسنوي ÷ ١٢، للاشتراكات المدفوعة دلوقتي", icon: TrendingUp, tone: "red" },
   { key: "revenue.collected", label: "إيراد محصّل", money: true, hint: "مدفوعات اتسجلت في الفترة، من غير الفواتير الملغاة", icon: Coins, tone: "red" },
   { key: "venues.pending_approval", label: "ملاعب مستنية موافقة", hint: "طلبات مستنية قرار دلوقتي", icon: Clock, tone: "amber" },
@@ -93,7 +92,6 @@ const DISTRIBUTION_TITLES: Record<string, string> = {
   "bookings.by_status": "الحجوزات حسب الحالة (في الفترة)",
   "users.by_role": "الحسابات حسب الدور",
   "venues.active_by_city": "الملاعب النشطة حسب المدينة",
-  "subscriptions.by_plan": "الاشتراكات المدفوعة حسب الباقة",
   "support.open_by_category": "التذاكر المفتوحة حسب النوع",
 };
 

@@ -3,9 +3,8 @@
 import React, { useEffect, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import type { Schemas } from "@malabak/api-client";
-import { Page, Toast, card, chip, muted, redShadow } from "@/components/ui";
+import { Page, Toast, card, chip, muted, redShadow, toArabicDigits } from "@/components/ui";
 import { useVenue } from "@/components/Providers";
-import { PaymentMethods } from "@/components/PaymentMethods";
 import { api, unwrap } from "@/lib/api";
 
 type Policy = Schemas["BookingPolicyApiRequest"];
@@ -17,17 +16,6 @@ const GROUPS: [string, Item[]][] = [
     "العربون والتأكيد",
     [
       [
-        "قيمة العربون",
-        "بيتحسب من سعر الحجز",
-        [
-          ["٢٥٪", { depositType: 0, depositValue: 25 }],
-          ["تلت السعر", { depositType: 0, depositValue: 33 }],
-          ["النص", { depositType: 0, depositValue: 50 }],
-          ["٥٠ ج.م ثابت", { depositType: 1, depositValue: 50 }],
-          ["المبلغ كامل", { depositType: 2, depositValue: 100 }],
-        ],
-      ],
-      [
         "مهلة رفع إثبات الدفع",
         "لو اللاعب مارفعش في المهلة الحجز بيتلغي",
         [
@@ -38,7 +26,7 @@ const GROUPS: [string, Item[]][] = [
       ],
       [
         "مهلة مراجعة الإثبات",
-        "وقت الملعب يأكد أو يرفض",
+        "الوقت اللي فريق المنصة بيراجع فيه إيصال العربون",
         [
           ["٣٠ دقيقة", { manualReviewWindowMinutes: 30 }],
           ["ساعة", { manualReviewWindowMinutes: 60 }],
@@ -144,6 +132,14 @@ const labelOf = (policy: Policy, label: string) => {
   return "—";
 };
 
+/** The deposit is paid to the platform (commission model), so its team sets it; the venue only sees it. */
+const depositText = (policy: Policy) => {
+  const value = toArabicDigits(String(policy.depositValue ?? 0));
+  if (policy.depositType === 1) return `${value} ج.م`;
+  if (policy.depositType === 2) return "سعر الحجز كله";
+  return `${value}٪ من سعر الحجز`;
+};
+
 export default function PoliciesPage() {
   const { venue, venueId } = useVenue();
   const [policy, setPolicy] = useState<Policy>(DEFAULT_POLICY);
@@ -193,8 +189,8 @@ export default function PoliciesPage() {
   });
 
   const preview = [
-    `العربون: ${labelOf(policy, "قيمة العربون")} — ادفع وارفع الإثبات خلال ${labelOf(policy, "مهلة رفع إثبات الدفع")}.`,
-    `الملعب بيراجع الإثبات خلال ${labelOf(policy, "مهلة مراجعة الإثبات")}${policy.pendingBookingsBlockSlots ? "، والميعاد محجوزلك لحد ما يتراجع." : "."}`,
+    `العربون: ${depositText(policy)} — حوّله لحسابات المنصة وارفع الإيصال خلال ${labelOf(policy, "مهلة رفع إثبات الدفع")}.`,
+    `فريق المنصة بيراجع الإيصال خلال ${labelOf(policy, "مهلة مراجعة الإثبات")}${policy.pendingBookingsBlockSlots ? "، والميعاد محجوزلك لحد ما يتراجع." : "."}`,
     `تقدر تلغي مجاناً لحد ${labelOf(policy, "آخر ميعاد للإلغاء المجاني")} قبل الماتش، والاسترداد: ${labelOf(policy, "الاسترداد في الإلغاء المجاني")}.`,
     `لو اتأخرت أكتر من ${labelOf(policy, "التأخير المسموح")} الملعب ممكن يدّي الميعاد لحد تاني، ولو ماجيتش: ${labelOf(policy, "لو الفريق ماجاش")}.`,
     `تغيير الميعاد: ${labelOf(policy, "تغيير الميعاد")}.`,
@@ -213,6 +209,17 @@ export default function PoliciesPage() {
           {GROUPS.map(([title, items]) => (
             <section key={title} className={`${card} rounded-[20px] px-5 py-[18px] flex flex-col`}>
               <h2 className="mb-1.5 text-[17px] font-bold">{title}</h2>
+              {title === GROUPS[0][0] && (
+                <div className="flex flex-wrap items-center gap-2.5 py-3 border-b border-[#EEF0F5]">
+                  <span className="flex-[1_1_220px] flex flex-col gap-0.5">
+                    <span className="text-sm font-bold">قيمة العربون</span>
+                    <span className={`text-xs ${muted}`}>بيحددها فريق المنصة، لأن العربون بيتدفع لحساباتها وبتخصم منه العمولة</span>
+                  </span>
+                  <span className="min-h-[36px] px-3 rounded-[10px] text-[13px] font-bold bg-[#EEF0F5] text-[#1F2A44] inline-flex items-center">
+                    {current.isLoading ? "…" : depositText(policy)}
+                  </span>
+                </div>
+              )}
               {items.map(([label, hint, options]) => (
                 <div key={label} className="flex flex-wrap items-center gap-2.5 py-3 border-b border-[#EEF0F5] last:border-b-0">
                   <span className="flex-[1_1_220px] flex flex-col gap-0.5">
@@ -257,7 +264,6 @@ export default function PoliciesPage() {
             />
           </section>
 
-          {venueId && <PaymentMethods venueId={venueId} onMessage={setToast} />}
         </div>
 
         <aside aria-label="معاينة اللاعب" className="flex-[1_1_320px] min-w-0 flex flex-col gap-3 sticky top-4">

@@ -125,7 +125,9 @@ public static class PricingCalculator
 
         var total = netPitchPrice;
         var depositRule = deposit ?? DepositRule.Create(DepositType.Full, 0);
-        var calculatedDeposit = depositRule.CalculateDeposit(total);
+        // The deposit is paid to the platform, which keeps its commission out of it and settles the rest with the venue,
+        // so it can never be less than the commission (nor more than the booking).
+        var calculatedDeposit = Math.Min(total, Math.Max(depositRule.CalculateDeposit(total), commission));
         var onlineDepositAmount = calculatedDeposit;
         var venuePayAmount = Math.Max(0m, total - onlineDepositAmount);
 

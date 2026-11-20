@@ -226,7 +226,6 @@ public sealed class PaymentProofAndMediaEdgeCaseTests
             db,
             clock,
             new NoOpRealtimeBroadcaster(),
-            new StubVenueDirectory(_venueId),
             NullLogger<SubmitProofHandler>.Instance);
 
         var result = await handler.HandleAsync(new SubmitProofCommand(
@@ -261,7 +260,6 @@ public sealed class PaymentProofAndMediaEdgeCaseTests
             db,
             clock,
             new NoOpRealtimeBroadcaster(),
-            new StubVenueDirectory(_venueId),
             NullLogger<SubmitProofHandler>.Instance);
 
         var submitResult = await handler.HandleAsync(new SubmitProofCommand(
@@ -308,7 +306,6 @@ public sealed class PaymentProofAndMediaEdgeCaseTests
             db,
             clock,
             new NoOpRealtimeBroadcaster(),
-            new StubVenueDirectory(_venueId),
             NullLogger<SubmitProofHandler>.Instance);
 
         var result = await handler.HandleAsync(new SubmitProofCommand(
@@ -329,30 +326,6 @@ public sealed class PaymentProofAndMediaEdgeCaseTests
     // =========================================================================
     // Stubs
     // =========================================================================
-
-    private sealed class StubVenueDirectory(Guid venueId) : IVenueDirectory
-    {
-        public Task<Guid?> GetVenueIdOfPitchAsync(Guid pitchId, CancellationToken cancellationToken = default) =>
-            Task.FromResult<Guid?>(venueId);
-
-        public Task<VenueSummary?> GetVenueSummaryAsync(Guid venueId, CancellationToken cancellationToken = default) =>
-            Task.FromResult<VenueSummary?>(null);
-
-        public Task<IReadOnlyList<VenueBlockedPeriod>> GetBlockedPeriodsAsync(Guid venueId, DateTime fromUtc, DateTime toUtc, Guid? pitchId, CancellationToken cancellationToken = default) =>
-            Task.FromResult<IReadOnlyList<VenueBlockedPeriod>>([]);
-
-        public Task<IReadOnlyDictionary<Guid, string>> GetVenueNamesAsync(IReadOnlyCollection<Guid> venueIds, CancellationToken cancellationToken = default) =>
-            Task.FromResult<IReadOnlyDictionary<Guid, string>>(new Dictionary<Guid, string>());
-
-        public Task<IReadOnlyDictionary<Guid, string>> GetVenueCoverPhotosAsync(IReadOnlyCollection<Guid> venueIds, CancellationToken cancellationToken = default) =>
-            Task.FromResult<IReadOnlyDictionary<Guid, string>>(new Dictionary<Guid, string>());
-
-        public Task<IReadOnlyDictionary<Guid, string>> GetPitchNamesAsync(IReadOnlyCollection<Guid> pitchIds, CancellationToken cancellationToken = default) =>
-            Task.FromResult<IReadOnlyDictionary<Guid, string>>(new Dictionary<Guid, string>());
-
-        public Task<IReadOnlyList<Guid>> GetStaffUserIdsAsync(Guid venueId, string permission, CancellationToken cancellationToken = default) =>
-            Task.FromResult<IReadOnlyList<Guid>>([]);
-    }
 
     private sealed class NoOpRealtimeBroadcaster : IBookingRealtimeBroadcaster
     {
