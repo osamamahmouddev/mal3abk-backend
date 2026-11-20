@@ -1,4 +1,4 @@
-import { expect, test, waitForCall } from "./fixtures";
+import { expect, test, waitForCall, openItem } from "./fixtures";
 
 /** TASK-714..718: every admin screen loads real data and sends the right request for its main action. */
 
@@ -41,9 +41,9 @@ test("an approved venue can be suspended with a reason and step-up", async ({ pa
   api.on("POST", /\/suspend$/, () => ({ ...detail, approvalStatus: "Suspended", isPublished: false }));
 
   await page.goto("/admin/venues");
-  await page.getByRole("row").filter({ hasText: "ملعب النجوم" }).click();
-  await expect(page.getByText("ملعب ١ · ArtificialTurf")).toBeVisible();
-  await page.getByRole("button", { name: "إيقاف", exact: true }).click();
+  await openItem(page, "ملعب النجوم");
+  await expect(page.getByText("نجيل صناعي").first()).toBeVisible();
+  await page.getByRole("button", { name: "إيقاف الملعب" }).click();
   await page.getByLabel("السبب (بيتسجل في سجل التدقيق)").fill("شكاوى متكررة");
   await page.getByRole("dialog").getByRole("button", { name: "إيقاف", exact: true }).last().click();
   await page.getByRole("dialog", { name: "تأكيد الهوية" }).getByLabel("كود التحقق").fill("111111");
@@ -66,7 +66,7 @@ test("support agents reply, add internal notes and resolve tickets", async ({ pa
   api.on("POST", /\/resolve$/, () => ({ ...ticket, ticket: { ...ticket.ticket, status: "Resolved" }, resolutionReason: "اترد" }));
 
   await page.goto("/admin/support");
-  await page.getByRole("row").filter({ hasText: "SUP-7KQ2MX" }).click();
+  await openItem(page, "SUP-7KQ2MX");
   await page.getByRole("checkbox", { name: /ملاحظة داخلية/ }).check();
   await page.getByLabel("الرد").fill("كلمت الملعب، هيحوّل النهارده");
   await page.getByRole("button", { name: "إضافة ملاحظة" }).click();
@@ -91,11 +91,11 @@ test("finance records a manual payment and gets the invoice number back", async 
   api.on("POST", /\/payments$/, () => ({ id: "i1", number: "INV-2026-000042", ownerId: OWNER_ID, planCode: "pro", planName: "Pro", cycle: "Monthly", amount: 900, currency: "EGP", issuedAtUtc: "2026-11-07T10:00:00Z", periodStartUtc: "2026-11-01T00:00:00Z", periodEndUtc: "2026-12-01T00:00:00Z", status: "Paid", voidReason: null }));
 
   await page.goto("/admin/billing");
-  await page.getByRole("row").filter({ hasText: "Pro" }).click();
-  await page.getByLabel("المبلغ").fill("900");
-  await page.getByLabel("الطريقة").last().selectOption("1");
-  await page.getByLabel("رقم العملية (اختياري)").fill("TRX-77");
-  await page.getByRole("button", { name: "تسجيل الدفعة" }).click();
+  await page.getByRole("button", { name: "تجديد / سداد" }).first().click();
+  await page.getByLabel("المبلغ المدفوع (ج.م)").fill("900");
+  await page.getByLabel("طريقة السداد").selectOption("1");
+  await page.getByLabel("رقم العملية / المرجع (اختياري)").fill("TRX-77");
+  await page.getByRole("button", { name: "تأكيد التجديد وتمديد الاشتراك" }).click();
 
   const call = await waitForCall(page, api.calls, (c) => c.method === "POST" && c.path.endsWith("/payments"));
   expect(call.body).toMatchObject({ amount: 900, method: 1, reference: "TRX-77" });
@@ -107,7 +107,7 @@ test("a new plan is created with its limits and features", async ({ page, api })
   api.on("POST", /^\/api\/v1\/admin\/plans$/, (route) => route.fulfill({ status: 201, contentType: "application/json", body: "{}" }));
 
   await page.goto("/admin/plans");
-  await page.getByRole("button", { name: "باقة جديدة" }).click();
+  await page.getByRole("button", { name: "باقة جديدة" }).first().click();
   await page.getByLabel("الكود (إنجليزي، مش بيتغير بعد الاشتراك)").fill("Starter");
   await page.getByLabel("الاسم", { exact: true }).fill("ستارتر");
   await page.getByLabel("السعر الشهري").fill("300");
@@ -128,7 +128,8 @@ test("platform settings are saved with a reason, and flags toggle with one", asy
   api.on("PUT", /\/feature-flags\/venues\.featured$/, () => ({}));
 
   await page.goto("/admin/settings");
-  await page.getByLabel("مهلة الحجز").fill("45");
+  await page.getByRole("tab", { name: "الإعدادات العامة" }).click();
+  await page.getByLabel(/مهلة تثبيت الحجز/).fill("45");
   await page.getByRole("button", { name: "حفظ" }).click();
   await page.getByLabel("السبب (بيتسجل في سجل التدقيق)").fill("زحمة الويك إند");
   await page.getByRole("dialog").getByRole("button", { name: "حفظ" }).click();
@@ -150,9 +151,9 @@ test("the audit log filters by action prefix and shows masked snapshots", async 
   }));
 
   await page.goto("/admin/audit");
-  await page.getByLabel("الإجراء (بيبدأ بـ)").fill("admin.user");
+  await page.getByLabel("نوع العملية").selectOption("admin.user");
   await waitForCall(page, api.calls, (c) => c.path.includes("action=admin.user"));
-  await page.getByRole("row").filter({ hasText: "admin.user.suspended" }).click();
+  await openItem(page, "إيقاف حساب مستخدم");
   await expect(page.getByText("***5678")).toBeVisible();
   await expect(page.getByText("تكرار الغياب").last()).toBeVisible();
 });
@@ -166,7 +167,7 @@ test("impersonation issues a short code after step-up", async ({ page, api }) =>
   api.on("POST", /^\/api\/v1\/admin\/impersonate$/, () => ({ code: "c0de-very-long-random-value-0123456789abcdefgh", expiresInSeconds: 60 }));
 
   await page.goto("/admin/users");
-  await page.getByRole("row").filter({ hasText: "أحمد" }).click();
+  await openItem(page, "أحمد");
   await page.getByRole("button", { name: "دخول للمساعدة" }).click();
   await page.getByLabel("السبب (بيتسجل في سجل التدقيق)").fill("تذكرة SUP-1: الحجز مش ظاهر");
   await page.getByRole("button", { name: "إصدار كود" }).click();
@@ -190,7 +191,7 @@ test("a wrong authenticator code keeps the action from being sent", async ({ pag
   );
 
   await page.goto("/admin/users");
-  await page.getByRole("row").filter({ hasText: "منى" }).click();
+  await openItem(page, "منى");
   await page.getByRole("button", { name: "إيقاف الحساب" }).click();
   await page.getByLabel("السبب (بيتسجل في سجل التدقيق)").fill("سلوك مسيء");
   await page.getByRole("button", { name: "إيقاف", exact: true }).click();
@@ -198,6 +199,6 @@ test("a wrong authenticator code keeps the action from being sent", async ({ pag
   await dialog.getByLabel("كود التحقق").fill("999999");
   await dialog.getByRole("button", { name: "تأكيد" }).click();
 
-  await expect(dialog.getByRole("alert")).toContainText("الكود غلط");
+  await expect(dialog.getByRole("alert")).toContainText("كود التحقق غير صحيح");
   expect(api.calls.some((c) => c.path.endsWith("/suspend"))).toBe(false);
 });
