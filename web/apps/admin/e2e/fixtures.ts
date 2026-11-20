@@ -90,3 +90,14 @@ export function problem(route: Route, status: number, title: string) {
 }
 
 export { expect };
+
+/**
+ * Opens a list item by its visible text. Lists show cards by default (a table on request, cards always on a phone), and
+ * both open the item when clicked, so tests don't depend on which layout is showing.
+ */
+export async function openItem(page: Page, text: string) {
+  // Both layouts are in the page; only one is visible at a given width.
+  const item = page.getByText(text, { exact: true }).filter({ visible: true }).first();
+  await item.waitFor();
+  await item.click();
+}

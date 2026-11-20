@@ -73,23 +73,20 @@ test("the owner sees plan, usage against limits and invoices", async ({ page }) 
   await expect(page.getByRole("button", { name: "تحميل PDF" })).toBeVisible();
 });
 
-test("requesting an upgrade opens a subscription ticket instead of taking a payment", async ({ page, api }) => {
-  api.on("POST", /^\/api\/v1\/venue-manager\/support\/tickets$/, (route) =>
-    route.fulfill({
-      status: 201,
-      contentType: "application/json",
-      body: JSON.stringify({ ticket: { id: "a", number: "SUP-7KQ2MX" }, messages: [] }),
-    }),
+test("requesting an upgrade sends a plan request for the chosen cycle instead of taking a payment", async ({ page, api }) => {
+  api.on("POST", /^\/api\/v1\/venue-manager\/billing\/requests$/, (route) =>
+    route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ id: "r1", planName: "Pro", cycle: "Annual", status: "Pending" }) }),
   );
   await page.goto("/venue/subscription");
 
   await page.getByRole("button", { name: "سنوي" }).click();
   await page.getByRole("article").filter({ hasText: "Pro" }).getByRole("button", { name: "اطلب الباقة دي" }).click();
 
-  const call = await waitForCall(page, api.calls, (c) => c.method === "POST" && c.path.endsWith("/support/tickets"));
-  expect(call.body).toMatchObject({ category: "Subscription" });
-  expect(String((call.body as { message: string }).message)).toContain("سنوي");
-  await expect(page.getByRole("status").filter({ hasText: "SUP-7KQ2MX" })).toBeVisible();
+  const call = await waitForCall(page, api.calls, (c) => c.method === "POST" && c.path.endsWith("/billing/requests"));
+  expect(call.body).toMatchObject({ cycle: 1 });
+  expect(String((call.body as { notes: string }).notes)).toContain("سنوي");
+  await expect(page.getByText(/تم إرسال طلب الترقية إلى باقة Pro/)).toBeVisible();
+  expect(api.calls.some((c) => c.path.includes("/payments"))).toBe(false);
 });
 
 test("a plan smaller than current usage cannot be requested", async ({ page }) => {

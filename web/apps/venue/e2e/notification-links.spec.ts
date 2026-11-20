@@ -25,15 +25,16 @@ test("a payment proof notification opens that booking's proof review", async ({ 
   await page.goto("/venue/notifications");
   await page.getByRole("button", { name: /إيصال دفع جديد/ }).click();
 
-  await expect(page).toHaveURL(new RegExp(`/venue/reservations/proof-review\\?booking=${BOOKING_ID}`));
+  await expect(page).toHaveURL(new RegExp(`/venue/reservations/proof-review\\?booking=${BOOKING_ID}`), { timeout: 15_000 });
 });
 
-test("a venue notice opens the venue settings and a billing notice opens the subscription page", async ({ page }) => {
+test("a request for more venue info opens the setup page and a billing notice opens the subscription page", async ({ page }) => {
   await page.goto("/venue/notifications");
   await page.getByRole("button", { name: /مطلوب معلومات إضافية/ }).click();
-  await expect(page).toHaveURL(/\/venue\/settings/);
+  // The dev server compiles a page on its first visit, which can take a while on a busy CI runner.
+  await expect(page).toHaveURL(/\/venue\/setup/, { timeout: 15_000 });
 
   await page.goto("/venue/notifications");
   await page.getByRole("button", { name: /اشتراكك قرب يخلص/ }).click();
-  await expect(page).toHaveURL(/\/venue\/subscription/);
+  await expect(page).toHaveURL(/\/venue\/subscription/, { timeout: 15_000 });
 });
