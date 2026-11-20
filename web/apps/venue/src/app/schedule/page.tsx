@@ -8,13 +8,14 @@ import { useVenue } from "@/components/Providers";
 import { api, unwrap } from "@/lib/api";
 import { DAY_NAMES, DAY_ORDER, DEFAULT_WEEK, formatTime, toApiTime, type DayHours } from "@/lib/venue-format";
 import { X } from "lucide-react";
+import { TimeSelect, hoursSentence } from "@/components/TimeSelect";
 
 type Tab = "week" | "closures" | "rules";
 type Affected = Schemas["UpcomingBookingRef"][];
 
 const KIND_LABELS: Record<string, string> = { Closure: "قفل اليوم كله", SpecialHours: "مواعيد خاصة", Break: "استراحة" };
 const smallChip = (on: boolean) => chip(on, "min-h-[38px] px-3.5 rounded-[10px] text-[13px]");
-const timeInput = `${inputClass} min-h-[38px] w-[120px]`;
+const timeSelect = `${inputClass} !w-auto min-h-[40px] min-w-[150px]`;
 
 /** A schedule change that would orphan confirmed bookings comes back as 409 with the affected bookings. */
 async function applyWithImpact(
@@ -177,13 +178,14 @@ function DayRow({ day, value, onChange }: { day: number; value: DayHours; onChan
         <div className="flex items-center gap-x-3 gap-y-2 flex-[1_1_360px] min-w-0 flex-wrap">
           <label className="flex items-center gap-2 text-[13px]">
             <span className={muted}>من</span>
-            <input type="time" value={value.open} onChange={(e) => onChange({ ...value, open: e.target.value })} className={timeInput} />
+            <TimeSelect ariaLabel={`فتح ${DAY_NAMES[day]}`} value={value.open} onChange={(open) => onChange({ ...value, open })} className={timeSelect} />
           </label>
           <label className="flex items-center gap-2 text-[13px]">
             <span className={muted}>لحد</span>
-            <input type="time" value={value.close} onChange={(e) => onChange({ ...value, close: e.target.value })} className={timeInput} />
+            <TimeSelect ariaLabel={`قفل ${DAY_NAMES[day]}`} value={value.close} after={value.open} onChange={(close) => onChange({ ...value, close })} className={timeSelect} />
           </label>
-          {overnight && <Badge tone="wait">بيعدّي نص الليل</Badge>}
+          {overnight && <Badge tone="wait">{value.close === value.open ? "٢٤ ساعة" : "بيعدّي نص الليل"}</Badge>}
+          <span className={`basis-full text-xs ${muted}`}>{hoursSentence(value.open, value.close)}</span>
         </div>
       ) : (
         <span className="text-sm text-[#8A94AA]">مقفول</span>
@@ -462,9 +464,9 @@ function Closures({
         </div>
         {form.kind !== 0 && (
           <div className="flex gap-2.5 items-center text-[13px]">
-            <input type="time" aria-label="من الساعة" value={form.fromTime} onChange={(e) => setForm({ ...form, fromTime: e.target.value })} className={timeInput} />
+            <TimeSelect ariaLabel="من الساعة" value={form.fromTime} onChange={(fromTime) => setForm({ ...form, fromTime })} className={timeSelect} />
             <span>–</span>
-            <input type="time" aria-label="لحد الساعة" value={form.toTime} onChange={(e) => setForm({ ...form, toTime: e.target.value })} className={timeInput} />
+            <TimeSelect ariaLabel="لحد الساعة" value={form.toTime} after={form.fromTime} onChange={(toTime) => setForm({ ...form, toTime })} className={timeSelect} />
           </div>
         )}
         <label className="flex flex-col gap-1 text-[13px] font-semibold">

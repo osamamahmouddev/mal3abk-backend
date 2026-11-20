@@ -91,7 +91,11 @@ public sealed class SetBookingPolicyHandler : ICommandHandler<SetBookingPolicyCo
         }
 
         var current = await _dbContext.Policies.FirstOrDefaultAsync(p => p.VenueId == command.VenueId && p.IsCurrent, cancellationToken);
-        var next = VenuePolicy.CreateVersion(command.VenueId, current, command.Terms, command.UserId, _clock.UtcNow);
+
+        // The deposit is paid to the platform (commission model), so only the platform team sets it: the venue's version
+        // keeps the current deposit whatever the request carries.
+        var terms = command.Terms with { Deposit = current?.ToDepositRule() ?? BookingPolicyTerms.DefaultDeposit };
+        var next = VenuePolicy.CreateVersion(command.VenueId, current, terms, command.UserId, _clock.UtcNow);
 
         // Retire the old version in its own statement so the single-current index never sees two current rows.
         await using var transaction = await _dbContext.Database.BeginTransactionAsync(cancellationToken);

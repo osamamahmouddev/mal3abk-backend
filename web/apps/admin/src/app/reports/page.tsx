@@ -3,11 +3,10 @@
 import React, { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { KpiCard, Page, PageHeader, SearchBox, Segmented, btnOutline, card, money, muted } from "@/components/ui";
-import { Field, QueryState, TextInput, num } from "@/components/admin";
+import { Field, TextInput, num } from "@/components/admin";
 import { api, unwrap } from "@/lib/api";
 import { AlertTriangle, Coins, Download, Info, Percent, Wallet } from "lucide-react";
 
-const METHOD: Record<string, string> = { Cash: "كاش", BankTransfer: "تحويل بنكي", InstaPay: "إنستاباي", MobileWallet: "محفظة" };
 
 /** How each figure is computed. Kept in step with AdminBookingService.GetVenuesFinancialSummaryAsync. */
 const DEFINITIONS: [string, string][] = [
@@ -67,18 +66,6 @@ export default function ReportsPage() {
   const from = range === "custom" ? customFrom : isoDay(-(Number(range) - 1));
   const to = range === "custom" ? customTo : isoDay(0);
   const valid = from <= to;
-
-  const dashboard = useQuery({
-    queryKey: ["reports-dashboard", from, to],
-    enabled: valid,
-    queryFn: () => unwrap(api.GET("/api/v1/admin/dashboard", { params: { query: { from, to } } })),
-  });
-
-  const reconciliation = useQuery({
-    queryKey: ["reconciliation", from, to],
-    enabled: valid,
-    queryFn: () => unwrap(api.GET("/api/v1/admin/invoices/reconciliation", { params: { query: { from, to } } })),
-  });
 
   const summary = useQuery({
     queryKey: ["admin-venues-financial-summary", from, to],
@@ -298,42 +285,6 @@ export default function ReportsPage() {
         )}
       </section>
 
-      <QueryState query={dashboard}>
-        {(d) => (
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-            <Stat label="MRR (الاشتراكات الشهرية)" value={money(d.figures["mrr"] ?? 0)} />
-            <Stat label="الإيراد المحصّل (اشتراكات)" value={money(d.figures["revenue.collected"] ?? 0)} />
-            <Stat label="اشتراكات ملاك نشطة" value={num(d.figures["subscriptions.active"])} />
-            <Stat label="ملاك في فترة التجربة" value={num(d.figures["subscriptions.trial"])} />
-          </div>
-        )}
-      </QueryState>
-
-      <section className={`${card} rounded-2xl p-5 flex flex-col gap-3`}>
-        <h2 className="text-[16px] font-bold">مطابقة تحصيل الاشتراكات حسب طريقة الدفع</h2>
-        <QueryState query={reconciliation}>
-          {(r) => (
-            <div className="flex flex-col">
-              <div className="flex flex-wrap gap-x-5 gap-y-1 text-[14px] pb-2">
-                <span>فواتير الاشتراكات: <strong>{num(r.invoices)}</strong></span>
-                <span>المحصّل: <strong>{money(r.collected)}</strong></span>
-                <span>الملغي: <strong>{money(r.voided)}</strong></span>
-              </div>
-              {r.byMethod.length === 0 ? (
-                <p className={`text-[13px] ${muted} border-t border-slate-100 pt-2`}>مفيش فواتير اشتراكات في الفترة دي.</p>
-              ) : (
-                r.byMethod.map((m) => (
-                  <div key={m.method} className="flex justify-between text-[14px] border-t border-slate-100 py-2">
-                    <span>{METHOD[m.method] ?? m.method} <span className={muted}>({num(m.count)})</span></span>
-                    <strong>{money(m.amount)}</strong>
-                  </div>
-                ))
-              )}
-            </div>
-          )}
-        </QueryState>
-      </section>
-
       <details className={`${card} rounded-2xl p-5`}>
         <summary className="flex items-center gap-2 cursor-pointer text-[15px] font-bold list-none">
           <Info className="size-4 text-slate-500" aria-hidden />
@@ -349,14 +300,5 @@ export default function ReportsPage() {
         </dl>
       </details>
     </Page>
-  );
-}
-
-function Stat({ label, value }: { label: string; value: string }) {
-  return (
-    <div className={`${card} rounded-2xl p-4 flex flex-col gap-1`}>
-      <span className={`text-[13px] ${muted}`}>{label}</span>
-      <strong className="text-[20px] font-extrabold text-slate-900">{value}</strong>
-    </div>
   );
 }

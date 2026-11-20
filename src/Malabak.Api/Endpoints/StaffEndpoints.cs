@@ -60,6 +60,29 @@ public static class StaffEndpoints
         .RequireRateLimiting(PasswordAuthEndpoints.RateLimitPolicy)
         .WithTags("Venue Staff")
         .WithName("AcceptStaffInvitation");
+
+        // Invitees without an account: see what they're joining, then sign up as staff and join in one step (never as an owner).
+        // POST so the token stays out of URLs and access logs.
+        app.MapPost("/api/v{version:apiVersion}/venue-invitations/preview", async ([FromBody] AcceptInvitationApiRequest request,
+            IQueryHandler<PreviewStaffInvitationQuery, Result<StaffInvitationPreviewDto>> handler, CancellationToken ct) =>
+            ToResult(await handler.HandleAsync(new PreviewStaffInvitationQuery(request.Token), ct)))
+        .WithApiVersionSet(apiVersionSet)
+        .MapToApiVersion(1, 0)
+        .AllowAnonymous()
+        .RequireRateLimiting(PasswordAuthEndpoints.RateLimitPolicy)
+        .WithTags("Venue Staff")
+        .WithName("PreviewStaffInvitation");
+
+        app.MapPost("/api/v{version:apiVersion}/venue-invitations/register", async ([FromBody] RegisterFromInvitationApiRequest request,
+            ICommandHandler<RegisterFromInvitationCommand, Result<StaffMemberDto>> handler, CancellationToken ct) =>
+            ToResult(await handler.HandleAsync(
+                new RegisterFromInvitationCommand(request.Token, request.FullName, request.PhoneNumber, request.Email, request.Password), ct)))
+        .WithApiVersionSet(apiVersionSet)
+        .MapToApiVersion(1, 0)
+        .AllowAnonymous()
+        .RequireRateLimiting(PasswordAuthEndpoints.RateLimitPolicy)
+        .WithTags("Venue Staff")
+        .WithName("RegisterFromStaffInvitation");
     }
 
     private static IResult ToResult(Result result) => result.IsSuccess ? Results.NoContent() : ToProblem(result.Error);
@@ -83,4 +106,9 @@ public static class StaffEndpoints
     public sealed record ChangeRoleApiRequest(VenueStaffRole Role);
 
     public sealed record AcceptInvitationApiRequest(string Token);
+
+    public sealed record RegisterFromInvitationApiRequest(string Token, string FullName, string PhoneNumber, string? Email, string Password)
+    {
+        public override string ToString() => nameof(RegisterFromInvitationApiRequest);
+    }
 }

@@ -130,8 +130,8 @@ public sealed class Booking : Entity<Guid>
         Guid venueId,
         Guid pitchId,
         Guid staffUserId,
-        string customerName,
-        string customerPhone,
+        string? customerName,
+        string? customerPhone,
         DateTime startUtc,
         DateTime endUtc,
         Money totalPrice,
@@ -146,14 +146,12 @@ public sealed class Booking : Entity<Guid>
             return Result.Failure<Booking>(Error.Validation("Booking.InvalidTimeRange", "Start time must precede end time."));
         }
 
-        if (string.IsNullOrWhiteSpace(customerName))
+        // Who booked is up to the venue: a walk-in or a regular may be entered without a name or phone number.
+        var name = string.IsNullOrWhiteSpace(customerName) ? null : customerName.Trim();
+        var phone = string.IsNullOrWhiteSpace(customerPhone) ? null : customerPhone.Trim();
+        if (name?.Length > 200 || phone?.Length > 32)
         {
-            return Result.Failure<Booking>(Error.Validation("Booking.CustomerNameRequired", "Customer name is required for manual bookings."));
-        }
-
-        if (string.IsNullOrWhiteSpace(customerPhone))
-        {
-            return Result.Failure<Booking>(Error.Validation("Booking.CustomerPhoneRequired", "Customer phone is required for manual bookings."));
+            return Result.Failure<Booking>(Error.Validation("Booking.CustomerDetailsTooLong", "The customer name or phone number is too long."));
         }
 
         var targetStatus = confirmedImmediately ? BookingStatus.Confirmed : BookingStatus.PendingDeposit;
@@ -178,8 +176,8 @@ public sealed class Booking : Entity<Guid>
             HoldExpiresAtUtc = confirmedImmediately ? null : holdExpiresAtUtc,
             ConfirmedAtUtc = confirmedImmediately ? nowUtc : null,
             IsManualBooking = true,
-            CustomerName = customerName.Trim(),
-            CustomerPhone = customerPhone.Trim(),
+            CustomerName = name,
+            CustomerPhone = phone,
             Notes = string.IsNullOrWhiteSpace(notes) ? null : notes.Trim(),
             CreatedAtUtc = nowUtc
         };
@@ -271,6 +269,27 @@ public sealed class Booking : Entity<Guid>
             ? "Deposit collected and booking confirmed by venue staff"
             : "Payment verified and booking confirmed by venue staff";
         TransitionTo(BookingStatus.Confirmed, reason, actorUserId, nowUtc);
+        RaiseDomainEvent(new BookingConfirmedDomainEvent(Id, VenueId, PitchId, PlayerId, BookingReference, StartUtc, EndUtc, actorUserId, nowUtc));
+        return Result.Success();
+    }
+
+    /// <summary>
+    /// The platform team checked the player's receipt and the deposit reached the platform's account (commission model): the
+    /// booking is confirmed and the deposit is recorded as held by the platform, which keeps its commission out of it and owes
+    /// the venue the rest. A manual booking never goes through here: its deposit, if any, was paid to the venue.
+    /// </summary>
+    public Result ConfirmPlatformDeposit(string actorUserId, DateTime nowUtc)
+    {
+        if (IsManualBooking || (Status != BookingStatus.ProofSubmitted && Status != BookingStatus.UnderReview))
+        {
+            return Result.Failure(BookingErrors.InvalidTransition);
+        }
+
+        IsCommissionPaid = true;
+        OnlinePaidAmount = new Money(DepositAmount.Amount, DepositAmount.Currency);
+        ConfirmedAtUtc = nowUtc;
+        HoldExpiresAtUtc = null;
+        TransitionTo(BookingStatus.Confirmed, "Deposit received on the platform account and confirmed by platform staff", actorUserId, nowUtc);
         RaiseDomainEvent(new BookingConfirmedDomainEvent(Id, VenueId, PitchId, PlayerId, BookingReference, StartUtc, EndUtc, actorUserId, nowUtc));
         return Result.Success();
     }

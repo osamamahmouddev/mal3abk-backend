@@ -127,8 +127,10 @@ public sealed class StepUpHandlers :
             return Result.Failure<StepUpTokenResponse>(PasswordAuthErrors.Throttled);
         }
 
-        // Destructive admin actions need the strongest factor available to admins.
-        if (scope == StepUpScopes.AdminDestructive && command.Method != StepUpMethod.Totp)
+        // Destructive admin actions need the strongest factor the admin has: the authenticator once it's on, the
+        // password while it's off (two-step verification is optional for admins by the owner's decision).
+        if (scope == StepUpScopes.AdminDestructive
+            && command.Method != (user.TwoFactorEnabled ? StepUpMethod.Totp : StepUpMethod.Password))
         {
             return Result.Failure<StepUpTokenResponse>(StepUpErrors.MethodNotAvailable);
         }

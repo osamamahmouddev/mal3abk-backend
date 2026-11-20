@@ -20,6 +20,8 @@ public sealed class IdentityDbContext : BaseDbContext
     public DbSet<EmailSuppression> EmailSuppressions => Set<EmailSuppression>();
     public DbSet<UserConsent> UserConsents => Set<UserConsent>();
     public DbSet<WaitlistEntry> WaitlistEntries => Set<WaitlistEntry>();
+    public DbSet<CrmContact> CrmContacts => Set<CrmContact>();
+    public DbSet<CrmNote> CrmNotes => Set<CrmNote>();
 
     public IdentityDbContext(DbContextOptions<IdentityDbContext> options, IClock? clock = null)
         : base(options, clock)

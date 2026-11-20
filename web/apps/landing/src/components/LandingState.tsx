@@ -13,7 +13,7 @@ interface LandingState {
 
 const Ctx = createContext<LandingState | null>(null);
 
-/** Shared between the pricing cards and the join form: choosing a plan switches the form to "venue". */
+/** Shared between the commission section and the join form: its call to action switches the form to "venue". */
 export function LandingStateProvider({ children }: { children: React.ReactNode }) {
   const [audience, setAudience] = useState<Audience>("player");
   const [plan, setPlan] = useState<string | null>(null);

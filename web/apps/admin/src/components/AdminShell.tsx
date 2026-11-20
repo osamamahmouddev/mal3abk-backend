@@ -11,7 +11,7 @@ import { api, unwrap } from "@/lib/api";
 import { SessionGate } from "./SessionGate";
 import { TopProgressBar } from "./TopProgressBar";
 import { Pitch } from "./icons";
-import { BadgeCheck, ChartColumn, ClipboardList, CreditCard, Hourglass, LayoutDashboard, LifeBuoy, LogOut, MapPin, Menu, Package, Scale, ScrollText, Settings, Sparkles, Trophy, UserCog, Users, X, type LucideIcon } from "lucide-react";
+import { BadgeCheck, ChartColumn, ClipboardList, HandCoins, Handshake, Hourglass, LayoutDashboard, LifeBuoy, LogOut, type LucideIcon, MapPin, Menu, ReceiptText, Scale, ScrollText, Settings, ShieldCheck, Sparkles, Trophy, UserCog, Users, X } from "lucide-react";
 
 /** Admin app sections, keyed by the navigation keys the API returns for the signed-in staff member's permissions. */
 const SECTIONS: Record<string, { title: string; href: string; icon: LucideIcon | typeof Pitch }[]> = {
@@ -22,12 +22,13 @@ const SECTIONS: Record<string, { title: string; href: string; icon: LucideIcon |
   ],
   venues: [{ title: "الملاعب", href: "/venues", icon: Pitch }],
   approvals: [{ title: "موافقات الملاعب", href: "/approvals", icon: BadgeCheck }],
+  crm: [{ title: "متابعة الملاعب", href: "/crm", icon: Handshake }],
   bookings: [{ title: "الحجوزات", href: "/bookings", icon: ClipboardList }],
+  deposits: [{ title: "مراجعة العرابين", href: "/deposits", icon: ReceiptText }],
+  payouts: [{ title: "مستحقات الملاعب", href: "/payouts", icon: HandCoins }],
   disputes: [{ title: "نزاعات الإيصالات", href: "/disputes", icon: Scale }],
   moderation: [{ title: "الفرق والمجتمع", href: "/teams", icon: Trophy }],
   support: [{ title: "تذاكر الدعم", href: "/support", icon: LifeBuoy }],
-  plans: [{ title: "باقات الاشتراك", href: "/plans", icon: Package }],
-  subscriptions: [{ title: "الاشتراكات والفواتير", href: "/billing", icon: CreditCard }],
   invoices: [{ title: "الإيرادات والتقارير", href: "/reports", icon: ChartColumn }],
   featured: [{ title: "ملاعب مميزة", href: "/featured", icon: Sparkles }],
   settings: [{ title: "إعدادات المنصة", href: "/settings", icon: Settings }, { title: "المناطق", href: "/areas", icon: MapPin }],
@@ -91,8 +92,15 @@ function SideNav({ pathname, user, onClose }: { pathname: string; user: SessionU
     queryFn: () => unwrap(api.GET("/api/v1/admin/dashboard", {})),
     refetchInterval: 120_000,
   });
+  const deposits = useQuery({
+    queryKey: ["admin-deposit-reviews"],
+    enabled: keys.has("deposits"),
+    queryFn: () => unwrap(api.GET("/api/v1/admin/bookings/deposit-reviews", { params: { query: { page: 1, pageSize: 50 } } })),
+    refetchInterval: 60_000,
+  });
   const badge: Record<string, number> = {
     "/approvals": pending.data?.length ?? 0,
+    "/deposits": deposits.data?.total ?? 0,
     "/disputes": figures.data?.figures["disputes.open"] ?? 0,
     "/support": figures.data?.figures["support.open"] ?? 0,
   };
@@ -170,6 +178,17 @@ function SideNav({ pathname, user, onClose }: { pathname: string; user: SessionU
             {user.name}
           </span>
         </div>
+        <Link
+          href="/security"
+          onClick={() => onClose?.()}
+          aria-current={pathname.startsWith("/security") ? "page" : undefined}
+          className={`w-full min-h-[36px] px-3 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 transition-all duration-150 ${
+            pathname.startsWith("/security") ? "bg-white text-ink" : "bg-white/[0.08] text-[#D5DBE7] hover:bg-white/[0.14] hover:text-white"
+          }`}
+        >
+          <ShieldCheck className="size-4" />
+          أمان الحساب
+        </Link>
         <form action={adminLogout}>
           <button
             type="submit"

@@ -35,6 +35,7 @@ const PAYMENT = {
   full: 0,
   deposit: 1,
   awaiting: 2,
+  unconfirmed: 3,
 } as const;
 type Payment = (typeof PAYMENT)[keyof typeof PAYMENT];
 
@@ -42,22 +43,28 @@ const PAYMENT_OPTIONS: { value: Payment; label: string; hint: string }[] = [
   { value: PAYMENT.full, label: "مدفوع بالكامل", hint: "الحجز بيتأكد على طول." },
   { value: PAYMENT.deposit, label: "دفع عربون", hint: "الحجز بيتأكد والباقي بيتدفع في الملعب." },
   { value: PAYMENT.awaiting, label: "في انتظار العربون", hint: "الميعاد بيتحجز للعميل لحد ما العربون يوصل، ولو المهلة خلصت بيتفتح تاني." },
+  {
+    value: PAYMENT.unconfirmed,
+    label: "محجوز مبدئي",
+    hint: "لسه مش متثبت: الميعاد بيتقفل في التطبيق لحد ما تثبّته أو تلغيه من التقويم، ولو ماتثبتش بيتفتح وقت الماتش.",
+  },
 ];
 
 const schema = z.object({
   pitchId: z.string().uuid("اختار الملعب"),
-  customerName: z.string().trim().min(2, "اكتب اسم العميل").max(100),
+  // Who booked is optional: the venue may just mark the slot as taken.
+  customerName: z.string().trim().max(100),
   customerPhone: z
     .string()
     .trim()
-    .regex(/^(\+?20|0)?1[0125]\d{8}$/, "اكتب رقم موبايل مصري صحيح"),
+    .refine((v) => v === "" || /^(\+?20|0)?1[0125]\d{8}$/.test(v), "اكتب رقم موبايل مصري صحيح أو سيبه فاضي"),
   price: z.number({ message: "اكتب السعر" }).positive("السعر لازم يكون أكبر من صفر").max(100_000),
   notes: z.string().max(500).optional(),
 });
 
 /** The partial-payment amount: more than zero, and below the price when it was already paid (use "paid in full" otherwise). */
 function depositError(payment: Payment, price: number | undefined, deposit: string): string | undefined {
-  if (payment === PAYMENT.full) return undefined;
+  if (payment === PAYMENT.full || payment === PAYMENT.unconfirmed) return undefined;
   const amount = Number(deposit);
   if (deposit.trim() === "" || !Number.isFinite(amount) || amount <= 0) {
     return payment === PAYMENT.deposit ? "اكتب العربون اللي اتدفع" : "اكتب العربون المطلوب";
@@ -423,13 +430,15 @@ export function ManualBookingForm({
   }, [venueId, pitchId, startUtc, endUtc]);
 
   const create = useMutation({
-    mutationFn: (body: { pitchId: string; startUtc: string; endUtc: string; price: number; customerName: string; customerPhone: string; notes?: string; paymentStatus: Payment; depositAmount: number | null }) =>
+    mutationFn: (body: { pitchId: string; startUtc: string; endUtc: string; price: number; customerName: string | null; customerPhone: string | null; notes?: string; paymentStatus: Payment; depositAmount: number | null }) =>
       unwrap(api.POST("/api/v1/venue-manager/venues/{venueId}/bookings/manual", { params: { path: { venueId: venueId! } }, body: { ...body, currency: "EGP", notes: body.notes || null } })),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ predicate: (q) => ["calendar", "dashboard", "manual-booking-calendar"].includes(String(q.queryKey[0])) || String(q.queryKey[0]).startsWith("booking") });
-      const name = customerName.trim();
+      const name = customerName.trim() || "من غير اسم";
       onDone(
-        payment === PAYMENT.awaiting
+        payment === PAYMENT.unconfirmed
+          ? `اتحجز الميعاد مبدئياً (${name}) واتقفل في التطبيق. ثبّته من التقويم أول ما تتأكد.`
+          : payment === PAYMENT.awaiting
           ? `اتسجل حجز ${name} وبيستنى العربون (${money(Number(deposit))}).`
           : payment === PAYMENT.deposit
             ? `اتسجل حجز ${name} ومؤكد بعربون ${money(Number(deposit))}.`
@@ -469,7 +478,15 @@ export function ManualBookingForm({
       return;
     }
     setErrors({});
-    create.mutate({ ...parsed.data, startUtc, endUtc, paymentStatus: payment, depositAmount: payment === PAYMENT.full ? null : Number(deposit) });
+    create.mutate({
+      ...parsed.data,
+      customerName: parsed.data.customerName || null,
+      customerPhone: parsed.data.customerPhone || null,
+      startUtc,
+      endUtc,
+      paymentStatus: payment,
+      depositAmount: payment === PAYMENT.full || payment === PAYMENT.unconfirmed ? null : Number(deposit),
+    });
   };
 
   const field = (id: string, label: string, control: React.ReactNode) => (
@@ -541,7 +558,7 @@ export function ManualBookingForm({
         {/* Customer Name with Registered Customers Autocomplete */}
         <div className="flex flex-col gap-1 text-sm font-semibold relative" ref={customerDropdownRef}>
           <div className="flex items-center justify-between">
-            <label htmlFor="customerName">اسم العميل</label>
+            <label htmlFor="customerName">اسم العميل (اختياري)</label>
             <button
               type="button"
               onClick={() => {
@@ -661,7 +678,7 @@ export function ManualBookingForm({
         {/* Customer Phone */}
         {field(
           "customerPhone",
-          "موبايل العميل",
+          "موبايل العميل (اختياري)",
           <input
             id="customerPhone"
             dir="ltr"
@@ -717,7 +734,7 @@ export function ManualBookingForm({
           <input id="price" type="number" min={1} inputMode="numeric" value={price} onChange={(e) => setPrice(e.target.value)} className={inputClass} aria-invalid={!!errors.price} />,
         )}
         <fieldset className="flex flex-col gap-1 text-sm font-semibold sm:col-span-2">
-          <legend className="mb-1">حالة الدفع</legend>
+          <legend className="mb-1">حالة الحجز</legend>
           <div className="flex flex-wrap gap-2">
             {PAYMENT_OPTIONS.map((option) => (
               <button
@@ -734,6 +751,7 @@ export function ManualBookingForm({
           <span className={`text-xs font-normal ${muted}`}>{PAYMENT_OPTIONS.find((o) => o.value === payment)?.hint}</span>
         </fieldset>
         {payment !== PAYMENT.full &&
+          payment !== PAYMENT.unconfirmed &&
           field(
             "deposit",
             payment === PAYMENT.deposit ? "العربون المدفوع (ج.م)" : "العربون المطلوب (ج.م)",
@@ -783,7 +801,7 @@ export function ManualBookingForm({
             ? "الوقت غير متاح (محجوز مسبقاً)"
             : create.isPending
               ? "بيتسجل…"
-              : payment === PAYMENT.awaiting
+              : payment === PAYMENT.awaiting || payment === PAYMENT.unconfirmed
                 ? "احجز الميعاد"
                 : "تأكيد الحجز"}
         </button>

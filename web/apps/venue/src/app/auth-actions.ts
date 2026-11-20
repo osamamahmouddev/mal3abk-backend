@@ -15,12 +15,17 @@ const messages: Record<string, string> = {
   "Identity.InvalidCredentials": "الإيميل أو كلمة السر غلط.",
   "Identity.LoginThrottled": "محاولات كتير غلط. استنى شوية وجرّب تاني.",
   "Identity.CaptchaRequired": "كمّل التحقق الأمني الأول.",
-  "Identity.EmailNotVerified": "لازم تأكد الإيميل الأول. افتح الرسالة اللي وصلتلك.",
+  "Identity.EmailNotVerified": "لازم تفعّل الحساب الأول. افتح لينك التفعيل اللي وصلك على الموبايل.",
   "Identity.TwoFactorRequired": "اكتب الكود من تطبيق التحقق.",
   "Identity.InvalidTotpCode": "كود التحقق غلط.",
   "Identity.InvalidOrExpiredToken": "اللينك ده مش صالح أو انتهت صلاحيته.",
   "Identity.RegistrationFailed": "مقدرناش نعمل حساب بالبيانات دي.",
   "Identity.InvalidEmail": "اكتب إيميل صحيح.",
+  "Identity.AccountExists": "فيه حساب بالرقم أو الإيميل ده بالفعل. سجّل دخول بيه واقبل الدعوة.",
+  "Identity.WeakPassword": "كلمة السر ضعيفة: لازم ١٠ حروف على الأقل ومتكونش منتشرة.",
+  "Staff.ContactMismatch": "اكتب نفس رقم الموبايل (أو الإيميل) اللي الدعوة وصلتلك عليه.",
+  "Staff.InvalidContact": "اكتب رقم موبايل مصري صحيح.",
+  "Staff.InvalidInvitation": "الدعوة مش صالحة أو انتهت. اطلب من صاحب الملعب يبعتها تاني.",
 };
 
 function failure(problem: Record<string, unknown>): ActionResult {
@@ -110,4 +115,39 @@ async function exchangeImpersonationCode(code: string): Promise<ActionResult> {
     },
   );
   return { ok: true };
+}
+
+export interface InvitationPreview {
+  venueName: string;
+  role: string;
+  channel: "phone" | "email";
+  maskedContact: string;
+}
+
+/** Venue, role and (masked) contact of an invitation, for an invitee who isn't signed in yet. */
+export async function previewInvitation(token: string): Promise<{ ok: boolean; preview?: InvitationPreview; message?: string }> {
+  const result = await anonymousApi<InvitationPreview>("/api/v1/venue-invitations/preview", { token });
+  return result.ok ? { ok: true, preview: result.data! } : { ok: false, message: failure(result.problem).message };
+}
+
+/**
+ * Invitee without an account: the API makes a staff account (never an owner one) and joins the venue in one step; then
+ * they're signed in with the number they just used, so they land straight on the venue's dashboard.
+ */
+export async function registerFromInvitation(input: {
+  token: string;
+  fullName: string;
+  phoneNumber: string;
+  email?: string;
+  password: string;
+}): Promise<ActionResult> {
+  const result = await anonymousApi("/api/v1/venue-invitations/register", {
+    token: input.token,
+    fullName: input.fullName.trim(),
+    phoneNumber: input.phoneNumber.trim(),
+    email: input.email?.trim() || null,
+    password: input.password,
+  });
+  if (!result.ok) return failure(result.problem);
+  return login({ email: input.phoneNumber.trim(), password: input.password });
 }

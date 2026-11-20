@@ -58,4 +58,5 @@ public static class NotificationTypes
     public const string SupportTicketResolved = "support.ticket_resolved";
     public const string PaymentDisputeOpened = "dispute.opened";
     public const string PaymentDisputeResolved = "dispute.resolved";
+    public const string VenuePayoutRecorded = "payout.recorded";
 }

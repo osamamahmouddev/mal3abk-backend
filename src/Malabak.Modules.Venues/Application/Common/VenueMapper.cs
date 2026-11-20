@@ -25,6 +25,8 @@ public static class VenueMapper
             venue.Facilities.ToList(),
             venue.Photos.ToList(),
             venue.Pitches.Select(PitchMapper.ToDto).ToList(),
-            venue.PricingModel.ToString());
+            venue.PricingModel.ToString(),
+            venue.CustomCommissionEnabled ? venue.CommissionType.ToString() : null,
+            venue.CustomCommissionEnabled ? venue.CommissionRate : null);
     }
 }

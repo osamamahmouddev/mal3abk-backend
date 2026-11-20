@@ -1,4 +1,5 @@
 using System.Net;
+using System.Net.Http.Json;
 using FluentAssertions;
 using Malabak.IntegrationTests.Infrastructure.Builders;
 using Malabak.SharedKernel;
@@ -143,29 +144,24 @@ public sealed class CrossTenantIdorSecurityTests : IClassFixture<BookingApiFacto
     }
 
     [Fact]
-    public async Task Invoices_CrossTenantAccess_ReturnsForbiddenOrNotFoundAsync()
+    public async Task Payouts_CrossTenantAccess_ReturnsForbiddenOrNotFoundAsync()
     {
         // Arrange: Two venue owners
-        var (_, venueIdA, _, _) = await _factory.CreateVenueOwnerAsync();
+        var (_, venueIdA, _, clientA) = await _factory.CreateVenueOwnerAsync();
         var (_, _, _, clientB) = await _factory.CreateVenueOwnerAsync();
         var (_, playerClient) = await _factory.CreatePlayerAsync();
+        var venuePayoutPath = $"/api/v1/venue-manager/venues/{venueIdA}/payouts";
 
-        // 1. Cross-tenant venue invoice access: Owner B requests Venue A invoices
-        var venueInvoicePath = $"/api/v1/venue-manager/venues/{venueIdA}/invoices/";
-        var venueResponse = await clientB.GetAsync(venueInvoicePath);
-
-        // Assert: Must return 403 Forbidden (Owner B has no permissions on Venue A)
-        venueResponse.StatusCode.Should().BeOneOf(
+        // 1. Each venue sees its own payouts; Owner B asking for Venue A's gets nothing
+        (await clientA.GetAsync(venuePayoutPath)).StatusCode.Should().Be(HttpStatusCode.OK);
+        (await clientB.GetAsync(venuePayoutPath)).StatusCode.Should().BeOneOf(
             [HttpStatusCode.Forbidden, HttpStatusCode.NotFound],
-            "Owner B must not be permitted to view invoices of Venue A");
+            "Owner B must not see what the platform owes Venue A");
 
-        // 2. Privilege boundary: Player requests admin invoices endpoint
-        var adminInvoiceResponse = await playerClient.GetAsync("/api/v1/admin/invoices/");
-
-        // Assert: Must return 401 Unauthorized because Player token lacks Admin scheme/role
-        adminInvoiceResponse.StatusCode.Should().Be(
-            HttpStatusCode.Unauthorized,
-            "Player cannot access admin invoices endpoint");
+        // 2. Privilege boundary: a player or a venue owner cannot reach the admin payouts
+        (await playerClient.GetAsync("/api/v1/admin/payouts")).StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        (await clientA.PostAsJsonAsync($"/api/v1/admin/payouts/venues/{venueIdA}", new { amount = 10, method = "InstaPay", reference = "X" }))
+            .StatusCode.Should().Be(HttpStatusCode.Unauthorized, "a venue cannot record a payout to itself");
     }
 
     [Fact]

@@ -34,6 +34,16 @@ public sealed record BookingPolicyTerms(
 {
     public const int MaxTermsLength = 4000;
 
+    /// <summary>
+    /// The deposit a venue starts with until the platform team sets its own (commission model: the deposit is paid to the
+    /// platform, which sets it per venue). The pricing never lets it fall below the commission.
+    /// </summary>
+    public static DepositRule DefaultDeposit => DepositRule.Create(DepositType.Percentage, 33);
+
+    /// <summary>The terms a venue has before it publishes its first policy.</summary>
+    public static BookingPolicyTerms Default => new(DefaultDeposit, 30, 60, 24, RefundEligibility.FullRefund, 100m,
+        NoShowRule.ForfeitDeposit, 15, true, 24, true, null);
+
     public IReadOnlyList<string> Validate()
     {
         var errors = new List<string>();
@@ -141,6 +151,13 @@ public sealed class VenuePolicy : Entity<Guid>
             Terms = string.IsNullOrWhiteSpace(terms.Terms) ? null : terms.Terms.Trim()
         };
     }
+
+    public DepositRule ToDepositRule() => DepositRule.Create(DepositType, DepositValue);
+
+    /// <summary>This version's terms, to publish a new version that changes only part of them.</summary>
+    public BookingPolicyTerms ToTerms() => new(ToDepositRule(), ProofSubmissionWindowMinutes, ManualReviewWindowMinutes,
+        CancellationDeadlineHours, RefundEligibility, RefundPercentage, NoShowRule, LateArrivalGraceMinutes, AllowReschedule,
+        RescheduleDeadlineHours, PendingBookingsBlockSlots, Terms);
 
     public BookingPolicySnapshot ToSnapshot() => new(
         Id, VenueId, Version, DepositType.ToString(), DepositValue, ProofSubmissionWindowMinutes, ManualReviewWindowMinutes,

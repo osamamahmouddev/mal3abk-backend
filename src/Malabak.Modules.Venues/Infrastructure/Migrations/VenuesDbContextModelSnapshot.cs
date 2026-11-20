@@ -716,7 +716,7 @@ namespace Malabak.Modules.Venues.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasMaxLength(20)
                         .HasColumnType("character varying(20)")
-                        .HasDefaultValue("Subscription");
+                        .HasDefaultValue("Commission");
 
                     b.Property<bool>("PublishedBeforeSuspension")
                         .ValueGeneratedOnAdd()

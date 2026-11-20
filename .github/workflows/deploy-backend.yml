@@ -126,7 +126,7 @@ jobs:
           ftp.retrbinary("RETR web.config", config_buffer.write)
           web_config = config_buffer.getvalue().decode("utf-8-sig")
           web_config = patch_environment_variable(web_config, "ASPNETCORE_ENVIRONMENT", "Development")
-          web_config = patch_environment_variable(web_config, "Database__MigrateOnStartup", "false")
+          web_config = patch_environment_variable(web_config, "Database__MigrateOnStartup", "true")
           web_config = patch_environment_variable(web_config, "Hangfire__Enabled", "false")
           web_config = patch_environment_variable(web_config, "ConnectionStrings__Postgres", os.environ["PRODUCTION_POSTGRES_CONNECTION"])
           web_config = patch_environment_variable(web_config, "Database__ConnectionString", os.environ["PRODUCTION_POSTGRES_CONNECTION"])

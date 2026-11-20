@@ -179,7 +179,8 @@ public sealed class AuthorizationMatrixSecurityTests : IClassFixture<BookingApiF
         var (_, financeClient) = await _factory.CreateFinanceAsync();
         var (_, adminClient) = await _factory.CreateAdminAsync();
 
-        const string endpoint = "/api/v1/admin/invoices/";
+        // Venue payouts move money the platform holds: finance and admins only.
+        const string endpoint = "/api/v1/admin/payouts";
 
         // Anonymous -> 401
         (await anonymousClient.GetAsync(endpoint)).StatusCode.Should().Be(HttpStatusCode.Unauthorized);

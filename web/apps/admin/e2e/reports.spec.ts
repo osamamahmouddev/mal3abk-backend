@@ -21,7 +21,6 @@ test("the report adds the venues up, and a deposit share below zero reads as owe
   await api.signInAs("Admin");
   api.on("GET", /^\/api\/v1\/admin\/bookings\/financial-summary$/, () => SUMMARY);
   api.on("GET", /^\/api\/v1\/admin\/dashboard$/, () => ({ from: "2026-10-21", to: "2026-11-19", timeZone: "Africa/Cairo", figures: { mrr: 0 }, series: {}, distributions: {} }));
-  api.on("GET", /^\/api\/v1\/admin\/invoices\/reconciliation$/, () => ({ invoices: 0, collected: 0, voided: 0, byMethod: [] }));
 
   await page.goto("/admin/reports");
 

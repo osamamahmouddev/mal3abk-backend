@@ -112,6 +112,8 @@ public static class VenuesModule
         services.AddScoped<ICommandHandler<ChangeStaffRoleCommand, Result<StaffMemberDto>>>(sp => sp.GetRequiredService<StaffManagementHandlers>());
         services.AddScoped<ICommandHandler<RemoveStaffMemberCommand, Result>>(sp => sp.GetRequiredService<StaffManagementHandlers>());
         services.AddScoped<ICommandHandler<AcceptStaffInvitationCommand, Result<StaffMemberDto>>>(sp => sp.GetRequiredService<StaffManagementHandlers>());
+        services.AddScoped<IQueryHandler<PreviewStaffInvitationQuery, Result<StaffInvitationPreviewDto>>>(sp => sp.GetRequiredService<StaffManagementHandlers>());
+        services.AddScoped<ICommandHandler<RegisterFromInvitationCommand, Result<StaffMemberDto>>>(sp => sp.GetRequiredService<StaffManagementHandlers>());
 
         // Galleries (photos come from the media pipeline)
         services.AddScoped<Application.SpecialSchedules.SpecialScheduleHandlers>();

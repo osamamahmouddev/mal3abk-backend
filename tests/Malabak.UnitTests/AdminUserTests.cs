@@ -149,6 +149,10 @@ public sealed class AdminUserTests
 
         var support = new UserPermissions(Guid.NewGuid(), [UserRole.SupportAgent], RolePermissions.For([UserRole.SupportAgent]));
         AdminNavigation.For(support).Select(n => n.Key).Should().BeEquivalentTo("dashboard", "users", "bookings", "support");
+
+        // Money the platform holds (deposits, refunds, venue payouts) is for admins and finance, not support.
+        var finance = new UserPermissions(Guid.NewGuid(), [UserRole.Finance], RolePermissions.For([UserRole.Finance]));
+        AdminNavigation.For(finance).Select(n => n.Key).Should().BeEquivalentTo("dashboard", "bookings", "deposits", "payouts", "invoices");
         AdminNavigation.For(null).Should().BeEmpty();
     }
 

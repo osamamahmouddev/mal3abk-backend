@@ -41,25 +41,25 @@ test.describe("Admin Console BFF Security & Edge Cases", () => {
     const sessionCookie = await createAdminSessionCookie();
 
     // 1. Missing CSRF header
-    const missingCsrfResponse = await request.post("/admin/bff/api/v1/admin/plans", {
+    const missingCsrfResponse = await request.post("/admin/bff/api/v1/admin/payouts/venues/e0000000-0000-4000-8000-000000000005", {
       headers: {
         Origin: baseURL || "http://localhost:3110",
         Cookie: `malabak-admin=${sessionCookie}`,
       },
-      data: { name: "Pro Plan", price: 1000 },
+      data: { amount: 100, method: "InstaPay", reference: "IP-1" },
     });
     expect(missingCsrfResponse.status()).toBe(403);
     const missingBody = await missingCsrfResponse.json();
     expect(missingBody.title).toBe("Bff.InvalidCsrfToken");
 
     // 2. Cross-origin request
-    const crossOriginResponse = await request.post("/admin/bff/api/v1/admin/plans", {
+    const crossOriginResponse = await request.post("/admin/bff/api/v1/admin/payouts/venues/e0000000-0000-4000-8000-000000000005", {
       headers: {
         Origin: "http://attacker-site.com",
         "X-CSRF-Token": "admin-csrf-secret-12345",
         Cookie: `malabak-admin=${sessionCookie}`,
       },
-      data: { name: "Pro Plan", price: 1000 },
+      data: { amount: 100, method: "InstaPay", reference: "IP-1" },
     });
     expect(crossOriginResponse.status()).toBe(403);
     const crossOriginBody = await crossOriginResponse.json();

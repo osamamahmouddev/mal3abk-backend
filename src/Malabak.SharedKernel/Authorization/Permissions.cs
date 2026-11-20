@@ -41,6 +41,9 @@ public static class Permissions
     public const string AdminBookingsView = "admin.bookings.view";
     public const string AdminDisputesResolve = "admin.disputes.resolve";
     public const string AdminSettingsManage = "admin.settings.manage";
+
+    /// <summary>Money held by the platform (commission model): confirming deposits, refunding players, paying venues.</summary>
+    public const string AdminPaymentsManage = "admin.payments.manage";
     public const string AuditLogView = "admin.audit_log.view";
     public const string SupportTicketsManage = "support.tickets.manage";
     public const string SubscriptionsManage = "finance.subscriptions.manage";
@@ -79,6 +82,7 @@ public static class Permissions
         AdminBookingsView,
         AdminDisputesResolve,
         AdminSettingsManage,
+        AdminPaymentsManage,
         AuditLogView,
         SupportTicketsManage,
         SubscriptionsManage,

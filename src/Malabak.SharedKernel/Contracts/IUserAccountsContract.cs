@@ -21,6 +21,20 @@ public interface IUserAccountsContract
     /// <summary>Sends the staff invitation link (email when given, otherwise SMS). The raw token is never logged.</summary>
     Task SendStaffInvitationAsync(string? email, string? normalizedPhone, string venueName, string role, string rawToken,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Creates a password account for someone joining a venue's staff from an invitation (not a venue owner). The contact the
+    /// invitation went to counts as verified because the invitee holds its link; any other contact given stays unverified.
+    /// </summary>
+    Task<Result<Guid>> CreateInvitedStaffAccountAsync(InvitedStaffAccount account, CancellationToken cancellationToken = default) =>
+        Task.FromResult(Result.Failure<Guid>(new Error("Identity.RegistrationFailed", "Accounts can't be created here.")));
+}
+
+/// <param name="NormalizedPhone">E.164 phone; every account needs one.</param>
+public sealed record InvitedStaffAccount(
+    string FullName, string NormalizedPhone, string? Email, string Password, bool PhoneVerified, bool EmailVerified)
+{
+    public override string ToString() => $"{nameof(InvitedStaffAccount)} {{ PhoneVerified = {PhoneVerified}, EmailVerified = {EmailVerified} }}";
 }
 
 public sealed record UserAccountSummary(Guid Id, string FullName, string? MaskedPhone, string? Email);

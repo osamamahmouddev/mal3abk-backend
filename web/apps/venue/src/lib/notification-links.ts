@@ -4,16 +4,15 @@
  */
 export function notificationTarget(notification: { type: string; deepLink?: string | null }): string | null {
   const { type } = notification;
-  const id = (notification.deepLink ?? "").match(/^malabak:\/\/[a-z-]+\/(?:venue\/|tickets\/)?([0-9a-f-]{36})/i)?.[1];
 
-  // A payment proof waits for review: open that booking's proof.
-  if (type === "payment.proof_submitted") return id ? `/reservations/proof-review?booking=${id}` : "/reservations/proof-review";
+  // Deposits are paid to the platform and reviewed by its team; the venue just follows the booking.
+  if (type === "payment.proof_submitted") return "/reservations";
   if (type === "dispute.opened" || type === "dispute.resolved") return "/reservations";
   if (type.startsWith("booking.")) return "/reservations";
   if (type === "staff.invitation_accepted") return "/staff";
-  if (type.startsWith("subscription.")) return "/subscription";
-  // Support tickets are opened from the subscription page, so replies belong there.
-  if (type.startsWith("support.")) return "/subscription";
+  if (type === "payout.recorded") return "/payouts";
+  // Subscriptions are retired (commission model); old subscription and support notices just open the overview.
+  if (type.startsWith("subscription.") || type.startsWith("support.")) return "/overview";
   if (type === "venue.info_requested" || type === "venue.rejected") return "/setup";
   if (type === "venue.approved") return "/overview";
   if (type.startsWith("venue.")) return "/settings";

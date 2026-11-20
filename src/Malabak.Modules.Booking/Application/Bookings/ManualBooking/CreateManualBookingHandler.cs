@@ -77,7 +77,18 @@ public sealed class CreateManualBookingHandler : ICommandHandler<CreateManualBoo
 
         // An unpaid booking holds the slot for as long as the venue gives a player to send the deposit.
         DateTime? holdExpiresAtUtc = null;
-        if (!payment.Value.Confirmed)
+        if (command.PaymentStatus == ManualPaymentStatus.Unconfirmed)
+        {
+            // Not confirmed yet, but taken: nobody can book it until the venue decides, and it frees itself at kickoff.
+            if (command.StartUtc <= nowUtc)
+            {
+                return Result.Failure<ManualBookingResponse>(Error.Validation(
+                    "Booking.UnconfirmedInThePast", "A booking that already started cannot be left unconfirmed: mark it as paid instead."));
+            }
+
+            holdExpiresAtUtc = command.StartUtc;
+        }
+        else if (!payment.Value.Confirmed)
         {
             var policy = _policyProvider is null ? null : await _policyProvider.GetCurrentSnapshotAsync(command.VenueId, cancellationToken);
             var holdMinutes = policy?.ProofSubmissionWindowMinutes is >= 10 and <= 1440 ? policy.ProofSubmissionWindowMinutes : 60;
@@ -109,7 +120,7 @@ public sealed class CreateManualBookingHandler : ICommandHandler<CreateManualBoo
                 booking.EndUtc,
                 booking.TotalPrice.Amount,
                 booking.TotalPrice.Currency,
-                command.CustomerName,
+                booking.CustomerName,
                 booking.Status.ToString(),
                 booking.DepositAmount.Amount,
                 booking.HoldExpiresAtUtc));
@@ -135,7 +146,7 @@ public sealed class CreateManualBookingHandler : ICommandHandler<CreateManualBoo
             command.PitchId,
             staffUserId,
             command.CustomerName,
-            command.CustomerPhone ?? "N/A",
+            command.CustomerPhone,
             command.StartUtc,
             command.EndUtc,
             price,
@@ -182,6 +193,11 @@ public sealed class CreateManualBookingHandler : ICommandHandler<CreateManualBoo
         if (command.PaymentStatus == ManualPaymentStatus.FullyPaid)
         {
             return Result.Success(new ManualPayment(true, command.Price));
+        }
+
+        if (command.PaymentStatus == ManualPaymentStatus.Unconfirmed)
+        {
+            return Result.Success(new ManualPayment(false, 0m));
         }
 
         var deposit = command.DepositAmount;

@@ -117,6 +117,19 @@ public sealed class PricingCalculatorTests
         quote.Deposit.Should().Be(expected);
     }
 
+    [Theory]
+    [InlineData(CommissionType.Percentage, 15, 120)]   // 15% of 800 = 120 > the 50 EGP deposit
+    [InlineData(CommissionType.PerHourFixed, 40, 80)]  // 2 hours × 40 = 80 > 50
+    [InlineData(CommissionType.Percentage, 5, 50)]     // 40 < 50: the venue's deposit already covers it
+    public void Deposit_NeverFallsBelowTheCommission_ThePlatformKeepsOutOfIt(CommissionType type, decimal rate, decimal expectedDeposit)
+    {
+        var quote = PricingCalculator.Quote(_pitchId, [Base(400)], Local(5, 16), Local(5, 18), DepositRule.Create(DepositType.FixedAmount, 50), _cairo,
+            type, rate).Value;
+
+        quote.Deposit.Should().Be(expectedDeposit);
+        quote.Deposit.Should().BeGreaterThanOrEqualTo(quote.PlatformCommission);
+    }
+
     [Fact]
     public void InactiveDeletedOrOtherPitchRules_AreIgnored()
     {

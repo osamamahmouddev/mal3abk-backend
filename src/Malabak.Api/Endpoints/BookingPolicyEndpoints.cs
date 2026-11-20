@@ -29,17 +29,8 @@ public static class BookingPolicyEndpoints
         manager.MapPut("/", async (Guid venueId, ClaimsPrincipal user, [FromBody] BookingPolicyApiRequest request,
             ICommandHandler<SetBookingPolicyCommand, Result<BookingPolicyDto>> handler, CancellationToken ct) =>
         {
-            DepositRule deposit;
-            try
-            {
-                deposit = DepositRule.Create(request.DepositType, request.DepositValue);
-            }
-            catch (ArgumentOutOfRangeException ex)
-            {
-                return Results.Problem(title: "BookingPolicy.Invalid", detail: ex.Message, statusCode: StatusCodes.Status400BadRequest);
-            }
-
-            var terms = new BookingPolicyTerms(deposit, request.ProofSubmissionWindowMinutes, request.ManualReviewWindowMinutes,
+            // The deposit is set by the platform team (commission model); the handler keeps the venue's current one.
+            var terms = new BookingPolicyTerms(BookingPolicyTerms.DefaultDeposit, request.ProofSubmissionWindowMinutes, request.ManualReviewWindowMinutes,
                 request.CancellationDeadlineHours, request.RefundEligibility, request.RefundPercentage, request.NoShowRule,
                 request.LateArrivalGraceMinutes, request.AllowReschedule, request.RescheduleDeadlineHours,
                 request.PendingBookingsBlockSlots, request.Terms);
@@ -47,7 +38,7 @@ public static class BookingPolicyEndpoints
             return ToResult(await handler.HandleAsync(new SetBookingPolicyCommand(venueId, user.GetUserId()!.Value, terms), ct));
         })
         .WithName("SetBookingPolicy")
-        .WithSummary("Publish a new policy version (applies to new bookings only)");
+        .WithSummary("Publish a new policy version (applies to new bookings only). The deposit is set by the platform and kept as is");
 
         // Customer-facing preview for any signed-in user, limited to approved + published venues.
         app.MapGet("/api/v{version:apiVersion}/venues/{venueId:guid}/booking-policy", async (Guid venueId,
@@ -74,9 +65,11 @@ public static class BookingPolicyEndpoints
         return Results.Problem(title: result.Error.Code, detail: result.Error.Description, statusCode: status);
     }
 
+    /// <param name="DepositType">Ignored: the platform team sets the deposit. Kept so existing clients still validate.</param>
+    /// <param name="DepositValue">Ignored, as <paramref name="DepositType"/>.</param>
     public sealed record BookingPolicyApiRequest(
-        DepositType DepositType,
-        decimal DepositValue,
+        DepositType? DepositType,
+        decimal? DepositValue,
         int ProofSubmissionWindowMinutes,
         int ManualReviewWindowMinutes,
         int CancellationDeadlineHours,

@@ -229,7 +229,13 @@ public sealed class PaymentDisputeService
         switch (decision)
         {
             case DisputeOutcome.ConfirmBooking:
-                return awaitingProof ? booking.Confirm(actor, now) : Result.Failure(DisputeErrors.OutcomeNotApplicable);
+                if (!awaitingProof)
+                {
+                    return Result.Failure(DisputeErrors.OutcomeNotApplicable);
+                }
+
+                // The deposit of an app booking was paid to the platform; a manual booking's went to the venue.
+                return booking.IsManualBooking ? booking.Confirm(actor, now) : booking.ConfirmPlatformDeposit(actor, now);
 
             case DisputeOutcome.FavorVenue:
                 return awaitingProof ? booking.Reject($"[Malabak] {note}", actor, now) : Result.Success();

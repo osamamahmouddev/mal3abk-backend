@@ -30,7 +30,8 @@ public sealed class Venue : Entity<Guid>
     public string PhoneNumber { get; private set; } = string.Empty;
     public VenueApprovalStatus ApprovalStatus { get; private set; }
 
-    public PricingModel PricingModel { get; private set; } = PricingModel.Subscription;
+    /// <summary>Always <see cref="PricingModel.Commission"/>: subscriptions are retired and every venue pays a per-booking commission.</summary>
+    public PricingModel PricingModel { get; private set; } = PricingModel.Commission;
     public bool CustomCommissionEnabled { get; private set; }
     public CommissionType CommissionType { get; private set; } = CommissionType.PlatformDefault;
     public decimal? CommissionRate { get; private set; }
@@ -373,10 +374,10 @@ public sealed class Venue : Entity<Guid>
         decimal? commissionRate,
         DateTime nowUtc)
     {
-        PricingModel = pricingModel;
-        var effectiveCustomCommission = pricingModel == PricingModel.Commission
-            ? (customCommissionEnabled || commissionType != CommissionType.PlatformDefault || commissionRate.HasValue)
-            : customCommissionEnabled;
+        // Subscriptions are retired: the model is always commission, whatever an older client sends.
+        _ = pricingModel;
+        PricingModel = PricingModel.Commission;
+        var effectiveCustomCommission = customCommissionEnabled || commissionType != CommissionType.PlatformDefault || commissionRate.HasValue;
 
         SetCommission(effectiveCustomCommission, commissionType, commissionRate, nowUtc);
     }

@@ -78,7 +78,7 @@ public sealed class VenueConfiguration : IEntityTypeConfiguration<Venue>
             .HasConversion<string>()
             .HasMaxLength(20)
             .IsRequired()
-            .HasDefaultValue(PricingModel.Subscription);
+            .HasDefaultValue(PricingModel.Commission);
 
         builder.Property(v => v.CustomCommissionEnabled)
             .IsRequired()

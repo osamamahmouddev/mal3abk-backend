@@ -122,6 +122,7 @@ public static class AdminVenueBookingEndpoints
                     .ToList();
                 return Results.Ok(p with { Items = items });
             })
+            .RequireAuthorization(Permissions.AdminPaymentsManage)
             .Produces<AdminDepositReviewPage>()
             .WithName("AdminGetPendingDepositReviews")
             .WithSummary("List bookings awaiting platform deposit proof review (ProofSubmitted or UnderReview)");
@@ -132,6 +133,7 @@ public static class AdminVenueBookingEndpoints
                 var result = await service.ReviewDepositAsync(bookingId, request.Approved, request.RejectionReason, user.GetUserId()!.Value, ct);
                 return AdminResults.From(result);
             })
+            .RequireAuthorization(Permissions.AdminPaymentsManage)
             .Produces(StatusCodes.Status204NoContent)
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status404NotFound)
@@ -145,6 +147,7 @@ public static class AdminVenueBookingEndpoints
                 var result = await service.MarkUnderReviewAsync(bookingId, user.GetUserId()!.Value, ct);
                 return AdminResults.From(result);
             })
+            .RequireAuthorization(Permissions.AdminPaymentsManage)
             .Produces(StatusCodes.Status204NoContent)
             .ProducesProblem(StatusCodes.Status404NotFound)
             .WithName("AdminMarkBookingUnderReview")
@@ -175,6 +178,7 @@ public static class AdminVenueBookingEndpoints
                 var result = await service.ProcessRefundAsync(refundId, request?.Notes, user.GetUserId()!.Value, ct);
                 return AdminResults.From(result);
             })
+            .RequireAuthorization(Permissions.AdminPaymentsManage)
             .Produces(StatusCodes.Status204NoContent)
             .ProducesProblem(StatusCodes.Status404NotFound)
             .WithName("AdminProcessBookingRefund")

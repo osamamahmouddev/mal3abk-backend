@@ -13,7 +13,6 @@ export const bffConfig: BffConfig = {
     /^\/api\/v1\/admin\//,
     /^\/api\/v1\/auth\/step-up\/?$/,
     /^\/api\/v1\/me(\/permissions)?$/,
-    /^\/api\/v1\/plans$/,
     /^\/api\/v1\/reference\//,
     /^\/api\/v1\/media\/[0-9a-f-]+\/[a-z]+$/,
   ],

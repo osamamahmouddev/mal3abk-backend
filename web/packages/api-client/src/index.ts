@@ -48,6 +48,7 @@ const ARABIC_PROBLEM_MESSAGES: Record<string, string> = {
   "Featured.NotFound": "العرض الترويجي للملعب غير موجود.",
   "Featured.Cancelled": "تم إلغاء هذا العرض الترويجي بالفعل.",
   "Featured.Invalid": "برجاء التأكد من صحة بيانات الجدولة وترتيب العرض.",
+  "PaymentMethod.InvalidAccountDetails": "بيانات التحويل مش مظبوطة للطريقة دي: المحفظة محتاجة رقم موبايل مصري، والتحويل البنكي محتاج IBAN أو رقم حساب.",
   "Platform.Maintenance": "المنصة في وضع الصيانة حالياً. نعمل على تحسين الخدمة وسنعود للعمل قريباً.",
 };
 
