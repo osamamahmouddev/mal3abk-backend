@@ -169,8 +169,8 @@ export default function BookingsPage() {
                             {r.isManual ? <NotebookPen className="w-3 h-3" /> : <Smartphone className="w-3 h-3" />}
                             <span>{r.isManual ? "يدوي" : "أونلاين"}</span>
                           </span>
-                          <Pill tone={TONE[r.status] ?? "neutral"}>
-                            {STATUS_MAP[r.status] ?? r.status}
+                          <Pill tone={r.isManual && r.status === "PendingDeposit" ? "neutral" : (TONE[r.status] ?? "neutral")}>
+                            {r.isManual && r.status === "PendingDeposit" ? "محجوز مبدئي" : (STATUS_MAP[r.status] ?? r.status)}
                           </Pill>
                         </div>
                       </div>
@@ -295,7 +295,7 @@ export default function BookingsPage() {
                   { title: "السعر", cell: (r) => money(r.totalPrice) },
                   { title: "العربون", cell: (r) => money(r.depositAmount) },
                   { title: "النوع", cell: (r) => (r.isManual ? "يدوي" : "أونلاين") },
-                  { title: "الحالة", cell: (r) => <Pill tone={TONE[r.status] ?? "neutral"}>{STATUS_MAP[r.status] ?? r.status}</Pill> },
+                  { title: "الحالة", cell: (r) => <Pill tone={r.isManual && r.status === "PendingDeposit" ? "neutral" : (TONE[r.status] ?? "neutral")}>{r.isManual && r.status === "PendingDeposit" ? "محجوز مبدئي" : (STATUS_MAP[r.status] ?? r.status)}</Pill> },
                 ]}
               />
             )}
@@ -522,14 +522,18 @@ function BookingDrawer({ bookingId, onClose, venueMap }: { bookingId: string | n
           const selectedProof = d.proofs[selectedProofIdx] || d.proofs[0];
           const hasProofs = d.proofs.length > 0;
           const isDepositPending =
-            d.booking.status === "PendingDeposit" || d.booking.status === "ProofSubmitted" || d.booking.status === "UnderReview";
+            !d.booking.isManual &&
+            (d.booking.depositAmount ?? 0) > 0 &&
+            (d.booking.status === "PendingDeposit" || d.booking.status === "ProofSubmitted" || d.booking.status === "UnderReview");
 
           return (
             <>
               <div className={`${card} rounded-[16px] p-4 flex flex-col gap-2`}>
                 <div className="flex items-center justify-between">
                   <strong dir="ltr" className="font-inter text-[17px] text-right font-extrabold text-slate-900">{d.booking.reference}</strong>
-                  <Pill tone={TONE[d.booking.status] ?? "neutral"}>{STATUS_MAP[d.booking.status] ?? d.booking.status}</Pill>
+                  <Pill tone={d.booking.isManual && d.booking.status === "PendingDeposit" ? "neutral" : (TONE[d.booking.status] ?? "neutral")}>
+                    {d.booking.isManual && d.booking.status === "PendingDeposit" ? "محجوز مبدئي" : (STATUS_MAP[d.booking.status] ?? d.booking.status)}
+                  </Pill>
                 </div>
                 <KV k="الميعاد">{fmtDateTime(d.booking.startUtc)}</KV>
                 <KV k="السعر / العربون">{money(d.booking.totalPrice)} / {money(d.booking.depositAmount)}</KV>
@@ -597,6 +601,21 @@ function BookingDrawer({ bookingId, onClose, venueMap }: { bookingId: string | n
                       <strong>سبب الرفض السابق:</strong> {selectedProof.rejectionReason}
                     </div>
                   )}
+                </div>
+              )}
+
+              {/* Manual Booking Notice */}
+              {d.booking.isManual && (
+                <div className="bg-amber-50/70 border border-amber-200/80 rounded-2xl p-4 flex items-start gap-3 text-xs text-amber-900 shadow-2xs">
+                  <div className="size-8 rounded-xl bg-amber-100/80 text-amber-800 flex items-center justify-center shrink-0">
+                    <NotebookPen className="size-4" />
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <strong className="text-sm font-bold text-amber-950">حجز يدوي مسجل من طاقم الملعب</strong>
+                    <p className="text-amber-900/90 leading-relaxed text-[12px]">
+                      هذا الحجز مسجل يدوياً في الملعب ومحاسبته نقداً مباشرة مع إدارة الملعب، ولا يتطلب مراجعة أو تأكيد عربون من إدارة المنصة المركزية.
+                    </p>
+                  </div>
                 </div>
               )}
 

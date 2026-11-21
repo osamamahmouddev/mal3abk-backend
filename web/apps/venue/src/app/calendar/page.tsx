@@ -57,22 +57,87 @@ const dayLabel = (date: string) => new Date(`${date}T12:00:00Z`).toLocaleDateStr
 /** Minutes from the business date's local midnight. */
 const minutesFrom = (date: string, utc: string) => (new Date(utc).getTime() - new Date(cairoDayStartUtc(date)).getTime()) / 60_000;
 
-function autoHours(slots: Slot[]) {
-  if (slots.length === 0) return { firstHour: FIRST_HOUR, lastHour: LAST_HOUR };
+interface OperatingScheduleItem {
+  dayOfWeek: number;
+  openTime: string;
+  closeTime: string;
+  isActive: boolean;
+  isOvernight?: boolean;
+}
 
-  const ranges = slots.map((slot) => {
-    const localDate = new Date(slot.startUtc).toLocaleDateString("en-CA", { timeZone: "Africa/Cairo" });
-    const startHour = minutesFrom(localDate, slot.startUtc) / 60;
-    const duration = (new Date(slot.endUtc).getTime() - new Date(slot.startUtc).getTime()) / 3_600_000;
-    return { startHour, endHour: startHour + duration };
-  });
-  let firstHour = Math.max(0, Math.floor(Math.min(...ranges.map((r) => r.startHour))) - 1);
-  let lastHour = Math.min(LAST_HOUR, Math.ceil(Math.max(...ranges.map((r) => r.endHour))) + 1);
+function parseHour(timeStr: string): number {
+  const h = parseInt(timeStr.slice(0, 2), 10);
+  return isNaN(h) ? 0 : h;
+}
 
-  // Keep a useful amount of empty space for creating the next booking.
-  if (lastHour - firstHour < 6) {
-    lastHour = Math.min(LAST_HOUR, firstHour + 6);
-    firstHour = Math.max(0, lastHour - 6);
+function computeOperatingHours(
+  schedules: OperatingScheduleItem[] | undefined,
+  date: string,
+  view: View,
+  slots: Slot[],
+): { firstHour: number; lastHour: number } {
+  let minOpen = FIRST_HOUR;
+  let maxClose = LAST_HOUR;
+
+  const activeSchedules = schedules?.filter((s) => s.isActive) ?? [];
+
+  if (activeSchedules.length > 0) {
+    if (view === "day") {
+      const dayOfWeek = new Date(`${date}T12:00:00Z`).getUTCDay();
+      const daySched = activeSchedules.find((s) => s.dayOfWeek === dayOfWeek);
+      if (daySched) {
+        const openH = parseHour(daySched.openTime);
+        let closeH = parseHour(daySched.closeTime);
+        if (daySched.isOvernight || closeH <= openH) {
+          closeH += 24;
+        }
+        minOpen = openH;
+        maxClose = closeH;
+      } else {
+        const opens = activeSchedules.map((s) => parseHour(s.openTime));
+        const closes = activeSchedules.map((s) => {
+          const o = parseHour(s.openTime);
+          let c = parseHour(s.closeTime);
+          if (s.isOvernight || c <= o) c += 24;
+          return c;
+        });
+        minOpen = Math.min(...opens);
+        maxClose = Math.max(...closes);
+      }
+    } else {
+      // Week or month view: show hours spanning all operating days
+      const opens = activeSchedules.map((s) => parseHour(s.openTime));
+      const closes = activeSchedules.map((s) => {
+        const o = parseHour(s.openTime);
+        let c = parseHour(s.closeTime);
+        if (s.isOvernight || c <= o) c += 24;
+        return c;
+      });
+      minOpen = Math.min(...opens);
+      maxClose = Math.max(...closes);
+    }
+  }
+
+  let firstHour = minOpen;
+  let lastHour = maxClose;
+
+  // Never clip existing bookings or blocked slots
+  if (slots.length > 0) {
+    const ranges = slots.map((slot) => {
+      const localDate = new Date(slot.startUtc).toLocaleDateString("en-CA", { timeZone: "Africa/Cairo" });
+      const startHour = minutesFrom(localDate, slot.startUtc) / 60;
+      const duration = (new Date(slot.endUtc).getTime() - new Date(slot.startUtc).getTime()) / 3_600_000;
+      return { startHour, endHour: startHour + duration };
+    });
+    const minSlotStart = Math.floor(Math.min(...ranges.map((r) => r.startHour)));
+    const maxSlotEnd = Math.ceil(Math.max(...ranges.map((r) => r.endHour)));
+
+    firstHour = Math.max(0, Math.min(firstHour, minSlotStart));
+    lastHour = Math.min(30, Math.max(lastHour, maxSlotEnd));
+  }
+
+  if (lastHour <= firstHour) {
+    lastHour = firstHour + 6;
   }
 
   return { firstHour, lastHour };
@@ -175,8 +240,22 @@ function Calendar() {
       ),
   });
 
+  const schedules = useQuery({
+    queryKey: ["schedules", venueId],
+    enabled: !!venueId,
+    queryFn: () =>
+      unwrap(
+        api.GET("/api/v1/venue-manager/venues/{venueId}/schedules", {
+          params: { path: { venueId: venueId! } },
+        }),
+      ),
+  });
+
   const all = slots.data ?? [];
-  const visibleHours = useMemo(() => autoHours(all), [all]);
+  const visibleHours = useMemo(
+    () => computeOperatingHours(schedules.data, date, view, all),
+    [schedules.data, date, view, all],
+  );
   // Existing bookings must remain visible even if their pitch was later paused.
   // The active-pitches list is still used for creating new bookings and the week selector.
   const dayPitches = useMemo(() => venue?.pitches ?? [], [venue]);
@@ -250,7 +329,7 @@ function Calendar() {
         {can(P.bookingsApprove) && (
           <button
             type="button"
-            onClick={() => setEmpty({ date, startMinutes: 20 * 60, pitchId: pitches[0]?.id })}
+            onClick={() => setEmpty({ date, startMinutes: visibleHours.firstHour * 60, pitchId: pitches[0]?.id })}
             className={`btn-press min-h-[40px] px-4 rounded-[10px] bg-brand-red hover:bg-brand-red-hover text-white text-sm font-bold inline-flex items-center gap-2 transition-colors ${redShadow}`}
           >
             <Plus className="size-4" strokeWidth={2.5} />
