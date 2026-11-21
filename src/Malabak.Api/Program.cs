@@ -263,6 +263,8 @@ builder.Services.Configure<Malabak.Api.Infrastructure.Security.CloudflareAccessO
 builder.Services.AddHttpClient(nameof(Malabak.Api.Infrastructure.Security.CloudflareAccessValidator));
 builder.Services.AddSingleton<Malabak.Api.Infrastructure.Security.CloudflareAccessValidator>();
 
+builder.Services.AddScoped<Malabak.Api.Infrastructure.Platform.TrashService>();
+builder.Services.AddScoped<Malabak.Api.Infrastructure.Platform.TrashPurgeJob>();
 builder.Services.AddDbContext<Malabak.Api.Infrastructure.Platform.PlatformDbContext>(options =>
     options.UseNpgsql(postgresConnectionString, npgsql =>
         npgsql.MigrationsHistoryTable("__EFMigrationsHistory", Malabak.Api.Infrastructure.Platform.PlatformDbContext.Schema)));
@@ -583,6 +585,7 @@ app.MapAdminUserEndpoints(apiVersionSet);
 app.MapAdminVenueBookingEndpoints(apiVersionSet);
 app.MapVenuePayoutEndpoints(apiVersionSet);
 app.MapAdminCrmEndpoints(apiVersionSet);
+app.MapAdminTrashEndpoints(apiVersionSet);
 app.MapSupportEndpoints(apiVersionSet);
 app.MapDisputeEndpoints(apiVersionSet);
 app.MapAdminModerationEndpoints(apiVersionSet);

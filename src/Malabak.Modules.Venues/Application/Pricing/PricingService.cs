@@ -33,8 +33,9 @@ public sealed class PricingService : IPriceQuoteProvider
 
     public async Task<Result<PriceQuoteSnapshot>> QuoteAsync(Guid pitchId, DateTime startUtc, DateTime endUtc, CancellationToken cancellationToken = default)
     {
+        // A pitch of a deleted venue cannot be booked.
         var venueId = await _dbContext.Pitches.AsNoTracking()
-            .Where(p => p.Id == pitchId && p.IsActive && !p.IsDeleted)
+            .Where(p => p.Id == pitchId && p.IsActive && !p.IsDeleted && _dbContext.Venues.Any(v => v.Id == p.VenueId && !v.IsDeleted))
             .Select(p => (Guid?)p.VenueId)
             .FirstOrDefaultAsync(cancellationToken);
         if (venueId is null)

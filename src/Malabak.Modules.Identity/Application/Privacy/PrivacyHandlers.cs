@@ -197,19 +197,40 @@ public sealed class AccountAnonymizer
 
         foreach (var user in due)
         {
-            await _privacy.EraseContributorsAsync(user.Id, cancellationToken);
-
-            user.Anonymize(nowUtc);
-
-            // Physically removed (not soft-deleted): sessions and phone-change requests hold IPs, devices and numbers.
-            _dbContext.HardDelete(await _dbContext.UserSessions.IgnoreQueryFilters().Where(s => s.UserId == user.Id).ToListAsync(cancellationToken));
-            _dbContext.HardDelete(await _dbContext.RefreshTokens.IgnoreQueryFilters().Where(t => t.UserId == user.Id).ToListAsync(cancellationToken));
-            _dbContext.UserActionTokens.RemoveRange(await _dbContext.UserActionTokens.Where(t => t.UserId == user.Id).ToListAsync(cancellationToken));
-            _dbContext.HardDelete(await _dbContext.PhoneChangeRequests.IgnoreQueryFilters().Where(r => r.UserId == user.Id).ToListAsync(cancellationToken));
-            _dbContext.AdminRecoveryCodes.RemoveRange(await _dbContext.AdminRecoveryCodes.Where(c => c.UserId == user.Id).ToListAsync(cancellationToken));
-            await _dbContext.SaveChangesAsync(cancellationToken);
+            await EraseAsync(user, nowUtc, cancellationToken);
         }
 
         return due.Count;
+    }
+
+    /// <summary>
+    /// Erases a deleted account now, without waiting for the retention window (the platform team purging it from the trash).
+    /// </summary>
+    public async Task<bool> EraseNowAsync(Guid userId, CancellationToken cancellationToken = default)
+    {
+        var user = await _dbContext.Users.IgnoreQueryFilters()
+            .FirstOrDefaultAsync(u => u.Id == userId && u.IsDeleted && u.AnonymizedAtUtc == null, cancellationToken);
+        if (user is null)
+        {
+            return false;
+        }
+
+        await EraseAsync(user, _clock.UtcNow, cancellationToken);
+        return true;
+    }
+
+    private async Task EraseAsync(User user, DateTime nowUtc, CancellationToken cancellationToken)
+    {
+        await _privacy.EraseContributorsAsync(user.Id, cancellationToken);
+
+        user.Anonymize(nowUtc);
+
+        // Physically removed (not soft-deleted): sessions and phone-change requests hold IPs, devices and numbers.
+        _dbContext.HardDelete(await _dbContext.UserSessions.IgnoreQueryFilters().Where(s => s.UserId == user.Id).ToListAsync(cancellationToken));
+        _dbContext.HardDelete(await _dbContext.RefreshTokens.IgnoreQueryFilters().Where(t => t.UserId == user.Id).ToListAsync(cancellationToken));
+        _dbContext.UserActionTokens.RemoveRange(await _dbContext.UserActionTokens.Where(t => t.UserId == user.Id).ToListAsync(cancellationToken));
+        _dbContext.HardDelete(await _dbContext.PhoneChangeRequests.IgnoreQueryFilters().Where(r => r.UserId == user.Id).ToListAsync(cancellationToken));
+        _dbContext.AdminRecoveryCodes.RemoveRange(await _dbContext.AdminRecoveryCodes.Where(c => c.UserId == user.Id).ToListAsync(cancellationToken));
+        await _dbContext.SaveChangesAsync(cancellationToken);
     }
 }

@@ -24,6 +24,9 @@ public sealed class CrmContactConfiguration : IEntityTypeConfiguration<CrmContac
         builder.HasIndex(c => c.PhoneBlindIndex).IsUnique();
         builder.HasIndex(c => new { c.Stage, c.NextFollowUpAtUtc });
 
+        // Contacts in the trash are hidden everywhere; the trash and restore read them explicitly.
+        builder.HasQueryFilter(c => !c.IsDeleted);
+
         builder.HasMany(c => c.Notes).WithOne().HasForeignKey(n => n.ContactId).OnDelete(DeleteBehavior.Cascade);
         builder.Navigation(c => c.Notes).HasField("_notes").UsePropertyAccessMode(PropertyAccessMode.Field);
     }

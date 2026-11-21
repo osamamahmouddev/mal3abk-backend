@@ -61,6 +61,8 @@ public sealed class CrmContact
     public DateTime CreatedAtUtc { get; private set; }
     public DateTime UpdatedAtUtc { get; private set; }
     public DateTime StageChangedAtUtc { get; private set; }
+    public bool IsDeleted { get; private set; }
+    public DateTime? DeletedAtUtc { get; private set; }
 
     public IReadOnlyCollection<CrmNote> Notes => _notes.AsReadOnly();
 
@@ -86,6 +88,20 @@ public sealed class CrmContact
     }
 
     public Result Update(CrmContactDetails details, DateTime nowUtc) => Apply(details, nowUtc);
+
+    public void MoveToTrash(DateTime nowUtc)
+    {
+        IsDeleted = true;
+        DeletedAtUtc = nowUtc;
+        UpdatedAtUtc = nowUtc;
+    }
+
+    public void RestoreFromTrash(DateTime nowUtc)
+    {
+        IsDeleted = false;
+        DeletedAtUtc = null;
+        UpdatedAtUtc = nowUtc;
+    }
 
     public void ReplacePhone(byte[] phoneEncrypted, string phoneBlindIndex, DateTime nowUtc)
     {
@@ -237,4 +253,5 @@ public static class CrmErrors
     public static readonly Error NoteRequired = Error.Validation("Crm.NoteRequired", "Write the note.");
     public static readonly Error InvalidNoteKind = Error.Validation("Crm.InvalidNoteKind", "A stage change is recorded by moving the contact.");
     public static readonly Error DuplicatePhone = Error.Conflict("Crm.DuplicatePhone", "A contact with this phone number already exists.");
+    public static readonly Error DuplicateInTrash = Error.Conflict("Crm.DuplicateInTrash", "A contact with this phone number is in the trash: restore it instead.");
 }

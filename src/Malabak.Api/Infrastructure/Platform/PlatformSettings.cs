@@ -102,6 +102,7 @@ public sealed class PlatformDbContext : DbContext
 
     public DbSet<PlatformSetting> Settings => Set<PlatformSetting>();
     public DbSet<FeatureFlag> Flags => Set<FeatureFlag>();
+    public DbSet<TrashEntry> TrashEntries => Set<TrashEntry>();
 
     public PlatformDbContext(DbContextOptions<PlatformDbContext> options)
         : base(options)
@@ -123,6 +124,19 @@ public sealed class PlatformDbContext : DbContext
             b.ToTable("feature_flags");
             b.HasKey(f => f.Key);
             b.Property(f => f.Key).HasMaxLength(100);
+        });
+        modelBuilder.Entity<TrashEntry>(b =>
+        {
+            b.ToTable("trash_entries");
+            b.HasKey(e => e.Id);
+            b.Property(e => e.Id).ValueGeneratedNever();
+            b.Property(e => e.Kind).HasMaxLength(20).IsRequired();
+            b.Property(e => e.Title).HasMaxLength(200).IsRequired();
+            b.Property(e => e.Subtitle).HasMaxLength(200);
+            b.Property(e => e.Reason).HasMaxLength(500).IsRequired();
+            // An item is in the trash once; deleting it again is refused by its module (it is already gone from the lists).
+            b.HasIndex(e => new { e.Kind, e.EntityId }).IsUnique();
+            b.HasIndex(e => e.DeletedAtUtc);
         });
     }
 }

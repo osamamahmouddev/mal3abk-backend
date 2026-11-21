@@ -1,5 +1,6 @@
 "use client";
 
+import { TrashButton } from "@/components/TrashButton";
 import React, { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { Schemas } from "@malabak/api-client";
@@ -342,8 +343,9 @@ function Teams({ notice }: { notice: Notice }) {
                 { title: "بلاغات مفتوحة", cell: (t) => (t.openReportsAgainst > 0 ? <Pill tone="warn">{num(t.openReportsAgainst)}</Pill> : "—") },
                 {
                   title: "",
-                  cell: (t) =>
-                    t.isSuspended ? (
+                  cell: (t) => (
+                    <div className="flex flex-wrap gap-1.5">
+                      {t.isSuspended ? (
                       <button type="button" className={btnSmall} onClick={() => setReason({ title: "رفع إيقاف الفريق", body: t.suspensionReason ?? "", confirmLabel: "رفع الإيقاف", onConfirm: (text) => change.mutate({ id: t.id, suspend: false, text }) })}>
                         رفع الإيقاف
                       </button>
@@ -351,7 +353,10 @@ function Teams({ notice }: { notice: Notice }) {
                       <button type="button" className={btnSmall} onClick={() => setReason({ title: `إيقاف ${t.name}`, body: "مفيش تحديات ولا نتائج ولا أعضاء جداد لحد ما الإيقاف يترفع. الكابتن هيوصله السبب.", confirmLabel: "إيقاف", onConfirm: (text) => change.mutate({ id: t.id, suspend: true, text }) })}>
                         إيقاف
                       </button>
-                    ),
+                    )}
+                      <TrashButton kind="team" id={t.id} name={t.name} className="!min-h-[32px] !px-2.5 !text-xs" />
+                    </div>
+                  ),
                 },
               ]}
             />

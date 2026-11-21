@@ -11,7 +11,8 @@ import { ManualBookingForm, type ManualBookingDefaults } from "@/components/Manu
 import { api, unwrap } from "@/lib/api";
 import { addDays, cairoDayStartUtc, cairoHourLabel, cairoTime, cairoToday } from "@/lib/booking-format";
 import { P } from "@/lib/permissions";
-import { ChevronLeft, ChevronRight, Plus, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, ListChecks, Plus, X } from "lucide-react";
+import { BulkHoursBar, type PickedHour, type PickedTaken } from "@/components/BulkHoursBar";
 
 type View = "day" | "week" | "month";
 type Slot = Schemas["CalendarSlotDto"];
@@ -96,6 +97,47 @@ function Calendar() {
   const [selected, setSelected] = useState<Slot | null>(null);
   const [empty, setEmpty] = useState<ManualBookingDefaults | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  // Picking many hours at once: free hours to book, or the venue's own bookings and blocked periods to free.
+  const [picking, setPicking] = useState(false);
+  const [pickedHours, setPickedHours] = useState<Record<string, PickedHour>>({});
+  const [pickedTaken, setPickedTaken] = useState<Record<string, PickedTaken>>({});
+  const clearPicks = () => {
+    setPickedHours({});
+    setPickedTaken({});
+  };
+  const togglePick = (hour: PickedHour) =>
+    setPickedHours((prev) => {
+      const key = `${hour.pitchId}|${hour.startUtc}`;
+      const next = { ...prev };
+      if (next[key]) delete next[key];
+      else next[key] = hour;
+      return next;
+    });
+  const pickAll = (list: PickedHour[]) =>
+    setPickedHours((prev) => {
+      const next = { ...prev };
+      const allPicked = list.every((h) => next[`${h.pitchId}|${h.startUtc}`]);
+      for (const h of list) {
+        const key = `${h.pitchId}|${h.startUtc}`;
+        if (allPicked) delete next[key];
+        else next[key] = h;
+      }
+      return next;
+    });
+  const pickSlot = (s: Slot) => {
+    const blocked = s.status === "Blocked";
+    if (!blocked && !(s.isManual && ["PendingDeposit", "Confirmed"].includes(s.status))) {
+      setToast("ده حجز من التطبيق: افتحه من الحجوزات لو عايز تلغيه.");
+      return;
+    }
+
+    setPickedTaken((prev) => {
+      const next = { ...prev };
+      if (next[s.id]) delete next[s.id];
+      else next[s.id] = { id: s.id, blocked };
+      return next;
+    });
+  };
 
   useEffect(() => {
     if (!weekPitch && pitches[0]) setWeekPitch(pitches[0].id);
@@ -189,6 +231,22 @@ function Calendar() {
             ))}
           </select>
         )}
+        {can(P.bookingsApprove) && view !== "month" && (
+          <button
+            type="button"
+            aria-pressed={picking}
+            onClick={() => {
+              setPicking((v) => !v);
+              clearPicks();
+            }}
+            className={`min-h-[40px] px-4 rounded-[10px] border text-sm font-bold inline-flex items-center gap-2 transition-colors ${
+              picking ? "bg-navy-900 text-white border-navy-900" : "bg-white border-[#C9CFD9] hover:bg-slate-50"
+            }`}
+          >
+            <ListChecks className="size-4" />
+            {picking ? "خلصت التحديد" : "تحديد كذا ساعة"}
+          </button>
+        )}
         {can(P.bookingsApprove) && (
           <button
             type="button"
@@ -217,6 +275,12 @@ function Calendar() {
           busy={slots.isFetching}
           onSlot={setSelected}
           onEmpty={(c, minutes) => setEmpty({ date: c.date, pitchId: c.pitchId, startMinutes: minutes })}
+          picking={picking}
+          pickedHours={pickedHours}
+          pickedTaken={pickedTaken}
+          onPickHour={togglePick}
+          onPickAll={pickAll}
+          onPickSlot={pickSlot}
         />
       )}
       {view === "week" && (
@@ -231,6 +295,28 @@ function Calendar() {
           busy={slots.isFetching}
           onSlot={setSelected}
           onEmpty={(c, minutes) => setEmpty({ date: c.date, pitchId: c.pitchId, startMinutes: minutes })}
+          picking={picking}
+          pickedHours={pickedHours}
+          pickedTaken={pickedTaken}
+          onPickHour={togglePick}
+          onPickAll={pickAll}
+          onPickSlot={pickSlot}
+        />
+      )}
+      {picking && venueId && view !== "month" && (
+        <BulkHoursBar
+          venueId={venueId}
+          hours={Object.values(pickedHours)}
+          taken={Object.values(pickedTaken)}
+          canUnblock={can(P.blockedSlotsManage)}
+          onClear={() => {
+            clearPicks();
+            setPicking(false);
+          }}
+          onDone={(m) => {
+            clearPicks();
+            setToast(m);
+          }}
         />
       )}
       {view === "month" && <MonthGrid date={date} slots={all} onOpenDay={(d) => switchTo("day", d)} />}
@@ -320,6 +406,12 @@ function Grid({
   busy,
   onSlot,
   onEmpty,
+  picking = false,
+  pickedHours = {},
+  pickedTaken = {},
+  onPickHour,
+  onPickAll,
+  onPickSlot,
 }: {
   columns: Column[];
   slots: Slot[];
@@ -328,19 +420,44 @@ function Grid({
   busy: boolean;
   onSlot: (s: Slot) => void;
   onEmpty: (c: Column, minutes: number) => void;
+  picking?: boolean;
+  pickedHours?: Record<string, PickedHour>;
+  pickedTaken?: Record<string, PickedTaken>;
+  onPickHour?: (h: PickedHour) => void;
+  onPickAll?: (hours: PickedHour[]) => void;
+  onPickSlot?: (s: Slot) => void;
 }) {
   if (columns.length === 0) {
     return <p className={`${card} rounded-[18px] p-8 text-center text-sm ${muted}`}>ضيف ملعب نشط عشان يظهر التقويم.</p>;
   }
   const hours = Array.from({ length: lastHour - firstHour }, (_, i) => firstHour + i);
   const gridHeight = hours.length * ROW;
+  /** The hour h of the column's business day, in UTC. */
+  const hourOf = (c: Column, h: number): PickedHour => {
+    const start = new Date(cairoDayStartUtc(c.date)).getTime() + h * 3_600_000;
+    return { pitchId: c.pitchId, startUtc: new Date(start).toISOString(), endUtc: new Date(start + 3_600_000).toISOString() };
+  };
+  /** Hours of the column nothing is booked or blocked in. */
+  const freeHours = (c: Column) =>
+    hours
+      .map((h) => hourOf(c, h))
+      .filter((hour) => !slots.some((s) => s.pitchId === c.pitchId && new Date(s.startUtc) < new Date(hour.endUtc) && new Date(s.endUtc) > new Date(hour.startUtc)));
   return (
     <section aria-label="جدول المواعيد" aria-busy={busy} className={`${card} rounded-[18px] overflow-x-auto`} tabIndex={0}>
       <div className="grid min-w-[640px]" style={{ gridTemplateColumns: `64px repeat(${columns.length}, minmax(120px, 1fr))` }}>
         <div className="sticky top-0 bg-white border-b border-[#EDF0F5]" />
         {columns.map((c) => (
-          <div key={c.key} className="sticky top-0 bg-white border-b border-[#EDF0F5] px-2 py-2.5 text-center text-[13px] font-bold">
+          <div key={c.key} className="sticky top-0 bg-white border-b border-[#EDF0F5] px-2 py-2.5 text-center text-[13px] font-bold flex flex-col items-center gap-1">
             {c.label}
+            {picking && (
+              <button
+                type="button"
+                onClick={() => onPickAll?.(freeHours(c))}
+                className="text-[11px] font-semibold text-brand-red hover:underline"
+              >
+                اليوم كله
+              </button>
+            )}
           </div>
         ))}
         <div className="relative" style={{ height: gridHeight }}>
@@ -357,16 +474,25 @@ function Grid({
           });
           return (
             <div key={c.key} className="relative border-r border-[#EDF0F5]" style={{ height: gridHeight }}>
-              {hours.map((h, i) => (
-                <button
-                  key={h}
-                  type="button"
-                  aria-label={`${c.label} ${hourLabel(h)}: ميعاد فاضي`}
-                  onClick={() => onEmpty(c, h * 60)}
-                  className="absolute inset-x-0 border-t border-[#F1F3F7] hover:bg-[#F8F9FB] focus:bg-[#EEF1F7] focus:outline-none"
-                  style={{ top: i * ROW, height: ROW }}
-                />
-              ))}
+              {hours.map((h, i) => {
+                const hour = hourOf(c, h);
+                const picked = !!pickedHours[`${hour.pitchId}|${hour.startUtc}`];
+                return (
+                  <button
+                    key={h}
+                    type="button"
+                    aria-label={`${c.label} ${hourLabel(h)}: ميعاد فاضي`}
+                    aria-pressed={picking ? picked : undefined}
+                    onClick={() => (picking ? onPickHour?.(hour) : onEmpty(c, h * 60))}
+                    className={`absolute inset-x-0 border-t border-[#F1F3F7] focus:outline-none ${
+                      picked ? "bg-[#FDECEA] ring-2 ring-inset ring-brand-red" : "hover:bg-[#F8F9FB] focus:bg-[#EEF1F7]"
+                    }`}
+                    style={{ top: i * ROW, height: ROW }}
+                  >
+                    {picked && <span className="text-[11px] font-bold text-brand-red">✓ محدد</span>}
+                  </button>
+                );
+              })}
               {mine.map((s) => {
                 const start = Math.max(minutesFrom(c.date, s.startUtc), firstHour * 60);
                 const end = Math.min(minutesFrom(c.date, s.endUtc), lastHour * 60);
@@ -375,9 +501,12 @@ function Grid({
                   <button
                     key={s.id}
                     type="button"
-                    onClick={() => onSlot(s)}
+                    onClick={() => (picking ? onPickSlot?.(s) : onSlot(s))}
                     aria-label={`${KIND[kind].label}: ${s.customerName ?? s.reason ?? ""} ${cairoTime(s.startUtc)}`}
-                    className={`absolute inset-x-1 rounded-lg px-2 py-1 text-right text-xs overflow-hidden ${KIND[kind].box}`}
+                    aria-pressed={picking ? !!pickedTaken[s.id] : undefined}
+                    className={`absolute inset-x-1 rounded-lg px-2 py-1 text-right text-xs overflow-hidden ${KIND[kind].box} ${
+                      pickedTaken[s.id] ? "ring-2 ring-brand-red ring-offset-1" : ""
+                    }`}
                     style={{ top: ((start - firstHour * 60) / 60) * ROW + 2, height: Math.max(22, ((end - start) / 60) * ROW - 4) }}
                   >
                     <span className="block font-bold truncate">{kind === "blk" ? s.reason || "محظور" : s.customerName || (s.isManual ? "حجز يدوي" : "—")}</span>

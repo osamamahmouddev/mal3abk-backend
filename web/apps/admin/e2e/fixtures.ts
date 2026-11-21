@@ -6,7 +6,7 @@ export const ADMIN_ID = "a0000000-0000-4000-8000-000000000001";
 
 /** Navigation keys the API returns per role (mirrors RolePermissions + AdminNavigation on the server). */
 export const NAVIGATION = {
-  Admin: ["dashboard", "users", "venues", "approvals", "crm", "bookings", "disputes", "moderation", "support", "deposits", "payouts", "invoices", "featured", "settings", "accounts", "audit"],
+  Admin: ["dashboard", "users", "venues", "approvals", "crm", "bookings", "disputes", "moderation", "support", "deposits", "payouts", "invoices", "featured", "settings", "accounts", "audit", "trash"],
   SupportAgent: ["dashboard", "users", "bookings", "support"],
   Finance: ["dashboard", "bookings", "deposits", "payouts", "invoices"],
 } as const;

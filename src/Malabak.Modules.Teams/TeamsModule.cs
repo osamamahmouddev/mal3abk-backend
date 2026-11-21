@@ -31,6 +31,7 @@ public static class TeamsModule
     {
         // Domain services / generators
         services.AddScoped<ITeamSlugGenerator, TeamSlugGenerator>();
+        services.AddScoped<Malabak.SharedKernel.Contracts.ITrashProvider, Application.Trash.TeamTrashProvider>();
         services.AddScoped<ITeamInviteCodeGenerator, TeamInviteCodeGenerator>();
         services.AddScoped<Malabak.SharedKernel.Contracts.ITeamCaptaincyChecker, TeamCaptaincyChecker>();
         services.AddScoped<Malabak.SharedKernel.Contracts.IUserActivityProvider, Application.Admin.TeamUserActivityProvider>();

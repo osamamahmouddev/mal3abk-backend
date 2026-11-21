@@ -60,6 +60,7 @@ public static class VenuesModule
         services.AddScoped<ICommandHandler<CreateVenueCommand, Result<VenueDto>>, CreateVenueHandler>();
         services.AddScoped<ICommandHandler<UpdateVenueCommand, Result<VenueDto>>, UpdateVenueHandler>();
         services.AddScoped<ICommandHandler<DeleteVenueCommand, Result>, DeleteVenueHandler>();
+        services.AddScoped<Malabak.SharedKernel.Contracts.ITrashProvider, Application.Trash.VenueTrashProvider>();
         services.AddScoped<ICommandHandler<PublishVenueCommand, Result>, PublishVenueHandler>();
         services.AddScoped<IQueryHandler<GetVenueByIdQuery, Result<VenueDto>>, GetVenueByIdHandler>();
         services.AddScoped<IQueryHandler<GetVenuesByOwnerQuery, Result<IReadOnlyList<VenueDto>>>, GetVenuesByOwnerHandler>();
