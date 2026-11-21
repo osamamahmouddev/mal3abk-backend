@@ -49,6 +49,11 @@ public sealed class UserTrashProvider : ITrashProvider
             return Result.Failure<TrashedItem>(TrashErrors.NotFound);
         }
 
+        if (ReviewAccount.Is(user.PhoneNumber))
+        {
+            return Result.Failure<TrashedItem>(Admin.AdminUserErrors.ReviewAccountProtected);
+        }
+
         // Team accounts are managed (and disabled) from the team accounts page, never deleted from here.
         if (id == adminId || user.Roles.Any(r => _staffRoles.Contains(r, StringComparer.OrdinalIgnoreCase)))
         {

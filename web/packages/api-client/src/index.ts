@@ -48,6 +48,7 @@ const ARABIC_PROBLEM_MESSAGES: Record<string, string> = {
   "Featured.NotFound": "العرض الترويجي للملعب غير موجود.",
   "Featured.Cancelled": "تم إلغاء هذا العرض الترويجي بالفعل.",
   "Featured.Invalid": "برجاء التأكد من صحة بيانات الجدولة وترتيب العرض.",
+  "AdminUsers.ReviewAccountProtected": "ده حساب مراجعة App Store و Google Play: مينفعش يتوقف أو يتحذف، وإلا مراجعة التطبيق هتترفض.",
   "Trash.NotFound": "العنصر مش موجود أو اتمسح بالفعل.",
   "Trash.UnknownKind": "نوع العنصر ده مينفعش يتحذف من هنا.",
   "Trash.StaffAccount": "حسابات فريق المنصة بتتوقف من صفحة حسابات الفريق، مش بتتحذف من هنا.",
