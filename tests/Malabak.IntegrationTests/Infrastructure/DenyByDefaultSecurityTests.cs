@@ -56,6 +56,8 @@ public sealed class DenyByDefaultSecurityTests : IClassFixture<WebApplicationFac
 
         // Public Discovery & Reference Data (Unauthenticated Browsing)
         "/api/v{version:apiVersion}/home",
+        // Team invite landing page: static HTML for a validated code, no data, strict CSP (reviewed).
+        "/join/{code}",
         "/api/v{version:apiVersion}/waitlist",
         "/api/v{version:apiVersion}/teams/leaderboard",
         "/api/v{version:apiVersion}/media/{id:guid}/{variant}",

@@ -1,5 +1,6 @@
 using FluentAssertions;
 using Malabak.IntegrationTests.Infrastructure;
+using Malabak.Modules.Teams.Application.Common;
 using Malabak.Modules.Teams.Application.Teams.Invitations.AcceptTeamInvitation;
 using Malabak.Modules.Teams.Domain;
 using Malabak.Modules.Teams.Infrastructure;
@@ -29,7 +30,9 @@ public sealed class TeamMembershipConcurrencyIntegrationTests
         await db.Database.MigrateAsync();
     }
 
-    private static string Code() => Guid.NewGuid().ToString("N")[..6].ToUpperInvariant();
+    // Invite codes only use the unambiguous alphabet (no 0/O, 1/I), so a random hex code is sometimes refused.
+    private static string Code() =>
+        new(Enumerable.Range(0, TeamInviteCodes.Length).Select(_ => TeamInviteCodes.Alphabet[Random.Shared.Next(TeamInviteCodes.Alphabet.Length)]).ToArray());
 
     private static Team NewTeam(Guid captainId, string code) =>
         Team.Create(Guid.NewGuid(), "Race FC", $"race-{Guid.NewGuid():N}", "Cairo", "Cairo", captainId, code, _nowUtc).Value;
