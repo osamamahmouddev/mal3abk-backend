@@ -266,6 +266,13 @@ builder.Services.AddSingleton<Malabak.Api.Infrastructure.Security.CloudflareAcce
 
 builder.Services.AddScoped<Malabak.Api.Infrastructure.Platform.TrashService>();
 builder.Services.AddScoped<Malabak.Api.Infrastructure.Platform.TrashPurgeJob>();
+builder.Services.AddScoped<Malabak.Api.Infrastructure.Platform.DataRetentionJob>();
+builder.Services.AddScoped<Malabak.SharedKernel.Contracts.IDataRetentionTask, Malabak.Api.Infrastructure.Platform.OutboxRetention<Malabak.Modules.Identity.Infrastructure.IdentityDbContext>>();
+builder.Services.AddScoped<Malabak.SharedKernel.Contracts.IDataRetentionTask, Malabak.Api.Infrastructure.Platform.OutboxRetention<Malabak.Modules.Venues.Infrastructure.VenuesDbContext>>();
+builder.Services.AddScoped<Malabak.SharedKernel.Contracts.IDataRetentionTask, Malabak.Api.Infrastructure.Platform.OutboxRetention<Malabak.Modules.Booking.Infrastructure.BookingDbContext>>();
+builder.Services.AddScoped<Malabak.SharedKernel.Contracts.IDataRetentionTask, Malabak.Api.Infrastructure.Platform.OutboxRetention<Malabak.Modules.Teams.Infrastructure.TeamsDbContext>>();
+builder.Services.AddScoped<Malabak.SharedKernel.Contracts.IDataRetentionTask, Malabak.Api.Infrastructure.Platform.OutboxRetention<Malabak.Modules.Matches.Infrastructure.MatchesDbContext>>();
+builder.Services.AddScoped<Malabak.SharedKernel.Contracts.IDataRetentionTask, Malabak.Api.Infrastructure.Platform.OutboxRetention<Malabak.Modules.Payments.Infrastructure.PaymentsDbContext>>();
 builder.Services.AddDbContext<Malabak.Api.Infrastructure.Platform.PlatformDbContext>(options =>
     options.UseNpgsql(postgresConnectionString, npgsql =>
         npgsql.MigrationsHistoryTable("__EFMigrationsHistory", Malabak.Api.Infrastructure.Platform.PlatformDbContext.Schema)));

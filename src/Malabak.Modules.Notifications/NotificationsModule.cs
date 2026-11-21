@@ -19,6 +19,8 @@ public static class NotificationsModule
         services.AddScoped<PushDispatcher>();
         services.AddScoped<UserNotificationService>();
         services.AddScoped<Malabak.SharedKernel.Contracts.IPersonalDataContributor, NotificationsPersonalData>();
+        services.AddScoped<Malabak.SharedKernel.Contracts.IDataRetentionTask, Infrastructure.NotificationOutboxRetention>();
+        services.AddScoped<Malabak.SharedKernel.Contracts.IDataRetentionTask, Infrastructure.PushDeliveryRetention>();
 
         if (fcm is not null)
         {
