@@ -1,3 +1,4 @@
+using Malabak.Modules.Venues.Application.Common;
 using Malabak.Modules.Venues.Domain;
 using Malabak.Modules.Venues.Infrastructure;
 using Malabak.SharedKernel;
@@ -44,7 +45,8 @@ public sealed record VenueDetailsDto(
     PublicDepositPolicy? DepositPolicy,
     int PitchCount,
     IReadOnlyList<string> PitchTypes,
-    int FavoritesCount);
+    int FavoritesCount,
+    VenueOffer? Offer = null);
 
 public sealed record PitchDetailsDto(
     Guid PitchId,
@@ -73,11 +75,13 @@ public sealed class VenueDetailsQuery
 {
     private readonly VenuesDbContext _dbContext;
     private readonly IBookingPolicyProvider _policies;
+    private readonly IClock _clock;
 
-    public VenueDetailsQuery(VenuesDbContext dbContext, IBookingPolicyProvider policies)
+    public VenueDetailsQuery(VenuesDbContext dbContext, IBookingPolicyProvider policies, IClock clock)
     {
         _dbContext = dbContext;
         _policies = policies;
+        _clock = clock;
     }
 
     public async Task<Result<VenueDetailsDto>> GetAsync(Guid venueId, CancellationToken cancellationToken = default)
@@ -98,6 +102,10 @@ public sealed class VenueDetailsQuery
         var policy = await _policies.GetCurrentSnapshotAsync(venueId, cancellationToken);
 
         var prices = pitches.Select(p => BaseRate(rates, p.Id)).Where(r => r is not null).ToList();
+        var today = _clock.CairoToday;
+        var discounts = await _dbContext.PriceRules.AsNoTracking()
+            .CurrentDiscounts([venueId], today)
+            .ToListAsync(cancellationToken);
         return Result.Success(new VenueDetailsDto(
             venue.Id, venue.Name, venue.Slug, venue.Description, venue.Address, venue.City, venue.Area, venue.Latitude, venue.Longitude,
             venue.Photos.ToList(),
@@ -110,7 +118,8 @@ public sealed class VenueDetailsQuery
                 policy.AllowReschedule, policy.RescheduleDeadlineHours, policy.Terms),
             pitches.Count,
             pitches.Select(p => PitchType(p.Capacity)).Distinct().Order().ToList(),
-            favorites));
+            favorites,
+            VenueOffers.Pick(discounts, today, prices.Min())));
     }
 
     public async Task<Result<IReadOnlyList<PitchDetailsDto>>> GetPitchesAsync(Guid venueId, CancellationToken cancellationToken = default)

@@ -1,5 +1,6 @@
 using System.Text.RegularExpressions;
 using Malabak.Modules.Venues.Application.Availability;
+using Malabak.Modules.Venues.Application.Common;
 using Malabak.Modules.Venues.Domain;
 using Malabak.Modules.Venues.Infrastructure;
 using Malabak.SharedKernel;
@@ -62,7 +63,8 @@ public sealed record ExploreVenueCard(
     IReadOnlyList<string> Facilities,
     int FavoritesCount,
     DateTime? NextAvailableStartUtc,
-    bool IsFavorite = false);
+    bool IsFavorite = false,
+    VenueOffer? Offer = null);
 
 /// <summary>A filter the player could relax when nothing matched, and how many venues would then match.</summary>
 public sealed record ExploreSuggestion(string Code, string Message, int MatchCount);
@@ -244,7 +246,10 @@ public sealed partial class VenueExplore
                 distance is { } d ? GeoMath.ApproximateKm(d) : null, fromPrice, c.Currency,
                 pitches.Select(p => $"{p.Capacity}v{p.Capacity}").Distinct().Order().ToList(),
                 pitches.Select(p => p.TurfType).Distinct().Order().ToList(),
-                c.Facilities.ToList(), c.FavoritesCount, null));
+                c.Facilities.ToList(), c.FavoritesCount, null)
+            {
+                Offer = VenueOffers.Pick(c.Offers, _clock.CairoToday, fromPrice)
+            });
         }
 
         return query.Date is { } date ? await KeepAvailableAsync(cards, date, query, cancellationToken) : cards;
@@ -302,6 +307,9 @@ public sealed partial class VenueExplore
             .Where(r => ids.Contains(r.VenueId) && r.Kind == PriceRuleKind.Base && r.IsActive && !r.IsDeleted)
             .Select(r => new { r.VenueId, r.PitchId, r.Amount, r.Currency })
             .ToListAsync(cancellationToken);
+        var offers = await _dbContext.PriceRules.AsNoTracking()
+            .CurrentDiscounts(ids, _clock.CairoToday)
+            .ToListAsync(cancellationToken);
         var favorites = await _dbContext.FavoriteVenues.AsNoTracking()
             .Where(f => ids.Contains(f.VenueId))
             .GroupBy(f => f.VenueId)
@@ -312,12 +320,14 @@ public sealed partial class VenueExplore
         var pitchesByVenue = pitches.ToLookup(p => p.VenueId);
         var rulesByVenue = baseRules.ToLookup(r => r.VenueId);
         var favoritesByVenue = favorites.ToDictionary(f => f.VenueId, f => f.Count);
+        var offersByVenue = offers.ToLookup(o => o.VenueId);
         return list.Select(v => new VenueCandidate(
             v.Id, v.Name, v.Slug, v.City, v.Area, v.Latitude, v.Longitude, v.Facilities, v.Photos,
             pitchesByVenue[v.Id].ToList(),
             rulesByVenue[v.Id].Select(r => (r.PitchId, r.Amount ?? 0m)).ToList(),
             rulesByVenue[v.Id].FirstOrDefault()?.Currency ?? Money.DefaultCurrency,
-            favoritesByVenue.GetValueOrDefault(v.Id))).ToList();
+            favoritesByVenue.GetValueOrDefault(v.Id),
+            offersByVenue[v.Id].ToList())).ToList();
     }
 
     /// <summary>Keeps venues with an available slot on the date (inside the optional local time range) and records the first one.</summary>
@@ -569,7 +579,7 @@ public sealed partial class VenueExplore
     private sealed record VenueCandidate(
         Guid Id, string Name, string Slug, string City, string Area, double? Latitude, double? Longitude,
         IReadOnlyCollection<string> Facilities, IReadOnlyCollection<string> Photos, List<PitchCandidate> Pitches,
-        List<(Guid? PitchId, decimal Amount)> BaseRates, string Currency, int FavoritesCount);
+        List<(Guid? PitchId, decimal Amount)> BaseRates, string Currency, int FavoritesCount, List<OfferRule> Offers);
 }
 
 /// <summary>Great-circle distance and bounding boxes (WGS84 sphere approximation, accurate to well under 1% for city distances).</summary>
