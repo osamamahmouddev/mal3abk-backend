@@ -10,27 +10,31 @@ import { adminLogout } from "@/app/auth-actions";
 import { api, unwrap } from "@/lib/api";
 import { SessionGate } from "./SessionGate";
 import { TopProgressBar } from "./TopProgressBar";
+import { Pitch } from "./icons";
+import { BadgeCheck, ChartColumn, ClipboardList, HandCoins, Handshake, Hourglass, LayoutDashboard, LifeBuoy, LogOut, type LucideIcon, MapPin, Menu, ReceiptText, Scale, ScrollText, Settings, ShieldCheck, Sparkles, Trash2, Trophy, UserCog, Users, X } from "lucide-react";
 
 /** Admin app sections, keyed by the navigation keys the API returns for the signed-in staff member's permissions. */
-const SECTIONS: Record<string, { title: string; href: string }[]> = {
-  dashboard: [{ title: "نظرة عامة", href: "/overview" }],
+const SECTIONS: Record<string, { title: string; href: string; icon: LucideIcon | typeof Pitch }[]> = {
+  dashboard: [{ title: "نظرة عامة", href: "/overview", icon: LayoutDashboard }],
   users: [
-    { title: "المستخدمين", href: "/users" },
-    { title: "قائمة الانتظار", href: "/waitlist" },
+    { title: "المستخدمين", href: "/users", icon: Users },
+    { title: "قائمة الانتظار", href: "/waitlist", icon: Hourglass },
   ],
-  venues: [{ title: "الملاعب", href: "/venues" }],
-  approvals: [{ title: "موافقات الملاعب", href: "/approvals" }],
-  bookings: [{ title: "الحجوزات", href: "/bookings" }],
-  disputes: [{ title: "نزاعات الإيصالات", href: "/disputes" }],
-  moderation: [{ title: "الفرق والمجتمع", href: "/teams" }],
-  support: [{ title: "تذاكر الدعم", href: "/support" }],
-  plans: [{ title: "باقات الاشتراك", href: "/plans" }],
-  subscriptions: [{ title: "الاشتراكات والفواتير", href: "/billing" }],
-  invoices: [{ title: "الإيرادات والتقارير", href: "/reports" }],
-  featured: [{ title: "ملاعب مميزة", href: "/featured" }],
-  settings: [{ title: "إعدادات المنصة", href: "/settings" }, { title: "المناطق", href: "/areas" }],
-  accounts: [{ title: "حسابات الفريق", href: "/accounts" }],
-  audit: [{ title: "سجل التدقيق", href: "/audit" }],
+  venues: [{ title: "الملاعب", href: "/venues", icon: Pitch }],
+  approvals: [{ title: "موافقات الملاعب", href: "/approvals", icon: BadgeCheck }],
+  crm: [{ title: "متابعة الملاعب", href: "/crm", icon: Handshake }],
+  bookings: [{ title: "الحجوزات", href: "/bookings", icon: ClipboardList }],
+  deposits: [{ title: "مراجعة العرابين", href: "/deposits", icon: ReceiptText }],
+  payouts: [{ title: "مستحقات الملاعب", href: "/payouts", icon: HandCoins }],
+  disputes: [{ title: "نزاعات الإيصالات", href: "/disputes", icon: Scale }],
+  moderation: [{ title: "الفرق والمجتمع", href: "/teams", icon: Trophy }],
+  support: [{ title: "تذاكر الدعم", href: "/support", icon: LifeBuoy }],
+  invoices: [{ title: "الإيرادات والتقارير", href: "/reports", icon: ChartColumn }],
+  featured: [{ title: "ملاعب مميزة", href: "/featured", icon: Sparkles }],
+  settings: [{ title: "إعدادات المنصة", href: "/settings", icon: Settings }, { title: "المناطق", href: "/areas", icon: MapPin }],
+  accounts: [{ title: "حسابات الفريق", href: "/accounts", icon: UserCog }],
+  audit: [{ title: "سجل التدقيق", href: "/audit", icon: ScrollText }],
+  trash: [{ title: "المحذوف مؤخراً", href: "/trash", icon: Trash2 }],
 };
 
 function Brand({ height = "h-8" }: { height?: string; size?: string }) {
@@ -89,8 +93,15 @@ function SideNav({ pathname, user, onClose }: { pathname: string; user: SessionU
     queryFn: () => unwrap(api.GET("/api/v1/admin/dashboard", {})),
     refetchInterval: 120_000,
   });
+  const deposits = useQuery({
+    queryKey: ["admin-deposit-reviews"],
+    enabled: keys.has("deposits"),
+    queryFn: () => unwrap(api.GET("/api/v1/admin/bookings/deposit-reviews", { params: { query: { page: 1, pageSize: 50 } } })),
+    refetchInterval: 60_000,
+  });
   const badge: Record<string, number> = {
     "/approvals": pending.data?.length ?? 0,
+    "/deposits": deposits.data?.total ?? 0,
     "/disputes": figures.data?.figures["disputes.open"] ?? 0,
     "/support": figures.data?.figures["support.open"] ?? 0,
   };
@@ -99,7 +110,7 @@ function SideNav({ pathname, user, onClose }: { pathname: string; user: SessionU
   return (
     <aside
       id={onClose ? "admin-nav-drawer" : undefined}
-      className={`w-[248px] shrink-0 bg-ink text-white px-4 py-6 flex flex-col gap-5 ${onClose ? "h-full overflow-y-auto" : "min-h-screen"}`}
+      className={`w-[248px] shrink-0 bg-ink text-white px-4 py-6 flex flex-col gap-5 ${onClose ? "h-full overflow-y-auto" : "h-screen sticky top-0"}`}
     >
       <div className="flex items-center gap-2.5 px-2">
         <Brand />
@@ -108,15 +119,13 @@ function SideNav({ pathname, user, onClose }: { pathname: string; user: SessionU
             type="button"
             onClick={onClose}
             aria-label="إغلاق القائمة"
-            className="ms-auto w-10 h-10 rounded-[10px] bg-white/[0.08] flex items-center justify-center"
+            className="ms-auto w-10 h-10 rounded-[10px] bg-white/[0.08] hover:bg-white/[0.14] transition-colors flex items-center justify-center"
           >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
-              <path d="M6 6l12 12M18 6L6 18" />
-            </svg>
+            <X className="size-5" />
           </button>
         )}
       </div>
-      <nav aria-label="أقسام الإدارة" className="flex flex-col gap-0.5">
+      <nav aria-label="أقسام الإدارة" className="flex flex-col gap-0.5 flex-1 min-h-0 overflow-y-auto -mx-1 px-1">
         {navigation.isLoading && <div className="h-40 rounded-[9px] bg-white/[0.06] animate-pulse" />}
         {items.map((n) => {
           const active = isActive(n.href);
@@ -136,14 +145,18 @@ function SideNav({ pathname, user, onClose }: { pathname: string; user: SessionU
                 }
                 onClose?.();
               }}
-              className={`min-h-[40px] px-3 rounded-[9px] flex items-center gap-2 text-sm cursor-pointer transition-all duration-150 ease-out active:scale-[0.98] ${
+              className={`group min-h-[40px] px-3 rounded-[9px] flex items-center gap-2.5 text-sm cursor-pointer transition-all duration-150 ease-out active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/70 ${
                 active
-                  ? "bg-white text-ink font-bold hover:text-ink shadow-xs -translate-x-0.5"
+                  ? "bg-white text-ink font-bold hover:text-ink shadow-xs"
                   : isPending
-                    ? "bg-white/20 text-white font-bold shadow-xs -translate-x-0.5 ring-1 ring-white/30"
-                    : "text-[#D5DBE7] font-medium hover:bg-white/[0.08] hover:text-white hover:-translate-x-0.5"
+                    ? "bg-white/[0.16] text-white font-bold ring-1 ring-white/25"
+                    : "text-[#D5DBE7] font-medium hover:bg-white/[0.08] hover:text-white"
               }`}
             >
+              <n.icon
+                className={`size-[18px] shrink-0 transition-colors duration-150 ${active ? "text-brand-red" : "text-[#AEB7CA] group-hover:text-white"}`}
+                strokeWidth={active ? 2.25 : 1.75}
+              />
               <span className="flex-1">{n.title}</span>
               {isPending && (
                 <div className="w-3.5 h-3.5 rounded-full border-2 border-white/60 border-t-white animate-spin shrink-0" />
@@ -157,11 +170,33 @@ function SideNav({ pathname, user, onClose }: { pathname: string; user: SessionU
           );
         })}
       </nav>
-      <div className="mt-auto pt-3 px-2 border-t border-white/[0.12] text-xs text-[#AEB7CA] flex justify-between items-center gap-2">
-        <span>{user.name}</span>
+      <div className="mt-auto pt-3 border-t border-white/[0.12] flex flex-col gap-2.5">
+        <div className="flex items-center gap-2.5 px-1">
+          <div className="w-8 h-8 rounded-full bg-brand-red text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-sm">
+            {user.name.trim().charAt(0) || "م"}
+          </div>
+          <span className="flex-1 min-w-0 text-[13px] font-bold text-white truncate" title={user.name}>
+            {user.name}
+          </span>
+        </div>
+        <Link
+          href="/security"
+          onClick={() => onClose?.()}
+          aria-current={pathname.startsWith("/security") ? "page" : undefined}
+          className={`w-full min-h-[36px] px-3 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 transition-all duration-150 ${
+            pathname.startsWith("/security") ? "bg-white text-ink" : "bg-white/[0.08] text-[#D5DBE7] hover:bg-white/[0.14] hover:text-white"
+          }`}
+        >
+          <ShieldCheck className="size-4" />
+          أمان الحساب
+        </Link>
         <form action={adminLogout}>
-          <button type="submit" className="text-[#AEB7CA] hover:text-white underline min-h-[32px] bg-transparent">
-            خروج
+          <button
+            type="submit"
+            className="w-full min-h-[36px] px-3 rounded-xl bg-white/[0.08] hover:bg-[#A8261C] active:scale-[0.98] text-xs font-semibold text-[#D5DBE7] hover:text-white transition-all duration-150 flex items-center justify-center gap-2 cursor-pointer"
+          >
+            <LogOut className="size-4" />
+            تسجيل الخروج
           </button>
         </form>
       </div>
@@ -224,9 +259,7 @@ export function AdminShell({ children, user }: { children: React.ReactNode; user
           aria-controls="admin-nav-drawer"
           className="w-10 h-10 -ms-1 rounded-[10px] flex items-center justify-center hover:bg-white/[0.08]"
         >
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
-            <path d="M4 7h16M4 12h16M4 17h16" />
-          </svg>
+          <Menu className="size-[22px]" />
         </button>
         <Brand height="h-7" />
       </header>

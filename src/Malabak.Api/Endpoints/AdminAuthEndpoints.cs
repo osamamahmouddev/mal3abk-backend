@@ -28,7 +28,7 @@ public static class AdminAuthEndpoints
             return NoStore(http, result.IsSuccess ? Results.Ok(result.Value) : ToProblem(result.Error));
         })
         .AllowAnonymous()
-        .WithName("AdminLogin").WithSummary("Admin sign-in: password + TOTP or recovery code; first login returns an enrollment token");
+        .WithName("AdminLogin").WithSummary("Admin sign-in: password, plus a TOTP or recovery code when the admin turned two-step verification on");
 
         auth.MapPost("/totp/enroll", async ([FromBody] EnrollmentApiRequest request, HttpContext http,
             ICommandHandler<AdminEnrollTotpCommand, Result<TotpEnrollmentResponse>> handler, CancellationToken ct) =>
@@ -46,13 +46,32 @@ public static class AdminAuthEndpoints
         })
         .AllowAnonymous().Produces<RecoveryCodesResponse>().WithName("AdminConfirmTotp").WithSummary("Turn on TOTP; returns one-time recovery codes (shown once)");
 
-        auth.MapPost("/totp/reset", async ([FromBody] ResetTotpApiRequest request, HttpContext http,
-            ICommandHandler<AdminResetTotpCommand, Result> handler, CancellationToken ct) =>
+        // Signed-in admin turning two-step verification on (status → setup ticket → enroll → confirm) or off.
+        auth.MapGet("/totp/status", async (ClaimsPrincipal user, IQueryHandler<AdminTwoFactorStatusQuery, Result<AdminTwoFactorStatus>> handler,
+            HttpContext http, CancellationToken ct) =>
         {
-            var result = await handler.HandleAsync(new AdminResetTotpCommand(request.Email, request.Password, request.TurnstileToken, http.Connection.RemoteIpAddress?.ToString()), ct);
-            return NoStore(http, result.IsSuccess ? Results.Ok(new { message = "TOTP reset successfully. Please log in to enroll your new authenticator." }) : ToProblem(result.Error));
+            var result = await handler.HandleAsync(new AdminTwoFactorStatusQuery(user.GetUserId()!.Value), ct);
+            return NoStore(http, result.IsSuccess ? Results.Ok(result.Value) : ToProblem(result.Error));
         })
-        .AllowAnonymous().WithName("AdminResetTotp").WithSummary("Reset admin TOTP to allow re-enrollment with valid password");
+        .RequireAuthorization(MalabakAuthorization.AdminSessionPolicy).Produces<AdminTwoFactorStatus>().WithName("AdminTwoFactorStatus");
+
+        auth.MapPost("/totp/setup", async (ClaimsPrincipal user, ICommandHandler<AdminStartTotpSetupCommand, Result<string>> handler,
+            HttpContext http, CancellationToken ct) =>
+        {
+            var result = await handler.HandleAsync(new AdminStartTotpSetupCommand(user.GetUserId()!.Value), ct);
+            return NoStore(http, result.IsSuccess ? Results.Ok(new EnrollmentApiRequest(result.Value)) : ToProblem(result.Error));
+        })
+        .RequireAuthorization(MalabakAuthorization.AdminSessionPolicy).Produces<EnrollmentApiRequest>()
+        .WithName("AdminStartTotpSetup").WithSummary("Ticket for turning two-step verification on from a signed-in session");
+
+        auth.MapPost("/totp/disable", async ([FromBody] DisableTotpApiRequest request, ClaimsPrincipal user,
+            ICommandHandler<AdminDisableTotpCommand, Result> handler, HttpContext http, CancellationToken ct) =>
+        {
+            var result = await handler.HandleAsync(new AdminDisableTotpCommand(user.GetUserId()!.Value, request.TotpCode, request.RecoveryCode), ct);
+            return NoStore(http, result.IsSuccess ? Results.NoContent() : ToProblem(result.Error));
+        })
+        .RequireAuthorization(MalabakAuthorization.AdminSessionPolicy)
+        .WithName("AdminDisableTotp").WithSummary("Turn two-step verification off; needs a current authenticator or recovery code");
 
         auth.MapPost("/refresh", async ([FromBody] RefreshApiRequest request, HttpContext http,
             ICommandHandler<AdminRefreshCommand, Result<AdminTokens>> handler, CancellationToken ct) =>
@@ -116,7 +135,7 @@ public static class AdminAuthEndpoints
 
     public sealed record RefreshApiRequest(string RefreshToken);
 
-    public sealed record ResetTotpApiRequest(string Email, string Password, string? TurnstileToken);
+    public sealed record DisableTotpApiRequest(string? TotpCode, string? RecoveryCode);
 
     public sealed record RecoveryCodesResponse(IReadOnlyList<string> RecoveryCodes);
 }

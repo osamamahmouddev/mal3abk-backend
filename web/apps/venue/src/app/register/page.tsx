@@ -34,7 +34,7 @@ export default function RegisterPage() {
 
   if (done) {
     return (
-      <AuthCard title="أكّد الإيميل" subtitle={`بعتنا لينك التأكيد على ${form.email}. افتحه وبعدها سجّل دخول وكمّل إعداد ملعبك.`}>
+      <AuthCard title="فعّل حسابك" subtitle={`بعتنالك لينك التفعيل في رسالة على الموبايل ${form.phoneNumber}. افتحه وبعدها سجّل دخول وكمّل إعداد ملعبك.`}>
         {resent && <FormSuccess>بعتنا اللينك تاني.</FormSuccess>}
         <button
           type="button"

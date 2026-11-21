@@ -26,7 +26,7 @@ export const secondaryBtn =
 export const disabledBtn = "bg-[#E4E7EC] text-[#6B7383] cursor-not-allowed shadow-none hover:bg-[#E4E7EC] active:scale-100";
 
 export const inputClass =
-  "w-full min-h-[44px] px-3 rounded-xl border border-[#C9CFD9] bg-white text-sm text-slate-900 transition-all duration-150 ease-out focus:outline-none focus:ring-2 focus:ring-navy-900 focus:shadow-[0_0_0_3px_rgba(15,27,61,0.1)]";
+  "w-full min-h-[44px] px-3 rounded-xl border border-[#C9CFD9] bg-white text-sm text-slate-900 transition-all duration-150 ease-out hover:border-[#AEB7CA] placeholder:text-[#8A93A3] focus:outline-none focus:border-navy-900 focus:ring-4 focus:ring-navy-900/10 disabled:bg-slate-50 disabled:text-slate-500 disabled:cursor-not-allowed aria-[invalid=true]:border-brand-red aria-[invalid=true]:ring-brand-red/10";
 
 export const muted = "text-[#5B6475]";
 
@@ -62,7 +62,7 @@ export interface BadgeProps {
 
 export const Badge: React.FC<BadgeProps> = memo(({ tone, children, className = "" }) => (
   <span
-    className={`inline-block text-xs font-bold rounded-full px-2.5 py-[3px] whitespace-nowrap transition-all duration-150 ${toneClass[tone]} ${className}`}
+    className={`inline-flex items-center gap-1 text-xs font-bold rounded-full px-2.5 py-[3px] whitespace-nowrap transition-all duration-150 ${toneClass[tone]} ${className}`}
   >
     {children}
   </span>
@@ -106,10 +106,15 @@ export const Switch: React.FC<SwitchProps> = memo(
         disabled={isControlDisabled}
         onClick={toggleHandler}
         className={`w-12 h-7 shrink-0 rounded-full p-[3px] flex items-center transition-colors duration-200 ease-out ${
-          active ? "justify-end bg-navy-900" : "justify-start bg-[#C9CFD9]"
-        } ${isControlDisabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer active:scale-95"}`}
+          active ? "bg-navy-900" : "bg-[#C9CFD9] hover:bg-[#B9C0CD]"
+        } ${isControlDisabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
       >
-        <span className="w-[22px] h-[22px] rounded-full bg-white shadow-sm transition-all duration-200 ease-out" />
+        {/* RTL: off sits on the right; on slides the thumb 20px to the left. */}
+        <span
+          className={`w-[22px] h-[22px] rounded-full bg-white shadow-[0_1px_3px_rgba(15,27,61,0.3)] transition-transform duration-200 ease-spring ${
+            active ? "-translate-x-5" : "translate-x-0"
+          }`}
+        />
       </button>
     );
   }

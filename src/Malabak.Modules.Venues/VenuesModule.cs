@@ -60,6 +60,7 @@ public static class VenuesModule
         services.AddScoped<ICommandHandler<CreateVenueCommand, Result<VenueDto>>, CreateVenueHandler>();
         services.AddScoped<ICommandHandler<UpdateVenueCommand, Result<VenueDto>>, UpdateVenueHandler>();
         services.AddScoped<ICommandHandler<DeleteVenueCommand, Result>, DeleteVenueHandler>();
+        services.AddScoped<Malabak.SharedKernel.Contracts.ITrashProvider, Application.Trash.VenueTrashProvider>();
         services.AddScoped<ICommandHandler<PublishVenueCommand, Result>, PublishVenueHandler>();
         services.AddScoped<IQueryHandler<GetVenueByIdQuery, Result<VenueDto>>, GetVenueByIdHandler>();
         services.AddScoped<IQueryHandler<GetVenuesByOwnerQuery, Result<IReadOnlyList<VenueDto>>>, GetVenuesByOwnerHandler>();
@@ -112,6 +113,8 @@ public static class VenuesModule
         services.AddScoped<ICommandHandler<ChangeStaffRoleCommand, Result<StaffMemberDto>>>(sp => sp.GetRequiredService<StaffManagementHandlers>());
         services.AddScoped<ICommandHandler<RemoveStaffMemberCommand, Result>>(sp => sp.GetRequiredService<StaffManagementHandlers>());
         services.AddScoped<ICommandHandler<AcceptStaffInvitationCommand, Result<StaffMemberDto>>>(sp => sp.GetRequiredService<StaffManagementHandlers>());
+        services.AddScoped<IQueryHandler<PreviewStaffInvitationQuery, Result<StaffInvitationPreviewDto>>>(sp => sp.GetRequiredService<StaffManagementHandlers>());
+        services.AddScoped<ICommandHandler<RegisterFromInvitationCommand, Result<StaffMemberDto>>>(sp => sp.GetRequiredService<StaffManagementHandlers>());
 
         // Galleries (photos come from the media pipeline)
         services.AddScoped<Application.SpecialSchedules.SpecialScheduleHandlers>();

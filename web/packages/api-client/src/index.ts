@@ -48,6 +48,17 @@ const ARABIC_PROBLEM_MESSAGES: Record<string, string> = {
   "Featured.NotFound": "العرض الترويجي للملعب غير موجود.",
   "Featured.Cancelled": "تم إلغاء هذا العرض الترويجي بالفعل.",
   "Featured.Invalid": "برجاء التأكد من صحة بيانات الجدولة وترتيب العرض.",
+  "AdminUsers.ReviewAccountProtected": "ده حساب مراجعة App Store و Google Play: مينفعش يتوقف أو يتحذف، وإلا مراجعة التطبيق هتترفض.",
+  "Trash.NotFound": "العنصر مش موجود أو اتمسح بالفعل.",
+  "Trash.UnknownKind": "نوع العنصر ده مينفعش يتحذف من هنا.",
+  "Trash.StaffAccount": "حسابات فريق المنصة بتتوقف من صفحة حسابات الفريق، مش بتتحذف من هنا.",
+  "Trash.OwnsVenues": "المستخدم ده صاحب ملاعب: احذف ملاعبه الأول.",
+  "Trash.HasUpcomingBookings": "فيه حجوزات جاية لسه شغالة: ألغيها الأول قبل الحذف.",
+  "Trash.CannotRestore": "العنصر ده مبقاش ينفع يرجع.",
+  "Trash.ConfirmationMismatch": "اكتب الاسم بالظبط زي ما هو عشان تأكد.",
+  "Trash.ReasonRequired": "اكتب سبب الحذف (من ٥ لـ ٥٠٠ حرف).",
+  "Crm.DuplicateInTrash": "فيه عميل بنفس الرقم في المحذوف مؤخراً: رجّعه بدل ما تضيفه تاني.",
+  "PaymentMethod.InvalidAccountDetails": "بيانات التحويل مش مظبوطة للطريقة دي: المحفظة محتاجة رقم موبايل مصري، والتحويل البنكي محتاج IBAN أو رقم حساب.",
   "Platform.Maintenance": "المنصة في وضع الصيانة حالياً. نعمل على تحسين الخدمة وسنعود للعمل قريباً.",
 };
 

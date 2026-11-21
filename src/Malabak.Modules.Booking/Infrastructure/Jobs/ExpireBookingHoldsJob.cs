@@ -134,7 +134,8 @@ public sealed class ExpireBookingHoldsJob
         await RunGuardedAsync(booking, "broadcast the booking update", () => _broadcaster.BroadcastBookingUpdatedAsync(
             booking.PlayerId, booking.VenueId, booking.Id, booking.BookingReference, BookingStatus.Expired.ToString(), nowUtc, cancellationToken));
 
-        if (_notificationPublisher is not null)
+        // A manual booking's "player" is the staff member who entered it: there is no customer account to tell.
+        if (_notificationPublisher is not null && !booking.IsManualBooking)
         {
             await RunGuardedAsync(booking, "publish the notification", async () =>
             {

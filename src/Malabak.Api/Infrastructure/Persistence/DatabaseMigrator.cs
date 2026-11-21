@@ -42,4 +42,22 @@ public static class DatabaseMigrator
             await context.Database.MigrateAsync(cancellationToken);
         }
     }
+
+    public static async Task ResetAndMigrateAllAsync(IServiceProvider services, CancellationToken cancellationToken = default)
+    {
+        var identityContext = services.GetRequiredService<IdentityDbContext>();
+        await identityContext.Database.ExecuteSqlRawAsync(@"
+            DO $$
+            DECLARE
+                s text;
+            BEGIN
+                FOR s IN (SELECT nspname FROM pg_namespace WHERE nspname NOT IN ('pg_catalog', 'information_schema', 'pg_toast', 'public')) LOOP
+                    EXECUTE 'DROP SCHEMA IF EXISTS ' || quote_ident(s) || ' CASCADE';
+                END LOOP;
+            END $$;
+            DROP TABLE IF EXISTS public.""__EFMigrationsHistory"" CASCADE;
+        ", cancellationToken);
+
+        await MigrateAllAsync(services, cancellationToken);
+    }
 }

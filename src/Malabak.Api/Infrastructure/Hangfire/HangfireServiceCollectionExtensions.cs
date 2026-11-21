@@ -108,6 +108,11 @@ public static class HangfireServiceCollectionExtensions
                 job => job.ExecuteRecurringSweepAsync(CancellationToken.None),
                 BookingRemindersJob.CronSchedule);
 
+            recurringJobs.AddOrUpdate<Malabak.Api.Infrastructure.Platform.TrashPurgeJob>(
+                Malabak.Api.Infrastructure.Platform.TrashPurgeJob.RecurringJobId,
+                job => job.ExecuteAsync(CancellationToken.None),
+                Malabak.Api.Infrastructure.Platform.TrashPurgeJob.CronSchedule);
+
             recurringJobs.AddOrUpdate<ProofRetentionJob>(
                 ProofRetentionJob.RecurringJobId,
                 job => job.ExecuteRecurringCleanupAsync(CancellationToken.None),
@@ -123,10 +128,8 @@ public static class HangfireServiceCollectionExtensions
                 job => job.ExecuteSweepAsync(CancellationToken.None),
                 Malabak.Modules.Matches.Infrastructure.Jobs.MatchResultTimeoutJob.CronSchedule);
 
-            recurringJobs.AddOrUpdate<Malabak.Modules.Subscriptions.Infrastructure.SubscriptionLifecycleJob>(
-                Malabak.Modules.Subscriptions.Infrastructure.SubscriptionLifecycleJob.RecurringJobId,
-                job => job.RunAsync(CancellationToken.None),
-                Malabak.Modules.Subscriptions.Infrastructure.SubscriptionLifecycleJob.CronSchedule);
+            // Subscriptions are retired: drop the renewal/expiry job left in storage by earlier deploys.
+            recurringJobs.RemoveIfExists(Malabak.Modules.Subscriptions.Infrastructure.SubscriptionLifecycleJob.RecurringJobId);
         }
 
         return app;

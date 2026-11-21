@@ -1,4 +1,5 @@
 using Malabak.Modules.Identity.Application.Common;
+using Malabak.Modules.Identity.Domain;
 using Malabak.SharedKernel;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -37,20 +38,7 @@ public sealed class SendOtpHandler : ICommandHandler<SendOtpCommand, Result<Send
         SendOtpCommand command,
         CancellationToken cancellationToken = default)
     {
-        // 1. Verify Cloudflare Turnstile token
-        var isTurnstileValid = await _turnstileValidator.ValidateTokenAsync(
-            command.TurnstileToken,
-            command.RemoteIp,
-            cancellationToken);
-
-        if (!isTurnstileValid)
-        {
-            return Result.Failure<SendOtpResponse>(new Error(
-                "Identity.InvalidTurnstileToken",
-                "Anti-bot verification failed. Please try again."));
-        }
-
-        // 2. Validate & normalize Egyptian E.164 phone number
+        // 1. Validate & normalize Egyptian E.164 phone number
         var normalizeResult = _normalizer.Normalize(command.PhoneNumber);
         if (normalizeResult.IsFailure)
         {
@@ -58,6 +46,36 @@ public sealed class SendOtpHandler : ICommandHandler<SendOtpCommand, Result<Send
         }
 
         var normalizedPhone = normalizeResult.Value;
+
+        // Official App Store / Google Play reviewer test account bypasses Turnstile bot-challenge
+        var isReviewer = ReviewAccount.Is(normalizedPhone);
+
+        // 2. Verify Cloudflare Turnstile token
+        if (!isReviewer)
+        {
+            var isTurnstileValid = await _turnstileValidator.ValidateTokenAsync(
+                command.TurnstileToken,
+                command.RemoteIp,
+                cancellationToken);
+
+            if (!isTurnstileValid)
+            {
+                return Result.Failure<SendOtpResponse>(new Error(
+                    "Identity.InvalidTurnstileToken",
+                    "Anti-bot verification failed. Please try again."));
+            }
+        }
+
+        // The App Store / Google Play review account gets no SMS (its code is fixed), so there is nothing to send or to
+        // rate-limit: reviewers retrying on several devices must never be locked out.
+        if (isReviewer)
+        {
+            _logger.LogInformation("Reviewer test account OTP request simulated successfully for {MaskedPhone}", PhoneNumberMasker.Mask(normalizedPhone));
+            return Result.Success(new SendOtpResponse(
+                normalizedPhone,
+                5 * 60,
+                $"Verification code sent to {PhoneNumberMasker.Mask(normalizedPhone)}. Valid for 5 minutes."));
+        }
 
         // 3. Enforce sliding window rate limit (max 3 requests per 10 minutes)
         var window = TimeSpan.FromMinutes(10);
@@ -94,16 +112,6 @@ public sealed class SendOtpHandler : ICommandHandler<SendOtpCommand, Result<Send
             cancellationToken);
 
         // 6. Deliver the code. Neither the code nor the phone number is logged (SECURITY.md §13).
-        // App Store / Google Play review account uses fixed static verification code without external SMS delivery
-        if (normalizedPhone == "+201000000999")
-        {
-            _logger.LogInformation("Reviewer test account OTP request simulated successfully for {MaskedPhone}", PhoneNumberMasker.Mask(normalizedPhone));
-            return Result.Success(new SendOtpResponse(
-                normalizedPhone,
-                ttlMinutes * 60,
-                $"Verification code sent to {PhoneNumberMasker.Mask(normalizedPhone)}. Valid for {ttlMinutes} minutes."));
-        }
-
         if (!await _otpSender.SendAsync(normalizedPhone, code, OtpPurpose.Login, validity, cancellationToken))
         {
             return Result.Failure<SendOtpResponse>(OtpDeliveryErrors.DeliveryFailed);

@@ -401,28 +401,6 @@ public static class BookingEndpoints
         .WithName("GetVenueCalendar")
         .WithSummary("Calendar view of all bookings, holds, and manual reservations for a date range");
 
-        // Review Payment Proof (Approve / Reject) (TASK-035)
-        venueManager.MapPost("/bookings/{id:guid}/proof/review", async (
-            Guid venueId,
-            Guid id,
-            ClaimsPrincipal user,
-            [FromBody] ReviewProofApiRequest request,
-            HttpContext httpContext,
-            ICommandHandler<ReviewProofCommand, Result> handler,
-            CancellationToken ct) =>
-        {
-            var actorUserId = user.GetUserId()!.Value;
-            var command = new ReviewProofCommand(id, venueId, actorUserId, request.Approved, request.RejectionReason);
-            var result = await handler.HandleAsync(command, ct);
-
-            var message = request.Approved ? "Booking confirmed" : "Proof rejected";
-            return result.ToHttpResult(httpContext: httpContext, onSuccess: () => Results.Ok(new { message, bookingId = id }));
-        })
-        .RequireVenuePermission(Permissions.PaymentProofsReview)
-        .RequireDistributedRateLimiting("booking-proof-review", permitLimit: 60, windowSeconds: 60)
-        .WithName("ReviewPaymentProof")
-        .WithSummary("Approve or reject a submitted payment proof");
-
         // Create Manual Booking by Venue Staff (TASK-037)
         venueManager.MapPost("/bookings/manual", async (
             Guid venueId,
@@ -455,7 +433,34 @@ public static class BookingEndpoints
         .RequireDistributedRateLimiting("booking-manual", permitLimit: 30, windowSeconds: 60)
         .RequireVenuePermission(Permissions.BookingsApprove)
         .WithName("CreateManualBooking")
-        .WithSummary("Create a manual phone/walk-in reservation under GiST protection. paymentStatus: 0 fully paid (default, confirmed), 1 deposit paid (confirmed; depositAmount = amount received), 2 awaiting deposit (slot held; depositAmount = deposit expected).");
+        .WithSummary("Create a manual phone/walk-in reservation under GiST protection. paymentStatus: 0 fully paid (default, confirmed), 1 deposit paid (confirmed; depositAmount = amount received), 2 awaiting deposit (slot held; depositAmount = deposit expected), 3 unconfirmed (slot taken until confirmed or cancelled, released at kickoff; no deposit). Customer name and phone are optional.");
+
+        // Mark many hours at once from the calendar (booked, confirmed or tentative) and free them again
+        venueManager.MapPost("/bookings/manual/bulk", async (Guid venueId, ClaimsPrincipal user, [FromBody] BulkManualBookingApiRequest request,
+                HttpContext httpContext, BulkManualBookingService service, CancellationToken ct) =>
+            {
+                var slots = (request.Slots ?? []).Select(s => new BulkSlot(s.PitchId, s.StartUtc, s.EndUtc)).ToList();
+                var result = await service.BookAsync(venueId, user.GetUserId()!.Value, slots, request.PaymentStatus ?? ManualPaymentStatus.FullyPaid,
+                    request.CustomerName, request.CustomerPhone, request.Notes, request.PricePerHour, ct);
+                return result.ToHttpResult(httpContext: httpContext, onSuccess: r => Results.Ok(r));
+            })
+            .RequireDistributedRateLimiting("booking-manual-bulk", permitLimit: 10, windowSeconds: 60)
+            .RequireVenuePermission(Permissions.BookingsApprove)
+            .Produces<BulkManualBookingResult>()
+            .WithName("CreateManualBookingsInBulk")
+            .WithSummary("Mark many hours as booked by hand (paymentStatus 0 confirmed or 3 tentative); back-to-back hours become one booking. The price comes from the venue's prices unless pricePerHour is given.");
+
+        venueManager.MapPost("/bookings/manual/bulk-release", async (Guid venueId, ClaimsPrincipal user, [FromBody] BulkReleaseApiRequest request,
+                HttpContext httpContext, BulkManualBookingService service, CancellationToken ct) =>
+            {
+                var result = await service.ReleaseAsync(venueId, user.GetUserId()!.Value, request.BookingIds ?? [], ct);
+                return result.ToHttpResult(httpContext: httpContext, onSuccess: r => Results.Ok(r));
+            })
+            .RequireDistributedRateLimiting("booking-manual-bulk", permitLimit: 10, windowSeconds: 60)
+            .RequireVenuePermission(Permissions.BookingsApprove)
+            .Produces<BulkReleaseResult>()
+            .WithName("ReleaseManualBookingsInBulk")
+            .WithSummary("Free hours the venue had marked as booked by hand, so players can book them in the app (app bookings are not affected)");
 
         // Confirm Manual Booking Deposit
         venueManager.MapPost("/bookings/{id:guid}/confirm-deposit", async (
@@ -522,22 +527,6 @@ public static class BookingEndpoints
         .WithSummary("Mark confirmed booking as No-Show after start time");
 
         // Record Manual Refund (TASK-406)
-        venueManager.MapPost("/bookings/{id:guid}/refund/record", async (
-            Guid venueId,
-            Guid id,
-            ClaimsPrincipal user,
-            [FromBody] RecordRefundApiRequest request,
-            HttpContext httpContext,
-            ICommandHandler<RecordManualRefundCommand, Result> handler,
-            CancellationToken ct) =>
-        {
-            var actorUserId = user.GetUserId()!.Value;
-            var result = await handler.HandleAsync(new RecordManualRefundCommand(venueId, id, request.Amount, request.Notes ?? string.Empty, actorUserId), ct);
-            return result.ToHttpResult(httpContext: httpContext, onSuccess: () => Results.Ok(new { message = "Refund recorded successfully", bookingId = id }));
-        })
-        .RequireVenuePermission(Permissions.PaymentProofsReview)
-        .WithName("RecordManualRefund")
-        .WithSummary("Record manual refund processed by venue for cancelled reservation");
     }
 
     public sealed record CreateBookingApiRequest(
@@ -556,21 +545,29 @@ public static class BookingEndpoints
     public sealed record CancelBookingApiRequest(
         string? Reason = null);
 
-    public sealed record ReviewProofApiRequest(
-        bool Approved,
-        string? RejectionReason = null);
-
     public sealed record CreateManualBookingApiRequest(
         Guid PitchId,
         DateTime StartUtc,
         DateTime EndUtc,
         decimal Price,
         string? Currency,
-        string CustomerName,
+        string? CustomerName,
         string? CustomerPhone,
         string? Notes = null,
         ManualPaymentStatus? PaymentStatus = null,
         decimal? DepositAmount = null);
+
+    public sealed record BulkSlotApiRequest(Guid PitchId, DateTime StartUtc, DateTime EndUtc);
+
+    public sealed record BulkManualBookingApiRequest(
+        IReadOnlyList<BulkSlotApiRequest>? Slots,
+        ManualPaymentStatus? PaymentStatus,
+        string? CustomerName,
+        string? CustomerPhone,
+        string? Notes = null,
+        decimal? PricePerHour = null);
+
+    public sealed record BulkReleaseApiRequest(IReadOnlyList<Guid>? BookingIds);
 
     public sealed record NoShowApiRequest(string? Reason = null);
 
@@ -579,6 +576,4 @@ public static class BookingEndpoints
     public sealed record ConfirmManualBookingApiRequest(
         decimal? CollectedDeposit = null,
         string? Notes = null);
-
-    public sealed record RecordRefundApiRequest(decimal Amount, string? Notes = null);
 }

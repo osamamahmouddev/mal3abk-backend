@@ -1,10 +1,9 @@
-import { expect, test, waitForCall } from "./fixtures";
+import { expect, test, waitForCall, openItem } from "./fixtures";
 
 /** TASK-714..718: every admin screen loads real data and sends the right request for its main action. */
 
 const VENUE_ID = "e0000000-0000-4000-8000-000000000005";
 const TICKET_ID = "f0000000-0000-4000-8000-000000000006";
-const PLAN_ID = "a1000000-0000-4000-8000-000000000007";
 const OWNER_ID = "a2000000-0000-4000-8000-000000000008";
 
 test.beforeEach(async ({ api }) => {
@@ -41,9 +40,9 @@ test("an approved venue can be suspended with a reason and step-up", async ({ pa
   api.on("POST", /\/suspend$/, () => ({ ...detail, approvalStatus: "Suspended", isPublished: false }));
 
   await page.goto("/admin/venues");
-  await page.getByRole("row").filter({ hasText: "ملعب النجوم" }).click();
-  await expect(page.getByText("ملعب ١ · ArtificialTurf")).toBeVisible();
-  await page.getByRole("button", { name: "إيقاف", exact: true }).click();
+  await openItem(page, "ملعب النجوم");
+  await expect(page.getByText("نجيل صناعي").first()).toBeVisible();
+  await page.getByRole("button", { name: "إيقاف الملعب" }).click();
   await page.getByLabel("السبب (بيتسجل في سجل التدقيق)").fill("شكاوى متكررة");
   await page.getByRole("dialog").getByRole("button", { name: "إيقاف", exact: true }).last().click();
   await page.getByRole("dialog", { name: "تأكيد الهوية" }).getByLabel("كود التحقق").fill("111111");
@@ -66,7 +65,7 @@ test("support agents reply, add internal notes and resolve tickets", async ({ pa
   api.on("POST", /\/resolve$/, () => ({ ...ticket, ticket: { ...ticket.ticket, status: "Resolved" }, resolutionReason: "اترد" }));
 
   await page.goto("/admin/support");
-  await page.getByRole("row").filter({ hasText: "SUP-7KQ2MX" }).click();
+  await openItem(page, "SUP-7KQ2MX");
   await page.getByRole("checkbox", { name: /ملاحظة داخلية/ }).check();
   await page.getByLabel("الرد").fill("كلمت الملعب، هيحوّل النهارده");
   await page.getByRole("button", { name: "إضافة ملاحظة" }).click();
@@ -80,43 +79,41 @@ test("support agents reply, add internal notes and resolve tickets", async ({ pa
   expect(resolve.body).toEqual({ reason: "الملعب حوّل المبلغ" });
 });
 
-test("finance records a manual payment and gets the invoice number back", async ({ page, api }) => {
-  const plan = { id: PLAN_ID, code: "pro", name: "Pro", monthlyPrice: 900, annualPrice: 9000, currency: "EGP", features: [], trialDays: 14, graceDays: 7, isPublic: true, isDefault: false, sortOrder: 0, status: "Active", subscribers: 1, updatedAtUtc: "2026-11-01T00:00:00Z" };
-  api.on("GET", /^\/api\/v1\/admin\/plans$/, () => [plan]);
-  api.on("GET", /^\/api\/v1\/admin\/subscriptions$/, () => [{ id: "s1", ownerId: OWNER_ID, planCode: "pro", planName: "Pro", cycle: "Monthly", status: "Active", currentPeriodEndUtc: "2026-12-01T00:00:00Z", graceEndsAtUtc: null }]);
-  api.on("GET", new RegExp(`^/api/v1/admin/subscriptions/owners/${OWNER_ID}$`), () => ({
-    subscription: { id: "s1", ownerId: OWNER_ID, plan, cycle: "Monthly", status: "Active", startedAtUtc: "2026-11-01T00:00:00Z", currentPeriodEndUtc: "2026-12-01T00:00:00Z", graceEndsAtUtc: null, statusReason: null, allowsNewResources: true },
-    history: [], payments: [],
+test("a venue payout is recorded with a fresh authenticator code and can't exceed what is owed", async ({ page, api }) => {
+  const balance = {
+    venueId: VENUE_ID, venueName: "ملعب الزمالك", settledBookings: 2, depositsReceived: 300, commission: 120, refundedToPlayers: 0,
+    venueShare: 180, paidOut: 0, balance: 180, lastPayoutAtUtc: null, currency: "EGP",
+  };
+  api.on("GET", /^\/api\/v1\/admin\/payouts$/, () => [balance]);
+  api.on("GET", new RegExp(`^/api/v1/admin/payouts/venues/${VENUE_ID}$`), () => ({
+    balance,
+    payouts: [],
+    bookings: [{ bookingId: "b1", reference: "MAL-PAY001", status: "Confirmed", startUtc: "2026-11-20T18:00:00Z", totalPrice: 400, depositReceived: 150, commission: 60, refunded: 0, venueShare: 90 }],
   }));
-  api.on("POST", /\/payments$/, () => ({ id: "i1", number: "INV-2026-000042", ownerId: OWNER_ID, planCode: "pro", planName: "Pro", cycle: "Monthly", amount: 900, currency: "EGP", issuedAtUtc: "2026-11-07T10:00:00Z", periodStartUtc: "2026-11-01T00:00:00Z", periodEndUtc: "2026-12-01T00:00:00Z", status: "Paid", voidReason: null }));
+  api.on("POST", new RegExp(`^/api/v1/admin/payouts/venues/${VENUE_ID}$`), () => ({
+    id: "p1", venueId: VENUE_ID, amount: 180, currency: "EGP", method: "InstaPay", reference: "IP-778", notes: null, paidAtUtc: "2026-11-20T10:00:00Z", recordedAtUtc: "2026-11-20T10:00:00Z",
+  }));
 
-  await page.goto("/admin/billing");
-  await page.getByRole("row").filter({ hasText: "Pro" }).click();
-  await page.getByLabel("المبلغ").fill("900");
-  await page.getByLabel("الطريقة").last().selectOption("1");
-  await page.getByLabel("رقم العملية (اختياري)").fill("TRX-77");
-  await page.getByRole("button", { name: "تسجيل الدفعة" }).click();
+  await page.goto("/admin/payouts");
+  await openItem(page, "ملعب الزمالك");
+  const drawer = page.getByRole("dialog", { name: "ملعب الزمالك" });
+  await expect(drawer.getByText("MAL-PAY001")).toBeVisible();
 
-  const call = await waitForCall(page, api.calls, (c) => c.method === "POST" && c.path.endsWith("/payments"));
-  expect(call.body).toMatchObject({ amount: 900, method: 1, reference: "TRX-77" });
-  await expect(page.getByRole("status").filter({ hasText: "INV-2026-000042" })).toBeVisible();
-});
+  await drawer.getByLabel("المبلغ (ج.م)").fill("200");
+  await drawer.getByLabel("رقم التحويل / المرجع").fill("IP-778");
+  await expect(drawer.getByText("المبلغ أكبر من المستحق للملعب.")).toBeVisible();
+  await expect(drawer.getByRole("button", { name: "سجّل التحويل" })).toBeDisabled();
 
-test("a new plan is created with its limits and features", async ({ page, api }) => {
-  api.on("GET", /^\/api\/v1\/admin\/plans$/, () => []);
-  api.on("POST", /^\/api\/v1\/admin\/plans$/, (route) => route.fulfill({ status: 201, contentType: "application/json", body: "{}" }));
+  await drawer.getByRole("button", { name: "المستحق كله" }).click();
+  await drawer.getByRole("button", { name: "سجّل التحويل" }).click();
+  const stepUpDialog = page.getByRole("dialog", { name: "تأكيد الهوية" });
+  await stepUpDialog.getByLabel("كود التحقق").fill("123456");
+  await stepUpDialog.getByRole("button", { name: "تأكيد" }).click();
 
-  await page.goto("/admin/plans");
-  await page.getByRole("button", { name: "باقة جديدة" }).click();
-  await page.getByLabel("الكود (إنجليزي، مش بيتغير بعد الاشتراك)").fill("Starter");
-  await page.getByLabel("الاسم", { exact: true }).fill("ستارتر");
-  await page.getByLabel("السعر الشهري").fill("300");
-  await page.getByLabel("أقصى ملاعب (فاضي = بلا حدود)").fill("");
-  await page.getByRole("checkbox", { name: "تصدير CSV" }).check();
-  await page.getByRole("button", { name: "حفظ" }).click();
-
-  const call = await waitForCall(page, api.calls, (c) => c.method === "POST" && c.path === "/api/v1/admin/plans");
-  expect(call.body).toMatchObject({ code: "starter", name: "ستارتر", monthlyPrice: 300, maxVenues: null, features: ["reports.csv_export"] });
+  const call = await waitForCall(page, api.calls, (c) => c.method === "POST" && c.path === `/api/v1/admin/payouts/venues/${VENUE_ID}`);
+  expect(call.headers["x-step-up-token"]).toBe("tok");
+  expect(call.body).toMatchObject({ amount: 180, method: "InstaPay", reference: "IP-778" });
+  await expect(page.getByRole("status").filter({ hasText: "اتسجّل التحويل" })).toBeVisible();
 });
 
 test("platform settings are saved with a reason, and flags toggle with one", async ({ page, api }) => {
@@ -128,7 +125,8 @@ test("platform settings are saved with a reason, and flags toggle with one", asy
   api.on("PUT", /\/feature-flags\/venues\.featured$/, () => ({}));
 
   await page.goto("/admin/settings");
-  await page.getByLabel("مهلة الحجز").fill("45");
+  await page.getByRole("tab", { name: "الإعدادات العامة" }).click();
+  await page.getByLabel(/مهلة تثبيت الحجز/).fill("45");
   await page.getByRole("button", { name: "حفظ" }).click();
   await page.getByLabel("السبب (بيتسجل في سجل التدقيق)").fill("زحمة الويك إند");
   await page.getByRole("dialog").getByRole("button", { name: "حفظ" }).click();
@@ -150,9 +148,9 @@ test("the audit log filters by action prefix and shows masked snapshots", async 
   }));
 
   await page.goto("/admin/audit");
-  await page.getByLabel("الإجراء (بيبدأ بـ)").fill("admin.user");
+  await page.getByLabel("نوع العملية").selectOption("admin.user");
   await waitForCall(page, api.calls, (c) => c.path.includes("action=admin.user"));
-  await page.getByRole("row").filter({ hasText: "admin.user.suspended" }).click();
+  await openItem(page, "إيقاف حساب مستخدم");
   await expect(page.getByText("***5678")).toBeVisible();
   await expect(page.getByText("تكرار الغياب").last()).toBeVisible();
 });
@@ -166,7 +164,7 @@ test("impersonation issues a short code after step-up", async ({ page, api }) =>
   api.on("POST", /^\/api\/v1\/admin\/impersonate$/, () => ({ code: "c0de-very-long-random-value-0123456789abcdefgh", expiresInSeconds: 60 }));
 
   await page.goto("/admin/users");
-  await page.getByRole("row").filter({ hasText: "أحمد" }).click();
+  await openItem(page, "أحمد");
   await page.getByRole("button", { name: "دخول للمساعدة" }).click();
   await page.getByLabel("السبب (بيتسجل في سجل التدقيق)").fill("تذكرة SUP-1: الحجز مش ظاهر");
   await page.getByRole("button", { name: "إصدار كود" }).click();
@@ -190,7 +188,7 @@ test("a wrong authenticator code keeps the action from being sent", async ({ pag
   );
 
   await page.goto("/admin/users");
-  await page.getByRole("row").filter({ hasText: "منى" }).click();
+  await openItem(page, "منى");
   await page.getByRole("button", { name: "إيقاف الحساب" }).click();
   await page.getByLabel("السبب (بيتسجل في سجل التدقيق)").fill("سلوك مسيء");
   await page.getByRole("button", { name: "إيقاف", exact: true }).click();
@@ -198,6 +196,6 @@ test("a wrong authenticator code keeps the action from being sent", async ({ pag
   await dialog.getByLabel("كود التحقق").fill("999999");
   await dialog.getByRole("button", { name: "تأكيد" }).click();
 
-  await expect(dialog.getByRole("alert")).toContainText("الكود غلط");
+  await expect(dialog.getByRole("alert")).toContainText("كود التحقق غير صحيح");
   expect(api.calls.some((c) => c.path.endsWith("/suspend"))).toBe(false);
 });

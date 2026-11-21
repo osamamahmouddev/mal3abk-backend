@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { Schemas } from "@malabak/api-client";
 import { Page, PageHeader, TONE, btnOutline, card, muted, toArabicDigits, useRevealOnSelect, EmptyState } from "@/components/ui";
+import { usePlaceNames } from "@/lib/place-names";
 import { api, unwrap } from "@/lib/api";
 import { Eye } from "lucide-react";
 import { ImageLightbox, type LightboxPhoto } from "@/components/ImageLightbox";
@@ -62,6 +63,7 @@ function since(iso?: string | null) {
 }
 
 export default function ApprovalsPage() {
+  const place = usePlaceNames();
   const queryClient = useQueryClient();
   const [selId, setSelId] = useState<string | null>(null);
   const detailsRef = useRevealOnSelect<HTMLElement>(selId);
@@ -167,7 +169,7 @@ export default function ApprovalsPage() {
                   <span className="flex-1 min-w-0 flex flex-col gap-0.5 text-right">
                     <span className="text-sm font-bold text-slate-900">{v.name}</span>
                     <span className={`text-xs ${muted}`}>
-                      {v.area} · {since(v.submittedAtUtc)}
+                      {place.area(v.area, v.city)} · {since(v.submittedAtUtc)}
                     </span>
                   </span>
                   <span className={`shrink-0 text-[11px] font-bold rounded-full px-2 py-[3px] ${TONE.warn}`}>جديد</span>
@@ -181,7 +183,7 @@ export default function ApprovalsPage() {
               <div className="flex flex-col gap-0.5">
                 <h2 className="text-[21px] font-bold">{cur.name}</h2>
                 <span className={`text-[13px] ${muted}`}>
-                  {cur.city} · {cur.area} · {since(cur.submittedAtUtc)}
+                  {place.city(cur.city)} · {place.area(cur.area, cur.city)} · {since(cur.submittedAtUtc)}
                 </span>
               </div>
               <span className={`text-xs font-bold rounded-full px-3 py-1 ${TONE.warn}`}>مستني المراجعة</span>

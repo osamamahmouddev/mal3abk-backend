@@ -6,6 +6,7 @@ using Malabak.Modules.Teams.Application.Common;
 using Malabak.Modules.Teams.Application.Teams.CreateTeam;
 using Malabak.Modules.Teams.Application.Teams.Invitations.AcceptTeamInvitation;
 using Malabak.Modules.Teams.Application.Teams.Invitations.CreateTeamInvitation;
+using Malabak.Modules.Teams.Application.Teams.Invitations.PreviewTeamInvitation;
 using Malabak.Modules.Teams.Application.Teams.JoinRequests.ApproveJoinRequest;
 using Malabak.Modules.Teams.Application.Teams.JoinRequests.DeclineJoinRequest;
 using Malabak.Modules.Teams.Application.Teams.JoinRequests.GetTeamJoinRequests;
@@ -24,11 +25,24 @@ using Malabak.Modules.Teams.Domain;
 using Malabak.SharedKernel;
 using Malabak.SharedKernel.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
+using System.Threading.RateLimiting;
 
 namespace Malabak.Api.Endpoints;
 
 public static class TeamEndpoints
 {
+    public const string InviteRateLimitPolicy = "team-invite";
+
+    /// <summary>
+    /// Per player (else per IP) limit on resolving and accepting invite codes, so codes cannot be guessed by trying them:
+    /// a few dozen tries an hour against about a billion possible codes.
+    /// </summary>
+    public static void AddTeamInviteRateLimit(this RateLimiterOptions options) =>
+        options.AddPolicy(InviteRateLimitPolicy, http => RateLimitPartition.GetSlidingWindowLimiter(
+            http.User.FindFirst("sub")?.Value ?? http.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            _ => new SlidingWindowRateLimiterOptions { PermitLimit = 30, Window = TimeSpan.FromHours(1), SegmentsPerWindow = 6, QueueLimit = 0 }));
+
     public static void MapTeamEndpoints(this IEndpointRouteBuilder app, ApiVersionSet apiVersionSet)
     {
         var teams = app.MapGroup("/api/v{version:apiVersion}/teams")
@@ -140,7 +154,22 @@ public static class TeamEndpoints
             return ToResult(result);
         })
         .WithName("AcceptTeamInvitation")
-        .WithSummary("Join a team using a unique 6-character invite code");
+        .WithSummary("Join a team using a unique 6-character invite code")
+        .RequireRateLimiting(InviteRateLimitPolicy);
+
+        // 3b. See which team an invite code (typed or from a shared link) leads to, before choosing to join
+        teams.MapGet("/invitations/{code}", async (
+            string code,
+            ClaimsPrincipal user,
+            IQueryHandler<PreviewTeamInvitationQuery, Result<TeamInvitePreviewDto>> handler,
+            CancellationToken ct) =>
+        {
+            var result = await handler.HandleAsync(new PreviewTeamInvitationQuery(code, user.GetUserId()!.Value), ct);
+            return ToResult(result);
+        })
+        .WithName("PreviewTeamInvitation")
+        .WithSummary("Public facts of the team behind a valid invite code; never joins")
+        .RequireRateLimiting(InviteRateLimitPolicy);
 
         // 4. Remove member or leave team
         teams.MapDelete("/{id:guid}/members/{memberPlayerId:guid}", async (

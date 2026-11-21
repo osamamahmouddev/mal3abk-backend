@@ -4,7 +4,7 @@ import React, { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { Schemas } from "@malabak/api-client";
 import { KV, Page, PageHeader, Pill, ReasonModal, type ReasonRequest, SearchBox, btnOutline, btnPrimary, btnSmall, card, inputClass, muted } from "@/components/ui";
-import { Drawer, Pager, QueryState, Select, Table, fmtDateTime, useNotice } from "@/components/admin";
+import { Drawer, Pager, QueryState, Select, Table, fmtDateTime, useNotice, useListView } from "@/components/admin";
 import { api, unwrap } from "@/lib/api";
 import { ChevronLeft, LayoutGrid, Table2 } from "lucide-react";
 import { Pitch, SoccerBall } from "@/components/icons";
@@ -35,7 +35,7 @@ export default function SupportPage() {
   const [mine, setMine] = useState<"all" | "unassigned">("all");
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState<string | null>(null);
-  const [viewMode, setViewMode] = useState<"cards" | "table">("cards");
+  const [viewMode, setViewMode] = useListView();
 
   const tickets = useQuery({
     queryKey: ["admin-tickets", q, status, category, mine, page],

@@ -19,9 +19,11 @@ public sealed class PasswordAuthTests
 {
     private const string _email = "owner@club.com";
     private const string _password = "green pitch at midnight";
+    private const string _tooShortPassphrase = "short";
 
     private readonly MutableClock _clock = new();
     private readonly RecordingEmailSender _mailbox = new();
+    private readonly RecordingPhoneAlerts _phone = new();
     private readonly FakeCipher _cipher = new();
     private readonly Pbkdf2PasswordHasher _hasher = new();
     private readonly TotpService _totp = new();
@@ -138,9 +140,13 @@ public sealed class PasswordAuthTests
 
         (await Login(db).HandleAsync(LoginCmd())).Error.Should().Be(PasswordAuthErrors.EmailNotVerified);
 
-        var token = _mailbox.LastToken();
+        _mailbox.Sent.Should().BeEmpty("the activation link goes to the phone, not the email");
+        var token = _phone.LastToken();
         (await accounts.HandleAsync(new VerifyEmailCommand(token))).IsSuccess.Should().BeTrue();
         (await accounts.HandleAsync(new VerifyEmailCommand(token))).Error.Should().Be(PasswordAuthErrors.InvalidToken, "tokens are single-use");
+        stored = await db.Users.SingleAsync();
+        stored.IsPhoneNumberConfirmed.Should().BeTrue("the link proved the number");
+        stored.IsEmailConfirmed.Should().BeFalse("nothing proved the email");
 
         var login = await Login(db).HandleAsync(LoginCmd());
         login.IsSuccess.Should().BeTrue();
@@ -293,10 +299,10 @@ public sealed class PasswordAuthTests
     }
 
     private PasswordLoginHandler Login(IdentityDbContext db) =>
-        new(db, _hasher, _turnstile, _totp, _cipher, NewTokenService(), TestSessions.Create(db, _clock), _clock, NullLogger<PasswordLoginHandler>.Instance);
+        new(db, _hasher, new PhoneNumberNormalizer(), _turnstile, _totp, _cipher, NewTokenService(), TestSessions.Create(db, _clock), _clock, NullLogger<PasswordLoginHandler>.Instance);
 
     private PasswordAccountHandlers Accounts(IdentityDbContext db) =>
-        new(db, _hasher, new PasswordPolicy(new FakeBreachChecker(false)), new PhoneNumberNormalizer(), _mailbox, _totp, _cipher, _clock,
+        new(db, _hasher, new PasswordPolicy(new FakeBreachChecker(false)), new PhoneNumberNormalizer(), _mailbox, _phone, _totp, _cipher, _clock,
             new ConfigurationBuilder().Build(), NullLogger<PasswordAccountHandlers>.Instance);
 
     private TokenService NewTokenService()
@@ -307,6 +313,73 @@ public sealed class PasswordAuthTests
 
     private static IdentityDbContext NewDb() =>
         new(new DbContextOptionsBuilder<IdentityDbContext>().UseInMemoryDatabase(Guid.NewGuid().ToString()).Options);
+
+    [Fact]
+    public async Task Login_WithThePhoneNumberInsteadOfTheEmail_SignsInAsync()
+    {
+        await using var db = NewDb();
+        await SeedVerifiedOwnerAsync(db);
+
+        (await Login(db).HandleAsync(LoginCmd() with { Email = "01001112222" })).IsSuccess.Should().BeTrue();
+        (await Login(db).HandleAsync(LoginCmd() with { Email = "+201001112222" })).IsSuccess.Should().BeTrue();
+        (await Login(db).HandleAsync(LoginCmd() with { Email = "01009999999" })).Error.Should().Be(PasswordAuthErrors.InvalidCredentials);
+        (await Login(db).HandleAsync(LoginCmd() with { Email = "not a number" })).Error.Should().Be(PasswordAuthErrors.InvalidCredentials);
+    }
+
+    [Fact]
+    public async Task ResendActivation_GoesToTheAccountsPhone_AndStopsOnceActivatedAsync()
+    {
+        await using var db = NewDb();
+        var accounts = Accounts(db);
+        await accounts.HandleAsync(new RegisterVenueOwnerCommand(_email, "01001112222", "Owner", _password));
+        _phone.Sent.Should().ContainSingle().Which.Phone.Should().Be("+201001112222");
+
+        _clock.UtcNow = _clock.UtcNow.AddMinutes(2);
+        await accounts.HandleAsync(new ResendVerificationCommand(_email));
+        _phone.Sent.Should().HaveCount(2);
+
+        await accounts.HandleAsync(new VerifyEmailCommand(_phone.LastToken()));
+        _clock.UtcNow = _clock.UtcNow.AddMinutes(2);
+        await accounts.HandleAsync(new ResendVerificationCommand(_email));
+        _phone.Sent.Should().HaveCount(2, "an activated account gets no more links");
+        _mailbox.Sent.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task InvitedStaffAccount_IsStaffNotOwner_SignsInByPhone_AndRefusesADuplicateNumberAsync()
+    {
+        await using var db = NewDb();
+        var contract = new UserAccountsContract(db, new PhoneNumberNormalizer(), _mailbox, _phone, _hasher,
+            new PasswordPolicy(new FakeBreachChecker(false)), _clock, new ConfigurationBuilder().Build(), NullLogger<UserAccountsContract>.Instance);
+        var account = new Malabak.SharedKernel.Contracts.InvitedStaffAccount("Staff", "+201001112299", null, _password, PhoneVerified: true, EmailVerified: false);
+
+        var created = await contract.CreateInvitedStaffAccountAsync(account);
+
+        var user = await db.Users.SingleAsync(u => u.Id == created.Value);
+        user.Roles.Should().Equal(UserRole.VenueStaff);
+        user.Email.Should().BeNull();
+        user.IsPhoneNumberConfirmed.Should().BeTrue();
+        (await Login(db).HandleAsync(LoginCmd() with { Email = "01001112299" })).IsSuccess.Should().BeTrue();
+        (await contract.CreateInvitedStaffAccountAsync(account with { FullName = "Other" })).Error.Should().Be(StaffAccountErrors.AlreadyRegistered);
+        (await contract.CreateInvitedStaffAccountAsync(account with { NormalizedPhone = "+201001112288", Password = _tooShortPassphrase })).IsFailure.Should().BeTrue();
+    }
+
+    private sealed class RecordingPhoneAlerts : ISmsAlertService
+    {
+        public List<(string Phone, SecurityAlert Alert)> Sent { get; } = [];
+
+        public Task SendSecurityAlertAsync(string phoneNumber, SecurityAlert alert, CancellationToken cancellationToken = default)
+        {
+            Sent.Add((phoneNumber, alert));
+            return Task.CompletedTask;
+        }
+
+        public string LastToken()
+        {
+            var link = Sent[^1].Alert.ActivationLink!;
+            return link[(link.IndexOf("token=", StringComparison.Ordinal) + 6)..];
+        }
+    }
 
     private sealed class RecordingEmailSender : IEmailSender
     {

@@ -8,6 +8,7 @@ import { Page, Toast, card, chip, inputClass, muted, secondaryBtn, toArabicDigit
 import { useVenue } from "@/components/Providers";
 import { api, unwrap } from "@/lib/api";
 import { BOOKING_STATUS, addDays, cairoToday, money, percent, statusByKey } from "@/lib/booking-format";
+import { Download, Loader2 } from "lucide-react";
 
 type Report = Schemas["VenueReportDto"];
 type Preset = "week" | "month" | "quarter" | "custom";
@@ -89,6 +90,7 @@ export default function ReportsPage() {
           <span className={`text-[13px] ${muted}`}>الأرقام بتوقيت القاهرة، والحجز بيتحسب في يوم ميعاده.</span>
         </div>
         <button type="button" onClick={exportCsv} disabled={exporting || !venueId} className={`${secondaryBtn} rounded-xl disabled:opacity-50`}>
+          {exporting ? <Loader2 className="size-4 animate-spin" /> : <Download className="size-4" />}
           {exporting ? "بيتجهّز…" : "تصدير CSV"}
         </button>
       </div>

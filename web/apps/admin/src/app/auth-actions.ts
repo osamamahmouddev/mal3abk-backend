@@ -2,7 +2,7 @@
 
 import { redirect } from "next/navigation";
 import type { Schemas } from "@malabak/api-client";
-import { anonymousApi, apiUrl, deleteSealedCookie, getSealedCookie, setSealedCookie, signIn, signOut } from "@malabak/bff/server";
+import { anonymousApi, apiUrl, deleteSealedCookie, getSealedCookie, setSealedCookie, signIn, signOut, userApi } from "@malabak/bff/server";
 import { bffConfig } from "@/lib/bff-config";
 
 export interface ActionResult {
@@ -18,7 +18,9 @@ const messages: Record<string, string> = {
   "Identity.InvalidTotpCode": "الكود غلط أو انتهى. جرّب الكود اللي ظاهر دلوقتي.",
   "Identity.LoginThrottled": "محاولات كتير غلط. استنى شوية وجرّب تاني.",
   "Identity.CaptchaRequired": "محاولات كتير غلط. استنى شوية وجرّب تاني.",
-  "Identity.InvalidEnrollmentToken": "انتهت مهلة التفعيل. سجّل دخول تاني.",
+  "Identity.InvalidEnrollmentToken": "انتهت مهلة التفعيل. ابدأ من الأول.",
+  "Identity.TwoFactorAlreadyEnabled": "التحقق بخطوتين متفعّل بالفعل.",
+  "Identity.TwoFactorNotEnabled": "التحقق بخطوتين مقفول بالفعل.",
 };
 
 function failure(problem: Record<string, unknown> | undefined): ActionResult {
@@ -27,8 +29,8 @@ function failure(problem: Record<string, unknown> | undefined): ActionResult {
 }
 
 /**
- * Password, then the authenticator (or a recovery) code. An admin without TOTP gets an enrollment
- * ticket instead of a session; it stays in an encrypted httpOnly cookie, never in the browser.
+ * Password, then the authenticator (or a recovery) code when the admin turned two-step verification on.
+ * Without it the password signs in directly (two-step is optional for admins; see SECURITY.md §3.9).
  */
 export async function adminLogin(input: { email: string; password: string; totpCode?: string; recoveryCode?: string }): Promise<ActionResult> {
   const result = await anonymousApi<Schemas["AdminLoginResponse"]>("/api/v1/admin/auth/login", {
@@ -72,4 +74,34 @@ export async function confirmTotpEnrollment(code: string): Promise<{ ok: boolean
 export async function adminLogout() {
   await signOut(bffConfig);
   redirect("/login");
+}
+
+/** Whether the signed-in admin has two-step verification on, and how many recovery codes are left. */
+export async function twoFactorStatus(): Promise<{ ok: boolean; enabled?: boolean; recoveryCodesLeft?: number; message?: string }> {
+  const response = await userApi(bffConfig, "/api/v1/admin/auth/totp/status");
+  if (!response.ok) return { ok: false, message: failure(await response.json().catch(() => undefined)).message };
+  const data = (await response.json()) as { enabled: boolean; recoveryCodesLeft: number };
+  return { ok: true, enabled: data.enabled, recoveryCodesLeft: data.recoveryCodesLeft };
+}
+
+/**
+ * Turning two-step verification on from a signed-in session: the API hands a short-lived setup ticket that, like the
+ * sign-in one, stays in an encrypted httpOnly cookie; then the usual enroll step returns the secret for the QR code.
+ */
+export async function beginTotpSetup(): Promise<{ ok: boolean; secret?: string; provisioningUri?: string; message?: string }> {
+  const response = await userApi(bffConfig, "/api/v1/admin/auth/totp/setup", { method: "POST" });
+  if (!response.ok) return { ok: false, message: failure(await response.json().catch(() => undefined)).message };
+  const { enrollmentToken } = (await response.json()) as { enrollmentToken: string };
+  await setSealedCookie(ENROLLMENT_COOKIE, enrollmentToken, 10 * 60);
+  return startTotpEnrollment();
+}
+
+/** Turns two-step verification off; the API needs a current authenticator code or an unused recovery code. */
+export async function disableTotp(input: { totpCode?: string; recoveryCode?: string }): Promise<ActionResult> {
+  const response = await userApi(bffConfig, "/api/v1/admin/auth/totp/disable", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ totpCode: input.totpCode || null, recoveryCode: input.recoveryCode || null }),
+  });
+  return response.ok ? { ok: true } : failure(await response.json().catch(() => undefined));
 }

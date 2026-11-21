@@ -7,6 +7,7 @@ import { Page, card, muted } from "@/components/ui";
 import { ManualBookingForm } from "@/components/ManualBookingForm";
 import { useVenue } from "@/components/Providers";
 import { P } from "@/lib/permissions";
+import { ChevronLeft } from "lucide-react";
 
 export default function ManualBookingPage() {
   return (
@@ -25,12 +26,13 @@ function ManualBooking() {
   return (
     <Page className="gap-5 max-w-[1440px] w-full">
       <div className="flex flex-col gap-0.5">
-        <span className={`text-[13px] ${muted}`}>
+        <nav aria-label="مسار الصفحة" className={`text-[13px] ${muted} flex items-center gap-1`}>
           <Link href="/reservations" className="hover:text-brand-red">
             الحجوزات
-          </Link>{" "}
-          ‹ حجز يدوي
-        </span>
+          </Link>
+          <ChevronLeft className="size-3.5" />
+          <span aria-current="page">حجز يدوي</span>
+        </nav>
         <h1 className="text-[26px] font-bold text-slate-900">حجز يدوي ومراجعة الجدول</h1>
         <span className={`text-[13px] ${muted}`}>
           للحجوزات بالتليفون أو في الملعب. يعرض جدول الحجوزات والمواعيد لليوم المختار لمنع التعارض والحجز المزدوج فوراً.

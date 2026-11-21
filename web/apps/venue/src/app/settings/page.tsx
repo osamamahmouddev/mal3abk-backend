@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { QRCodeSVG } from "qrcode.react";
@@ -8,13 +8,15 @@ import { Eye, EyeOff, X } from "lucide-react";
 import { Page, Toast, card, chip, inputClass, muted, redShadow, toArabicDigits } from "@/components/ui";
 import { useVenue } from "@/components/Providers";
 import { AddAreaInline } from "@/components/AddAreaInline";
-import { PaymentMethods } from "@/components/PaymentMethods";
 import { ImageLightbox } from "@/components/ImageLightbox";
 import { api, unwrap } from "@/lib/api";
 import { useReference } from "@/lib/reference";
 import { mediaIdOf, mediaSrc, uploadImage } from "@/lib/upload";
+import { LocationField, toApiCoordinates, type LatLng } from "@/components/LocationField";
+import { PhotoDropTile } from "@/components/PhotoDropTile";
+import { CommissionTerms } from "@/components/CommissionTerms";
 
-type Tab = "info" | "pay" | "account";
+type Tab = "info" | "account";
 
 const blank = "";
 const NO_PASSWORDS = { currentPassword: blank, newPassword: blank };
@@ -34,7 +36,6 @@ export default function SettingsPage() {
         {(
           [
             ["info", "بيانات المكان / النادي"],
-            ["pay", "طرق استلام العربون"],
             ["account", "الحساب والأمان"],
           ] as const
         ).map(([id, label]) => (
@@ -53,8 +54,12 @@ export default function SettingsPage() {
         ))}
       </div>
 
-      {tab === "info" && <VenueInfo onMessage={setToast} />}
-      {tab === "pay" && venueId && <PaymentMethods venueId={venueId} onMessage={setToast} />}
+      {tab === "info" && (
+        <>
+          <VenueInfo onMessage={setToast} />
+          <CommissionTerms />
+        </>
+      )}
       {tab === "account" && <Account onMessage={setToast} />}
 
       <Toast message={toast} onClose={() => setToast(null)} />
@@ -66,9 +71,9 @@ function VenueInfo({ onMessage }: { onMessage: (message: string) => void }) {
   const queryClient = useQueryClient();
   const { venue } = useVenue();
   const { facilities, governorates } = useReference();
-  const fileInput = useRef<HTMLInputElement>(null);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const [form, setForm] = useState({ name: "", phoneNumber: "", address: "", description: "", city: "", area: "", facilities: [] as string[] });
+  const [location, setLocation] = useState<LatLng>({ lat: "", lng: "" });
 
   useEffect(() => {
     if (venue) {
@@ -81,6 +86,7 @@ function VenueInfo({ onMessage }: { onMessage: (message: string) => void }) {
         area: venue.area,
         facilities: venue.facilities,
       });
+      setLocation({ lat: venue.latitude?.toString() ?? "", lng: venue.longitude?.toString() ?? "" });
     }
   }, [venue]);
 
@@ -91,7 +97,7 @@ function VenueInfo({ onMessage }: { onMessage: (message: string) => void }) {
       unwrap(
         api.PUT("/api/v1/venue-manager/venues/{id}", {
           params: { path: { id: venue!.id } },
-          body: { ...form, description: form.description.trim() || null, photos: venue!.photos },
+          body: { ...form, description: form.description.trim() || null, photos: venue!.photos, ...toApiCoordinates(location) },
         }),
       ),
     onSuccess: async () => {
@@ -101,17 +107,6 @@ function VenueInfo({ onMessage }: { onMessage: (message: string) => void }) {
     onError: (e: Error) => onMessage(e.message),
   });
 
-  const upload = useMutation({
-    mutationFn: async (file: File) => {
-      const mediaId = await uploadImage(file, 0);
-      return unwrap(api.POST("/api/v1/venue-manager/venues/{venueId}/gallery", { params: { path: { venueId: venue!.id } }, body: { mediaId } }));
-    },
-    onSuccess: async () => {
-      await refresh();
-      onMessage("الصورة اترفعت.");
-    },
-    onError: (e: Error) => onMessage(e.message),
-  });
 
   const removePhoto = useMutation({
     mutationFn: async (photo: string) => {
@@ -133,6 +128,9 @@ function VenueInfo({ onMessage }: { onMessage: (message: string) => void }) {
             area: venue!.area,
             facilities: venue!.facilities,
             photos: venue!.photos.filter((p) => p !== photo),
+            // The update replaces every field, so the saved location has to be sent back or it would be cleared.
+            latitude: venue!.latitude ?? null,
+            longitude: venue!.longitude ?? null,
           },
         }),
       );
@@ -187,6 +185,7 @@ function VenueInfo({ onMessage }: { onMessage: (message: string) => void }) {
           العنوان
           <input value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} className={inputClass} />
         </label>
+        <LocationField value={location} onChange={setLocation} fieldClass={inputClass} />
         <label className="flex flex-col gap-1.5 text-[13px] font-semibold">
           رقم التواصل
           <input dir="ltr" value={form.phoneNumber} onChange={(e) => setForm({ ...form, phoneNumber: e.target.value })} className={`${inputClass} text-right`} />
@@ -261,21 +260,18 @@ function VenueInfo({ onMessage }: { onMessage: (message: string) => void }) {
               </div>
             );
           })}
+          <PhotoDropTile
+            upload={async (file) => {
+              const mediaId = await uploadImage(file, 0);
+              await unwrap(api.POST("/api/v1/venue-manager/venues/{venueId}/gallery", { params: { path: { venueId: venue.id } }, body: { mediaId } }));
+            }}
+            onDone={async () => {
+              await refresh();
+              onMessage("الصور اترفعت.");
+            }}
+            onError={onMessage}
+          />
         </div>
-        <input
-          ref={fileInput}
-          type="file"
-          accept="image/jpeg,image/png,image/webp"
-          className="hidden"
-          onChange={(e) => {
-            const file = e.target.files?.[0];
-            if (file) upload.mutate(file);
-            e.target.value = "";
-          }}
-        />
-        <button type="button" disabled={upload.isPending} onClick={() => fileInput.current?.click()} className={smallBtn}>
-          {upload.isPending ? "جاري الرفع…" : "+ رفع صورة"}
-        </button>
         <span className={`text-xs ${muted}`}>JPG أو PNG أو WebP، لحد ٨ ميجا. بنشيل بيانات الموقع من الصورة أوتوماتيك.</span>
       </section>
 

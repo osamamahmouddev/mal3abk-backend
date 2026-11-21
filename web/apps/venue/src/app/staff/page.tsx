@@ -7,7 +7,7 @@ import { Badge, Page, Toast, card, chip, muted, redShadow } from "@/components/u
 import { useVenue } from "@/components/Providers";
 import { P } from "@/lib/permissions";
 import { api, unwrap } from "@/lib/api";
-import { Check, Mail } from "lucide-react";
+import { Check, Mail, UserPlus } from "lucide-react";
 
 type Member = Schemas["StaffMemberDto"];
 
@@ -139,7 +139,13 @@ export default function StaffPage() {
         <section className={`flex-[999_1_460px] min-w-0 ${card} rounded-[20px] px-5 py-2`}>
           {staff.isLoading && <div className="h-16 my-3 rounded-xl bg-slate-200 animate-pulse" />}
           {!staff.isLoading && members.length === 0 && invitations.length === 0 && (
-            <p className={`py-6 text-center text-sm ${muted}`}>مفيش موظفين لسه. ابعت دعوة من الجنب.</p>
+            <div className="py-12 flex flex-col items-center gap-3 text-center animate-fade-in">
+              <span className="grid place-items-center size-14 rounded-2xl bg-[#F3F5F9] text-[#8A93A3]">
+                <UserPlus className="size-7" strokeWidth={1.5} />
+              </span>
+              <strong className="text-[15px]">مفيش موظفين لسه</strong>
+              <span className={`text-[13px] ${muted} max-w-[320px]`}>ابعت دعوة لحد من فريقك من الفورم اللي جنبك، وحدد دوره وصلاحياته.</span>
+            </div>
           )}
           {members.map((m) => (
             <div key={m.memberId} className="flex flex-wrap items-center gap-3 py-3.5 border-b border-[#EEF0F5] last:border-b-0">

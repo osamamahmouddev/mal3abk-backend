@@ -14,26 +14,26 @@ test.beforeEach(async ({ api }) => {
     items: [
       notification("payment.proof_submitted", "Payments", "إيصال دفع جديد", `malabak://booking/${BOOKING_ID}`),
       notification("venue.info_requested", "Venues", "مطلوب معلومات إضافية", `malabak://venue-manager/venue/${VENUE}`),
-      notification("subscription.expiring", "Venues", "اشتراكك قرب يخلص", "malabak://venue-manager/billing"),
+      notification("payout.recorded", "Payments", "حوّلنالك فلوسك", `malabak://venue-manager/venue/${VENUE}`),
     ],
     page: 1, pageSize: 50, totalCount: 3, unreadCount: 0,
   }));
   api.on("GET", /\/proofs$/, () => []);
 });
 
-test("a payment proof notification opens that booking's proof review", async ({ page }) => {
+test("a payment proof notification opens the reservations: the platform team reviews the deposit", async ({ page }) => {
   await page.goto("/venue/notifications");
   await page.getByRole("button", { name: /إيصال دفع جديد/ }).click();
 
-  await expect(page).toHaveURL(new RegExp(`/venue/reservations/proof-review\\?booking=${BOOKING_ID}`));
+  await expect(page).toHaveURL(/\/venue\/reservations/, { timeout: 20_000 }); // the dev server compiles the page on first visit
 });
 
-test("a venue notice opens the venue settings and a billing notice opens the subscription page", async ({ page }) => {
+test("an info request opens the setup and a payout notice opens the payouts", async ({ page }) => {
   await page.goto("/venue/notifications");
   await page.getByRole("button", { name: /مطلوب معلومات إضافية/ }).click();
-  await expect(page).toHaveURL(/\/venue\/settings/);
+  await expect(page).toHaveURL(/\/venue\/setup/, { timeout: 20_000 }); // the dev server compiles the page on first visit
 
   await page.goto("/venue/notifications");
-  await page.getByRole("button", { name: /اشتراكك قرب يخلص/ }).click();
-  await expect(page).toHaveURL(/\/venue\/subscription/);
+  await page.getByRole("button", { name: /حوّلنالك فلوسك/ }).click();
+  await expect(page).toHaveURL(/\/venue\/payouts/, { timeout: 20_000 }); // the dev server compiles the page on first visit
 });

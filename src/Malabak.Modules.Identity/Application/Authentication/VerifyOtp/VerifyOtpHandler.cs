@@ -58,7 +58,7 @@ public sealed class VerifyOtpHandler : ICommandHandler<VerifyOtpCommand, Result<
 
         // 2. Verify code using constant-time comparison in OTP store with 5-attempt limit
         // Reviewer test account bypass for App Store / Google Play review verification (+201000000999 with code 123456)
-        var isReviewer = (normalizedPhone == "+201000000999" || normalizedPhone == "01000000999") && command.Code == "123456";
+        var isReviewer = ReviewAccount.Is(normalizedPhone) && command.Code == ReviewAccount.Code;
 
         // In Development/Testing, allow fixed bypass codes (123456 / 111111) for local mobile emulator testing.
         var isDevBypass = (_environment != null &&
@@ -114,7 +114,9 @@ public sealed class VerifyOtpHandler : ICommandHandler<VerifyOtpCommand, Result<
         // deletion, but only with an explicit confirmation; otherwise the account stays closed and is never re-created.
         if (user is { IsDeleted: true })
         {
-            if (!command.RestoreAccount || !user.CanRestore(nowUtc))
+            // App reviewers test "delete account": the review account comes back on its next sign-in so the next review
+            // (or the next reviewer) can still get in.
+            if ((!command.RestoreAccount && !isReviewer) || !user.CanRestore(nowUtc))
             {
                 return Result.Failure<VerifyOtpResponse>(new Error(
                     "Identity.AccountPendingDeletion",
@@ -124,6 +126,14 @@ public sealed class VerifyOtpHandler : ICommandHandler<VerifyOtpCommand, Result<
             user.Restore(nowUtc);
             await _dbContext.SaveChangesAsync(cancellationToken);
             _logger.LogInformation("AUDIT: account {UserId} restored during the deletion grace period", user.Id);
+        }
+
+        // The review account cannot be suspended any more; one suspended before that guard is lifted so reviewers get in.
+        if (isReviewer && user is { IsSuspended: true })
+        {
+            user.Reactivate(nowUtc);
+            await _dbContext.SaveChangesAsync(cancellationToken);
+            _logger.LogWarning("AUDIT: the app review account {UserId} was suspended and has been reactivated on sign-in", user.Id);
         }
 
         if (user is { IsSuspended: true })

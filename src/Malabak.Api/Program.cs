@@ -42,7 +42,6 @@ using Malabak.Modules.Venues.Infrastructure;
 using Malabak.SharedKernel;
 using Malabak.SharedKernel.Time;
 using Malabak.Modules.Audit;
-using Malabak.Modules.Subscriptions;
 using Malabak.Modules.Support;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
@@ -128,6 +127,7 @@ builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
     options.AddPasswordAuthRateLimit();
+    options.AddTeamInviteRateLimit();
     options.AddPolicy(MediaEndpoints.UploadRateLimitPolicy, http => RateLimitPartition.GetSlidingWindowLimiter(
         http.User.FindFirst("sub")?.Value ?? http.Connection.RemoteIpAddress?.ToString() ?? "unknown",
         _ => new SlidingWindowRateLimiterOptions { PermitLimit = 30, Window = TimeSpan.FromHours(1), SegmentsPerWindow = 6, QueueLimit = 0 }));
@@ -243,7 +243,9 @@ builder.Services.AddAuditModule();
 builder.Services.AddDbContext<Malabak.Modules.Subscriptions.Infrastructure.SubscriptionsDbContext>(options =>
     options.UseNpgsql(postgresConnectionString, npgsql =>
         npgsql.MigrationsHistoryTable("__EFMigrationsHistory", Malabak.Modules.Subscriptions.Infrastructure.SubscriptionsDbContext.Schema)));
-builder.Services.AddSubscriptionsModule();
+// Subscriptions are retired: venues pay a per-booking commission set by the platform. Only the context stays, so the
+// old plan, subscription and invoice tables keep their migrations and their data for accounting.
+builder.Services.AddScoped<Malabak.SharedKernel.Contracts.IEntitlementService, Malabak.Modules.Venues.Application.Subscriptions.NoPlanLimits>();
 
 builder.Services.AddDbContext<Malabak.Modules.Support.Infrastructure.SupportDbContext>(options =>
     options.UseNpgsql(postgresConnectionString, npgsql =>
@@ -262,6 +264,8 @@ builder.Services.Configure<Malabak.Api.Infrastructure.Security.CloudflareAccessO
 builder.Services.AddHttpClient(nameof(Malabak.Api.Infrastructure.Security.CloudflareAccessValidator));
 builder.Services.AddSingleton<Malabak.Api.Infrastructure.Security.CloudflareAccessValidator>();
 
+builder.Services.AddScoped<Malabak.Api.Infrastructure.Platform.TrashService>();
+builder.Services.AddScoped<Malabak.Api.Infrastructure.Platform.TrashPurgeJob>();
 builder.Services.AddDbContext<Malabak.Api.Infrastructure.Platform.PlatformDbContext>(options =>
     options.UseNpgsql(postgresConnectionString, npgsql =>
         npgsql.MigrationsHistoryTable("__EFMigrationsHistory", Malabak.Api.Infrastructure.Platform.PlatformDbContext.Schema)));
@@ -354,7 +358,24 @@ if (args.Contains("--migrate"))
 }
 
 // Hosts without a release step or terminal (e.g. MonsterASP, Render free tier) migrate on startup instead; off by default.
-if (app.Configuration.GetValue<bool>("Database:MigrateOnStartup"))
+if (app.Configuration.GetValue<bool>("Database:ResetOnStartup"))
+{
+    using var scope = app.Services.CreateScope();
+    app.Logger.LogWarning("RESETTING DATABASE ON STARTUP (Database:ResetOnStartup is true)...");
+    await DatabaseMigrator.ResetAndMigrateAllAsync(scope.ServiceProvider);
+
+    if (app.Configuration.GetValue<bool>("Database:SeedOnStartup"))
+    {
+        var refSeeder = scope.ServiceProvider.GetRequiredService<ReferenceDataSeeder>();
+        await refSeeder.SeedAsync();
+
+        if (app.Environment.IsDevelopment())
+        {
+            await SeedDemoDataSafelyAsync(app, scope.ServiceProvider);
+        }
+    }
+}
+else if (app.Configuration.GetValue<bool>("Database:MigrateOnStartup"))
 {
     using var scope = app.Services.CreateScope();
     await DatabaseMigrator.MigrateAllAsync(scope.ServiceProvider);
@@ -367,11 +388,10 @@ if (app.Configuration.GetValue<bool>("Database:MigrateOnStartup"))
         var refSeeder = scope.ServiceProvider.GetRequiredService<ReferenceDataSeeder>();
         await refSeeder.SeedAsync();
 
-        var demoSeeder = scope.ServiceProvider.GetRequiredService<DemoDataSeeder>();
-        await demoSeeder.SeedAsync();
-
-        var devSeeder = scope.ServiceProvider.GetRequiredService<DevAccountsSeeder>();
-        await devSeeder.SeedAsync();
+        if (app.Environment.IsDevelopment())
+        {
+            await SeedDemoDataSafelyAsync(app, scope.ServiceProvider);
+        }
     }
 }
 
@@ -536,7 +556,6 @@ app.MapAuthEndpoints(apiVersionSet);
 app.MapPhoneChangeEndpoints(apiVersionSet);
 app.MapVenueManagerEndpoints(apiVersionSet);
 app.MapMeEndpoints(apiVersionSet);
-app.MapPaymentMethodEndpoints(apiVersionSet);
 app.MapVenueApprovalEndpoints(apiVersionSet);
 app.MapBookingPolicyEndpoints(apiVersionSet);
 app.MapPasswordAuthEndpoints(apiVersionSet);
@@ -557,6 +576,9 @@ app.MapVenueReportEndpoints(apiVersionSet);
 app.MapAdminAuditEndpoints(apiVersionSet);
 app.MapAdminUserEndpoints(apiVersionSet);
 app.MapAdminVenueBookingEndpoints(apiVersionSet);
+app.MapVenuePayoutEndpoints(apiVersionSet);
+app.MapAdminCrmEndpoints(apiVersionSet);
+app.MapAdminTrashEndpoints(apiVersionSet);
 app.MapSupportEndpoints(apiVersionSet);
 app.MapDisputeEndpoints(apiVersionSet);
 app.MapAdminModerationEndpoints(apiVersionSet);
@@ -565,13 +587,13 @@ app.MapFeaturedVenueEndpoints(apiVersionSet);
 app.MapAreaEndpoints(apiVersionSet);
 app.MapImpersonationEndpoints(apiVersionSet);
 app.MapPlatformEndpoints(apiVersionSet);
-app.MapSubscriptionEndpoints(apiVersionSet);
 app.MapPlayerVenueListEndpoints(apiVersionSet);
 app.MapPrivacyEndpoints(apiVersionSet);
 app.MapRealtimeEndpoints(apiVersionSet);
 app.MapBookingEndpoints(apiVersionSet);
 app.MapPaymentEndpoints(apiVersionSet);
 app.MapTeamEndpoints(apiVersionSet);
+app.MapInviteLinkEndpoints();
 app.MapChallengeEndpoints(apiVersionSet);
 app.MapMatchEndpoints(apiVersionSet);
 app.MapWaitlistEndpoints(apiVersionSet);
@@ -590,6 +612,22 @@ app.MapGet("/.well-known/security.txt", () => Results.Text(
     .AllowAnonymous();
 
 await app.RunAsync();
+
+// Demo and dev-account data are a convenience: a failure there (data changed by hand, a clashing booking) is logged and the
+// API still starts, instead of the host restarting in a loop and taking the whole service down.
+static async Task SeedDemoDataSafelyAsync(WebApplication app, IServiceProvider services)
+{
+    try
+    {
+        await services.GetRequiredService<DemoDataSeeder>().SeedAsync();
+        await services.GetRequiredService<DevAccountsSeeder>().SeedAsync();
+    }
+    catch (Exception ex)
+    {
+        app.Logger.LogError(ex, "Demo data seeding failed; the API starts without it");
+    }
+}
+
 
 // Required for WebApplicationFactory in integration tests
 public partial class Program

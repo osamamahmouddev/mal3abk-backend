@@ -10,12 +10,15 @@ import { useVenue } from "@/components/Providers";
 import { logout } from "@/app/auth-actions";
 import { api, unwrap } from "@/lib/api";
 import { useReference } from "@/lib/reference";
-import { CAPACITIES, DAY_ORDER, DAY_NAMES, DEFAULT_WEEK, METHOD_LABELS, toApiTime, type DayHours } from "@/lib/venue-format";
+import { CAPACITIES, DAY_ORDER, DAY_NAMES, DEFAULT_WEEK, toApiTime, type DayHours } from "@/lib/venue-format";
 import { AddAreaInline } from "@/components/AddAreaInline";
-import { PaymentMethodForm } from "@/components/PaymentMethodForm";
 import { mediaIdOf, mediaSrc, uploadImage } from "@/lib/upload";
 import { ImageLightbox, type LightboxPhoto } from "@/components/ImageLightbox";
-import { Check, CircleCheck, CircleX, Eye, TriangleAlert, X } from "lucide-react";
+import { TimeSelect, hoursSentence } from "@/components/TimeSelect";
+import { PhotoDropTile } from "@/components/PhotoDropTile";
+import { CommissionTerms } from "@/components/CommissionTerms";
+import { LocationField, isValidLocation, toApiCoordinates, type LatLng } from "@/components/LocationField";
+import { Check, CircleCheck, CircleX, Eye, Loader2, Plus, TriangleAlert, X } from "lucide-react";
 
 const pitchPattern =
   "radial-gradient(closest-side circle at 50% 50%, transparent 0 32%, rgba(255,255,255,0.55) 32% 36%, transparent 36%), linear-gradient(90deg, transparent calc(50% - 1px), rgba(255,255,255,0.55) calc(50% - 1px) calc(50% + 1px), transparent calc(50% + 1px)), repeating-linear-gradient(90deg, #2E8B55 0 12.5%, #287D4C 12.5% 25%)";
@@ -32,6 +35,7 @@ interface VenueForm {
   description: string;
   facilities: string[];
   photos: string[];
+  location: LatLng;
 }
 
 export default function SetupPage() {
@@ -40,9 +44,8 @@ export default function SetupPage() {
   const reference = useReference();
   const [step, setStep] = useState(1);
   const [error, setError] = useState<string | null>(null);
-  const [form, setForm] = useState<VenueForm>({ name: "", city: "", area: "", phoneNumber: "", address: "", description: "", facilities: [], photos: [] });
+  const [form, setForm] = useState<VenueForm>({ name: "", city: "", area: "", phoneNumber: "", address: "", description: "", facilities: [], photos: [], location: { lat: "", lng: "" } });
   const [loadedVenue, setLoadedVenue] = useState<string | null>(null);
-  const [venuePhotoUploading, setVenuePhotoUploading] = useState(false);
   const [venuePhotoRemoving, setVenuePhotoRemoving] = useState(false);
   const [gallery, setGallery] = useState<{ photos: string[]; index: number; title: string } | null>(null);
 
@@ -59,6 +62,7 @@ export default function SetupPage() {
         description: venue.description ?? "",
         facilities: venue.facilities,
         photos: venue.photos ?? [],
+        location: { lat: venue.latitude?.toString() ?? "", lng: venue.longitude?.toString() ?? "" },
       });
     }
   }, [venue, loadedVenue]);
@@ -85,6 +89,7 @@ export default function SetupPage() {
         description: form.description.trim() || null,
         facilities: form.facilities,
         photos: form.photos,
+        ...toApiCoordinates(form.location),
       };
       return venueId
         ? unwrap(api.PUT("/api/v1/venue-manager/venues/{id}", { params: { path: { id: venueId } }, body }))
@@ -98,24 +103,13 @@ export default function SetupPage() {
     onError: (e: Error) => setError(e.message),
   });
 
-  const handleUploadVenuePhotos = async (files: FileList | null) => {
-    if (!files || files.length === 0) return;
-    setVenuePhotoUploading(true);
-    setError(null);
-    try {
-      for (const file of Array.from(files)) {
-        const mediaId = await uploadImage(file, 0);
-        if (venueId) {
-          await unwrap(api.POST("/api/v1/venue-manager/venues/{venueId}/gallery", { params: { path: { venueId } }, body: { mediaId } }));
-          await queryClient.invalidateQueries({ queryKey: ["venues"] });
-        } else {
-          setForm((f) => ({ ...f, photos: [...f.photos, `/api/v1/media/${mediaId}/medium`] }));
-        }
-      }
-    } catch (e: any) {
-      setError(e.message ?? "فشل رفع صورة المكان.");
-    } finally {
-      setVenuePhotoUploading(false);
+  /** One facility photo: straight into the gallery once the venue exists, otherwise kept for the first save. */
+  const uploadVenuePhoto = async (file: File) => {
+    const mediaId = await uploadImage(file, 0);
+    if (venueId) {
+      await unwrap(api.POST("/api/v1/venue-manager/venues/{venueId}/gallery", { params: { path: { venueId } }, body: { mediaId } }));
+    } else {
+      setForm((f) => ({ ...f, photos: [...f.photos, `/api/v1/media/${mediaId}/medium`] }));
     }
   };
 
@@ -137,13 +131,12 @@ export default function SetupPage() {
     }
   };
 
-  const venueValid = form.name.trim().length >= 3 && form.city && form.area && form.phoneNumber.trim() && form.address.trim();
+  const venueValid = form.name.trim().length >= 3 && form.city && form.area && form.phoneNumber.trim() && form.address.trim() && isValidLocation(form.location);
 
   const steps: [string, string][] = [
     ["بيانات المكان", "الاسم والعنوان والمرافق"],
     ["الملاعب", `${toArabicDigits(venue?.pitches.length ?? 0)} ملاعب`],
     ["مواعيد الشغل", "المواعيد الأسبوعية"],
-    ["الدفع والعربون", "طرق الاستلام"],
     ["المراجعة", venue?.approvalStatus === "Draft" || !venue ? "إرسال للمراجعة" : "اتبعت"],
   ];
 
@@ -205,7 +198,7 @@ export default function SetupPage() {
 
         <main className={`flex-[999_1_560px] min-w-0 ${card} rounded-[20px] p-5 sm:p-7 flex flex-col gap-5`}>
           {approvalStatus === "NeedsInfo" && lastAdminNote && (
-            <div className="bg-[#FEF3D6] border border-[#F5D485] text-[#7A4D00] rounded-[16px] p-4 flex items-start gap-3 shadow-xs animate-fadeIn">
+            <div className="bg-[#FEF3D6] border border-[#F5D485] text-[#7A4D00] rounded-[16px] p-4 flex items-start gap-3 shadow-xs animate-fade-in-down">
               <span className="w-8 h-8 rounded-full bg-[#F5D485]/60 flex items-center justify-center shrink-0"><TriangleAlert className="size-4" /></span>
               <div className="flex flex-col gap-1 flex-1 min-w-0">
                 <span className="font-bold text-[15px]">طلب استكمال بيانات من إدارة ملعبك:</span>
@@ -217,7 +210,7 @@ export default function SetupPage() {
             </div>
           )}
           {approvalStatus === "Rejected" && lastAdminNote && (
-            <div className="bg-[#FDECEA] border border-[#F5C2BD] text-[#A8261C] rounded-[16px] p-4 flex items-start gap-3 shadow-xs animate-fadeIn">
+            <div className="bg-[#FDECEA] border border-[#F5C2BD] text-[#A8261C] rounded-[16px] p-4 flex items-start gap-3 shadow-xs animate-fade-in-down">
               <span className="w-8 h-8 rounded-full bg-[#F5C2BD]/60 flex items-center justify-center shrink-0"><CircleX className="size-4" /></span>
               <div className="flex flex-col gap-1 flex-1 min-w-0">
                 <span className="font-bold text-[15px]">سبب عدم الموافقة على الملعب:</span>
@@ -285,6 +278,9 @@ export default function SetupPage() {
                   العنوان بالتفصيل
                   <input value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} className={field} />
                 </label>
+                <div className="sm:col-span-2">
+                  <LocationField required value={form.location} onChange={(location) => setForm({ ...form, location })} fieldClass={field} />
+                </div>
                 <label className="flex flex-col gap-1.5 text-sm font-semibold sm:col-span-2">
                   وصف قصير (اختياري)
                   <textarea
@@ -355,21 +351,7 @@ export default function SetupPage() {
                       </button>
                     </div>
                   ))}
-                  <label className="rounded-xl border-2 border-dashed border-[#C9CFD9] hover:border-navy-900 aspect-[4/3] flex flex-col items-center justify-center gap-1 text-xs text-[#5B6475] hover:text-navy-900 cursor-pointer bg-slate-50/70 hover:bg-slate-100 transition-colors">
-                    <span className="text-lg font-bold leading-none">+</span>
-                    <span className="text-[11px] font-semibold">{venuePhotoUploading ? "بيترفع…" : "إضافة صورة"}</span>
-                    <input
-                      type="file"
-                      multiple
-                      accept="image/jpeg,image/png,image/webp"
-                      className="hidden"
-                      disabled={venuePhotoUploading}
-                      onChange={(e) => {
-                        handleUploadVenuePhotos(e.target.files);
-                        e.target.value = "";
-                      }}
-                    />
-                  </label>
+                  <PhotoDropTile upload={uploadVenuePhoto} onDone={() => queryClient.invalidateQueries({ queryKey: ["venues"] })} onError={setError} />
                 </div>
               </div>
             </div>
@@ -377,8 +359,7 @@ export default function SetupPage() {
 
           {step === 2 && venueId && <PitchesStep venueId={venueId} />}
           {step === 3 && venueId && <ScheduleStep venueId={venueId} onSaved={() => setStep(4)} />}
-          {step === 4 && venueId && <PaymentStep venueId={venueId} />}
-          {step === 5 && venueId && <SubmitStep venueId={venueId} />}
+          {step === 4 && venueId && <SubmitStep venueId={venueId} />}
 
           {error && (
             <span role="alert" className="text-[13px] text-[#A8261C]">
@@ -397,6 +378,11 @@ export default function SetupPage() {
               </button>
             )}
             <span className="flex-1" />
+            {step === 1 && !venueValid && (
+              <span className="text-xs text-[#5B6475] self-center">
+                {!isValidLocation(form.location) ? "حدد موقع الملعب على الخريطة عشان تكمّل." : "كمّل الخانات المطلوبة عشان تكمّل."}
+              </span>
+            )}
             {step === 1 && (
               <button
                 type="button"
@@ -407,7 +393,7 @@ export default function SetupPage() {
                 {saveVenue.isPending ? "جاري الحفظ…" : "حفظ والتالي"}
               </button>
             )}
-            {(step === 2 || step === 4) && (
+            {step === 2 && (
               <button
                 type="button"
                 onClick={() => setStep(step + 1)}
@@ -437,7 +423,6 @@ function PitchesStep({ venueId }: { venueId: string }) {
   const [draft, setDraft] = useState({ name: "", turfType: "ArtificialTurf", capacity: 5 });
   const [draftPhotos, setDraftPhotos] = useState<string[]>([]);
   const [draftUploading, setDraftUploading] = useState(false);
-  const [uploadingPitchId, setUploadingPitchId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [gallery, setGallery] = useState<{ photos: string[]; index: number; title: string } | null>(null);
 
@@ -476,24 +461,15 @@ function PitchesStep({ venueId }: { venueId: string }) {
     onError: (e: Error) => setError(e.message),
   });
 
-  const addPitchPhoto = useMutation({
-    mutationFn: async ({ pitchId, file }: { pitchId: string; file: File }) => {
-      setUploadingPitchId(pitchId);
-      const mediaId = await uploadImage(file, 1);
-      return unwrap(
-        api.POST("/api/v1/venue-manager/venues/{venueId}/pitches/{pitchId}/gallery", {
-          params: { path: { venueId, pitchId } },
-          body: { mediaId },
-        }),
-      );
-    },
-    onSuccess: async () => {
-      await refresh();
-      setError(null);
-    },
-    onError: (e: Error) => setError(e.message),
-    onSettled: () => setUploadingPitchId(null),
-  });
+  const uploadPitchPhoto = async (pitchId: string, file: File) => {
+    const mediaId = await uploadImage(file, 1);
+    await unwrap(
+      api.POST("/api/v1/venue-manager/venues/{venueId}/pitches/{pitchId}/gallery", {
+        params: { path: { venueId, pitchId } },
+        body: { mediaId },
+      }),
+    );
+  };
 
   const removePitchPhoto = useMutation({
     mutationFn: async ({ pitchId, photo }: { pitchId: string; photo: string }) => {
@@ -530,30 +506,12 @@ function PitchesStep({ venueId }: { venueId: string }) {
     onError: (e: Error) => setError(e.message),
   });
 
-  const handleUploadDraftPhoto = async (files: FileList | null) => {
-    if (!files || files.length === 0) return;
-    setDraftUploading(true);
-    setError(null);
-    try {
-      const uploaded: string[] = [];
-      for (const file of Array.from(files)) {
-        const mediaId = await uploadImage(file, 1);
-        uploaded.push(`/api/v1/media/${mediaId}/medium`);
-      }
-      setDraftPhotos((prev) => [...prev, ...uploaded]);
-    } catch (e: any) {
-      setError(e.message ?? "فشل رفع صورة الملعب.");
-    } finally {
-      setDraftUploading(false);
-    }
-  };
 
   return (
     <div className="flex flex-col gap-4">
       <h1 className="text-2xl font-bold">الملاعب</h1>
       <span className={`text-sm ${muted}`}>كل ملعب ليه مواعيده وسعره وصوره الخاصة بأرضيته ومواصفاته. تقدر تعدّل باقي التفاصيل في أي وقت.</span>
       {(pitches.data ?? []).map((p) => {
-        const isUploading = uploadingPitchId === p.id;
         return (
           <div key={p.id} className="border border-[#EDF0F5] rounded-2xl p-4 flex flex-col gap-3.5 bg-white shadow-sm">
             <div className="flex items-center gap-3.5">
@@ -627,26 +585,7 @@ function PitchesStep({ venueId }: { venueId: string }) {
                     </button>
                   </div>
                 ))}
-                <label className="rounded-xl border-2 border-dashed border-[#C9CFD9] hover:border-navy-900 aspect-square flex flex-col items-center justify-center gap-1 text-xs text-[#5B6475] hover:text-navy-900 cursor-pointer bg-slate-50/70 hover:bg-slate-100 transition-colors">
-                  <span className="text-lg font-bold leading-none">+</span>
-                  <span className="text-[11px] font-semibold">{isUploading ? "بيترفع…" : "إضافة صورة"}</span>
-                  <input
-                    type="file"
-                    multiple
-                    accept="image/jpeg,image/png,image/webp"
-                    className="hidden"
-                    disabled={isUploading}
-                    onChange={(e) => {
-                      const files = e.target.files;
-                      if (files && files.length > 0) {
-                        for (const file of Array.from(files)) {
-                          addPitchPhoto.mutate({ pitchId: p.id, file });
-                        }
-                      }
-                      e.target.value = "";
-                    }}
-                  />
-                </label>
+                <PhotoDropTile className="aspect-square" upload={(file) => uploadPitchPhoto(p.id, file)} onDone={refresh} onError={setError} />
               </div>
             </div>
           </div>
@@ -716,21 +655,20 @@ function PitchesStep({ venueId }: { venueId: string }) {
                 </button>
               </div>
             ))}
-            <label className="rounded-xl border-2 border-dashed border-[#C9CFD9] hover:border-navy-900 aspect-square flex flex-col items-center justify-center gap-1 text-xs text-[#5B6475] hover:text-navy-900 cursor-pointer bg-slate-50/70 hover:bg-slate-100 transition-colors">
-              <span className="text-lg font-bold leading-none">+</span>
-              <span className="text-[11px] font-semibold">{draftUploading ? "بيترفع…" : "صور الملعب"}</span>
-              <input
-                type="file"
-                multiple
-                accept="image/jpeg,image/png,image/webp"
-                className="hidden"
-                disabled={draftUploading}
-                onChange={(e) => {
-                  handleUploadDraftPhoto(e.target.files);
-                  e.target.value = "";
-                }}
-              />
-            </label>
+            <PhotoDropTile
+              className="aspect-square"
+              label="صور الملعب"
+              upload={async (file) => {
+                setDraftUploading(true);
+                const mediaId = await uploadImage(file, 1);
+                setDraftPhotos((prev) => [...prev, `/api/v1/media/${mediaId}/medium`]);
+              }}
+              onDone={() => setDraftUploading(false)}
+              onError={(m) => {
+                setDraftUploading(false);
+                setError(m);
+              }}
+            />
           </div>
         </div>
 
@@ -738,9 +676,10 @@ function PitchesStep({ venueId }: { venueId: string }) {
           type="button"
           disabled={!draft.name.trim() || add.isPending || draftUploading}
           onClick={() => add.mutate()}
-          className="self-end min-h-[44px] px-6 rounded-xl bg-navy-900 disabled:opacity-60 text-white text-sm font-bold shadow transition-colors"
+          className="btn-press self-end min-h-[44px] px-6 rounded-xl bg-navy-900 hover:bg-navy-800 disabled:opacity-60 text-white text-sm font-bold shadow transition-colors inline-flex items-center gap-2"
         >
-          {add.isPending ? "جاري الإضافة…" : "+ إضافة الملعب"}
+          {add.isPending ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" strokeWidth={2.5} />}
+          {add.isPending ? "جاري الإضافة…" : "إضافة الملعب"}
         </button>
       </div>
       {error && (
@@ -806,7 +745,7 @@ function ScheduleStep({ venueId, onSaved }: { venueId: string; onSaved: () => vo
   return (
     <div className="flex flex-col gap-3.5">
       <h1 className="text-2xl font-bold">مواعيد الشغل</h1>
-      <span className={`text-sm ${muted}`}>المواعيد بعد نص الليل بتتحسب على نفس يوم التشغيل. تقدر تعدّل لكل ملعب بعدين من صفحة المواعيد.</span>
+      <span className={`text-sm ${muted}`}>لو بتقفل بعد نص الليل (زي من ٦ م لحد ٢ ص)، اختار ساعة القفل عادي وهتتحسب على نفس يوم التشغيل. تقدر تعدّل لكل ملعب بعدين من صفحة المواعيد.</span>
       {DAY_ORDER.map((d) => {
         const day = week[d];
         return (
@@ -814,22 +753,23 @@ function ScheduleStep({ venueId, onSaved }: { venueId: string; onSaved: () => vo
             <span className="w-[90px] text-sm font-bold">{DAY_NAMES[d]}</span>
             <Switch on={day.on} label={`تشغيل يوم ${DAY_NAMES[d]}`} onToggle={() => setWeek({ ...week, [d]: { ...day, on: !day.on } })} />
             {day.on ? (
-              <span className="flex items-center gap-2 text-sm">
-                <input
-                  type="time"
-                  aria-label={`فتح ${DAY_NAMES[d]}`}
+              <span className="flex flex-wrap items-center gap-2 text-sm">
+                <span className={muted}>من</span>
+                <TimeSelect
+                  ariaLabel={`فتح ${DAY_NAMES[d]}`}
                   value={day.open}
-                  onChange={(e) => setWeek({ ...week, [d]: { ...day, open: e.target.value } })}
-                  className={`${field} min-h-[40px]`}
+                  onChange={(open) => setWeek({ ...week, [d]: { ...day, open } })}
+                  className={`${field} min-h-[40px] min-w-[150px]`}
                 />
-                <span>–</span>
-                <input
-                  type="time"
-                  aria-label={`قفل ${DAY_NAMES[d]}`}
+                <span className={muted}>لحد</span>
+                <TimeSelect
+                  ariaLabel={`قفل ${DAY_NAMES[d]}`}
                   value={day.close}
-                  onChange={(e) => setWeek({ ...week, [d]: { ...day, close: e.target.value } })}
-                  className={`${field} min-h-[40px]`}
+                  after={day.open}
+                  onChange={(close) => setWeek({ ...week, [d]: { ...day, close } })}
+                  className={`${field} min-h-[40px] min-w-[150px]`}
                 />
+                <span className={`basis-full text-xs ${muted}`}>{hoursSentence(day.open, day.close)}</span>
               </span>
             ) : (
               <span className="flex-1 text-sm text-[#333B4A]">مقفول</span>
@@ -850,32 +790,6 @@ function ScheduleStep({ venueId, onSaved }: { venueId: string; onSaved: () => vo
       >
         {save.isPending ? "جاري الحفظ…" : "حفظ المواعيد والتالي"}
       </button>
-    </div>
-  );
-}
-
-function PaymentStep({ venueId }: { venueId: string }) {
-  const methods = useQuery({
-    queryKey: ["payment-methods", venueId],
-    queryFn: () => unwrap(api.GET("/api/v1/venue-manager/venues/{venueId}/payment-methods", { params: { path: { venueId } } })),
-  });
-  return (
-    <div className="flex flex-col gap-4">
-      <h1 className="text-2xl font-bold">الدفع والعربون</h1>
-      <span className={`text-sm ${muted}`}>
-        ضيف طريقة واحدة على الأقل يحوّل عليها اللاعب العربون. ملعبك مش بيستلم فلوس؛ اللاعب بيحوّل لك مباشرة وإنت بتراجع الإيصال.
-      </span>
-      {(methods.data ?? []).map((m) => (
-        <div key={m.id} className="border border-[#EDF0F5] rounded-[14px] px-3.5 py-3 flex items-center gap-3">
-          <span className="flex-1 flex flex-col">
-            <span className="text-sm font-bold">{METHOD_LABELS[m.methodType] ?? m.methodType}</span>
-            <span dir="ltr" className={`text-right text-[13px] ${muted}`}>
-              {m.accountDetailsMasked} · {m.recipientName}
-            </span>
-          </span>
-        </div>
-      ))}
-      <PaymentMethodForm venueId={venueId} onAdded={() => methods.refetch()} />
     </div>
   );
 }
@@ -911,6 +825,7 @@ function SubmitStep({ venueId }: { venueId: string }) {
     <div className="flex flex-col gap-4">
       <h1 className="text-2xl font-bold">الإرسال للمراجعة</h1>
       <span className={`text-sm ${muted}`}>فريق ملعبك بيراجع بيانات الملعب قبل ما يظهر للاعبين (عادةً خلال يومين عمل).</span>
+      <CommissionTerms compact />
       {status === "NeedsInfo" && lastAdminNote && (
         <div className="bg-[#FEF3D6] text-[#7A4D00] rounded-[14px] px-4 py-3 text-sm leading-[22px]">مطلوب منك: {lastAdminNote}</div>
       )}

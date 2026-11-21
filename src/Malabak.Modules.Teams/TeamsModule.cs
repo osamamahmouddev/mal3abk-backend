@@ -2,6 +2,7 @@ using Malabak.Modules.Teams.Application.Common;
 using Malabak.Modules.Teams.Application.Teams.CreateTeam;
 using Malabak.Modules.Teams.Application.Teams.Invitations.AcceptTeamInvitation;
 using Malabak.Modules.Teams.Application.Teams.Invitations.CreateTeamInvitation;
+using Malabak.Modules.Teams.Application.Teams.Invitations.PreviewTeamInvitation;
 using Malabak.Modules.Teams.Application.Teams.JoinRequests.ApproveJoinRequest;
 using Malabak.Modules.Teams.Application.Teams.JoinRequests.DeclineJoinRequest;
 using Malabak.Modules.Teams.Application.Teams.JoinRequests.GetTeamJoinRequests;
@@ -31,6 +32,7 @@ public static class TeamsModule
     {
         // Domain services / generators
         services.AddScoped<ITeamSlugGenerator, TeamSlugGenerator>();
+        services.AddScoped<Malabak.SharedKernel.Contracts.ITrashProvider, Application.Trash.TeamTrashProvider>();
         services.AddScoped<ITeamInviteCodeGenerator, TeamInviteCodeGenerator>();
         services.AddScoped<Malabak.SharedKernel.Contracts.ITeamCaptaincyChecker, TeamCaptaincyChecker>();
         services.AddScoped<Malabak.SharedKernel.Contracts.IUserActivityProvider, Application.Admin.TeamUserActivityProvider>();
@@ -46,6 +48,7 @@ public static class TeamsModule
         services.AddScoped<ICommandHandler<CreateTeamCommand, Result<TeamDetailDto>>, CreateTeamHandler>();
         services.AddScoped<ICommandHandler<CreateTeamInvitationCommand, Result<TeamInvitationDto>>, CreateTeamInvitationHandler>();
         services.AddScoped<ICommandHandler<AcceptTeamInvitationCommand, Result<TeamDetailDto>>, AcceptTeamInvitationHandler>();
+        services.AddScoped<IQueryHandler<PreviewTeamInvitationQuery, Result<TeamInvitePreviewDto>>, PreviewTeamInvitationHandler>();
         services.AddScoped<ICommandHandler<RemoveTeamMemberCommand, Result>, RemoveTeamMemberHandler>();
         services.AddScoped<ICommandHandler<TransferCaptaincyCommand, Result>, TransferCaptaincyHandler>();
         services.AddScoped<ICommandHandler<UpdateMemberRoleCommand, Result>, UpdateMemberRoleHandler>();

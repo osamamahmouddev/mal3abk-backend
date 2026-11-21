@@ -10,7 +10,7 @@ import { api, unwrap } from "@/lib/api";
 import { cairoDayStartUtc, cairoToday, addDays, money } from "@/lib/booking-format";
 import { P } from "@/lib/permissions";
 import { DAY_NAMES, DAY_ORDER, formatTime, toApiTime } from "@/lib/venue-format";
-import { Banknote, CalendarDays, ChevronDown, Clock, Hourglass, Lightbulb, Percent, Settings, Tag, X } from "lucide-react";
+import { Banknote, CalendarDays, ChevronDown, Clock, Hourglass, Lightbulb, Percent, Plus, Settings, Tag, X } from "lucide-react";
 import { Pitch } from "@/components/icons";
 
 type Rule = Schemas["PriceRuleDto"];
@@ -216,7 +216,7 @@ export default function PricingPage() {
           <h1 className="text-[26px] font-bold">الأسعار</h1>
           <span className={`text-[13px] ${muted}`}>السعر بيتحسب على السيرفر لكل ربع ساعة: الأساسي، ثم الذروة/العطلة/الإجازة، ثم أفضل خصم واحد.</span>
         </div>
-        <select aria-label="الملعب" value={pitchFilter} onChange={(e) => setPitchFilter(e.target.value)} className={inputClass}>
+        <select aria-label="الملعب" value={pitchFilter} onChange={(e) => setPitchFilter(e.target.value)} className={`${inputClass} !w-auto min-w-[200px] max-w-[280px] cursor-pointer`}>
           <option value="">كل الملاعب</option>
           {pitches.map((p) => (
             <option key={p.id} value={p.id}>
@@ -239,7 +239,8 @@ export default function PricingPage() {
               onClick={() => setDraft(emptyDraft(hasBase ? "Peak" : "Base"))}
               className={primaryBtn}
             >
-              + قاعدة سعر
+              <Plus className="size-4" strokeWidth={2.5} />
+              قاعدة سعر
             </button>
           </div>
         )}
@@ -276,7 +277,8 @@ export default function PricingPage() {
                   onClick={() => setDraft(emptyDiscountDraft())}
                   className="text-xs font-bold text-emerald-700 hover:text-emerald-800 hover:underline flex items-center gap-1 cursor-pointer"
                 >
-                  + إضافة عرض خصم
+                  <Plus className="size-3.5" strokeWidth={2.5} />
+                  إضافة عرض خصم
                 </button>
               )}
             </div>
@@ -359,9 +361,10 @@ export default function PricingPage() {
                   <button
                     type="button"
                     onClick={() => setDraft(emptyDiscountDraft())}
-                    className="min-h-[36px] px-3.5 rounded-[10px] bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-semibold text-xs transition-all shadow-xs cursor-pointer shrink-0"
+                    className="min-h-[36px] px-3.5 rounded-[10px] bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-semibold text-xs transition-all shadow-xs cursor-pointer shrink-0 inline-flex items-center gap-1.5"
                   >
-                    + إضافة عرض خصم
+                    <Plus className="size-3.5" strokeWidth={2.5} />
+                    إضافة عرض خصم
                   </button>
                 )}
               </div>

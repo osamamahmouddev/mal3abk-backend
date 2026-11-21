@@ -33,8 +33,9 @@ public sealed class PricingService : IPriceQuoteProvider
 
     public async Task<Result<PriceQuoteSnapshot>> QuoteAsync(Guid pitchId, DateTime startUtc, DateTime endUtc, CancellationToken cancellationToken = default)
     {
+        // A pitch of a deleted venue cannot be booked.
         var venueId = await _dbContext.Pitches.AsNoTracking()
-            .Where(p => p.Id == pitchId && p.IsActive && !p.IsDeleted)
+            .Where(p => p.Id == pitchId && p.IsActive && !p.IsDeleted && _dbContext.Venues.Any(v => v.Id == p.VenueId && !v.IsDeleted))
             .Select(p => (Guid?)p.VenueId)
             .FirstOrDefaultAsync(cancellationToken);
         if (venueId is null)
@@ -93,7 +94,8 @@ public sealed class PricingService : IPriceQuoteProvider
             .Where(p => p.VenueId == venueId && p.IsCurrent)
             .Select(p => new { p.DepositType, p.DepositValue })
             .FirstOrDefaultAsync(cancellationToken);
-        return policy is null ? null : DepositRule.Create(policy.DepositType, policy.DepositValue);
+        // Before its first policy a venue uses the platform's default deposit, the same one the platform team sees for it.
+        return policy is null ? BookingPolicyTerms.DefaultDeposit : DepositRule.Create(policy.DepositType, policy.DepositValue);
     }
 
     public PriceQuoteSnapshot ToSnapshot(Guid venueId, PriceQuote quote) => new(

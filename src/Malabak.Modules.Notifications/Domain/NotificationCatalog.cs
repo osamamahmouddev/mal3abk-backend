@@ -48,6 +48,10 @@ public static class NotificationCatalog
             "إيصال دفع جديد", "تم رفع إيصال دفع لحجز في {venueName} وينتظر المراجعة.",
             "New payment proof", "A payment proof for a booking at {venueName} is waiting for review.",
             d => DeepLinks.From(d, "bookingId", DeepLinks.Booking)),
+        [NotificationTypes.VenuePayoutRecorded] = new(NotificationCategory.Payments,
+            "حوّلنالك فلوسك", "حوّلنالك {amount} ج.م من عرابين حجوزات {venueName}. رقم التحويل: {reference}",
+            "Payout sent", "We sent you EGP {amount} from the deposits of bookings at {venueName}. Transfer reference: {reference}",
+            d => DeepLinks.From(d, "venueId", DeepLinks.VenueManage)),
         [NotificationTypes.BookingReminder24h] = new(NotificationCategory.Bookings,
             "تذكير بحجزك غدًا", "حجزك في {venueName} يوم {date}. نراك في الملعب!",
             "Your booking is tomorrow", "Your booking at {venueName} is on {date}. See you on the pitch!",
@@ -217,7 +221,7 @@ public static class NotificationCatalog
         _ when type.StartsWith("security.", StringComparison.Ordinal)
             || type.StartsWith("support.", StringComparison.Ordinal)
             || type == NotificationTypes.PaymentDisputeResolved => [NotificationSurface.Player, NotificationSurface.Venue, NotificationSurface.Admin],
-        NotificationTypes.PaymentProofSubmitted or NotificationTypes.PaymentDisputeOpened => [NotificationSurface.Venue],
+        NotificationTypes.PaymentProofSubmitted or NotificationTypes.PaymentDisputeOpened or NotificationTypes.VenuePayoutRecorded => [NotificationSurface.Venue],
         _ when type.StartsWith("venue.", StringComparison.Ordinal)
             || type.StartsWith("staff.", StringComparison.Ordinal)
             || type.StartsWith("subscription.", StringComparison.Ordinal) => [NotificationSurface.Venue],

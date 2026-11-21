@@ -1,14 +1,16 @@
 "use client";
 
+import { TrashButton } from "@/components/TrashButton";
 import React, { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { Schemas } from "@malabak/api-client";
 import { KV, Page, PageHeader, Pill, ReasonModal, Switch, type ReasonRequest, SearchBox, btnDanger, btnOutline, btnPrimary, btnSmall, card, inputClass, money, muted, toArabicDigits } from "@/components/ui";
-import { Drawer, Field, Pager, QueryState, Section, Select, Table, TextInput, fmtDate, fmtDateTime, num, useNotice } from "@/components/admin";
+import { Drawer, Field, Pager, QueryState, Section, Select, Table, TextInput, fmtDate, fmtDateTime, num, useNotice, useListView } from "@/components/admin";
+import { usePlaceNames } from "@/lib/place-names";
 import { api, unwrap } from "@/lib/api";
 import { useStepUp } from "@/lib/stepup";
 import { ImageLightbox } from "@/components/ImageLightbox";
-import { Camera, ChevronLeft, Eye, Image as ImageIcon, LayoutGrid, MapPin, Package, Smartphone, Table2, X, BadgePercent } from "lucide-react";
+import { Camera, Check, ChevronLeft, Eye, Image as ImageIcon, LayoutGrid, MapPin, Smartphone, Table2, X, BadgePercent } from "lucide-react";
 import { Pitch, SoccerBall } from "@/components/icons";
 
 type Row = Schemas["AdminVenueListItem"];
@@ -40,12 +42,6 @@ const STATUSES: [string, string][] = [
   ["Draft", "مسودة"],
 ];
 
-const PRICING_MODELS: [string, string][] = [
-  ["", "كل أنظمة التشغيل"],
-  ["Subscription", "نظام الاشتراك"],
-  ["Commission", "نظام العمولة"],
-];
-
 const STATUS_MAP = Object.fromEntries(STATUSES);
 const TONE: Record<string, "ok" | "warn" | "bad" | "neutral"> = {
   Approved: "ok",
@@ -56,33 +52,13 @@ const TONE: Record<string, "ok" | "warn" | "bad" | "neutral"> = {
   Draft: "neutral",
 };
 
-const SUB_STATUS_TONE: Record<string, "ok" | "warn" | "bad" | "neutral" | "navy"> = {
-  Active: "ok",
-  Trial: "warn",
-  Grace: "warn",
-  Expired: "bad",
-  Suspended: "bad",
-  Cancelled: "neutral",
-  Default: "navy",
-};
-
-const SUB_STATUS_LABEL: Record<string, string> = {
-  Active: "نشط",
-  Trial: "تجريبي",
-  Grace: "فترة سماح",
-  Expired: "منتهي",
-  Suspended: "موقوف",
-  Cancelled: "ملغي",
-  Default: "افتراضي",
-};
-
 const PAGE_SIZE = 24;
 
 export default function VenuesPage() {
+  const place = usePlaceNames();
   const [q, setQ] = useState("");
   const [status, setStatus] = useState("");
-  const [modelFilter, setModelFilter] = useState("");
-  const [viewMode, setViewMode] = useState<"cards" | "table">("cards");
+  const [viewMode, setViewMode] = useListView();
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState<string | null>(null);
 
@@ -127,24 +103,12 @@ export default function VenuesPage() {
               options={STATUSES}
             />
           </div>
-          <div className="w-36 sm:w-44 shrink-0">
-            <Select
-              label="نظام التشغيل"
-              value={modelFilter}
-              onChange={(v) => {
-                setModelFilter(v);
-                setPage(1);
-              }}
-              options={PRICING_MODELS}
-            />
-          </div>
-          {(q || status || modelFilter) && (
+          {(q || status) && (
             <button
               type="button"
               onClick={() => {
                 setQ("");
                 setStatus("");
-                setModelFilter("");
                 setPage(1);
               }}
               className="text-xs font-bold text-slate-500 hover:text-slate-800 px-3 py-1.5 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
@@ -201,40 +165,16 @@ export default function VenuesPage() {
         }
       >
         {(data) => {
-          const items = modelFilter
-            ? data.items.filter((item) => {
-                const isComm = item.pricingModel === "Commission";
-                return modelFilter === "Commission" ? isComm : !isComm;
-              })
-            : data.items;
+          const items = data.items;
 
-          if (items.length === 0) {
-            return (
-              <div className="bg-white rounded-2xl p-12 text-center flex flex-col items-center gap-3 border border-slate-200 shadow-xs">
-                <span className="text-base font-bold text-slate-800">لا توجد ملاعب تطابق نظام التشغيل والتسعير المحدد</span>
-                <button
-                  type="button"
-                  onClick={() => setModelFilter("")}
-                  className="text-xs font-bold text-emerald-700 hover:text-emerald-800 underline cursor-pointer"
-                >
-                  إلغاء فلتر النظام وعرض باقي الملاعب
-                </button>
-              </div>
-            );
-          }
 
           if (viewMode === "cards") {
             return (
               <>
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5 sm:gap-6">
                   {items.map((r) => {
-                    const subStatus = r.subscriptionStatus ?? "Default";
-                    const planName = r.planName || "بدون باقة";
-                    const subLabel = SUB_STATUS_LABEL[subStatus] ?? subStatus;
-                    const subTone = SUB_STATUS_TONE[subStatus] ?? "neutral";
                     const photos = r.photos ?? [];
                     const hasPhotos = photos.length > 0;
-                    const isCommission = r.pricingModel === "Commission";
 
                     return (
                       <div
@@ -307,43 +247,20 @@ export default function VenuesPage() {
                             </h3>
                             <div className="flex items-center gap-1.5 text-xs text-[#5B6475] mt-0.5">
                               <MapPin className="size-3.5 shrink-0 text-slate-400" />
-                              <span className="font-semibold text-slate-700">{r.city}</span>
-                              {r.area && <span>· {r.area}</span>}
+                              <span className="font-semibold text-slate-700">{place.city(r.city)}</span>
+                              {r.area && <span>· {place.area(r.area, r.city)}</span>}
                             </div>
                           </div>
                         </div>
 
-                        {/* Middle Box: Owner & Subscription Info */}
+                        {/* Middle Box: Owner & Commission */}
                         <div className="bg-[#F8FAFC] rounded-xl p-3.5 border border-[#EEF1F6] flex flex-col gap-2.5">
-                          {/* Subscription or Commission Details */}
                           <div className="flex items-center justify-between border-b border-[#E8ECF2] pb-2">
-                            {isCommission ? (
-                              <div className="flex items-center justify-between w-full">
-                                <div className="flex items-center gap-2">
-                                  <span className="text-xs text-[#5B6475]">نظام التسعير:</span>
-                                  <span className="inline-flex items-center gap-1 font-extrabold text-purple-900 text-xs bg-purple-50 px-2.5 py-1 rounded-lg border border-purple-200">
-                                    <BadgePercent className="size-3.5 text-purple-600" />
-                                    نظام العمولة
-                                  </span>
-                                </div>
-                                <span className="text-[11px] font-bold text-purple-700 bg-purple-100/60 px-2 py-0.5 rounded-md">
-                                  معفى من الاشتراك
-                                </span>
-                              </div>
-                            ) : (
-                              <>
-                                <div className="flex items-center gap-2">
-                                  <span className="text-xs text-[#5B6475]">باقة الاشتراك:</span>
-                                  <span className="inline-flex items-center gap-1 font-extrabold text-slate-900 text-xs bg-white px-2.5 py-1 rounded-lg border border-[#E2E6EF] shadow-2xs">
-                                    <Package className="size-3.5 text-slate-500" />
-                                    {planName}
-                                  </span>
-                                </div>
-                                <Pill tone={subTone} className="text-[11px]">
-                                  {subLabel}
-                                </Pill>
-                              </>
-                            )}
+                            <span className="text-xs text-[#5B6475]">نظام العمل:</span>
+                            <span className="inline-flex items-center gap-1 font-extrabold text-purple-900 text-xs bg-purple-50 px-2.5 py-1 rounded-lg border border-purple-200">
+                              <BadgePercent className="size-3.5 text-purple-600" />
+                              عمولة على الحجوزات
+                            </span>
                           </div>
 
                           {/* Owner Details */}
@@ -415,7 +332,7 @@ export default function VenuesPage() {
                         <strong className="text-slate-900 text-sm">{r.name}</strong>
                         <span className="text-xs text-[#5B6475] inline-flex items-center gap-1">
                           <MapPin className="size-3 shrink-0" />
-                          {r.city}، {r.area}
+                          {place.city(r.city)}، {place.area(r.area, r.city)}
                         </span>
                       </div>
                     ),
@@ -435,34 +352,13 @@ export default function VenuesPage() {
                     ),
                   },
                   {
-                    title: "نظام التسعير والاشتراك",
-                    cell: (r) => {
-                      if (r.pricingModel === "Commission") {
-                        return (
-                          <div className="flex items-center gap-1.5">
-                            <span className="inline-flex items-center gap-1 font-bold text-purple-900 text-xs bg-purple-50 border border-purple-200 px-2 py-0.5 rounded">
-                              <BadgePercent className="size-3 text-purple-600" />
-                              نظام عمولة
-                            </span>
-                            <span className="text-[10px] text-purple-700 bg-purple-100/50 px-1.5 py-0.5 rounded">معفى</span>
-                          </div>
-                        );
-                      }
-                      const subStatus = r.subscriptionStatus ?? "Default";
-                      const planName = r.planName || "بدون باقة";
-                      const subLabel = SUB_STATUS_LABEL[subStatus] ?? subStatus;
-                      const subTone = SUB_STATUS_TONE[subStatus] ?? "neutral";
-                      return (
-                        <div className="flex items-center gap-1.5">
-                          <span className="font-bold text-slate-900 text-xs bg-slate-100 px-2 py-0.5 rounded">
-                            {planName}
-                          </span>
-                          <Pill tone={subTone} className="text-[10px]">
-                            {subLabel}
-                          </Pill>
-                        </div>
-                      );
-                    },
+                    title: "نظام العمل",
+                    cell: () => (
+                      <span className="inline-flex items-center gap-1 font-bold text-purple-900 text-xs bg-purple-50 border border-purple-200 px-2 py-0.5 rounded">
+                        <BadgePercent className="size-3 text-purple-600" />
+                        عمولة
+                      </span>
+                    ),
                   },
                   {
                     title: "الملاعب الفرعية",
@@ -516,6 +412,7 @@ export default function VenuesPage() {
 }
 
 function VenueDrawer({ venueId, onClose }: { venueId: string | null; onClose: () => void }) {
+  const place = usePlaceNames();
   const queryClient = useQueryClient();
   const stepUp = useStepUp();
   const notice = useNotice();
@@ -523,10 +420,11 @@ function VenueDrawer({ venueId, onClose }: { venueId: string | null; onClose: ()
   const [note, setNote] = useState<string | null>(null);
   const [newOwner, setNewOwner] = useState("");
   const [gallery, setGallery] = useState<{ photos: string[]; index: number; title: string } | null>(null);
-  const [pricingModel, setPricingModel] = useState<"0" | "1">("0");
   const [commissionEnabled, setCommissionEnabled] = useState(false);
   const [commissionType, setCommissionType] = useState<"0" | "1" | "2" | "3">("0");
   const [commissionRate, setCommissionRate] = useState("");
+  const [depositType, setDepositType] = useState<"0" | "1" | "2">("0");
+  const [depositValue, setDepositValue] = useState("");
 
   const usersQuery = useQuery({
     queryKey: ["admin-users-candidates-select"],
@@ -558,11 +456,15 @@ function VenueDrawer({ venueId, onClose }: { venueId: string | null; onClose: ()
 
   useEffect(() => {
     if (!commission.data) return;
-    const isComm = commission.data.pricingModel === "Commission" || (commission.data as any).pricingModel === 1;
-    setPricingModel(isComm ? "1" : "0");
     setCommissionEnabled(commission.data.customCommissionEnabled);
-    setCommissionType(({ PlatformDefault: "0", PerHourFixed: "1", Percentage: "2", Exempt: "3" } as Record<string, "0" | "1" | "2" | "3">)[commission.data.commissionType] ?? "0");
+    setCommissionType(
+      commission.data.customCommissionEnabled
+        ? (({ PlatformDefault: "0", PerHourFixed: "1", Percentage: "2", Exempt: "3" } as Record<string, "0" | "1" | "2" | "3">)[commission.data.commissionType] ?? "0")
+        : "0",
+    );
     setCommissionRate(commission.data.commissionRate === null || commission.data.commissionRate === undefined ? "" : String(commission.data.commissionRate));
+    setDepositType(({ Percentage: "0", FixedAmount: "1", Full: "2" } as Record<string, "0" | "1" | "2">)[commission.data.depositType ?? ""] ?? "0");
+    setDepositValue(commission.data.depositType === "Full" ? "" : String(commission.data.depositValue ?? ""));
   }, [commission.data]);
 
   const saveCommission = useMutation({
@@ -571,16 +473,34 @@ function VenueDrawer({ venueId, onClose }: { venueId: string | null; onClose: ()
         api.PATCH("/api/v1/admin/venues/{venueId}/commission", {
           params: { path: { venueId: venueId! } },
           body: {
-            pricingModel: Number(pricingModel) as 0 | 1,
-            customCommissionEnabled: pricingModel === "1" ? (commissionEnabled || commissionType !== "0") : commissionEnabled,
+            pricingModel: 1,
+            customCommissionEnabled: commissionType !== "0",
             commissionType: Number(commissionType) as 0 | 1 | 2 | 3,
-            commissionRate: commissionRate.trim() ? Number(commissionRate) : null,
+            commissionRate: (commissionType === "1" || commissionType === "2") && commissionRate.trim() ? Number(commissionRate) : null,
+            depositType: Number(depositType) as 0 | 1 | 2,
+            depositValue: depositType === "2" ? 0 : Number(depositValue),
           },
         }),
       ),
     onSuccess: async () => {
-      notice.ok("اتحفظ نظام التشغيل وإعدادات العمولة للملعب.");
+      notice.ok("اتحفظت عمولة الملعب والعربون.");
       await queryClient.invalidateQueries({ queryKey: ["admin-venue-commission", venueId] });
+      await queryClient.invalidateQueries({ queryKey: ["admin-venue", venueId] });
+      await queryClient.invalidateQueries({ queryKey: ["admin-venues"] });
+    },
+    onError: notice.fail,
+  });
+
+  const togglePublish = useMutation({
+    mutationFn: (isPublished: boolean) =>
+      unwrap(
+        (api as any).POST("/api/v1/admin/venues/{venueId}/publish", {
+          params: { path: { venueId: venueId! } },
+          body: { isPublished },
+        }),
+      ),
+    onSuccess: async (_, isPublished) => {
+      notice.ok(isPublished ? "تم نشر الملعب بنجاح وهيظهر في التطبيق الآن." : "تم إلغاء نشر الملعب وتحويله لمسودة.");
       await queryClient.invalidateQueries({ queryKey: ["admin-venue", venueId] });
       await queryClient.invalidateQueries({ queryKey: ["admin-venues"] });
     },
@@ -624,11 +544,6 @@ function VenueDrawer({ venueId, onClose }: { venueId: string | null; onClose: ()
       {notice.node}
       <QueryState query={detail}>
         {(v) => {
-          const subStatus = v.subscriptionStatus ?? "Default";
-          const planName = v.planName || "بدون باقة";
-          const subLabel = SUB_STATUS_LABEL[subStatus] ?? subStatus;
-          const subTone = SUB_STATUS_TONE[subStatus] ?? "neutral";
-
           return (
             <>
               {/* Main Card */}
@@ -636,7 +551,7 @@ function VenueDrawer({ venueId, onClose }: { venueId: string | null; onClose: ()
                 <div className="flex items-start justify-between gap-2">
                   <div>
                     <h3 className="text-lg font-extrabold text-slate-900">{v.name}</h3>
-                    <span className="text-xs text-[#5B6475] flex items-center gap-1"><MapPin className="size-3.5 shrink-0" /> {v.city}، {v.area} · {v.address}</span>
+                    <span className="text-xs text-[#5B6475] flex items-center gap-1"><MapPin className="size-3.5 shrink-0" /> {place.city(v.city)}، {place.area(v.area, v.city)} · {v.address}</span>
                   </div>
                   <Pill tone={TONE[v.approvalStatus] ?? "neutral"}>
                     {STATUS_MAP[v.approvalStatus] ?? v.approvalStatus}
@@ -644,18 +559,11 @@ function VenueDrawer({ venueId, onClose }: { venueId: string | null; onClose: ()
                 </div>
 
                 <div className="grid grid-cols-2 gap-2 text-xs pt-2 border-t border-slate-100">
-                  <KV k="نظام العمل والتسعير">
-                    {v.pricingModel === "Commission" ? (
-                      <span className="inline-flex items-center gap-1 font-bold text-purple-900 text-xs bg-purple-50 px-2 py-0.5 rounded border border-purple-200">
-                        <BadgePercent className="size-3 text-purple-600" />
-                        نظام العمولة (معفى من الاشتراك)
-                      </span>
-                    ) : (
-                      <div className="flex items-center gap-1">
-                        <span className="font-bold text-slate-900 bg-slate-100 px-2 py-0.5 rounded me-1">{planName}</span>
-                        <Pill tone={subTone} className="text-[10px]">{subLabel}</Pill>
-                      </div>
-                    )}
+                  <KV k="نظام العمل">
+                    <span className="inline-flex items-center gap-1 font-bold text-purple-900 text-xs bg-purple-50 px-2 py-0.5 rounded border border-purple-200">
+                      <BadgePercent className="size-3 text-purple-600" />
+                      عمولة على الحجوزات
+                    </span>
                   </KV>
                   <KV k="صاحب الملعب">{v.ownerName ?? "مالك مسجل"}</KV>
                   <KV k="هاتف الملعب/التواصل"><span dir="ltr">{v.phoneNumber || v.ownerPhone || "—"}</span></KV>
@@ -670,149 +578,87 @@ function VenueDrawer({ venueId, onClose }: { venueId: string | null; onClose: ()
                 </div>
               </div>
 
-              <Section title="نظام التشغيل والتسعير (Pricing & Commercial Model)">
+              <Section title="العمولة والعربون">
                 {commission.isLoading ? (
                   <span className="text-xs text-slate-500">جاري تحميل الإعدادات…</span>
                 ) : commission.isError ? (
                   <span className="text-xs text-red-700">تعذّر تحميل إعدادات النموذج التجاري والعمولة.</span>
                 ) : (
                   <div className="flex flex-col gap-4">
-                    {/* Model Selector Cards */}
-                    <div>
-                      <span className="text-xs font-bold text-slate-700 block mb-2">اختر نظام العمل المعتمد للملعب:</span>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                        <label
-                          className={`flex flex-col gap-1.5 p-3.5 rounded-xl border-2 cursor-pointer transition-all ${
-                            pricingModel === "0"
-                              ? "border-emerald-600 bg-emerald-50/50 text-slate-900 shadow-2xs"
-                              : "border-slate-200 bg-white hover:border-slate-300 text-slate-600"
-                          }`}
-                        >
-                          <div className="flex items-center justify-between">
-                            <span className="font-extrabold text-sm flex items-center gap-1.5 text-slate-900">
-                              <Package className="size-4 text-emerald-600" />
-                              نظام باقات الاشتراك
-                            </span>
-                            <input
-                              type="radio"
-                              name="pricingModel"
-                              value="0"
-                              checked={pricingModel === "0"}
-                              onChange={() => setPricingModel("0")}
-                              className="text-emerald-600 focus:ring-emerald-500 size-4"
+                    <p className="text-[12px] text-slate-500 leading-relaxed">
+                      كل الملاعب على نظام العمولة: اللاعب بيدفع العربون لحسابات المنصة، والمنصة بتاخد العمولة منه وتحوّل الباقي للملعب. الحجوزات اليدوي من غير عمولة.
+                    </p>
+                    <div className="bg-purple-50/60 rounded-xl p-3.5 border border-purple-200 flex flex-col gap-3">
+                      <div className="flex items-center gap-1.5 text-xs font-bold text-purple-900">
+                        <BadgePercent className="size-3.5 text-purple-600" />
+                        تحديد قيمة عمولة المنصة لهذا الملعب:
+                      </div>
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <Field label="طريقة حساب العمولة">
+                          <select
+                            value={commissionType}
+                            onChange={(e) => setCommissionType(e.target.value as "0" | "1" | "2" | "3")}
+                            className="w-full min-h-[40px] rounded-xl border border-slate-200 bg-white px-3 text-sm"
+                          >
+                            <option value="1">مبلغ ثابت لكل ساعة حجز (ج.م)</option>
+                            <option value="2">نسبة مئوية من إجمالي الحجز (%)</option>
+                            <option value="0">عمولة المنصة الافتراضية</option>
+                            <option value="3">معفي من العمولة (0%)</option>
+                          </select>
+                        </Field>
+                        {(commissionType === "1" || commissionType === "2") && (
+                          <Field label={commissionType === "2" ? "النسبة المئوية (%)" : "المبلغ لكل ساعة (ج.م)"}>
+                            <TextInput
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              value={commissionRate}
+                              onChange={(e) => setCommissionRate(e.target.value)}
+                              placeholder={commissionType === "2" ? "مثلاً 10%" : "مثلاً 30 ج.م"}
                             />
-                          </div>
-                          <p className="text-[11px] text-slate-500 leading-relaxed mt-0.5">
-                            يشترك مالك الملعب في باقات ملعبك الدورية، ويحدد أسعاره وطرق الدفع بنفسه وتظهر لديه تبويبة الاشتراكات والفواتير.
-                          </p>
-                        </label>
-
-                        <label
-                          className={`flex flex-col gap-1.5 p-3.5 rounded-xl border-2 cursor-pointer transition-all ${
-                            pricingModel === "1"
-                              ? "border-purple-600 bg-purple-50/50 text-slate-900 shadow-2xs"
-                              : "border-slate-200 bg-white hover:border-slate-300 text-slate-600"
-                          }`}
-                        >
-                          <div className="flex items-center justify-between">
-                            <span className="font-extrabold text-sm flex items-center gap-1.5 text-slate-900">
-                              <BadgePercent className="size-4 text-purple-600" />
-                              نظام العمولة
-                            </span>
-                            <input
-                              type="radio"
-                              name="pricingModel"
-                              value="1"
-                              checked={pricingModel === "1"}
-                              onChange={() => setPricingModel("1")}
-                              className="text-purple-600 focus:ring-purple-500 size-4"
-                            />
-                          </div>
-                          <p className="text-[11px] text-slate-500 leading-relaxed mt-0.5">
-                            معفى من باقات الاشتراك (تختفي صفحة الاشتراكات من لوحة تحكمه). تخصم المنصة العمولة المحددة أدناه على الحجوزات.
-                          </p>
-                        </label>
+                          </Field>
+                        )}
                       </div>
                     </div>
 
-                    {/* Model Details / Commission Config */}
-                    {pricingModel === "1" ? (
-                      <div className="bg-purple-50/60 rounded-xl p-3.5 border border-purple-200 flex flex-col gap-3">
-                        <div className="flex items-center gap-1.5 text-xs font-bold text-purple-900">
-                          <BadgePercent className="size-3.5 text-purple-600" />
-                          تحديد قيمة عمولة المنصة لهذا الملعب:
-                        </div>
-                        <div className="grid gap-3 sm:grid-cols-2">
-                          <Field label="طريقة حساب العمولة">
-                            <select
-                              value={commissionType}
-                              onChange={(e) => setCommissionType(e.target.value as "0" | "1" | "2" | "3")}
-                              className="w-full min-h-[40px] rounded-xl border border-slate-200 bg-white px-3 text-sm"
-                            >
-                              <option value="1">مبلغ ثابت لكل ساعة حجز (ج.م)</option>
-                              <option value="2">نسبة مئوية من إجمالي الحجز (%)</option>
-                              <option value="0">عمولة المنصة الافتراضية</option>
-                              <option value="3">معفي من العمولة (0%)</option>
-                            </select>
+                    <div className="bg-slate-50 rounded-xl p-3.5 border border-slate-200 flex flex-col gap-3">
+                      <div className="text-xs font-bold text-slate-800">العربون اللي اللاعب بيدفعه للمنصة عشان يثبّت الحجز:</div>
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <Field label="نوع العربون">
+                          <select
+                            value={depositType}
+                            onChange={(e) => setDepositType(e.target.value as "0" | "1" | "2")}
+                            className="w-full min-h-[40px] rounded-xl border border-slate-200 bg-white px-3 text-sm"
+                          >
+                            <option value="0">نسبة من سعر الحجز (%)</option>
+                            <option value="1">مبلغ ثابت (ج.م)</option>
+                            <option value="2">سعر الحجز كله</option>
+                          </select>
+                        </Field>
+                        {depositType !== "2" && (
+                          <Field label={depositType === "0" ? "النسبة (%)" : "المبلغ (ج.م)"}>
+                            <TextInput
+                              type="number"
+                              min="1"
+                              max={depositType === "0" ? "100" : undefined}
+                              step={depositType === "0" ? "1" : "0.01"}
+                              value={depositValue}
+                              onChange={(e) => setDepositValue(e.target.value)}
+                              placeholder={depositType === "0" ? "مثلاً 33" : "مثلاً 100"}
+                            />
                           </Field>
-                          {(commissionType === "1" || commissionType === "2") && (
-                            <Field label={commissionType === "2" ? "النسبة المئوية (%)" : "المبلغ لكل ساعة (ج.م)"}>
-                              <TextInput
-                                type="number"
-                                min="0"
-                                step="0.01"
-                                value={commissionRate}
-                                onChange={(e) => setCommissionRate(e.target.value)}
-                                placeholder={commissionType === "2" ? "مثلاً 10%" : "مثلاً 30 ج.م"}
-                              />
-                            </Field>
-                          )}
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="flex flex-col gap-3">
-                        <Switch
-                          on={commissionEnabled}
-                          label="تخصيص عمولة إضافية للمنصة بجانب باقة الاشتراك (اختياري)"
-                          onToggle={() => setCommissionEnabled((value) => !value)}
-                        />
-                        {commissionEnabled && (
-                          <div className="grid gap-3 sm:grid-cols-2">
-                            <Field label="نوع العمولة">
-                              <select
-                                value={commissionType}
-                                onChange={(e) => setCommissionType(e.target.value as "0" | "1" | "2" | "3")}
-                                className="w-full min-h-[40px] rounded-xl border border-slate-200 bg-white px-3 text-sm"
-                              >
-                                <option value="1">مبلغ ثابت لكل ساعة</option>
-                                <option value="2">نسبة مئوية من الإيجار</option>
-                                <option value="3">معفي من العمولة</option>
-                              </select>
-                            </Field>
-                            {commissionType !== "3" && (
-                              <Field label={commissionType === "2" ? "النسبة المئوية" : "المبلغ لكل ساعة"}>
-                                <TextInput
-                                  type="number"
-                                  min="0"
-                                  step="0.01"
-                                  value={commissionRate}
-                                  onChange={(e) => setCommissionRate(e.target.value)}
-                                  placeholder={commissionType === "2" ? "مثلاً 10" : "مثلاً 30"}
-                                />
-                              </Field>
-                            )}
-                          </div>
                         )}
                       </div>
-                    )}
+                      <span className="text-[11px] text-slate-500">لو العربون طلع أقل من العمولة، اللاعب بيدفع قيمة العمولة على الأقل. الملعب ميقدرش يغيّر العربون.</span>
+                    </div>
 
                     <button
                       type="button"
                       className={`${btnSmall} self-start`}
-                      disabled={saveCommission.isPending || !commission.data}
+                      disabled={saveCommission.isPending || !commission.data || (depositType !== "2" && !(Number(depositValue) > 0))}
                       onClick={() => saveCommission.mutate()}
                     >
-                      {saveCommission.isPending ? "جاري الحفظ…" : "حفظ نظام التشغيل والعمولة"}
+                      {saveCommission.isPending ? "جاري الحفظ…" : "حفظ العمولة والعربون"}
                     </button>
                   </div>
                 )}
@@ -820,6 +666,27 @@ function VenueDrawer({ venueId, onClose }: { venueId: string | null; onClose: ()
 
               {/* Action Buttons */}
               <div className="flex flex-wrap gap-2">
+                <TrashButton kind="venue" id={v.id} name={v.name} onDeleted={onClose} className="order-last" />
+                {v.approvalStatus === "Approved" && !v.isPublished && (
+                  <button
+                    type="button"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-emerald-600 text-white hover:bg-emerald-700 shadow-sm transition"
+                    onClick={() => togglePublish.mutate(true)}
+                    disabled={togglePublish.isPending}
+                  >
+                    {togglePublish.isPending ? "جاري النشر…" : "نشر الملعب للجمهور (تفعيل الظهور)"}
+                  </button>
+                )}
+                {v.approvalStatus === "Approved" && v.isPublished && (
+                  <button
+                    type="button"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-700 text-white hover:bg-slate-800 shadow-sm transition"
+                    onClick={() => togglePublish.mutate(false)}
+                    disabled={togglePublish.isPending}
+                  >
+                    {togglePublish.isPending ? "جاري التحديث…" : "إلغاء النشر (تحويل لمسودة)"}
+                  </button>
+                )}
                 {v.approvalStatus === "Approved" && (
                   <button type="button" className={btnDanger} onClick={() => ask("suspend", "إيقاف الملعب", "الملعب هيختفي من التطبيق ومحدش هيقدر يحجز، بس الحجوزات القديمة هتفضل.", "إيقاف")}>
                     إيقاف الملعب

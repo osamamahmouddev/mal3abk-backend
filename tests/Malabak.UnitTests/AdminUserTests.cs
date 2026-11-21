@@ -66,6 +66,19 @@ public sealed class AdminUserTests
     }
 
     [Fact]
+    public async Task TheAppReviewAccount_CannotBeSuspendedAsync()
+    {
+        await using var db = NewDb();
+        var reviewer = Player(db, "Apple Reviewer", "+201000000999");
+        await db.SaveChangesAsync();
+
+        var result = await Users(db).SuspendAsync(reviewer.Id, "Looks like a test account", Guid.NewGuid());
+
+        result.Error.Should().Be(AdminUserErrors.ReviewAccountProtected);
+        (await db.Users.SingleAsync(u => u.Id == reviewer.Id)).IsSuspended.Should().BeFalse();
+    }
+
+    [Fact]
     public async Task UserManagement_CannotTouchStaffAccountsOrSelfAsync()
     {
         await using var db = NewDb();
@@ -149,6 +162,10 @@ public sealed class AdminUserTests
 
         var support = new UserPermissions(Guid.NewGuid(), [UserRole.SupportAgent], RolePermissions.For([UserRole.SupportAgent]));
         AdminNavigation.For(support).Select(n => n.Key).Should().BeEquivalentTo("dashboard", "users", "bookings", "support");
+
+        // Money the platform holds (deposits, refunds, venue payouts) is for admins and finance, not support.
+        var finance = new UserPermissions(Guid.NewGuid(), [UserRole.Finance], RolePermissions.For([UserRole.Finance]));
+        AdminNavigation.For(finance).Select(n => n.Key).Should().BeEquivalentTo("dashboard", "bookings", "deposits", "payouts", "invoices");
         AdminNavigation.For(null).Should().BeEmpty();
     }
 

@@ -1,7 +1,9 @@
 using FluentAssertions;
+using Malabak.Modules.Venues.Application.Common;
 using Malabak.Modules.Venues.Application.Details;
 using Malabak.Modules.Venues.Domain;
 using Malabak.Modules.Venues.Infrastructure;
+using Malabak.SharedKernel;
 using Malabak.SharedKernel.Contracts;
 using Microsoft.EntityFrameworkCore;
 using Xunit;
@@ -85,7 +87,7 @@ public sealed class VenueDetailsTests
         properties.Should().NotContain(["PhoneNumber", "OwnerId", "ApprovalStatus", "IsPublished"]);
     }
 
-    private static VenueDetailsQuery Query(VenuesDbContext db) => new(db, new FakePolicies());
+    private static VenueDetailsQuery Query(VenuesDbContext db) => new(db, new FakePolicies(), new Clock());
 
     private async Task<VenuesDbContext> SeedAsync(bool publish = true)
     {
@@ -117,6 +119,44 @@ public sealed class VenueDetailsTests
         db.FavoriteVenues.Add(FavoriteVenue.Create(Guid.NewGuid(), venue.Id, _now));
         await db.SaveChangesAsync();
         return db;
+    }
+
+    [Fact]
+    public async Task Profile_ShowsTheRunningOffer_WithItsEndAndThePriceAfterItAsync()
+    {
+        await using var db = await SeedAsync();
+        var today = DateOnly.FromDateTime(_now);
+        db.PriceRules.Add(PriceRule.Create(_venueId, new PriceRuleTerms(PriceRuleKind.Discount, PriceAdjustment.Percentage, null,
+            "Opening week", null, 20, null, null, null, today.AddDays(-1), today.AddDays(6), null), _now).Value);
+        db.PriceRules.Add(PriceRule.Create(_venueId, new PriceRuleTerms(PriceRuleKind.Discount, PriceAdjustment.Percentage, null,
+            "Finished", null, 50, null, null, null, today.AddDays(-9), today.AddDays(-2), null), _now).Value);
+        await db.SaveChangesAsync();
+
+        var offer = (await Query(db).GetAsync(_venueId)).Value.Offer;
+
+        offer.Should().NotBeNull();
+        offer!.Name.Should().Be("Opening week", "an offer that already ended is not shown");
+        offer.Type.Should().Be(VenueOffers.PercentageType);
+        offer.Value.Should().Be(20);
+        offer.EndsOn.Should().Be(today.AddDays(6));
+        offer.HasConditions.Should().BeFalse();
+        offer.FromHourlyPriceAfter.Should().Be(280m, "20% off the 350 starting price");
+    }
+
+    [Fact]
+    public async Task Profile_HasNoOffer_WhenNoDiscountRunsAsync()
+    {
+        await using var db = await SeedAsync();
+
+        (await Query(db).GetAsync(_venueId)).Value.Offer.Should().BeNull();
+    }
+
+    private sealed class Clock : IClock
+    {
+        public DateTime UtcNow => _now;
+        public DateTime CairoNow => _now.AddHours(2);
+        public DateOnly CairoToday => DateOnly.FromDateTime(CairoNow);
+        public TimeZoneInfo CairoTimeZone => TimeZoneInfo.FindSystemTimeZoneById("Africa/Cairo");
     }
 
     private sealed class FakePolicies : IBookingPolicyProvider

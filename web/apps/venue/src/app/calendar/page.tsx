@@ -11,21 +11,32 @@ import { ManualBookingForm, type ManualBookingDefaults } from "@/components/Manu
 import { api, unwrap } from "@/lib/api";
 import { addDays, cairoDayStartUtc, cairoHourLabel, cairoTime, cairoToday } from "@/lib/booking-format";
 import { P } from "@/lib/permissions";
-import { X } from "lucide-react";
+import { ChevronLeft, ChevronRight, ListChecks, Plus, X } from "lucide-react";
+import { BulkHoursBar, type PickedHour, type PickedTaken } from "@/components/BulkHoursBar";
 
 type View = "day" | "week" | "month";
 type Slot = Schemas["CalendarSlotDto"];
-type Kind = "ok" | "rev" | "wait" | "blk";
+type Kind = "ok" | "tent" | "rev" | "wait" | "blk";
 
 const KIND: Record<Kind, { label: string; tone: Tone; box: string }> = {
   ok: { label: "مؤكد", tone: "ok", box: "bg-navy-900 text-white border border-navy-900" },
+  tent: { label: "محجوز مبدئي", tone: "wait", box: "bg-[#EEF1F7] text-navy-900 border-2 border-dashed border-navy-900" },
   rev: { label: "قيد المراجعة", tone: "warn", box: "bg-[#FEF3D6] text-[#6B4400] border-2 border-[#D9A21B]" },
   wait: { label: "بانتظار العربون", tone: "wait", box: "bg-white text-slate-900 border-2 border-dashed border-[#8A94AA]" },
   blk: { label: "محظور", tone: "block", box: "bg-[repeating-linear-gradient(135deg,#DCE0E8_0_5px,#EEF0F5_5px_10px)] text-[#3B4352] border border-[#C9CFD9]" },
 };
 
-const kindOf = (status: string): Kind =>
-  status === "Blocked" ? "blk" : status === "PendingDeposit" ? "wait" : status === "ProofSubmitted" || status === "UnderReview" ? "rev" : "ok";
+/** A manual booking the venue marked as taken but has not confirmed yet is "tentative", not "waiting for a deposit". */
+const kindOf = ({ status, isTentative }: Pick<Slot, "status" | "isTentative">): Kind =>
+  status === "Blocked"
+    ? "blk"
+    : isTentative
+      ? "tent"
+      : status === "PendingDeposit"
+        ? "wait"
+        : status === "ProofSubmitted" || status === "UnderReview"
+          ? "rev"
+          : "ok";
 
 /** Grid hours: 08:00 to 02:00 the next morning (most venues play late). */
 const FIRST_HOUR = 8;
@@ -86,6 +97,47 @@ function Calendar() {
   const [selected, setSelected] = useState<Slot | null>(null);
   const [empty, setEmpty] = useState<ManualBookingDefaults | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  // Picking many hours at once: free hours to book, or the venue's own bookings and blocked periods to free.
+  const [picking, setPicking] = useState(false);
+  const [pickedHours, setPickedHours] = useState<Record<string, PickedHour>>({});
+  const [pickedTaken, setPickedTaken] = useState<Record<string, PickedTaken>>({});
+  const clearPicks = () => {
+    setPickedHours({});
+    setPickedTaken({});
+  };
+  const togglePick = (hour: PickedHour) =>
+    setPickedHours((prev) => {
+      const key = `${hour.pitchId}|${hour.startUtc}`;
+      const next = { ...prev };
+      if (next[key]) delete next[key];
+      else next[key] = hour;
+      return next;
+    });
+  const pickAll = (list: PickedHour[]) =>
+    setPickedHours((prev) => {
+      const next = { ...prev };
+      const allPicked = list.every((h) => next[`${h.pitchId}|${h.startUtc}`]);
+      for (const h of list) {
+        const key = `${h.pitchId}|${h.startUtc}`;
+        if (allPicked) delete next[key];
+        else next[key] = h;
+      }
+      return next;
+    });
+  const pickSlot = (s: Slot) => {
+    const blocked = s.status === "Blocked";
+    if (!blocked && !(s.isManual && ["PendingDeposit", "Confirmed"].includes(s.status))) {
+      setToast("ده حجز من التطبيق: افتحه من الحجوزات لو عايز تلغيه.");
+      return;
+    }
+
+    setPickedTaken((prev) => {
+      const next = { ...prev };
+      if (next[s.id]) delete next[s.id];
+      else next[s.id] = { id: s.id, blocked };
+      return next;
+    });
+  };
 
   useEffect(() => {
     if (!weekPitch && pitches[0]) setWeekPitch(pitches[0].id);
@@ -147,9 +199,9 @@ function Calendar() {
             type="button"
             aria-label="السابق"
             onClick={() => switchTo(view, view === "month" ? addDays(monthStart(date), -1) : addDays(date, -step))}
-            className="w-10 h-10 rounded-[10px] border border-[#EDF0F5] bg-white hover:bg-slate-50 active:scale-95 transition-all cursor-pointer flex items-center justify-center font-bold"
+            className="w-10 h-10 rounded-[10px] border border-[#EDF0F5] bg-white hover:bg-slate-50 hover:border-slate-300 active:scale-95 transition-all cursor-pointer flex items-center justify-center"
           >
-            ›
+            <ChevronRight className="size-5" />
           </button>
           <span className="min-w-[180px] text-center text-sm font-bold" aria-live="polite">
             {title}
@@ -158,20 +210,20 @@ function Calendar() {
             type="button"
             aria-label="التالي"
             onClick={() => switchTo(view, view === "month" ? addDays(monthEnd(date), 1) : addDays(date, step))}
-            className="w-10 h-10 rounded-[10px] border border-[#EDF0F5] bg-white hover:bg-slate-50 active:scale-95 transition-all cursor-pointer flex items-center justify-center font-bold"
+            className="w-10 h-10 rounded-[10px] border border-[#EDF0F5] bg-white hover:bg-slate-50 hover:border-slate-300 active:scale-95 transition-all cursor-pointer flex items-center justify-center"
           >
-            ‹
+            <ChevronLeft className="size-5" />
           </button>
           <button
             type="button"
             onClick={() => switchTo(view, cairoToday())}
-            className="min-h-[40px] px-3 rounded-[10px] border border-[#EDF0F5] bg-white hover:bg-slate-50 active:scale-95 transition-all text-[13px] font-semibold cursor-pointer"
+            className="min-h-[40px] px-3 rounded-[10px] border border-[#EDF0F5] bg-white hover:bg-slate-50 hover:border-slate-300 active:scale-95 transition-all text-[13px] font-semibold cursor-pointer"
           >
             النهارده
           </button>
         </div>
         {view === "week" && (
-          <select aria-label="الملعب" value={weekPitch} onChange={(e) => setWeekPitch(e.target.value)} className={inputClass}>
+          <select aria-label="الملعب" value={weekPitch} onChange={(e) => setWeekPitch(e.target.value)} className={`${inputClass} !w-auto min-w-[200px] max-w-[280px] min-h-[40px] cursor-pointer`}>
             {pitches.map((p) => (
               <option key={p.id} value={p.id}>
                 {p.name}
@@ -179,13 +231,30 @@ function Calendar() {
             ))}
           </select>
         )}
+        {can(P.bookingsApprove) && view !== "month" && (
+          <button
+            type="button"
+            aria-pressed={picking}
+            onClick={() => {
+              setPicking((v) => !v);
+              clearPicks();
+            }}
+            className={`min-h-[40px] px-4 rounded-[10px] border text-sm font-bold inline-flex items-center gap-2 transition-colors ${
+              picking ? "bg-navy-900 text-white border-navy-900" : "bg-white border-[#C9CFD9] hover:bg-slate-50"
+            }`}
+          >
+            <ListChecks className="size-4" />
+            {picking ? "خلصت التحديد" : "تحديد كذا ساعة"}
+          </button>
+        )}
         {can(P.bookingsApprove) && (
           <button
             type="button"
             onClick={() => setEmpty({ date, startMinutes: 20 * 60, pitchId: pitches[0]?.id })}
-            className={`min-h-[44px] px-[18px] rounded-[10px] bg-brand-red text-white text-sm font-bold ${redShadow}`}
+            className={`btn-press min-h-[40px] px-4 rounded-[10px] bg-brand-red hover:bg-brand-red-hover text-white text-sm font-bold inline-flex items-center gap-2 transition-colors ${redShadow}`}
           >
-            + حجز يدوي
+            <Plus className="size-4" strokeWidth={2.5} />
+            حجز يدوي
           </button>
         )}
       </div>
@@ -206,6 +275,12 @@ function Calendar() {
           busy={slots.isFetching}
           onSlot={setSelected}
           onEmpty={(c, minutes) => setEmpty({ date: c.date, pitchId: c.pitchId, startMinutes: minutes })}
+          picking={picking}
+          pickedHours={pickedHours}
+          pickedTaken={pickedTaken}
+          onPickHour={togglePick}
+          onPickAll={pickAll}
+          onPickSlot={pickSlot}
         />
       )}
       {view === "week" && (
@@ -220,6 +295,28 @@ function Calendar() {
           busy={slots.isFetching}
           onSlot={setSelected}
           onEmpty={(c, minutes) => setEmpty({ date: c.date, pitchId: c.pitchId, startMinutes: minutes })}
+          picking={picking}
+          pickedHours={pickedHours}
+          pickedTaken={pickedTaken}
+          onPickHour={togglePick}
+          onPickAll={pickAll}
+          onPickSlot={pickSlot}
+        />
+      )}
+      {picking && venueId && view !== "month" && (
+        <BulkHoursBar
+          venueId={venueId}
+          hours={Object.values(pickedHours)}
+          taken={Object.values(pickedTaken)}
+          canUnblock={can(P.blockedSlotsManage)}
+          onClear={() => {
+            clearPicks();
+            setPicking(false);
+          }}
+          onDone={(m) => {
+            clearPicks();
+            setToast(m);
+          }}
         />
       )}
       {view === "month" && <MonthGrid date={date} slots={all} onOpenDay={(d) => switchTo("day", d)} />}
@@ -230,6 +327,7 @@ function Calendar() {
           venueId={venueId}
           pitchName={pitchName}
           canUnblock={can(P.blockedSlotsManage)}
+          canDecide={can(P.bookingsApprove)}
           onClose={() => setSelected(null)}
           onDone={(m) => {
             setSelected(null);
@@ -270,7 +368,7 @@ function ViewSwitch({ view, onChange }: { view: View; onChange: (v: View) => voi
           type="button"
           aria-pressed={view === id}
           onClick={() => onChange(id)}
-          className={`min-h-[36px] px-3.5 rounded-[9px] text-[13px] ${view === id ? "bg-navy-900 text-white font-bold" : "text-[#3B4352]"}`}
+          className={`min-h-[36px] px-3.5 rounded-[9px] text-[13px] transition-all duration-150 ease-spring ${view === id ? "bg-navy-900 text-white font-bold shadow-sm" : "text-[#3B4352] hover:bg-slate-100"}`}
         >
           {label}
         </button>
@@ -308,6 +406,12 @@ function Grid({
   busy,
   onSlot,
   onEmpty,
+  picking = false,
+  pickedHours = {},
+  pickedTaken = {},
+  onPickHour,
+  onPickAll,
+  onPickSlot,
 }: {
   columns: Column[];
   slots: Slot[];
@@ -316,19 +420,44 @@ function Grid({
   busy: boolean;
   onSlot: (s: Slot) => void;
   onEmpty: (c: Column, minutes: number) => void;
+  picking?: boolean;
+  pickedHours?: Record<string, PickedHour>;
+  pickedTaken?: Record<string, PickedTaken>;
+  onPickHour?: (h: PickedHour) => void;
+  onPickAll?: (hours: PickedHour[]) => void;
+  onPickSlot?: (s: Slot) => void;
 }) {
   if (columns.length === 0) {
     return <p className={`${card} rounded-[18px] p-8 text-center text-sm ${muted}`}>ضيف ملعب نشط عشان يظهر التقويم.</p>;
   }
   const hours = Array.from({ length: lastHour - firstHour }, (_, i) => firstHour + i);
   const gridHeight = hours.length * ROW;
+  /** The hour h of the column's business day, in UTC. */
+  const hourOf = (c: Column, h: number): PickedHour => {
+    const start = new Date(cairoDayStartUtc(c.date)).getTime() + h * 3_600_000;
+    return { pitchId: c.pitchId, startUtc: new Date(start).toISOString(), endUtc: new Date(start + 3_600_000).toISOString() };
+  };
+  /** Hours of the column nothing is booked or blocked in. */
+  const freeHours = (c: Column) =>
+    hours
+      .map((h) => hourOf(c, h))
+      .filter((hour) => !slots.some((s) => s.pitchId === c.pitchId && new Date(s.startUtc) < new Date(hour.endUtc) && new Date(s.endUtc) > new Date(hour.startUtc)));
   return (
     <section aria-label="جدول المواعيد" aria-busy={busy} className={`${card} rounded-[18px] overflow-x-auto`} tabIndex={0}>
       <div className="grid min-w-[640px]" style={{ gridTemplateColumns: `64px repeat(${columns.length}, minmax(120px, 1fr))` }}>
         <div className="sticky top-0 bg-white border-b border-[#EDF0F5]" />
         {columns.map((c) => (
-          <div key={c.key} className="sticky top-0 bg-white border-b border-[#EDF0F5] px-2 py-2.5 text-center text-[13px] font-bold">
+          <div key={c.key} className="sticky top-0 bg-white border-b border-[#EDF0F5] px-2 py-2.5 text-center text-[13px] font-bold flex flex-col items-center gap-1">
             {c.label}
+            {picking && (
+              <button
+                type="button"
+                onClick={() => onPickAll?.(freeHours(c))}
+                className="text-[11px] font-semibold text-brand-red hover:underline"
+              >
+                اليوم كله
+              </button>
+            )}
           </div>
         ))}
         <div className="relative" style={{ height: gridHeight }}>
@@ -345,30 +474,42 @@ function Grid({
           });
           return (
             <div key={c.key} className="relative border-r border-[#EDF0F5]" style={{ height: gridHeight }}>
-              {hours.map((h, i) => (
-                <button
-                  key={h}
-                  type="button"
-                  aria-label={`${c.label} ${hourLabel(h)}: ميعاد فاضي`}
-                  onClick={() => onEmpty(c, h * 60)}
-                  className="absolute inset-x-0 border-t border-[#F1F3F7] hover:bg-[#F8F9FB] focus:bg-[#EEF1F7] focus:outline-none"
-                  style={{ top: i * ROW, height: ROW }}
-                />
-              ))}
+              {hours.map((h, i) => {
+                const hour = hourOf(c, h);
+                const picked = !!pickedHours[`${hour.pitchId}|${hour.startUtc}`];
+                return (
+                  <button
+                    key={h}
+                    type="button"
+                    aria-label={`${c.label} ${hourLabel(h)}: ميعاد فاضي`}
+                    aria-pressed={picking ? picked : undefined}
+                    onClick={() => (picking ? onPickHour?.(hour) : onEmpty(c, h * 60))}
+                    className={`absolute inset-x-0 border-t border-[#F1F3F7] focus:outline-none ${
+                      picked ? "bg-[#FDECEA] ring-2 ring-inset ring-brand-red" : "hover:bg-[#F8F9FB] focus:bg-[#EEF1F7]"
+                    }`}
+                    style={{ top: i * ROW, height: ROW }}
+                  >
+                    {picked && <span className="text-[11px] font-bold text-brand-red">✓ محدد</span>}
+                  </button>
+                );
+              })}
               {mine.map((s) => {
                 const start = Math.max(minutesFrom(c.date, s.startUtc), firstHour * 60);
                 const end = Math.min(minutesFrom(c.date, s.endUtc), lastHour * 60);
-                const kind = kindOf(s.status);
+                const kind = kindOf(s);
                 return (
                   <button
                     key={s.id}
                     type="button"
-                    onClick={() => onSlot(s)}
+                    onClick={() => (picking ? onPickSlot?.(s) : onSlot(s))}
                     aria-label={`${KIND[kind].label}: ${s.customerName ?? s.reason ?? ""} ${cairoTime(s.startUtc)}`}
-                    className={`absolute inset-x-1 rounded-lg px-2 py-1 text-right text-xs overflow-hidden ${KIND[kind].box}`}
+                    aria-pressed={picking ? !!pickedTaken[s.id] : undefined}
+                    className={`absolute inset-x-1 rounded-lg px-2 py-1 text-right text-xs overflow-hidden ${KIND[kind].box} ${
+                      pickedTaken[s.id] ? "ring-2 ring-brand-red ring-offset-1" : ""
+                    }`}
                     style={{ top: ((start - firstHour * 60) / 60) * ROW + 2, height: Math.max(22, ((end - start) / 60) * ROW - 4) }}
                   >
-                    <span className="block font-bold truncate">{kind === "blk" ? s.reason || "محظور" : s.customerName || "—"}</span>
+                    <span className="block font-bold truncate">{kind === "blk" ? s.reason || "محظور" : s.customerName || (s.isManual ? "حجز يدوي" : "—")}</span>
                     <span className="block opacity-80">
                       {cairoTime(s.startUtc)} – {cairoTime(s.endUtc)}
                     </span>
@@ -404,7 +545,7 @@ function MonthGrid({ date, slots, onOpenDay }: { date: string; slots: Slot[]; on
         {Array.from({ length: days }, (_, i) => {
           const d = addDays(first, i);
           const list = byDay(d);
-          const review = list.filter((s) => kindOf(s.status) === "rev").length;
+          const review = list.filter((s) => kindOf(s) === "rev").length;
           return (
             <button
               key={d}
@@ -429,6 +570,7 @@ function SlotDrawer({
   venueId,
   pitchName,
   canUnblock,
+  canDecide,
   onClose,
   onDone,
 }: {
@@ -436,11 +578,12 @@ function SlotDrawer({
   venueId: string;
   pitchName: (id: string) => string;
   canUnblock: boolean;
+  canDecide: boolean;
   onClose: () => void;
   onDone: (message: string) => void;
 }) {
   const queryClient = useQueryClient();
-  const kind = kindOf(slot.status);
+  const kind = kindOf(slot);
   const unblock = useMutation({
     mutationFn: () => unwrap(api.DELETE("/api/v1/venue-manager/venues/{venueId}/blocked-slots/{id}", { params: { path: { venueId, id: slot.id } } })),
     onSuccess: async () => {
@@ -449,9 +592,29 @@ function SlotDrawer({
     },
     onError: (e: Error) => onDone(e.message),
   });
+  // A manual booking that is not confirmed yet (tentative, or waiting for its deposit) is settled here by the venue.
+  const pendingManual = slot.isManual && slot.status === "PendingDeposit";
+  const [cancelling, setCancelling] = useState(false);
+  const [cancelReason, setCancelReason] = useState("");
+  const settled = async (message: string) => {
+    await queryClient.invalidateQueries({ predicate: (q) => ["calendar", "dashboard", "manual-booking-calendar"].includes(String(q.queryKey[0])) || String(q.queryKey[0]).startsWith("booking") });
+    onDone(message);
+  };
+  const confirm = useMutation({
+    mutationFn: () =>
+      unwrap(api.POST("/api/v1/venue-manager/venues/{venueId}/bookings/{id}/confirm-deposit", { params: { path: { venueId, id: slot.id } }, body: {} })),
+    onSuccess: () => settled("اتثبت الحجز."),
+    onError: (e: Error) => onDone(e.message),
+  });
+  const cancel = useMutation({
+    mutationFn: () =>
+      unwrap(api.POST("/api/v1/venue-manager/venues/{venueId}/bookings/{id}/cancel", { params: { path: { venueId, id: slot.id } }, body: { reason: cancelReason.trim() } })),
+    onSuccess: () => settled("اتلغى الحجز والميعاد رجع متاح في التطبيق."),
+    onError: (e: Error) => onDone(e.message),
+  });
 
   return (
-    <Dialog title={kind === "blk" ? "ميعاد محظور" : slot.customerName || "تفاصيل الحجز"} onClose={onClose}>
+    <Dialog title={kind === "blk" ? "ميعاد محظور" : slot.customerName || (slot.isManual ? "حجز يدوي" : "تفاصيل الحجز")} onClose={onClose}>
       <Badge tone={KIND[kind].tone} className="self-start">
         {KIND[kind].label}
       </Badge>
@@ -478,18 +641,79 @@ function SlotDrawer({
             <dd>{slot.reason}</dd>
           </div>
         )}
-        {slot.isManual && <p className={`text-xs ${muted}`}>حجز يدوي — الدفع في الملعب.</p>}
+        {kind !== "blk" && (
+          <div className="flex justify-between">
+            <dt className={muted}>العميل</dt>
+            <dd>{slot.customerName || "من غير اسم"}</dd>
+          </div>
+        )}
+        {slot.customerPhone && (
+          <div className="flex justify-between">
+            <dt className={muted}>الموبايل</dt>
+            <dd dir="ltr">
+              <a href={`tel:${slot.customerPhone}`} className="underline underline-offset-2">
+                {slot.customerPhone}
+              </a>
+            </dd>
+          </div>
+        )}
+        {slot.isManual && (
+          <p className={`text-xs ${muted}`}>
+            {kind === "tent"
+              ? "حجز يدوي لسه مش متثبت: الميعاد مقفول في التطبيق لحد ما تثبّته أو تلغيه، ولو ماتثبتش بيتفتح وقت الماتش."
+              : "حجز يدوي — الدفع في الملعب."}
+          </p>
+        )}
       </dl>
       <div className="flex flex-wrap gap-2">
         {kind === "rev" && (
-          <Link href={`/reservations/proof-review?booking=${slot.id}`} className="min-h-[44px] px-4 rounded-xl bg-navy-900 text-white text-sm font-bold flex items-center">
-            مراجعة الإيصال
-          </Link>
+          <p className={`basis-full text-xs ${muted}`}>إيصال العربون عند فريق ملعبك للمراجعة، والحجز هيتأكد أول ما يتراجع.</p>
         )}
         {kind !== "blk" && (
           <Link href="/reservations" className="min-h-[44px] px-4 rounded-xl border border-[#C9CFD9] text-navy-900 text-sm font-semibold flex items-center">
             فتح في الحجوزات
           </Link>
+        )}
+        {pendingManual && canDecide && !cancelling && (
+          <>
+            <button
+              type="button"
+              onClick={() => confirm.mutate()}
+              disabled={confirm.isPending}
+              className="min-h-[44px] px-4 rounded-xl bg-navy-900 text-white text-sm font-bold"
+            >
+              {confirm.isPending ? "جاري…" : "ثبّت الحجز"}
+            </button>
+            <button
+              type="button"
+              onClick={() => setCancelling(true)}
+              className="min-h-[44px] px-4 rounded-xl border border-[#F3C4BF] text-[#A8261C] text-sm font-bold"
+            >
+              إلغاء الحجز
+            </button>
+          </>
+        )}
+        {pendingManual && canDecide && cancelling && (
+          <form
+            className="basis-full flex flex-col gap-2"
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (cancelReason.trim()) cancel.mutate();
+            }}
+          >
+            <label className="flex flex-col gap-1 text-sm font-semibold">
+              سبب الإلغاء
+              <input value={cancelReason} maxLength={500} onChange={(e) => setCancelReason(e.target.value)} className={inputClass} placeholder="مثلاً العميل اعتذر" />
+            </label>
+            <div className="flex gap-2">
+              <button type="submit" disabled={!cancelReason.trim() || cancel.isPending} className="min-h-[44px] px-4 rounded-xl bg-[#A8261C] text-white text-sm font-bold disabled:opacity-50">
+                {cancel.isPending ? "جاري…" : "تأكيد الإلغاء"}
+              </button>
+              <button type="button" onClick={() => setCancelling(false)} className="min-h-[44px] px-4 rounded-xl border border-[#C9CFD9] text-sm font-semibold">
+                رجوع
+              </button>
+            </div>
+          </form>
         )}
         {kind === "blk" && canUnblock && (
           <button type="button" onClick={() => unblock.mutate()} disabled={unblock.isPending} className="min-h-[44px] px-4 rounded-xl border border-[#F3C4BF] text-[#A8261C] text-sm font-bold">

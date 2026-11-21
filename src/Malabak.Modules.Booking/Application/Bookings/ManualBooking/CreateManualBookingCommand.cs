@@ -12,7 +12,13 @@ public enum ManualPaymentStatus
     DepositPaid = 1,
 
     /// <summary>Nothing paid yet: the slot is held until the deposit arrives or the hold lapses.</summary>
-    AwaitingDeposit = 2
+    AwaitingDeposit = 2,
+
+    /// <summary>
+    /// Booked but not confirmed yet (no deposit asked): the slot stays taken until the venue confirms or cancels it, and is
+    /// released when the match time comes if it was never confirmed.
+    /// </summary>
+    Unconfirmed = 3
 }
 
 public sealed record CreateManualBookingCommand(
@@ -22,7 +28,7 @@ public sealed record CreateManualBookingCommand(
     DateTime EndUtc,
     decimal Price,
     string Currency,
-    string CustomerName,
+    string? CustomerName,
     string? CustomerPhone,
     string ActorUserId,
     string? Notes = null,
@@ -38,7 +44,7 @@ public sealed record ManualBookingResponse(
     DateTime EndUtc,
     decimal Price,
     string Currency,
-    string CustomerName,
+    string? CustomerName,
     string Status = "Confirmed",
     decimal DepositAmount = 0,
     DateTime? HoldExpiresAtUtc = null);

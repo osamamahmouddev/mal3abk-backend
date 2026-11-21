@@ -17,7 +17,7 @@ function VerifyEmail() {
     started.current = true;
     if (!token) {
       setState("failed");
-      setError("اللينك ناقص. افتحه من الإيميل تاني.");
+      setError("اللينك ناقص. افتحه من الرسالة اللي وصلتك تاني.");
       return;
     }
     verifyEmail(token).then((result) => {
@@ -27,9 +27,9 @@ function VerifyEmail() {
   }, [token]);
 
   return (
-    <AuthCard title="تأكيد الإيميل">
-      {state === "working" && <span className="text-sm text-[#5B6475]">جاري التأكيد…</span>}
-      {state === "done" && <FormSuccess>الإيميل اتأكد. تقدر تسجّل دخول دلوقتي.</FormSuccess>}
+    <AuthCard title="تفعيل الحساب">
+      {state === "working" && <span className="text-sm text-[#5B6475]">جاري التفعيل…</span>}
+      {state === "done" && <FormSuccess>حسابك اتفعّل. تقدر تسجّل دخول دلوقتي.</FormSuccess>}
       <FormError message={error} />
       {state !== "working" && (
         <Link href="/login" className={`${authPrimary} flex items-center justify-center no-underline`}>

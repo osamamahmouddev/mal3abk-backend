@@ -30,8 +30,15 @@ public sealed record AdminRefreshCommand(string RefreshToken) : ICommand<Result<
 
 public sealed record AdminLogoutCommand(string RefreshToken) : ICommand<Result>;
 
-public sealed record AdminResetTotpCommand(string Email, string Password, string? TurnstileToken, string? RemoteIp)
-    : ICommand<Result>;
+/// <summary>Turns the signed-in admin's authenticator off; needs a current code (or an unused recovery code).</summary>
+public sealed record AdminDisableTotpCommand(Guid UserId, string? TotpCode, string? RecoveryCode) : ICommand<Result>;
+
+/// <summary>Starts turning the authenticator on for the signed-in admin: returns the ticket the enroll/confirm steps take.</summary>
+public sealed record AdminStartTotpSetupCommand(Guid UserId) : ICommand<Result<string>>;
+
+public sealed record AdminTwoFactorStatusQuery(Guid UserId) : IQuery<Result<AdminTwoFactorStatus>>;
+
+public sealed record AdminTwoFactorStatus(bool Enabled, int RecoveryCodesLeft);
 
 public sealed record ListAdminSessionsQuery : IQuery<Result<IReadOnlyList<AdminSessionDto>>>;
 
@@ -42,11 +49,14 @@ public static class AdminAuthErrors
     public static readonly Error InvalidEnrollment = new("Identity.InvalidEnrollmentToken", "The enrollment session is invalid or expired. Sign in again.");
     public static readonly Error InvalidSession = new("Identity.InvalidRefreshToken", "The admin session is invalid or has ended.");
     public static readonly Error SessionNotFound = new("Identity.SessionNotFound", "Admin session not found.");
+    public static readonly Error TwoFactorAlreadyEnabled = new("Identity.TwoFactorAlreadyEnabled", "Two-step verification is already on.");
+    public static readonly Error TwoFactorNotEnabled = new("Identity.TwoFactorNotEnabled", "Two-step verification is already off.");
 }
 
 /// <summary>
-/// Admin sign-in (SECURITY.md §3.9): separate endpoint and audience, password + mandatory TOTP (no SMS),
-/// 5-minute access tokens and an 8-hour absolute session with no "remember me".
+/// Admin sign-in (SECURITY.md §3.9): separate endpoint and audience, password plus TOTP when the admin turned it on
+/// (optional by the owner's decision; no SMS), 5-minute access tokens and an 8-hour absolute session with no "remember me".
+/// Once on, TOTP can only be turned off from a signed-in session with a current code, never with the password alone.
 /// </summary>
 public sealed class AdminAuthHandlers :
     ICommandHandler<AdminLoginCommand, Result<AdminLoginResponse>>,
@@ -54,7 +64,9 @@ public sealed class AdminAuthHandlers :
     ICommandHandler<AdminConfirmTotpCommand, Result<IReadOnlyList<string>>>,
     ICommandHandler<AdminRefreshCommand, Result<AdminTokens>>,
     ICommandHandler<AdminLogoutCommand, Result>,
-    ICommandHandler<AdminResetTotpCommand, Result>,
+    ICommandHandler<AdminDisableTotpCommand, Result>,
+    ICommandHandler<AdminStartTotpSetupCommand, Result<string>>,
+    IQueryHandler<AdminTwoFactorStatusQuery, Result<AdminTwoFactorStatus>>,
     IQueryHandler<ListAdminSessionsQuery, Result<IReadOnlyList<AdminSessionDto>>>,
     ICommandHandler<RevokeAdminSessionCommand, Result>
 {
@@ -64,6 +76,7 @@ public sealed class AdminAuthHandlers :
     public static readonly IReadOnlySet<string> AdminRoles = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
     {
         UserRole.Admin,
+        UserRole.SuperAdmin,
         UserRole.SupportAgent,
         UserRole.Finance
     };
@@ -143,22 +156,10 @@ public sealed class AdminAuthHandlers :
             return Result.Failure<AdminLoginResponse>(PasswordAuthErrors.AccountSuspended);
         }
 
-        if (string.Equals(command.RecoveryCode?.Trim(), "RESET-2FA", StringComparison.OrdinalIgnoreCase))
-        {
-            user.SetTwoFactorEnabled(false, nowUtc);
-            await _dbContext.SaveChangesAsync(cancellationToken);
-            return Result.Success(new AdminLoginResponse(null, _stepUp.IssueStepUpToken(user.Id, EnrollmentScope, EnrollmentLifetime)));
-        }
-
-        // Correct password but no TOTP yet, or invalid state without ciphertext:
+        // Two-step verification is optional: an admin who hasn't turned it on signs in with the password.
         if (!user.TwoFactorEnabled || user.TotpSecretCiphertext is null)
         {
-            if (user.TwoFactorEnabled)
-            {
-                user.SetTwoFactorEnabled(false, nowUtc);
-            }
-            await _dbContext.SaveChangesAsync(cancellationToken);
-            return Result.Success(new AdminLoginResponse(null, _stepUp.IssueStepUpToken(user.Id, EnrollmentScope, EnrollmentLifetime)));
+            return Result.Success(new AdminLoginResponse(await SignInAsync(user, nowUtc, cancellationToken), null));
         }
 
         // The password was right: asking for the second factor isn't a failed attempt.
@@ -173,12 +174,69 @@ public sealed class AdminAuthHandlers :
             return await FailAsync(user, nowUtc, PasswordAuthErrors.InvalidTotpCode, cancellationToken);
         }
 
-        user.RegisterSuccessfulLogin(nowUtc);
-        var sessionId = await _sessions.StartAsync(user, isAdminSession: true, cancellationToken);
-        var tokens = await StartSessionAsync(user, sessionId, nowUtc.AddHours(_jwtOptions.AdminSessionHours), nowUtc, cancellationToken);
-        _logger.LogInformation("Admin {UserId} signed in", user.Id);
-        return Result.Success(new AdminLoginResponse(tokens, null));
+        return Result.Success(new AdminLoginResponse(await SignInAsync(user, nowUtc, cancellationToken), null));
     }
+
+    public async Task<Result<AdminTwoFactorStatus>> HandleAsync(AdminTwoFactorStatusQuery query, CancellationToken cancellationToken = default)
+    {
+        var user = await FindAdminAsync(query.UserId, cancellationToken);
+        if (user is null)
+        {
+            return Result.Failure<AdminTwoFactorStatus>(AdminAuthErrors.InvalidSession);
+        }
+
+        var left = await _dbContext.AdminRecoveryCodes.CountAsync(c => c.UserId == user.Id && c.UsedAtUtc == null, cancellationToken);
+        return Result.Success(new AdminTwoFactorStatus(user.TwoFactorEnabled, user.TwoFactorEnabled ? left : 0));
+    }
+
+    public async Task<Result<string>> HandleAsync(AdminStartTotpSetupCommand command, CancellationToken cancellationToken = default)
+    {
+        var user = await FindAdminAsync(command.UserId, cancellationToken);
+        if (user is null)
+        {
+            return Result.Failure<string>(AdminAuthErrors.InvalidSession);
+        }
+
+        return user.TwoFactorEnabled
+            ? Result.Failure<string>(AdminAuthErrors.TwoFactorAlreadyEnabled)
+            : Result.Success(_stepUp.IssueStepUpToken(user.Id, EnrollmentScope, EnrollmentLifetime));
+    }
+
+    public async Task<Result> HandleAsync(AdminDisableTotpCommand command, CancellationToken cancellationToken = default)
+    {
+        var nowUtc = _clock.UtcNow;
+        var user = await FindAdminAsync(command.UserId, cancellationToken);
+        if (user is null)
+        {
+            return Result.Failure(AdminAuthErrors.InvalidSession);
+        }
+
+        if (!user.TwoFactorEnabled || user.TotpSecretCiphertext is null)
+        {
+            return Result.Failure(AdminAuthErrors.TwoFactorNotEnabled);
+        }
+
+        if (user.IsLoginThrottled(nowUtc))
+        {
+            return Result.Failure(PasswordAuthErrors.Throttled);
+        }
+
+        // Turning the second factor off needs that factor: a stolen session or password alone can't remove it.
+        if (!await VerifySecondFactorAsync(user, command.TotpCode, command.RecoveryCode, nowUtc, cancellationToken))
+        {
+            user.RegisterFailedLogin(nowUtc);
+            await _dbContext.SaveChangesAsync(cancellationToken);
+            return Result.Failure(PasswordAuthErrors.InvalidTotpCode);
+        }
+
+        user.ClearTotp(nowUtc);
+        var codes = await _dbContext.AdminRecoveryCodes.Where(c => c.UserId == user.Id && c.UsedAtUtc == null).ToListAsync(cancellationToken);
+        codes.ForEach(c => c.MarkUsed(nowUtc));
+        await _dbContext.SaveChangesAsync(cancellationToken);
+        _logger.LogWarning("AUDIT: admin {UserId} turned two-step verification off", user.Id);
+        return Result.Success();
+    }
+
 
     public async Task<Result<TotpEnrollmentResponse>> HandleAsync(AdminEnrollTotpCommand command, CancellationToken cancellationToken = default)
     {
@@ -248,7 +306,7 @@ public sealed class AdminAuthHandlers :
         }
 
         var user = await _dbContext.Users.FirstOrDefaultAsync(u => u.Id == token.UserId && !u.IsDeleted, cancellationToken);
-        if (token.IsExpired(nowUtc) || user is null || user.IsSuspended || !user.Roles.Any(AdminRoles.Contains) || !user.TwoFactorEnabled
+        if (token.IsExpired(nowUtc) || user is null || user.IsSuspended || !user.Roles.Any(AdminRoles.Contains)
             || !await _sessions.TouchAsync(token.FamilyId, cancellationToken))
         {
             token.Revoke("admin_session_ended", nowUtc);
@@ -276,36 +334,6 @@ public sealed class AdminAuthHandlers :
         return Result.Success();
     }
 
-    public async Task<Result> HandleAsync(AdminResetTotpCommand command, CancellationToken cancellationToken = default)
-    {
-        var nowUtc = _clock.UtcNow;
-        var user = PasswordAuthSupport.TryNormalizeEmail(command.Email, out var email)
-            ? await _dbContext.Users.FirstOrDefaultAsync(u => u.Email == email && !u.IsDeleted, cancellationToken)
-            : null;
-
-        if (user?.PasswordHash is null)
-        {
-            _hasher.Verify(_dummyHash.Value, command.Password ?? string.Empty);
-            return Result.Failure(PasswordAuthErrors.InvalidCredentials);
-        }
-
-        if (_hasher.Verify(user.PasswordHash, command.Password ?? string.Empty) == PasswordVerification.Failed
-            || !user.Roles.Any(AdminRoles.Contains) || !user.IsEmailConfirmed)
-        {
-            return Result.Failure(PasswordAuthErrors.InvalidCredentials);
-        }
-
-        if (user.IsSuspended)
-        {
-            return Result.Failure(PasswordAuthErrors.AccountSuspended);
-        }
-
-        user.SetTwoFactorEnabled(false, nowUtc);
-        await _dbContext.SaveChangesAsync(cancellationToken);
-        _logger.LogInformation("Admin {UserId} 2FA/TOTP has been reset", user.Id);
-        return Result.Success();
-    }
-
     public async Task<Result<IReadOnlyList<AdminSessionDto>>> HandleAsync(ListAdminSessionsQuery query, CancellationToken cancellationToken = default)
     {
         var nowUtc = _clock.UtcNow;
@@ -328,6 +356,21 @@ public sealed class AdminAuthHandlers :
 
         _logger.LogInformation("Admin session {SessionId} revoked by {AdminId}", command.SessionId, command.RevokedBy);
         return Result.Success();
+    }
+
+    private async Task<AdminTokens> SignInAsync(User user, DateTime nowUtc, CancellationToken cancellationToken)
+    {
+        user.RegisterSuccessfulLogin(nowUtc);
+        var sessionId = await _sessions.StartAsync(user, isAdminSession: true, cancellationToken);
+        var tokens = await StartSessionAsync(user, sessionId, nowUtc.AddHours(_jwtOptions.AdminSessionHours), nowUtc, cancellationToken);
+        _logger.LogInformation("Admin {UserId} signed in (two-step: {TwoStep})", user.Id, user.TwoFactorEnabled);
+        return tokens;
+    }
+
+    private async Task<User?> FindAdminAsync(Guid userId, CancellationToken cancellationToken)
+    {
+        var user = await _dbContext.Users.FirstOrDefaultAsync(u => u.Id == userId && !u.IsDeleted && u.SuspendedAtUtc == null, cancellationToken);
+        return user is not null && user.Roles.Any(AdminRoles.Contains) ? user : null;
     }
 
     internal static string HashRecoveryCode(string code) =>
@@ -378,7 +421,7 @@ public sealed class AdminAuthHandlers :
     private async Task<AdminTokens> StartSessionAsync(
         User user, Guid familyId, DateTime sessionExpiresAtUtc, DateTime nowUtc, CancellationToken cancellationToken, RefreshToken? replacing = null)
     {
-        var tokens = _tokenService.GenerateAdminTokens(user, sessionExpiresAtUtc, familyId);
+        var tokens = _tokenService.GenerateAdminTokens(user, sessionExpiresAtUtc, familyId, secondFactor: user.TwoFactorEnabled);
         var hash = _tokenService.HashRefreshToken(tokens.RefreshToken);
         replacing?.Revoke(hash, nowUtc);
         _dbContext.RefreshTokens.Add(RefreshToken.Create(Guid.NewGuid(), user.Id, hash, familyId, sessionExpiresAtUtc, nowUtc, isAdminSession: true));

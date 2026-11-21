@@ -4,10 +4,10 @@ import React, { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { Schemas } from "@malabak/api-client";
 import { KV, Page, PageHeader, Pill, ReasonModal, type ReasonRequest, SearchBox, btnDanger, card, money, muted, toArabicDigits } from "@/components/ui";
-import { Drawer, Pager, QueryState, Section, Select, Table, fmtDateTime, useNotice } from "@/components/admin";
+import { Drawer, Pager, QueryState, Section, Select, Table, fmtDateTime, useNotice, useListView } from "@/components/admin";
 import { api, unwrap } from "@/lib/api";
 import { useStepUp } from "@/lib/stepup";
-import { Building2, CalendarDays, CheckCircle2, ChevronLeft, Clock, ExternalLink, FileText, LayoutGrid, NotebookPen, Phone, RotateCw, ShieldAlert, Smartphone, Table2, User, XCircle, ZoomIn, ZoomOut } from "lucide-react";
+import { Building2, CalendarDays, CheckCircle2, ChevronLeft, Clock, ExternalLink, FileText, LayoutGrid, NotebookPen, Phone, ReceiptText, RotateCw, ShieldAlert, Smartphone, Table2, TriangleAlert, User, XCircle, ZoomIn, ZoomOut } from "lucide-react";
 
 type Row = Schemas["AdminBookingListItem"];
 
@@ -43,7 +43,7 @@ export default function BookingsPage() {
   const [status, setStatus] = useState("");
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState<string | null>(null);
-  const [viewMode, setViewMode] = useState<"cards" | "table">("cards");
+  const [viewMode, setViewMode] = useListView();
 
   const venuesQuery = useQuery({
     queryKey: ["admin-venues-lookup"],
@@ -565,7 +565,7 @@ function BookingDrawer({ bookingId, onClose, venueMap }: { bookingId: string | n
                 <div className="bg-slate-50 border border-slate-200/90 rounded-2xl p-4 flex flex-col gap-3 shadow-xs">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <span className="text-base">🧾</span>
+                      <ReceiptText className="size-4 text-slate-500" />
                       <strong className="text-sm font-bold text-slate-900">إيصال التحويل المرفوع</strong>
                     </div>
                     <span className="text-[11px] text-slate-500 font-medium">
@@ -602,9 +602,9 @@ function BookingDrawer({ bookingId, onClose, venueMap }: { bookingId: string | n
 
               {/* Admin Deposit Confirmation / Review Box */}
               {isDepositPending && (
-                <div className="bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-200/90 rounded-2xl p-4 flex flex-col gap-3 shadow-xs">
+                <div className={`${card} rounded-2xl p-4 flex flex-col gap-3`}>
                   <div className="flex items-center gap-2.5">
-                    <div className="size-8 rounded-lg bg-emerald-600 text-white flex items-center justify-center shrink-0">
+                    <div className="size-8 rounded-xl bg-[#E6F4EA] text-[#1F6B3A] flex items-center justify-center shrink-0">
                       <CheckCircle2 className="size-5" />
                     </div>
                     <div className="flex flex-col">
@@ -616,22 +616,25 @@ function BookingDrawer({ bookingId, onClose, venueMap }: { bookingId: string | n
                   {(() => {
                     const depositAmt = d.booking.depositAmount;
                     const commissionAmt = (d.booking as any).platformCommission ?? 0;
-                    const netDepositToVenue = Math.max(0, depositAmt - commissionAmt);
+                    // Signed: a commission larger than the deposit leaves the venue owing the difference.
+                    const netDepositToVenue = depositAmt - commissionAmt;
                     const remainingCashAtVenue = Math.max(0, d.booking.totalPrice - depositAmt);
 
                     return (
-                      <div className="grid grid-cols-2 gap-2 text-xs bg-white/90 p-3 rounded-xl border border-emerald-100">
+                      <div className="grid grid-cols-2 gap-2 text-xs bg-slate-50 p-3 rounded-xl">
                         <div>
                           <span className="text-slate-500 block text-[11px]">مبلغ العربون المحصل:</span>
                           <strong className="text-sm font-bold text-emerald-700">{money(depositAmt)}</strong>
                         </div>
                         <div>
                           <span className="text-slate-500 block text-[11px]">عمولة المنصة:</span>
-                          <strong className="text-sm font-bold text-purple-700">{money(commissionAmt)}</strong>
+                          <strong className="text-sm font-bold text-[#C7362A]">{money(commissionAmt)}</strong>
                         </div>
                         <div className="border-t border-slate-100 pt-2">
                           <span className="text-slate-500 block text-[11px]">صافي العربون للملعب:</span>
-                          <strong className="text-xs font-semibold text-slate-800">{money(netDepositToVenue)}</strong>
+                          <strong className={`text-xs font-semibold ${netDepositToVenue < 0 ? "text-[#A8261C]" : "text-slate-800"}`}>
+                            {netDepositToVenue < 0 ? `عليه ${money(-netDepositToVenue)}` : money(netDepositToVenue)}
+                          </strong>
                         </div>
                         <div className="border-t border-slate-100 pt-2">
                           <span className="text-slate-500 block text-[11px]">المتبقي كاش يدفع بالملعب:</span>
@@ -675,7 +678,7 @@ function BookingDrawer({ bookingId, onClose, venueMap }: { bookingId: string | n
             {d.booking.status === "Cancelled" && d.refunds.some((r) => r.status === "Pending") && (
               <div className="bg-amber-50 border border-amber-300 rounded-2xl p-4 flex flex-col gap-2.5 shadow-xs">
                 <div className="flex items-center gap-2">
-                  <span className="text-lg">⚠️</span>
+                  <TriangleAlert className="size-[18px] text-amber-600 shrink-0" />
                   <strong className="text-sm font-bold text-amber-950">إحالة استرداد عربون (إلغاء الملعب)</strong>
                 </div>
                 <p className="text-xs text-amber-900 leading-relaxed">

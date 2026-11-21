@@ -12,6 +12,7 @@ import {
     QueryClientProvider,
     useQuery,
 } from "@tanstack/react-query";
+import { ConfirmProvider } from "@malabak/ui";
 import type { Schemas } from "@malabak/api-client";
 import { api, unwrap } from "@/lib/api";
 
@@ -129,7 +130,9 @@ export function Providers({
     );
     return (
         <QueryClientProvider client={client}>
-            <VenueProvider signedIn={signedIn}>{children}</VenueProvider>
+            <VenueProvider signedIn={signedIn}>
+                <ConfirmProvider>{children}</ConfirmProvider>
+            </VenueProvider>
         </QueryClientProvider>
     );
 }

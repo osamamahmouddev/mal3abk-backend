@@ -134,6 +134,46 @@ public sealed class ManualBookingTests : IClassFixture<BookingDatabaseFixture>
         clash.Error.Should().Be(BookingErrors.SlotOverlap);
     }
 
+    [Fact]
+    public async Task Unconfirmed_TakesTheSlotWithoutADeposit_UntilKickoff_AndNeedsNoCustomerDetailsAsync()
+    {
+        var start = _start.AddDays(30);
+
+        var result = await CreateAsync(Command(start, status: ManualPaymentStatus.Unconfirmed) with { CustomerName = null, CustomerPhone = null });
+
+        result.IsSuccess.Should().BeTrue(result.IsFailure ? result.Error.Description : null);
+        result.Value.Status.Should().Be("PendingDeposit");
+        result.Value.DepositAmount.Should().Be(0m);
+        result.Value.HoldExpiresAtUtc.Should().Be(start, "it is released at kickoff if the venue never confirms it");
+        await using (var verify = _database.CreateContext())
+        {
+            var booking = await verify.Bookings.SingleAsync(b => b.Id == result.Value.BookingId);
+            booking.CustomerName.Should().BeNull();
+            booking.CustomerPhone.Should().BeNull("no placeholder is stored in place of a phone number");
+        }
+
+        // Nobody else can take it meanwhile, from the app or by hand.
+        (await CreateAsync(Command(start))).Error.Should().Be(BookingErrors.SlotOverlap);
+
+        // The venue confirms it later, once it is sure.
+        await using var context = _database.CreateContext();
+        var confirm = new ConfirmManualBookingHandler(context, new SystemClock(), new QuietBroadcaster(), new QuietInvalidator(),
+            NullLogger<ConfirmManualBookingHandler>.Instance);
+        (await confirm.HandleAsync(new ConfirmManualBookingCommand(_venueId, result.Value.BookingId, Guid.NewGuid()))).IsSuccess.Should().BeTrue();
+        await using var after = _database.CreateContext();
+        (await after.Bookings.SingleAsync(b => b.Id == result.Value.BookingId)).Status.Should().Be(BookingStatus.Confirmed);
+    }
+
+    [Fact]
+    public async Task Unconfirmed_CannotBeLeftOpenForASlotThatAlreadyStartedAsync()
+    {
+        var start = DateTime.UtcNow.AddHours(-1);
+
+        var result = await CreateAsync(Command(start, status: ManualPaymentStatus.Unconfirmed));
+
+        result.Error.Code.Should().Be("Booking.UnconfirmedInThePast");
+    }
+
     [Theory]
     [InlineData(ManualPaymentStatus.DepositPaid, null)]
     [InlineData(ManualPaymentStatus.AwaitingDeposit, 0)]

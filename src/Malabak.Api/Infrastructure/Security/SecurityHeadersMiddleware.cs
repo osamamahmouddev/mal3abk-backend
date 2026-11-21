@@ -23,7 +23,12 @@ public sealed class SecurityHeadersMiddleware
             {
                 headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains; preload";
             }
-            headers["Content-Security-Policy"] = "default-src 'self'; frame-ancestors 'none'; object-src 'none'; base-uri 'self'";
+            // A page may send its own, stricter policy (the team invite landing page allows no scripts at all).
+            if (!headers.ContainsKey("Content-Security-Policy"))
+            {
+                headers["Content-Security-Policy"] = "default-src 'self'; frame-ancestors 'none'; object-src 'none'; base-uri 'self'";
+            }
+
             headers["X-Content-Type-Options"] = "nosniff";
             headers["X-Frame-Options"] = "DENY";
             headers["Referrer-Policy"] = "strict-origin-when-cross-origin";

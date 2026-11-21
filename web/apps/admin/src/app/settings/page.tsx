@@ -6,7 +6,7 @@ import type { Schemas } from "@malabak/api-client";
 import { Page, PageHeader, Pill, ReasonModal, type ReasonRequest, Switch, Tabs, btnSmall, card, muted } from "@/components/ui";
 import { QueryState, TextInput, fmtDateTime, useNotice } from "@/components/admin";
 import { api, unwrap } from "@/lib/api";
-import { Building2, Check, CreditCard, ShieldCheck, Smartphone, Sparkles, Wrench } from "lucide-react";
+import { Building2, Check, CreditCard, ShieldCheck, Smartphone, Wrench, Zap } from "lucide-react";
 
 type Tab = "deposits" | "settings" | "flags" | "sessions";
 
@@ -125,64 +125,38 @@ function DepositSettings() {
     );
   };
 
-  const depositEnabled = getSetting("platform.deposit.enabled")?.value === "true";
-
   return (
     <>
       {notice.node}
 
       <div className="flex flex-col gap-6">
         {/* 1. Paymob Hero Card: Coming Soon */}
-        <div className="bg-gradient-to-l from-indigo-900 via-navy-900 to-slate-900 text-white rounded-[22px] p-6 shadow-md border border-indigo-950 flex flex-col md:flex-row md:items-center justify-between gap-5">
-          <div className="flex items-start gap-4">
-            <div className="size-14 rounded-2xl bg-white/10 backdrop-blur-md text-amber-400 flex items-center justify-center shrink-0 border border-white/15 shadow-inner">
-              <CreditCard className="size-7" />
+        <div className={`${card} rounded-2xl p-5 flex flex-col md:flex-row md:items-center justify-between gap-4`}>
+          <div className="flex items-start gap-3.5">
+            <div className="size-10 rounded-xl bg-[#FDF3DC] text-[#9A5B00] flex items-center justify-center shrink-0">
+              <CreditCard className="size-5" />
             </div>
-            <div className="flex flex-col gap-1.5">
-              <div className="flex items-center gap-2.5">
-                <h3 className="text-lg font-black text-white">بوابة الدفع الإلكتروني المباشر (Paymob)</h3>
-                <span className="px-2.5 py-0.5 rounded-full text-xs font-black bg-amber-400 text-slate-950 shadow-xs">
-                  قريباً (Coming Soon)
-                </span>
+            <div className="flex flex-col gap-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <h3 className="text-[16px] font-bold text-slate-900">بوابة الدفع الإلكتروني المباشر (Paymob)</h3>
+                <Pill tone="warn">قريباً</Pill>
               </div>
-              <p className="text-xs text-slate-300 leading-relaxed max-w-2xl">
+              <p className={`text-[13px] ${muted} leading-relaxed max-w-2xl`}>
                 بوابة Paymob للدفع الإلكتروني الفوري ببطاقات (فيزا، ماستركارد، وميزة المصرية) والمحافظ الذكية مدرجة في النظام كـ «قريباً».
                 يتم حالياً استلام مبالغ العربون وتأكيدها مركزياً عبر إنستاباي، فودافون كاش، والتحويل البنكي أدناه.
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-2 self-start md:self-auto bg-white/10 px-3.5 py-2 rounded-xl text-xs font-semibold text-slate-200 border border-white/10 shrink-0">
-            <Sparkles className="size-4 text-amber-300" />
-            <span>تفعيل البوابة قيد التجهيز</span>
-          </div>
+          <span className={`text-[12px] ${muted} shrink-0`}>تفعيل البوابة قيد التجهيز</span>
         </div>
 
-        {/* 2. Platform Central Collection Switch */}
-        <div className={`${card} rounded-[20px] p-5 flex flex-wrap items-center justify-between gap-4 border border-slate-200`}>
-          <div className="flex flex-col gap-1">
-            <div className="flex items-center gap-2">
-              <strong className="text-base font-bold text-slate-900">التحصيل المركزي للعربون لحسابات المنصة</strong>
-              <Pill tone={depositEnabled ? "ok" : "warn"}>{depositEnabled ? "مفعل" : "معطل"}</Pill>
-            </div>
-            <p className="text-xs text-slate-500">
-              عند التفعيل، تظهر بيانات التحويل الخاصة بالمنصة للاعب ويوجه العربون للإدارة. عند التعطيل، يوجه لحسابات الملعب المباشرة.
-            </p>
-          </div>
-          <Switch
-            on={depositEnabled}
-            label="التحصيل المركزي للعربون"
-            disabled={save.isPending}
-            onToggle={() =>
-              setReason({
-                title: depositEnabled ? "إيقاف التحصيل المركزي" : "تفعيل التحصيل المركزي",
-                body: depositEnabled
-                  ? "سيتم تحويل استلام العربون إلى حسابات الملاعب المباشرة بدلاً من المنصة."
-                  : "سيتم استلام العربون مركزياً على حسابات المنصة المحددة بالأسفل.",
-                confirmLabel: depositEnabled ? "إيقاف" : "تفعيل",
-                onConfirm: (text) => save.mutate({ key: "platform.deposit.enabled", value: depositEnabled ? "false" : "true", text }),
-              })
-            }
-          />
+        {/* 2. How deposits flow (commission model: always to the platform) */}
+        <div className={`${card} rounded-2xl p-5 flex flex-col gap-2`}>
+          <strong className="text-base font-bold text-slate-900">العربون بيتدفع لحسابات المنصة دايماً</strong>
+          <p className="text-[13px] text-slate-600 leading-relaxed">
+            اللاعب بيشوف الحسابات اللي تحت بس (الملاعب مبقاش ليها وسائل دفع). الفريق بيراجع الإيصال من صفحة «مراجعة العرابين» ويأكد الحجز،
+            وبعدين المنصة بتاخد عمولتها من العربون وتحوّل الباقي للملعب. باقي سعر الحجز اللاعب بيدفعه في الملعب.
+          </p>
         </div>
 
         {/* 3. Active Methods Grid */}
@@ -190,8 +164,8 @@ function DepositSettings() {
           {/* InstaPay */}
           <div className={`${card} rounded-[20px] p-5 flex flex-col gap-3.5 border border-slate-200`}>
             <div className="flex items-center gap-2.5 pb-2 border-b border-slate-100">
-              <div className="size-9 rounded-xl bg-purple-50 text-purple-700 flex items-center justify-center font-bold">
-                ⚡
+              <div className="size-9 rounded-xl bg-purple-50 text-purple-700 flex items-center justify-center">
+                <Zap className="size-[18px]" />
               </div>
               <div>
                 <h4 className="text-sm font-black text-slate-900">إنستاباي (InstaPay)</h4>

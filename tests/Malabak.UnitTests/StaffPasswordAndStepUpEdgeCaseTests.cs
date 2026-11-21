@@ -33,6 +33,7 @@ public sealed class StaffPasswordAndStepUpEdgeCaseTests
     private readonly TotpService _totp = new();
     private readonly FakeFieldCipher _cipher = new();
     private readonly FakeEmailSender _emailSender = new();
+    private readonly PhoneAlertCounter _phoneAlerts = new();
     private readonly FakeTurnstileValidator _turnstile = new();
 
     private static IdentityDbContext CreateDbContext() =>
@@ -42,14 +43,14 @@ public sealed class StaffPasswordAndStepUpEdgeCaseTests
 
     private PasswordAccountHandlers CreateAccountHandlers(IdentityDbContext db) =>
         new(db, _hasher, new PasswordPolicy(new FakeBreachChecker(false)), new PhoneNumberNormalizer(),
-            _emailSender, _totp, _cipher, _clock, new ConfigurationBuilder().Build(), NullLogger<PasswordAccountHandlers>.Instance);
+            _emailSender, _phoneAlerts, _totp, _cipher, _clock, new ConfigurationBuilder().Build(), NullLogger<PasswordAccountHandlers>.Instance);
 
     private PasswordLoginHandler CreateLoginHandler(IdentityDbContext db)
     {
         var jwtOptions = Options.Create(new JwtOptions { CurrentKeyId = "test-key" });
         var tokenService = new TokenService(new JwtKeyProvider(jwtOptions), _clock, jwtOptions);
         return new PasswordLoginHandler(
-            db, _hasher, _turnstile, _totp, _cipher, tokenService, TestSessions.Create(db, _clock), _clock, NullLogger<PasswordLoginHandler>.Instance);
+            db, _hasher, new PhoneNumberNormalizer(), _turnstile, _totp, _cipher, tokenService, TestSessions.Create(db, _clock), _clock, NullLogger<PasswordLoginHandler>.Instance);
     }
 
     private StepUpService CreateStepUpService() =>
@@ -260,18 +261,18 @@ public sealed class StaffPasswordAndStepUpEdgeCaseTests
 
         var handlers = CreateAccountHandlers(db);
 
-        // First send succeeds
+        // First send succeeds (the activation link goes to the owner's phone)
         await handlers.HandleAsync(new ResendVerificationCommand("unverified@malabak.test"));
-        _emailSender.SentMessages.Count.Should().Be(1);
+        _phoneAlerts.Count.Should().Be(1);
 
         // Immediate second send is throttled by cooldown (silent no-op)
         await handlers.HandleAsync(new ResendVerificationCommand("unverified@malabak.test"));
-        _emailSender.SentMessages.Count.Should().Be(1, "resend within 60s must not send duplicate email");
+        _phoneAlerts.Count.Should().Be(1, "resend within 60s must not send a duplicate link");
 
         // Advance 61 seconds past cooldown
         _clock.Advance(TimeSpan.FromSeconds(61));
         await handlers.HandleAsync(new ResendVerificationCommand("unverified@malabak.test"));
-        _emailSender.SentMessages.Count.Should().Be(2, "resend after cooldown elapses must send email");
+        _phoneAlerts.Count.Should().Be(2, "resend after cooldown elapses must send a link");
     }
 
     // =========================================================================
@@ -369,5 +370,16 @@ public sealed class StaffPasswordAndStepUpEdgeCaseTests
 
         public ValueTask<bool> NeedsReEncryptionAsync(byte[] ciphertext, CancellationToken cancellationToken = default) =>
             ValueTask.FromResult(false);
+    }
+
+    private sealed class PhoneAlertCounter : ISmsAlertService
+    {
+        public int Count { get; private set; }
+
+        public Task SendSecurityAlertAsync(string phoneNumber, SecurityAlert alert, CancellationToken cancellationToken = default)
+        {
+            Count++;
+            return Task.CompletedTask;
+        }
     }
 }

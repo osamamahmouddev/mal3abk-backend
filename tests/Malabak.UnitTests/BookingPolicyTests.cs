@@ -1,10 +1,12 @@
 using FluentAssertions;
+using Malabak.Modules.Venues.Application.Admin;
 using Malabak.Modules.Venues.Application.Common;
 using Malabak.Modules.Venues.Application.Policies;
 using Malabak.Modules.Venues.Domain;
 using Malabak.Modules.Venues.Infrastructure;
 using Malabak.Modules.Venues.Infrastructure.Services;
 using Malabak.SharedKernel;
+using Malabak.SharedKernel.Contracts;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Xunit;
@@ -136,6 +138,60 @@ public sealed class BookingPolicyTests
         shown.Value.FreeCancellationUntilHoursBefore.Should().Be(24);
     }
 
+    [Fact]
+    public async Task SetHandler_TheVenueCannotChangeTheDeposit_ThePlatformSetsItAsync()
+    {
+        await using var db = NewDb();
+        var venue = await SeedVenueAsync(db, approvedAndPublished: false);
+        var handler = new SetBookingPolicyHandler(new VenueAccessService(db), new NoopAudit(), db, _clock);
+        var fullUpfront = Terms() with { Deposit = DepositRule.Create(DepositType.Full, 0) };
+
+        var first = await handler.HandleAsync(new SetBookingPolicyCommand(venue.Id, _ownerId, fullUpfront));
+        await SetDepositAsAdminAsync(db, venue.Id, DepositType.FixedAmount, 150);
+        var afterAdmin = await handler.HandleAsync(new SetBookingPolicyCommand(venue.Id, _ownerId, fullUpfront));
+
+        first.Value.Policy.DepositType.Should().Be(nameof(DepositType.Percentage));
+        first.Value.Policy.DepositValue.Should().Be(BookingPolicyTerms.DefaultDeposit.Value);
+        afterAdmin.Value.Policy.DepositType.Should().Be(nameof(DepositType.FixedAmount));
+        afterAdmin.Value.Policy.DepositValue.Should().Be(150);
+    }
+
+    [Fact]
+    public async Task AdminDeposit_PublishesANewVersion_KeepingTheVenuesOtherTermsAsync()
+    {
+        await using var db = NewDb();
+        var venue = await SeedVenueAsync(db, approvedAndPublished: false);
+        await new SetBookingPolicyHandler(new VenueAccessService(db), new NoopAudit(), db, _clock)
+            .HandleAsync(new SetBookingPolicyCommand(venue.Id, _ownerId, Terms(cancellationHours: 6)));
+
+        var result = await SetDepositAsAdminAsync(db, venue.Id, DepositType.Percentage, 50);
+        var unchanged = await SetDepositAsAdminAsync(db, venue.Id, DepositType.Percentage, 50);
+
+        result.Value.DepositType.Should().Be(nameof(DepositType.Percentage));
+        result.Value.DepositValue.Should().Be(50);
+        unchanged.IsSuccess.Should().BeTrue();
+        var current = await db.Policies.SingleAsync(p => p.VenueId == venue.Id && p.IsCurrent);
+        current.Version.Should().Be(2, "setting the same deposit again does not publish another version");
+        current.CancellationDeadlineHours.Should().Be(6);
+        current.DepositValue.Should().Be(50);
+    }
+
+    [Fact]
+    public async Task AdminDeposit_Invalid_IsRejectedAsync()
+    {
+        await using var db = NewDb();
+        var venue = await SeedVenueAsync(db, approvedAndPublished: false);
+
+        var result = await SetDepositAsAdminAsync(db, venue.Id, DepositType.Percentage, 150);
+
+        result.Error.Code.Should().Be("Venue.InvalidDeposit");
+        (await db.Policies.AnyAsync()).Should().BeFalse();
+    }
+
+    private static Task<Result<VenueCommissionDto>> SetDepositAsAdminAsync(VenuesDbContext db, Guid venueId, DepositType type, decimal value) =>
+        new UpdateVenueCommissionHandler(db, new MutableClock(), new NoopPlatformAudit()).HandleAsync(new UpdateVenueCommissionCommand(
+            venueId, PricingModel.Commission, false, CommissionType.PlatformDefault, null, Guid.NewGuid(), type, value));
+
     private async Task<Venue> SeedVenueAsync(VenuesDbContext db, bool approvedAndPublished)
     {
         var venue = Venue.Create(Guid.NewGuid(), "Club", $"club-{Guid.NewGuid():N}", null, _ownerId, "Addr", "Cairo", "Maadi", null, null, "+201000000001", null, null, _now);
@@ -160,6 +216,11 @@ public sealed class BookingPolicyTests
     {
         public Task LogAsync(string action, string entityName, Guid entityId, Guid userId, object? metadata = null, CancellationToken cancellationToken = default) =>
             Task.CompletedTask;
+    }
+
+    private sealed class NoopPlatformAudit : IAuditLog
+    {
+        public Task RecordAsync(AuditEntry entry, CancellationToken cancellationToken = default) => Task.CompletedTask;
     }
 
     private sealed class MutableClock : IClock

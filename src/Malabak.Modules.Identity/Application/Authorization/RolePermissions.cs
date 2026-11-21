@@ -26,6 +26,24 @@ public static class RolePermissions
                 Permissions.AdminBookingsView,
                 Permissions.AdminDisputesResolve,
                 Permissions.AdminSettingsManage,
+                Permissions.AdminPaymentsManage,
+                Permissions.AuditLogView,
+                Permissions.SupportTicketsManage,
+                Permissions.SubscriptionsManage,
+                Permissions.InvoicesView
+            ],
+            [UserRole.SuperAdmin] =
+            [
+                Permissions.ProfileManage,
+                Permissions.AdminUsersView,
+                Permissions.AdminUsersManage,
+                Permissions.AdminAccountsManage,
+                Permissions.AdminImpersonate,
+                Permissions.AdminVenuesApprove,
+                Permissions.AdminBookingsView,
+                Permissions.AdminDisputesResolve,
+                Permissions.AdminSettingsManage,
+                Permissions.AdminPaymentsManage,
                 Permissions.AuditLogView,
                 Permissions.SupportTicketsManage,
                 Permissions.SubscriptionsManage,
@@ -42,6 +60,8 @@ public static class RolePermissions
             [UserRole.Finance] =
             [
                 Permissions.ProfileManage,
+                Permissions.AdminBookingsView,
+                Permissions.AdminPaymentsManage,
                 Permissions.SubscriptionsManage,
                 Permissions.InvoicesView
             ]

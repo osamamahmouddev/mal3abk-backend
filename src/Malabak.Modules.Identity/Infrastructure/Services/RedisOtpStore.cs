@@ -7,19 +7,16 @@ namespace Malabak.Modules.Identity.Infrastructure.Services;
 
 public sealed class RedisOtpStore : IOtpStore
 {
+    private static readonly InMemoryOtpStore _memoryFallback = new();
     private readonly IConnectionMultiplexer _redis;
     private readonly ILogger<RedisOtpStore> _logger;
-    private readonly InMemoryOtpStore _memoryFallback = new();
-    private readonly IHostEnvironment? _environment;
 
     public RedisOtpStore(
         IConnectionMultiplexer redis,
-        ILogger<RedisOtpStore> logger,
-        IHostEnvironment? environment = null)
+        ILogger<RedisOtpStore> logger)
     {
         _redis = redis;
         _logger = logger;
-        _environment = environment;
     }
 
     public async Task<bool> CheckAndRecordSendAttemptAsync(
@@ -54,9 +51,9 @@ public sealed class RedisOtpStore : IOtpStore
 
             return true;
         }
-        catch (RedisException ex) when (_environment is null || _environment.IsDevelopment())
+        catch (RedisException ex)
         {
-            _logger.LogWarning(ex, "Redis OTP rate limit check failed in Development. Falling back to in-memory store.");
+            _logger.LogWarning(ex, "Redis OTP rate limit check failed. Operating on in-memory fallback.");
             return await _memoryFallback.CheckAndRecordSendAttemptAsync(normalizedPhone, maxAttempts, window, cancellationToken);
         }
     }
@@ -82,9 +79,9 @@ public sealed class RedisOtpStore : IOtpStore
             var waitMs = (long)oldest[0].Score + (long)windowDuration.TotalMilliseconds - nowMs;
             return waitMs > 0 ? TimeSpan.FromMilliseconds(waitMs) : TimeSpan.Zero;
         }
-        catch (RedisException ex) when (_environment is null || _environment.IsDevelopment())
+        catch (RedisException ex)
         {
-            _logger.LogWarning(ex, "Redis retry-after query failed in Development. Falling back to in-memory store.");
+            _logger.LogWarning(ex, "Redis retry-after query failed. Operating on in-memory fallback.");
             return await _memoryFallback.GetSendRetryAfterAsync(normalizedPhone, window, cancellationToken);
         }
     }
@@ -96,6 +93,10 @@ public sealed class RedisOtpStore : IOtpStore
         int maxVerificationAttempts = 5,
         CancellationToken cancellationToken = default)
     {
+        // Always store in memory fallback first so that if Redis write is rejected (e.g. quota limit)
+        // or Redis connection drops, verification is never lost.
+        await _memoryFallback.SaveOtpAsync(normalizedPhone, hmacHash, ttl, maxVerificationAttempts, cancellationToken);
+
         try
         {
             var db = _redis.GetDatabase();
@@ -110,10 +111,9 @@ public sealed class RedisOtpStore : IOtpStore
             await db.HashSetAsync(key, entries);
             await db.KeyExpireAsync(key, ttl);
         }
-        catch (RedisException ex) when (_environment is null || _environment.IsDevelopment())
+        catch (RedisException ex)
         {
-            _logger.LogWarning(ex, "Redis SaveOtpAsync failed in Development. Falling back to in-memory store.");
-            await _memoryFallback.SaveOtpAsync(normalizedPhone, hmacHash, ttl, maxVerificationAttempts, cancellationToken);
+            _logger.LogWarning(ex, "Redis SaveOtpAsync failed. Operating on in-memory fallback for {MaskedPhone}.", PhoneNumberMasker.Mask(normalizedPhone));
         }
     }
 
@@ -131,7 +131,9 @@ public sealed class RedisOtpStore : IOtpStore
             var entries = await db.HashGetAllAsync(key);
             if (entries.Length == 0)
             {
-                return new OtpVerificationResult(false, 0, IsExpiredOrNotFound: true);
+                // Key not found in Redis (or Redis write previously failed due to quota/network).
+                // Fall back to memory fallback!
+                return await _memoryFallback.VerifyAndConsumeOtpAsync(normalizedPhone, candidateCode, securityService, cancellationToken);
             }
 
             var entryDict = entries.ToDictionary(e => e.Name.ToString(), e => e.Value.ToString());
@@ -139,13 +141,14 @@ public sealed class RedisOtpStore : IOtpStore
                 !entryDict.TryGetValue("attempts_left", out var attemptsStr) ||
                 !int.TryParse(attemptsStr, out var attemptsLeft))
             {
-                await db.KeyDeleteAsync(key);
-                return new OtpVerificationResult(false, 0, IsExpiredOrNotFound: true);
+                try { await db.KeyDeleteAsync(key); } catch { /* ignore Redis delete error */ }
+                return await _memoryFallback.VerifyAndConsumeOtpAsync(normalizedPhone, candidateCode, securityService, cancellationToken);
             }
 
             if (attemptsLeft <= 0)
             {
-                await db.KeyDeleteAsync(key);
+                try { await db.KeyDeleteAsync(key); } catch { /* ignore Redis delete error */ }
+                await _memoryFallback.VerifyAndConsumeOtpAsync(normalizedPhone, candidateCode, securityService, cancellationToken);
                 return new OtpVerificationResult(false, 0, IsMaxAttemptsExceeded: true);
             }
 
@@ -154,22 +157,32 @@ public sealed class RedisOtpStore : IOtpStore
 
             if (isMatch)
             {
-                await db.KeyDeleteAsync(key);
+                try { await db.KeyDeleteAsync(key); } catch { /* ignore Redis delete error */ }
+                await _memoryFallback.VerifyAndConsumeOtpAsync(normalizedPhone, candidateCode, securityService, cancellationToken);
                 return new OtpVerificationResult(true, attemptsLeft);
             }
 
             if (attemptsLeft <= 0)
             {
-                await db.KeyDeleteAsync(key);
+                try { await db.KeyDeleteAsync(key); } catch { /* ignore Redis delete error */ }
+                await _memoryFallback.VerifyAndConsumeOtpAsync(normalizedPhone, candidateCode, securityService, cancellationToken);
                 return new OtpVerificationResult(false, 0, IsMaxAttemptsExceeded: true);
             }
 
-            await db.HashSetAsync(key, "attempts_left", attemptsLeft);
+            try
+            {
+                await db.HashSetAsync(key, "attempts_left", attemptsLeft);
+            }
+            catch (RedisException ex)
+            {
+                _logger.LogWarning(ex, "Failed to update Redis attempts_left. Continuing with local attempts.");
+            }
+
             return new OtpVerificationResult(false, attemptsLeft);
         }
-        catch (RedisException ex) when (_environment is null || _environment.IsDevelopment())
+        catch (RedisException ex)
         {
-            _logger.LogWarning(ex, "Redis VerifyAndConsumeOtpAsync failed in Development. Falling back to in-memory store.");
+            _logger.LogWarning(ex, "Redis VerifyAndConsumeOtpAsync failed. Falling back to in-memory store.");
             return await _memoryFallback.VerifyAndConsumeOtpAsync(normalizedPhone, candidateCode, securityService, cancellationToken);
         }
     }

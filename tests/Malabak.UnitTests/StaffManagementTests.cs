@@ -59,6 +59,48 @@ public sealed class StaffManagementTests
     }
 
     [Fact]
+    public async Task Preview_ShowsVenueRoleAndMaskedContact_OnlyForAUsableInvitationAsync()
+    {
+        await using var db = NewDb();
+        var venue = await SeedVenueAsync(db);
+        var handlers = Handlers(db);
+        await handlers.HandleAsync(new InviteStaffCommand(venue.Id, _ownerId, null, "01001234567", VenueStaffRole.Receptionist));
+
+        var preview = (await handlers.HandleAsync(new PreviewStaffInvitationQuery(_accounts.LastToken!))).Value;
+        preview.Should().Be(new StaffInvitationPreviewDto("Club", "Receptionist", "phone", "•••••••••4567"));
+
+        (await handlers.HandleAsync(new PreviewStaffInvitationQuery("nope"))).Error.Should().Be(StaffErrors.InvalidInvitation);
+        _clock.UtcNow = _clock.UtcNow.AddHours(49);
+        (await handlers.HandleAsync(new PreviewStaffInvitationQuery(_accounts.LastToken!))).Error.Should().Be(StaffErrors.InvalidInvitation);
+    }
+
+    [Fact]
+    public async Task RegisterFromInvitation_MakesAStaffAccount_WithTheInvitedNumberVerified_AndJoinsAsync()
+    {
+        await using var db = NewDb();
+        var venue = await SeedVenueAsync(db);
+        var handlers = Handlers(db);
+        await handlers.HandleAsync(new InviteStaffCommand(venue.Id, _ownerId, null, "01001234567", VenueStaffRole.Receptionist));
+        var token = _accounts.LastToken!;
+
+        (await handlers.HandleAsync(new RegisterFromInvitationCommand(token, "Staff", "01009999999", null, "long enough password")))
+            .Error.Should().Be(StaffErrors.ContactMismatch, "only the number the link went to is proven");
+        _accounts.Created.Should().BeEmpty();
+
+        _accounts.Matches = true;
+        var joined = await handlers.HandleAsync(new RegisterFromInvitationCommand(token, "Staff", "01001234567", "me@club.com", "long enough password"));
+
+        joined.Value.Role.Should().Be("Receptionist");
+        var account = _accounts.Created.Should().ContainSingle().Subject;
+        account.NormalizedPhone.Should().Be("+201001234567");
+        account.PhoneVerified.Should().BeTrue();
+        account.EmailVerified.Should().BeFalse("the invitation didn't go to the email");
+        (await new VenueAccessService(db).GetAccessAsync(joined.Value.UserId, venue.Id)).Level.Should().Be(VenueAccessLevel.Staff);
+        (await handlers.HandleAsync(new RegisterFromInvitationCommand(token, "Again", "01001234567", null, "long enough password")))
+            .Error.Should().Be(StaffErrors.InvalidInvitation, "the invitation is used up");
+    }
+
+    [Fact]
     public async Task Accept_RequiresMatchingContact_IsSingleUse_AndExpiresAfter48HoursAsync()
     {
         await using var db = NewDb();
@@ -222,6 +264,14 @@ public sealed class StaffManagementTests
         {
             LastToken = rawToken;
             return Task.CompletedTask;
+        }
+
+        public List<InvitedStaffAccount> Created { get; } = [];
+
+        public Task<Result<Guid>> CreateInvitedStaffAccountAsync(InvitedStaffAccount account, CancellationToken cancellationToken = default)
+        {
+            Created.Add(account);
+            return Task.FromResult(Result.Success(Guid.NewGuid()));
         }
     }
 

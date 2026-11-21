@@ -106,11 +106,11 @@ export function ImageLightbox({
       role="dialog"
       aria-modal="true"
       aria-label="معاينة الصورة"
-      className="fixed inset-0 z-[9999] bg-black/85 backdrop-blur-md flex items-center justify-center p-3 sm:p-6 select-none animate-in fade-in duration-150"
+      className="fixed inset-0 z-[9999] bg-black/85 backdrop-blur-md flex items-center justify-center p-3 sm:p-6 select-none animate-fade-in"
       onClick={onClose}
     >
       <div
-        className="relative max-w-5xl w-full max-h-[92vh] bg-slate-900 rounded-2xl overflow-hidden shadow-2xl flex flex-col border border-slate-700/80 animate-in zoom-in-95 duration-150"
+        className="relative max-w-5xl w-full max-h-[92vh] bg-slate-900 rounded-2xl overflow-hidden shadow-2xl flex flex-col border border-slate-700/80 animate-scale-in"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}

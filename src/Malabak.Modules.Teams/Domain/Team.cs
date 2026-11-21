@@ -423,6 +423,47 @@ public sealed class Team : Entity<Guid>
         return isLoneCaptain ? Disband(nowUtc) : RemoveMember(playerId, playerId, nowUtc);
     }
 
+    /// <summary>Deleted by the platform team: off discovery, the leaderboard and invite lookups, but restorable as it was.</summary>
+    public void MoveToTrash(DateTime nowUtc)
+    {
+        SetUpdatedAt(nowUtc);
+        SoftDelete(nowUtc);
+    }
+
+    public void RestoreFromTrash(DateTime nowUtc)
+    {
+        Restore();
+        SetUpdatedAt(nowUtc);
+    }
+
+    /// <summary>
+    /// Purged from the trash (irreversible): members are freed, open requests cancelled and what the team published is erased.
+    /// The row stays under a neutral name because played matches and rankings still point to it.
+    /// </summary>
+    public void Purge(DateTime nowUtc)
+    {
+        foreach (var member in _members.Where(m => m.IsActive))
+        {
+            member.Deactivate(nowUtc);
+        }
+
+        foreach (var pending in _joinRequests.Where(r => r.Status == JoinRequestStatus.Pending))
+        {
+            pending.Cancel(nowUtc);
+        }
+
+        Name = PurgedName;
+        Description = null;
+        LogoUrl = null;
+        CoverUrl = null;
+        IsRecruiting = false;
+        IsOpenForChallenges = false;
+        IsPublic = false;
+        SetUpdatedAt(nowUtc);
+    }
+
+    public const string PurgedName = "فريق محذوف";
+
     /// <summary>
     /// Closes the team: the captain's membership ends (freeing one of their team slots), pending join requests are
     /// cancelled and the team is soft-deleted, so it drops out of discovery, the leaderboard and invite-code lookups.

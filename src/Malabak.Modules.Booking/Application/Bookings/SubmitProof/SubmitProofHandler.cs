@@ -13,23 +13,17 @@ public sealed class SubmitProofHandler : ICommandHandler<SubmitProofCommand, Res
     private readonly IBookingDbContext _dbContext;
     private readonly IClock _clock;
     private readonly IBookingRealtimeBroadcaster _broadcaster;
-    private readonly IVenueDirectory _venues;
-    private readonly INotificationPublisher? _notificationPublisher;
     private readonly ILogger<SubmitProofHandler> _logger;
 
     public SubmitProofHandler(
         IBookingDbContext dbContext,
         IClock clock,
         IBookingRealtimeBroadcaster broadcaster,
-        IVenueDirectory venues,
-        ILogger<SubmitProofHandler> logger,
-        INotificationPublisher? notificationPublisher = null)
+        ILogger<SubmitProofHandler> logger)
     {
         _dbContext = dbContext;
         _clock = clock;
         _broadcaster = broadcaster;
-        _venues = venues;
-        _notificationPublisher = notificationPublisher;
         _logger = logger;
     }
 
@@ -144,20 +138,8 @@ public sealed class SubmitProofHandler : ICommandHandler<SubmitProofCommand, Res
             nowUtc,
             cancellationToken));
 
-        // Tell the people who review payments at the venue (its owner and the staff roles that may), each once.
-        if (_notificationPublisher is not null)
-        {
-            await RunGuardedAsync(booking, "notify the venue staff", async () =>
-            {
-                var reviewers = await _venues.GetStaffUserIdsAsync(booking.VenueId, Permissions.PaymentProofsReview, cancellationToken);
-                var names = await _venues.GetVenueNamesAsync([booking.VenueId], cancellationToken);
-                var venueName = names.GetValueOrDefault(booking.VenueId, string.Empty);
-                foreach (var reviewer in reviewers)
-                {
-                    await _notificationPublisher.PublishAsync(BookingNotifications.ProofSubmitted(booking, venueName, reviewer, _clock), cancellationToken);
-                }
-            });
-        }
+        // The platform reviews deposit proofs (they're paid to its accounts), so the venue isn't asked to; the proof shows up in
+        // the admin deposit-review queue, and the venue hears about the booking once it's confirmed.
 
         return Result.Success();
     }

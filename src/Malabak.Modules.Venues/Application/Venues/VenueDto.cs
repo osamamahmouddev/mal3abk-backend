@@ -20,4 +20,7 @@ public sealed record VenueDto(
     IReadOnlyList<string> Facilities,
     IReadOnlyList<string> Photos,
     IReadOnlyList<PitchDto> Pitches,
-    string PricingModel = "Subscription");
+    string PricingModel = "Commission",
+    // The venue's own commission terms when an admin set them; null type means the platform default applies.
+    string? CommissionType = null,
+    decimal? CommissionRate = null);

@@ -3,7 +3,8 @@
 import React, { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import type { Schemas } from "@malabak/api-client";
-import { Page, PageHeader, Segmented, card, money, muted } from "@/components/ui";
+import { KpiCard, Page, PageHeader, Segmented, card, money, muted, type KpiTone } from "@/components/ui";
+import { AlertTriangle, CalendarCheck, CalendarPlus, Clock, Coins, Headphones, LayoutGrid, MapPin, TrendingUp, UserPlus, Users } from "lucide-react";
 import { QueryState, num } from "@/components/admin";
 import { api, unwrap } from "@/lib/api";
 
@@ -16,19 +17,18 @@ const PERIODS: [string, string][] = [
 ];
 
 /** Headline tiles: label, figure key, how to show it, and the exact definition shown on hover/focus. */
-const TILES: { key: string; label: string; money?: boolean; hint: string }[] = [
-  { key: "users.total", label: "المستخدمين", hint: "حسابات غير محذوفة دلوقتي" },
-  { key: "users.new", label: "مستخدمين جداد", hint: "اللي سجّلوا في الفترة" },
-  { key: "venues.active", label: "ملاعب نشطة", hint: "معتمدة ومنشورة دلوقتي" },
-  { key: "pitches.active", label: "ملاعب فرعية نشطة", hint: "الملاعب الفرعية الشغالة في ملاعب نشطة" },
-  { key: "bookings.created", label: "حجوزات اتعملت", hint: "حجوزات اتعملت في الفترة (من غير المسودات)" },
-  { key: "bookings.confirmed", label: "حجوزات اتأكدت", hint: "حجوزات اتأكدت في الفترة (بوقت التأكيد)" },
-  { key: "subscriptions.active", label: "اشتراكات مدفوعة", hint: "اشتراكات Active أو Grace دلوقتي" },
-  { key: "mrr", label: "MRR", money: true, hint: "إيراد شهري متكرر: سعر الباقة الشهري، والسنوي ÷ ١٢، للاشتراكات المدفوعة دلوقتي" },
-  { key: "revenue.collected", label: "إيراد محصّل", money: true, hint: "مدفوعات اتسجلت في الفترة، من غير الفواتير الملغاة" },
-  { key: "venues.pending_approval", label: "ملاعب مستنية موافقة", hint: "طلبات مستنية قرار دلوقتي" },
-  { key: "disputes.open", label: "نزاعات مفتوحة", hint: "نزاعات إيصالات لسه متحلتش" },
-  { key: "support.open", label: "تذاكر مفتوحة", hint: "تذاكر دعم مش محلولة ولا مقفولة" },
+const TILES: { key: string; label: string; money?: boolean; hint: string; icon: React.ElementType; tone: KpiTone }[] = [
+  { key: "users.total", label: "المستخدمين", hint: "حسابات غير محذوفة دلوقتي", icon: Users, tone: "navy" },
+  { key: "users.new", label: "مستخدمين جداد", hint: "اللي سجّلوا في الفترة", icon: UserPlus, tone: "navy" },
+  { key: "venues.active", label: "ملاعب نشطة", hint: "معتمدة ومنشورة دلوقتي", icon: MapPin, tone: "green" },
+  { key: "pitches.active", label: "ملاعب فرعية نشطة", hint: "الملاعب الفرعية الشغالة في ملاعب نشطة", icon: LayoutGrid, tone: "green" },
+  { key: "bookings.created", label: "حجوزات اتعملت", hint: "حجوزات اتعملت في الفترة (من غير المسودات)", icon: CalendarPlus, tone: "navy" },
+  { key: "bookings.confirmed", label: "حجوزات اتأكدت", hint: "حجوزات اتأكدت في الفترة (بوقت التأكيد)", icon: CalendarCheck, tone: "green" },
+  { key: "mrr", label: "MRR", money: true, hint: "إيراد شهري متكرر: سعر الباقة الشهري، والسنوي ÷ ١٢، للاشتراكات المدفوعة دلوقتي", icon: TrendingUp, tone: "red" },
+  { key: "revenue.collected", label: "إيراد محصّل", money: true, hint: "مدفوعات اتسجلت في الفترة، من غير الفواتير الملغاة", icon: Coins, tone: "red" },
+  { key: "venues.pending_approval", label: "ملاعب مستنية موافقة", hint: "طلبات مستنية قرار دلوقتي", icon: Clock, tone: "amber" },
+  { key: "disputes.open", label: "نزاعات مفتوحة", hint: "نزاعات إيصالات لسه متحلتش", icon: AlertTriangle, tone: "amber" },
+  { key: "support.open", label: "تذاكر مفتوحة", hint: "تذاكر دعم مش محلولة ولا مقفولة", icon: Headphones, tone: "amber" },
 ];
 
 const SERIES: { key: string; label: string; money?: boolean }[] = [
@@ -65,11 +65,14 @@ function DashboardView({ data }: { data: Dashboard }) {
     <>
       <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3 animate-fade-in-up">
         {tiles.map((t) => (
-          <div key={t.key} className={`${card} interactive-card rounded-[16px] p-4 flex flex-col gap-1 cursor-default hover:border-slate-300`} title={t.hint}>
-            <span className={`text-[13px] ${muted}`}>{t.label}</span>
-            <strong className="text-[22px]">{t.money ? money(data.figures[t.key]) : num(data.figures[t.key])}</strong>
-            <span className={`text-[11px] ${muted}`}>{t.hint}</span>
-          </div>
+          <KpiCard
+            key={t.key}
+            label={t.label}
+            value={t.money ? money(data.figures[t.key]) : num(data.figures[t.key])}
+            hint={t.hint}
+            icon={<t.icon className="size-4" aria-hidden />}
+            tone={t.tone}
+          />
         ))}
       </div>
 
@@ -89,7 +92,6 @@ const DISTRIBUTION_TITLES: Record<string, string> = {
   "bookings.by_status": "الحجوزات حسب الحالة (في الفترة)",
   "users.by_role": "الحسابات حسب الدور",
   "venues.active_by_city": "الملاعب النشطة حسب المدينة",
-  "subscriptions.by_plan": "الاشتراكات المدفوعة حسب الباقة",
   "support.open_by_category": "التذاكر المفتوحة حسب النوع",
 };
 

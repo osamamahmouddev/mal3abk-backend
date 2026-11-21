@@ -59,6 +59,8 @@ public static class AdminUserErrors
     public static readonly Error NotFound = Error.NotFound("AdminUsers.NotFound", "User not found.");
     public static readonly Error ReasonRequired = Error.Validation("AdminUsers.ReasonRequired", "A reason is required for this action.");
     public static readonly Error InvalidFilter = Error.Validation("AdminUsers.InvalidFilter", "Invalid search filter.");
+    public static readonly Error ReviewAccountProtected = Error.Forbidden("AdminUsers.ReviewAccountProtected",
+        "This is the App Store / Google Play review account: it cannot be suspended or deleted, or the app review fails.");
     public static readonly Error CannotActOnSelf = Error.Forbidden("AdminUsers.CannotActOnSelf", "You cannot perform this action on your own account.");
     public static readonly Error AdminAccount = Error.Forbidden("AdminUsers.AdminAccount",
         "Platform staff accounts are managed from admin accounts, not user management.");
@@ -154,7 +156,12 @@ public sealed class AdminUserService
             return Result.Failure<AdminUserDetail>(error);
         }
 
-        if (user!.IsSuspended)
+        if (ReviewAccount.Is(user!.PhoneNumber))
+        {
+            return Result.Failure<AdminUserDetail>(AdminUserErrors.ReviewAccountProtected);
+        }
+
+        if (user.IsSuspended)
         {
             return Result.Failure<AdminUserDetail>(AdminUserErrors.AlreadySuspended);
         }

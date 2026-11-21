@@ -12,7 +12,7 @@ import { useReference } from "@/lib/reference";
 import { APPROVAL_LABELS, CAPACITIES } from "@/lib/venue-format";
 import { mediaIdOf, mediaSrc, uploadImage } from "@/lib/upload";
 import { ImageLightbox } from "@/components/ImageLightbox";
-import { Eye, X } from "lucide-react";
+import { Eye, ImagePlus, Loader2, Plus, X } from "lucide-react";
 
 type Pitch = Schemas["PitchDto"];
 
@@ -207,9 +207,10 @@ export default function PitchesPage() {
           type="button"
           onClick={() => (tab === "venues" ? setBranchOpen(true) : add.mutate())}
           disabled={tab === "pitches" ? !venueId || add.isPending : createBranch.isPending}
-          className="min-h-[44px] px-[18px] rounded-xl text-sm font-bold transition bg-brand-red hover:bg-brand-red-hover disabled:opacity-60 text-white shadow-[0_10px_22px_-10px_rgba(214,59,47,0.65)]"
+          className="btn-press min-h-[44px] px-[18px] rounded-xl text-sm font-bold transition bg-brand-red hover:bg-brand-red-hover disabled:opacity-60 text-white inline-flex items-center gap-2 shadow-[0_10px_22px_-10px_rgba(214,59,47,0.65)]"
         >
-          {tab === "venues" ? "+ إضافة فرع" : "+ إضافة ملعب"}
+          <Plus className="size-4" strokeWidth={2.5} />
+          {tab === "venues" ? "إضافة فرع" : "إضافة ملعب"}
         </button>
       </div>
 
@@ -487,8 +488,9 @@ export default function PitchesPage() {
                       </div>
                     );
                   })}
-                  <label className="h-20 rounded-xl border-2 border-dashed border-[#C9CFD9] flex items-center justify-center text-xs text-[#5B6475] cursor-pointer hover:bg-slate-50">
-                    {addPhoto.isPending ? "بيترفع…" : "+ صورة"}
+                  <label className="h-20 rounded-xl border-2 border-dashed border-[#C9CFD9] flex flex-col items-center justify-center gap-1 text-xs text-[#5B6475] cursor-pointer hover:bg-slate-50 hover:border-slate-400 transition-colors">
+                    {addPhoto.isPending ? <Loader2 className="size-5 animate-spin" /> : <ImagePlus className="size-5" strokeWidth={1.75} />}
+                    {addPhoto.isPending ? "بيترفع…" : "صورة"}
                     <input
                       type="file"
                       accept="image/jpeg,image/png,image/webp"

@@ -12,12 +12,14 @@ import { Check } from "lucide-react";
 type Account = Schemas["AdminAccountDto"];
 
 const STAFF_ROLES: [string, string][] = [
+  ["SuperAdmin", "مدير النظام الأعلى (SuperAdmin)"],
   ["Admin", "مسؤول عام (كل الصلاحيات)"],
   ["SupportAgent", "دعم فني"],
   ["Finance", "مالية واشتراكات"],
 ];
 
 const ROLE_LABELS: Record<string, string> = {
+  SuperAdmin: "مدير النظام الأعلى",
   Admin: "مسؤول عام",
   SupportAgent: "دعم فني",
   Finance: "مسؤول مالي",
@@ -41,6 +43,7 @@ const PERMISSION_LABELS: Record<string, { label: string; desc: string; category:
   "admin.venues.approve": { label: "مراجعة واعتماد الملاعب", desc: "الموافقة على طلبات انضمام الملاعب وطلب معلومات إضافية", category: "الملاعب" },
 
   // Finance
+  "admin.payments.manage": { label: "إدارة فلوس المنصة", desc: "تأكيد عرابين الحجوزات، رد الفلوس للاعيبة، وتسجيل تحويلات مستحقات الملاعب", category: "المالية" },
   "finance.invoices.view": { label: "عرض الفواتير والمعاملات المالية", desc: "استعراض الفواتير وسجلات الدفع والعمولات", category: "المالية" },
   "finance.subscriptions.manage": { label: "إدارة باقات واشتراكات الملاعب", desc: "ترقية وتعديل باقات الملاعب والاشتراكات", category: "المالية" },
 
@@ -94,7 +97,7 @@ export default function AccountsPage() {
         emptyDescription="يمكنك إضافة وتعيين حسابات جديدة للمشرفين والمسؤولين وتحديد أدوارهم وصلاحياتهم في إدارة المنصة."
         emptyIcon="users"
         emptyAction={{
-          label: "+ إضافة حساب مشرف جديد",
+          label: "إضافة حساب مشرف جديد",
           onClick: () => setCreating(true),
           variant: "primary",
         }}

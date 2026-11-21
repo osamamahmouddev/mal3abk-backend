@@ -14,15 +14,15 @@ export const card =
 export const redShadow = "shadow-[0_10px_22px_-10px_rgba(214,59,47,0.65)]";
 export const muted = "text-[#5B6475]";
 export const inputClass =
-  "w-full min-h-[44px] px-3 rounded-xl border border-[#C9CFD9] bg-white text-sm text-slate-900 transition-all duration-150 ease-out focus:outline-none focus:ring-2 focus:ring-ink focus:shadow-[0_0_0_3px_rgba(10,19,48,0.1)]";
+  "w-full min-h-[44px] px-3 rounded-xl border border-[#C9CFD9] bg-white text-sm text-slate-900 transition-all duration-150 ease-out hover:border-[#AEB7CA] placeholder:text-[#8A93A3] focus:outline-none focus:border-ink focus:ring-4 focus:ring-ink/10 disabled:bg-slate-50 disabled:text-slate-500 disabled:cursor-not-allowed aria-[invalid=true]:border-brand-red aria-[invalid=true]:ring-brand-red/10";
 
-export const btnPrimary = `min-h-[44px] px-[18px] rounded-xl bg-brand-red hover:bg-brand-red-hover active:scale-[0.98] text-white text-sm font-bold ${redShadow} transition-all duration-150 ease-out inline-flex items-center justify-center cursor-pointer hover:shadow-lg disabled:cursor-not-allowed disabled:active:scale-100`;
+export const btnPrimary = `min-h-[44px] px-[18px] rounded-xl bg-brand-red hover:bg-brand-red-hover active:scale-[0.98] text-white text-sm font-bold ${redShadow} transition-all duration-150 ease-out inline-flex items-center justify-center gap-2 cursor-pointer hover:shadow-lg disabled:cursor-not-allowed disabled:active:scale-100`;
 export const btnDark =
-  "min-h-[44px] px-[18px] rounded-xl bg-ink hover:bg-[#152147] active:scale-[0.98] text-white text-sm font-bold transition-all duration-150 ease-out inline-flex items-center justify-center cursor-pointer hover:shadow-md disabled:cursor-not-allowed disabled:active:scale-100";
+  "min-h-[44px] px-[18px] rounded-xl bg-ink hover:bg-[#152147] active:scale-[0.98] text-white text-sm font-bold transition-all duration-150 ease-out inline-flex items-center justify-center gap-2 cursor-pointer hover:shadow-md disabled:cursor-not-allowed disabled:active:scale-100";
 export const btnOutline =
-  "min-h-[44px] px-4 rounded-xl border border-[#C9CFD9] bg-white text-ink text-sm font-semibold hover:bg-slate-50 hover:border-slate-400 active:scale-[0.98] transition-all duration-150 ease-out inline-flex items-center justify-center cursor-pointer disabled:cursor-not-allowed disabled:active:scale-100";
+  "min-h-[44px] px-4 rounded-xl border border-[#C9CFD9] bg-white text-ink text-sm font-semibold hover:bg-slate-50 hover:border-slate-400 active:scale-[0.98] transition-all duration-150 ease-out inline-flex items-center justify-center gap-2 cursor-pointer disabled:cursor-not-allowed disabled:active:scale-100";
 export const btnDanger =
-  "min-h-[44px] px-4 rounded-xl border border-[#F3C4BF] bg-white text-[#A8261C] hover:bg-red-50/50 hover:border-red-300 active:scale-[0.98] text-sm font-bold transition-all duration-150 ease-out inline-flex items-center justify-center cursor-pointer disabled:cursor-not-allowed disabled:active:scale-100";
+  "min-h-[44px] px-4 rounded-xl border border-[#F3C4BF] bg-white text-[#A8261C] hover:bg-red-50/50 hover:border-red-300 active:scale-[0.98] text-sm font-bold transition-all duration-150 ease-out inline-flex items-center justify-center gap-2 cursor-pointer disabled:cursor-not-allowed disabled:active:scale-100";
 export const btnSmall =
   "min-h-[34px] px-3 rounded-[9px] inline-flex items-center justify-center gap-1.5 border border-[#C9CFD9] bg-white text-ink text-xs font-semibold hover:bg-slate-50 active:scale-[0.98] transition-all duration-150 ease-out cursor-pointer disabled:cursor-not-allowed disabled:active:scale-100";
 
@@ -51,7 +51,7 @@ export const TONE: Record<Tone, string> = {
 
 export function Pill({ tone, children, className = "" }: { tone: Tone; children: React.ReactNode; className?: string }) {
   return (
-    <span className={`inline-block text-xs font-bold rounded-full px-2.5 py-[3px] whitespace-nowrap transition-all duration-150 ${TONE[tone]} ${className}`}>
+    <span className={`inline-flex items-center gap-1 text-xs font-bold rounded-full px-2.5 py-[3px] whitespace-nowrap transition-all duration-150 ${TONE[tone]} ${className}`}>
       {children}
     </span>
   );
@@ -80,10 +80,13 @@ export function Switch({ on, label, onToggle, disabled }: { on: boolean; label: 
       disabled={disabled}
       onClick={onToggle}
       className={`w-12 h-7 shrink-0 rounded-full p-[3px] flex items-center transition-colors duration-200 ease-out ${
-        on ? "justify-end bg-ink" : "justify-start bg-[#C9CFD9]"
-      } ${disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer active:scale-95"}`}
+        on ? "bg-ink" : "bg-[#C9CFD9] hover:bg-[#B9C0CD]"
+      } ${disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
     >
-      <span className="w-[22px] h-[22px] rounded-full bg-white shadow-sm transition-all duration-200 ease-out" />
+      {/* RTL: off sits on the right; on slides the thumb 20px to the left. */}
+      <span
+        className={`w-[22px] h-[22px] rounded-full bg-white shadow-[0_1px_3px_rgba(10,19,48,0.3)] transition-transform duration-200 ease-spring ${on ? "-translate-x-5" : "translate-x-0"}`}
+      />
     </button>
   );
 }
@@ -516,5 +519,72 @@ export function EmptyState({
         </div>
       )}
     </div>
+  );
+}
+
+/** Icon-chip colours for KPI cards; one meaning each, the same on every page. */
+export const KPI_TONES = {
+  red: "bg-[#FDECEA] text-[#C7362A]",
+  navy: "bg-[#EAEEF6] text-[#0B1A3A]",
+  green: "bg-[#E6F4EA] text-[#1F6B3A]",
+  amber: "bg-[#FDF3DC] text-[#9A5B00]",
+  slate: "bg-slate-100 text-slate-600",
+} as const;
+
+export type KpiTone = keyof typeof KPI_TONES;
+
+/** The admin's one headline-number card: label and icon chip, the figure, one line of what it means. */
+export function KpiCard({
+  label,
+  value,
+  hint,
+  icon,
+  tone = "slate",
+  title,
+}: {
+  label: string;
+  value: React.ReactNode;
+  hint?: React.ReactNode;
+  icon?: React.ReactNode;
+  tone?: KpiTone;
+  title?: string;
+}) {
+  return (
+    <div className={`${card} rounded-2xl p-4 flex flex-col gap-2 min-w-0`} title={title}>
+      <div className="flex items-center justify-between gap-2">
+        <span className={`text-[13px] font-semibold ${muted}`}>{label}</span>
+        {icon && <span className={`size-8 shrink-0 rounded-xl flex items-center justify-center ${KPI_TONES[tone]}`}>{icon}</span>}
+      </div>
+      <strong className="text-[24px] leading-tight font-extrabold text-slate-900 truncate">{value}</strong>
+      {hint && <span className={`text-[12px] ${muted} leading-snug`}>{hint}</span>}
+    </div>
+  );
+}
+
+/** A section of a page: a white card with a title, an optional line under it and actions on the other side. */
+export function SectionCard({
+  title,
+  sub,
+  actions,
+  children,
+  className = "",
+}: {
+  title: React.ReactNode;
+  sub?: React.ReactNode;
+  actions?: React.ReactNode;
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <section className={`${card} rounded-2xl p-5 flex flex-col gap-4 ${className}`}>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-col gap-0.5 min-w-0">
+          <h2 className="text-[16px] font-bold">{title}</h2>
+          {sub && <span className={`text-[13px] ${muted}`}>{sub}</span>}
+        </div>
+        {actions}
+      </div>
+      {children}
+    </section>
   );
 }

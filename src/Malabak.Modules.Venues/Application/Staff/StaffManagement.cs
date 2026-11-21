@@ -30,6 +30,21 @@ public sealed record RemoveStaffMemberCommand(Guid VenueId, Guid MemberId, Guid 
 
 public sealed record AcceptStaffInvitationCommand(string Token, Guid UserId) : ICommand<Result<StaffMemberDto>>;
 
+/// <summary>What a not-yet-signed-in invitee sees: the venue, the role, and which contact the link went to (masked).</summary>
+public sealed record PreviewStaffInvitationQuery(string Token) : IQuery<Result<StaffInvitationPreviewDto>>;
+
+public sealed record StaffInvitationPreviewDto(string VenueName, string Role, string Channel, string MaskedContact);
+
+/// <summary>
+/// Someone without an account accepts an invitation: a staff account (never an owner one) is made and joined in one step.
+/// The phone (and email, when the invitation went by email) must be the ones the invitation was sent to.
+/// </summary>
+public sealed record RegisterFromInvitationCommand(string Token, string FullName, string PhoneNumber, string? Email, string Password)
+    : ICommand<Result<StaffMemberDto>>
+{
+    public override string ToString() => nameof(RegisterFromInvitationCommand);
+}
+
 public static class StaffErrors
 {
     public static readonly Error InvalidContact = new("Staff.InvalidContact", "Invite by a valid email or Egyptian phone number (exactly one).");
@@ -40,6 +55,7 @@ public static class StaffErrors
 
     // One message for unknown, expired, revoked and "not addressed to you", so tokens can't be probed.
     public static readonly Error InvalidInvitation = new("Staff.InvalidInvitation", "This invitation is invalid, expired, or not for your account.");
+    public static readonly Error ContactMismatch = new("Staff.ContactMismatch", "Use the phone number or email the invitation was sent to.");
 }
 
 /// <summary>Staff limit per venue. Pending TASK-060: replace with the subscription entitlement check.</summary>
@@ -64,7 +80,9 @@ public sealed class StaffManagementHandlers :
     IQueryHandler<GetVenueStaffQuery, Result<VenueStaffDto>>,
     ICommandHandler<ChangeStaffRoleCommand, Result<StaffMemberDto>>,
     ICommandHandler<RemoveStaffMemberCommand, Result>,
-    ICommandHandler<AcceptStaffInvitationCommand, Result<StaffMemberDto>>
+    ICommandHandler<AcceptStaffInvitationCommand, Result<StaffMemberDto>>,
+    IQueryHandler<PreviewStaffInvitationQuery, Result<StaffInvitationPreviewDto>>,
+    ICommandHandler<RegisterFromInvitationCommand, Result<StaffMemberDto>>
 {
     public const string VenueStaffRoleName = "VenueStaff";
 
@@ -254,6 +272,79 @@ public sealed class StaffManagementHandlers :
         await _audit.LogAsync("Staff.InvitationAccepted", nameof(VenueStaffInvitation), invitation.Id, command.UserId,
             new { invitation.VenueId, Role = invitation.Role.ToString() }, cancellationToken);
         return Result.Success(ToDto(member));
+    }
+
+    public async Task<Result<StaffInvitationPreviewDto>> HandleAsync(PreviewStaffInvitationQuery query, CancellationToken cancellationToken = default)
+    {
+        var (invitation, venue) = await FindUsableInvitationAsync(query.Token, cancellationToken);
+        if (invitation is null || venue is null)
+        {
+            return Result.Failure<StaffInvitationPreviewDto>(StaffErrors.InvalidInvitation);
+        }
+
+        return Result.Success(invitation.Email is not null
+            ? new StaffInvitationPreviewDto(venue.Name, invitation.Role.ToString(), "email", MaskEmail(invitation.Email))
+            : new StaffInvitationPreviewDto(venue.Name, invitation.Role.ToString(), "phone", MaskPhone(invitation.PhoneNumber ?? string.Empty)));
+    }
+
+    public async Task<Result<StaffMemberDto>> HandleAsync(RegisterFromInvitationCommand command, CancellationToken cancellationToken = default)
+    {
+        var (invitation, venue) = await FindUsableInvitationAsync(command.Token, cancellationToken);
+        if (invitation is null || venue is null)
+        {
+            return Result.Failure<StaffMemberDto>(StaffErrors.InvalidInvitation);
+        }
+
+        var phone = _accounts.NormalizePhone(command.PhoneNumber ?? string.Empty);
+        var email = NormalizeEmail(command.Email);
+        if (phone is null || (!string.IsNullOrWhiteSpace(command.Email) && email is null))
+        {
+            return Result.Failure<StaffMemberDto>(StaffErrors.InvalidContact);
+        }
+
+        // Only the contact the link was delivered to is proven; it must be the one typed here.
+        if ((invitation.PhoneNumber is not null && invitation.PhoneNumber != phone)
+            || (invitation.Email is not null && !string.Equals(invitation.Email, email, StringComparison.OrdinalIgnoreCase)))
+        {
+            return Result.Failure<StaffMemberDto>(StaffErrors.ContactMismatch);
+        }
+
+        var created = await _accounts.CreateInvitedStaffAccountAsync(
+            new InvitedStaffAccount(command.FullName, phone, email, command.Password,
+                PhoneVerified: invitation.PhoneNumber is not null, EmailVerified: invitation.Email is not null),
+            cancellationToken);
+        if (created.IsFailure)
+        {
+            return Result.Failure<StaffMemberDto>(created.Error);
+        }
+
+        return await HandleAsync(new AcceptStaffInvitationCommand(command.Token, created.Value), cancellationToken);
+    }
+
+    private async Task<(VenueStaffInvitation? Invitation, Venue? Venue)> FindUsableInvitationAsync(string? token, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(token) || token.Length > 100)
+        {
+            return (null, null);
+        }
+
+        var hash = HashToken(token.Trim());
+        var invitation = await _dbContext.StaffInvitations.IgnoreQueryFilters().FirstOrDefaultAsync(i => i.TokenHash == hash, cancellationToken);
+        if (invitation is null || !invitation.IsUsable(_clock.UtcNow))
+        {
+            return (null, null);
+        }
+
+        var venue = await _dbContext.Venues.IgnoreQueryFilters().FirstOrDefaultAsync(v => v.Id == invitation.VenueId && !v.IsDeleted, cancellationToken);
+        return venue is null ? (null, null) : (invitation, venue);
+    }
+
+    private static string MaskPhone(string phone) => phone.Length <= 4 ? "••••" : $"{new string('•', phone.Length - 4)}{phone[^4..]}";
+
+    private static string MaskEmail(string email)
+    {
+        var at = email.IndexOf('@');
+        return at <= 1 ? $"•••{email[Math.Max(at, 0)..]}" : $"{email[0]}•••{email[at..]}";
     }
 
     private async Task<bool> CanManageAsync(Guid userId, Guid venueId, CancellationToken cancellationToken) =>
