@@ -4202,6 +4202,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/teams/invitations/{code}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Public facts of the team behind a valid invite code; never joins */
+        get: operations["PreviewTeamInvitation"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/teams/{id}/members/{memberPlayerId}": {
         parameters: {
             query?: never;
@@ -6793,6 +6810,7 @@ export interface components {
             /** Format: date-time */
             nextAvailableStartUtc?: string | null;
             isFavorite: boolean;
+            offer?: components["schemas"]["VenueOffer"];
         };
         /**
          * Format: int32
@@ -8157,6 +8175,22 @@ export interface components {
             /** Format: date-time */
             expiresAtUtc?: string | null;
         };
+        TeamInvitePreviewDto: {
+            /** Format: uuid */
+            teamId: string;
+            name: string;
+            logoUrl?: string | null;
+            city: string;
+            governorate: string;
+            district?: string | null;
+            /** Format: int32 */
+            memberCount: number;
+            /** Format: int32 */
+            maxMembers: number;
+            /** Format: date-time */
+            expiresAtUtc?: string | null;
+            isAlreadyMember: boolean;
+        };
         TeamJoinRequestDto: {
             /** Format: uuid */
             id: string;
@@ -8779,6 +8813,17 @@ export interface components {
             commissionOutstanding: number;
             /** Format: double */
             platformOwesVenue: number;
+        };
+        VenueOffer: {
+            name: string;
+            type: string;
+            /** Format: double */
+            value: number;
+            /** Format: date */
+            endsOn?: string | null;
+            hasConditions: boolean;
+            /** Format: double */
+            fromHourlyPriceAfter?: number | null;
         };
         VenuePayoutBalance: {
             /** Format: uuid */
@@ -27303,6 +27348,91 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TeamDetailDto"];
+                };
+            };
+            /** @description Bad Request (Validation failure, invalid inputs) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Unauthorized (Missing or expired JWT access token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Forbidden (Insufficient role or permissions) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Not Found (Resource does not exist) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Conflict (Concurrent update or duplicate idempotency in flight) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Unprocessable Entity (Business rule violation or payload mismatch) */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Too Many Requests (Rate limit exceeded, check Retry-After header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    PreviewTeamInvitation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                code: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TeamInvitePreviewDto"];
                 };
             };
             /** @description Bad Request (Validation failure, invalid inputs) */
