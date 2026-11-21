@@ -127,6 +127,7 @@ builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
     options.AddPasswordAuthRateLimit();
+    options.AddTeamInviteRateLimit();
     options.AddPolicy(MediaEndpoints.UploadRateLimitPolicy, http => RateLimitPartition.GetSlidingWindowLimiter(
         http.User.FindFirst("sub")?.Value ?? http.Connection.RemoteIpAddress?.ToString() ?? "unknown",
         _ => new SlidingWindowRateLimiterOptions { PermitLimit = 30, Window = TimeSpan.FromHours(1), SegmentsPerWindow = 6, QueueLimit = 0 }));
@@ -600,6 +601,7 @@ app.MapRealtimeEndpoints(apiVersionSet);
 app.MapBookingEndpoints(apiVersionSet);
 app.MapPaymentEndpoints(apiVersionSet);
 app.MapTeamEndpoints(apiVersionSet);
+app.MapInviteLinkEndpoints();
 app.MapChallengeEndpoints(apiVersionSet);
 app.MapMatchEndpoints(apiVersionSet);
 app.MapWaitlistEndpoints(apiVersionSet);

@@ -21,7 +21,11 @@ public sealed class AcceptTeamInvitationHandler : ICommandHandler<AcceptTeamInvi
 
     public async Task<Result<TeamDetailDto>> HandleAsync(AcceptTeamInvitationCommand command, CancellationToken cancellationToken = default)
     {
-        var normalizedCode = command.InviteCode.Trim().ToUpperInvariant();
+        var normalizedCode = TeamInviteCodes.Normalize(command.InviteCode);
+        if (normalizedCode is null)
+        {
+            return Result.Failure<TeamDetailDto>(TeamErrors.InvalidInviteCode);
+        }
 
         var teamId = await _dbContext.Teams
             .Where(t => t.InviteCode == normalizedCode)
