@@ -57,6 +57,23 @@ public sealed class ReviewerAccountTests
     }
 
     [Fact]
+    public async Task ASuspendedReviewAccount_IsReactivatedOnSignInAsync()
+    {
+        await using var db = Db();
+        var clock = new FakeClock();
+        var user = User.CreatePlayer(Guid.NewGuid(), _reviewer, "Apple Reviewer", clock.UtcNow.AddDays(-3));
+        user.Suspend("suspended by mistake", clock.UtcNow.AddDays(-1));
+        db.Users.Add(user);
+        await db.SaveChangesAsync();
+        var handler = new VerifyOtpHandler(_normalizer, _security, new InMemoryOtpStore(), db, clock, NullLogger<VerifyOtpHandler>.Instance);
+
+        var result = await handler.HandleAsync(new VerifyOtpCommand(_reviewer, "123456"));
+
+        result.IsSuccess.Should().BeTrue(result.IsFailure ? result.Error.Code : null);
+        (await db.Users.SingleAsync(u => u.Id == user.Id)).IsSuspended.Should().BeFalse();
+    }
+
+    [Fact]
     public async Task AnyOtherDeletedAccount_StillNeedsAnExplicitRestoreAsync()
     {
         await using var db = Db();

@@ -1,4 +1,5 @@
 using Malabak.Modules.Identity.Application.Common;
+using Malabak.Modules.Identity.Domain;
 using Malabak.SharedKernel;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -47,7 +48,7 @@ public sealed class SendOtpHandler : ICommandHandler<SendOtpCommand, Result<Send
         var normalizedPhone = normalizeResult.Value;
 
         // Official App Store / Google Play reviewer test account bypasses Turnstile bot-challenge
-        var isReviewer = normalizedPhone == "+201000000999";
+        var isReviewer = ReviewAccount.Is(normalizedPhone);
 
         // 2. Verify Cloudflare Turnstile token
         if (!isReviewer)

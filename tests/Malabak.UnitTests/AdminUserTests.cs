@@ -66,6 +66,19 @@ public sealed class AdminUserTests
     }
 
     [Fact]
+    public async Task TheAppReviewAccount_CannotBeSuspendedAsync()
+    {
+        await using var db = NewDb();
+        var reviewer = Player(db, "Apple Reviewer", "+201000000999");
+        await db.SaveChangesAsync();
+
+        var result = await Users(db).SuspendAsync(reviewer.Id, "Looks like a test account", Guid.NewGuid());
+
+        result.Error.Should().Be(AdminUserErrors.ReviewAccountProtected);
+        (await db.Users.SingleAsync(u => u.Id == reviewer.Id)).IsSuspended.Should().BeFalse();
+    }
+
+    [Fact]
     public async Task UserManagement_CannotTouchStaffAccountsOrSelfAsync()
     {
         await using var db = NewDb();
