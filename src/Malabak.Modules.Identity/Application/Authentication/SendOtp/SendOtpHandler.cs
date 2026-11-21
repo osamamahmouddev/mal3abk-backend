@@ -65,6 +65,17 @@ public sealed class SendOtpHandler : ICommandHandler<SendOtpCommand, Result<Send
             }
         }
 
+        // The App Store / Google Play review account gets no SMS (its code is fixed), so there is nothing to send or to
+        // rate-limit: reviewers retrying on several devices must never be locked out.
+        if (isReviewer)
+        {
+            _logger.LogInformation("Reviewer test account OTP request simulated successfully for {MaskedPhone}", PhoneNumberMasker.Mask(normalizedPhone));
+            return Result.Success(new SendOtpResponse(
+                normalizedPhone,
+                5 * 60,
+                $"Verification code sent to {PhoneNumberMasker.Mask(normalizedPhone)}. Valid for 5 minutes."));
+        }
+
         // 3. Enforce sliding window rate limit (max 3 requests per 10 minutes)
         var window = TimeSpan.FromMinutes(10);
         var isAllowed = await _otpStore.CheckAndRecordSendAttemptAsync(
@@ -100,16 +111,6 @@ public sealed class SendOtpHandler : ICommandHandler<SendOtpCommand, Result<Send
             cancellationToken);
 
         // 6. Deliver the code. Neither the code nor the phone number is logged (SECURITY.md §13).
-        // App Store / Google Play review account uses fixed static verification code without external SMS delivery
-        if (normalizedPhone == "+201000000999")
-        {
-            _logger.LogInformation("Reviewer test account OTP request simulated successfully for {MaskedPhone}", PhoneNumberMasker.Mask(normalizedPhone));
-            return Result.Success(new SendOtpResponse(
-                normalizedPhone,
-                ttlMinutes * 60,
-                $"Verification code sent to {PhoneNumberMasker.Mask(normalizedPhone)}. Valid for {ttlMinutes} minutes."));
-        }
-
         if (!await _otpSender.SendAsync(normalizedPhone, code, OtpPurpose.Login, validity, cancellationToken))
         {
             return Result.Failure<SendOtpResponse>(OtpDeliveryErrors.DeliveryFailed);

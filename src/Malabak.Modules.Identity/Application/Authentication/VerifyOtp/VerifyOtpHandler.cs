@@ -114,7 +114,9 @@ public sealed class VerifyOtpHandler : ICommandHandler<VerifyOtpCommand, Result<
         // deletion, but only with an explicit confirmation; otherwise the account stays closed and is never re-created.
         if (user is { IsDeleted: true })
         {
-            if (!command.RestoreAccount || !user.CanRestore(nowUtc))
+            // App reviewers test "delete account": the review account comes back on its next sign-in so the next review
+            // (or the next reviewer) can still get in.
+            if ((!command.RestoreAccount && !isReviewer) || !user.CanRestore(nowUtc))
             {
                 return Result.Failure<VerifyOtpResponse>(new Error(
                     "Identity.AccountPendingDeletion",
