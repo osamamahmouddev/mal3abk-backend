@@ -85,7 +85,8 @@ public sealed class DemoDataSeeder : IDataSeeder
             await SeedDemoTeamsAsync(reviewerUser.Id, player1.Id, player2.Id, cancellationToken);
         }
 
-        if (_bookingDbContext != null)
+        // A demo venue someone deleted stays deleted: its bookings are not brought back (they would show as an unknown venue).
+        if (_bookingDbContext != null && !venueAbtal.IsDeleted)
         {
             await SeedDemoBookingsAsync(venueAbtal.Id, player1.Id, player2.Id, pitchAbtal1.Id, pitchAbtal2.Id, cancellationToken);
         }

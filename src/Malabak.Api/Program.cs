@@ -370,11 +370,7 @@ if (app.Configuration.GetValue<bool>("Database:ResetOnStartup"))
 
         if (app.Environment.IsDevelopment())
         {
-            var demoSeeder = scope.ServiceProvider.GetRequiredService<DemoDataSeeder>();
-            await demoSeeder.SeedAsync();
-
-            var devSeeder = scope.ServiceProvider.GetRequiredService<DevAccountsSeeder>();
-            await devSeeder.SeedAsync();
+            await SeedDemoDataSafelyAsync(app, scope.ServiceProvider);
         }
     }
 }
@@ -393,11 +389,7 @@ else if (app.Configuration.GetValue<bool>("Database:MigrateOnStartup"))
 
         if (app.Environment.IsDevelopment())
         {
-            var demoSeeder = scope.ServiceProvider.GetRequiredService<DemoDataSeeder>();
-            await demoSeeder.SeedAsync();
-
-            var devSeeder = scope.ServiceProvider.GetRequiredService<DevAccountsSeeder>();
-            await devSeeder.SeedAsync();
+            await SeedDemoDataSafelyAsync(app, scope.ServiceProvider);
         }
     }
 }
@@ -618,6 +610,22 @@ app.MapGet("/.well-known/security.txt", () => Results.Text(
     .AllowAnonymous();
 
 await app.RunAsync();
+
+// Demo and dev-account data are a convenience: a failure there (data changed by hand, a clashing booking) is logged and the
+// API still starts, instead of the host restarting in a loop and taking the whole service down.
+static async Task SeedDemoDataSafelyAsync(WebApplication app, IServiceProvider services)
+{
+    try
+    {
+        await services.GetRequiredService<DemoDataSeeder>().SeedAsync();
+        await services.GetRequiredService<DevAccountsSeeder>().SeedAsync();
+    }
+    catch (Exception ex)
+    {
+        app.Logger.LogError(ex, "Demo data seeding failed; the API starts without it");
+    }
+}
+
 
 // Required for WebApplicationFactory in integration tests
 public partial class Program
