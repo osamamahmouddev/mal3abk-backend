@@ -349,6 +349,18 @@ export function Select({
   );
 }
 
+/**
+ * How a list starts: a table on a computer, cards on a phone (a narrow screen cannot fit the columns). The page's toggle
+ * still switches between them. Starts as a table and moves to cards after mount, so server and client render the same.
+ */
+export function useListView() {
+  const [view, setView] = useState<"cards" | "table">("table");
+  useEffect(() => {
+    if (window.matchMedia("(max-width: 767px)").matches) setView("cards");
+  }, []);
+  return [view, setView] as const;
+}
+
 /** Page-level status line for the result of the last action. */
 export function useNotice() {
   const [notice, setNotice] = useState<{ text: string; bad?: boolean } | null>(null);

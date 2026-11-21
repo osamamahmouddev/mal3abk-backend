@@ -69,6 +69,12 @@ namespace Malabak.Modules.Identity.Infrastructure.Migrations
                     b.Property<Guid>("CreatedByUserId")
                         .HasColumnType("uuid");
 
+                    b.Property<DateTime?>("DeletedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
                     b.Property<string>("LostReason")
                         .HasMaxLength(300)
                         .HasColumnType("character varying(300)");

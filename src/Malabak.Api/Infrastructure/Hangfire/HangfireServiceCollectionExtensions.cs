@@ -108,6 +108,11 @@ public static class HangfireServiceCollectionExtensions
                 job => job.ExecuteRecurringSweepAsync(CancellationToken.None),
                 BookingRemindersJob.CronSchedule);
 
+            recurringJobs.AddOrUpdate<Malabak.Api.Infrastructure.Platform.TrashPurgeJob>(
+                Malabak.Api.Infrastructure.Platform.TrashPurgeJob.RecurringJobId,
+                job => job.ExecuteAsync(CancellationToken.None),
+                Malabak.Api.Infrastructure.Platform.TrashPurgeJob.CronSchedule);
+
             recurringJobs.AddOrUpdate<ProofRetentionJob>(
                 ProofRetentionJob.RecurringJobId,
                 job => job.ExecuteRecurringCleanupAsync(CancellationToken.None),

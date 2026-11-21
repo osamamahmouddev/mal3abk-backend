@@ -1,10 +1,11 @@
 "use client";
 
+import { TrashButton } from "@/components/TrashButton";
 import React, { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { Schemas } from "@malabak/api-client";
 import { KV, Page, PageHeader, Pill, ReasonModal, Switch, type ReasonRequest, SearchBox, btnDanger, btnOutline, btnPrimary, btnSmall, card, inputClass, money, muted, toArabicDigits } from "@/components/ui";
-import { Drawer, Field, Pager, QueryState, Section, Select, Table, TextInput, fmtDate, fmtDateTime, num, useNotice } from "@/components/admin";
+import { Drawer, Field, Pager, QueryState, Section, Select, Table, TextInput, fmtDate, fmtDateTime, num, useNotice, useListView } from "@/components/admin";
 import { usePlaceNames } from "@/lib/place-names";
 import { api, unwrap } from "@/lib/api";
 import { useStepUp } from "@/lib/stepup";
@@ -57,7 +58,7 @@ export default function VenuesPage() {
   const place = usePlaceNames();
   const [q, setQ] = useState("");
   const [status, setStatus] = useState("");
-  const [viewMode, setViewMode] = useState<"cards" | "table">("cards");
+  const [viewMode, setViewMode] = useListView();
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState<string | null>(null);
 
@@ -665,6 +666,7 @@ function VenueDrawer({ venueId, onClose }: { venueId: string | null; onClose: ()
 
               {/* Action Buttons */}
               <div className="flex flex-wrap gap-2">
+                <TrashButton kind="venue" id={v.id} name={v.name} onDeleted={onClose} className="order-last" />
                 {v.approvalStatus === "Approved" && !v.isPublished && (
                   <button
                     type="button"

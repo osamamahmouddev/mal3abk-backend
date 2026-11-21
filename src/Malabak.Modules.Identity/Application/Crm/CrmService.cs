@@ -81,7 +81,7 @@ public sealed class CrmService
         var due = await _dbContext.CrmContacts.AsNoTracking()
             .CountAsync(c => c.NextFollowUpAtUtc != null && c.NextFollowUpAtUtc < dueBefore, cancellationToken);
         var fresh = await _dbContext.CrmContacts.AsNoTracking().CountAsync(c => c.CreatedAtUtc >= now.AddDays(-7), cancellationToken);
-        var imported = _dbContext.CrmContacts.Where(c => c.WaitlistEntryId != null).Select(c => c.WaitlistEntryId);
+        var imported = _dbContext.CrmContacts.IgnoreQueryFilters().Where(c => c.WaitlistEntryId != null).Select(c => c.WaitlistEntryId);
         var waiting = await _dbContext.WaitlistEntries.AsNoTracking()
             .CountAsync(w => w.Audience == WaitlistAudience.Venue && !imported.Contains(w.Id), cancellationToken);
 
@@ -164,9 +164,13 @@ public sealed class CrmService
         }
 
         var index = BlindIndexOf(phone.Value);
-        if (await _dbContext.CrmContacts.AnyAsync(c => c.PhoneBlindIndex == index, cancellationToken))
+        var existing = await _dbContext.CrmContacts.IgnoreQueryFilters()
+            .Where(c => c.PhoneBlindIndex == index)
+            .Select(c => new { c.IsDeleted })
+            .FirstOrDefaultAsync(cancellationToken);
+        if (existing is not null)
         {
-            return Result.Failure<CrmContactDetail>(CrmErrors.DuplicatePhone);
+            return Result.Failure<CrmContactDetail>(existing.IsDeleted ? CrmErrors.DuplicateInTrash : CrmErrors.DuplicatePhone);
         }
 
         var id = Guid.CreateVersion7();
@@ -219,7 +223,7 @@ public sealed class CrmService
             var index = BlindIndexOf(phone.Value);
             if (index != contact.PhoneBlindIndex)
             {
-                if (await _dbContext.CrmContacts.AnyAsync(c => c.PhoneBlindIndex == index && c.Id != id, cancellationToken))
+                if (await _dbContext.CrmContacts.IgnoreQueryFilters().AnyAsync(c => c.PhoneBlindIndex == index && c.Id != id, cancellationToken))
                 {
                     return Result.Failure<CrmContactDetail>(CrmErrors.DuplicatePhone);
                 }
@@ -277,14 +281,14 @@ public sealed class CrmService
     /// <summary>Venue owners who left their number on the landing page become new contacts, once each.</summary>
     public async Task<CrmImportResult> ImportWaitlistAsync(Guid adminId, CancellationToken cancellationToken = default)
     {
-        var imported = _dbContext.CrmContacts.Where(c => c.WaitlistEntryId != null).Select(c => c.WaitlistEntryId);
+        var imported = _dbContext.CrmContacts.IgnoreQueryFilters().Where(c => c.WaitlistEntryId != null).Select(c => c.WaitlistEntryId);
         var entries = await _dbContext.WaitlistEntries.AsNoTracking()
             .Where(w => w.Audience == WaitlistAudience.Venue && !imported.Contains(w.Id))
             .OrderBy(w => w.CreatedAtUtc)
             .Take(500)
             .ToListAsync(cancellationToken);
 
-        var existing = (await _dbContext.CrmContacts.Select(c => c.PhoneBlindIndex).ToListAsync(cancellationToken)).ToHashSet(StringComparer.Ordinal);
+        var existing = (await _dbContext.CrmContacts.IgnoreQueryFilters().Select(c => c.PhoneBlindIndex).ToListAsync(cancellationToken)).ToHashSet(StringComparer.Ordinal);
         var now = _clock.UtcNow;
         var added = 0;
         var skipped = 0;

@@ -1,10 +1,11 @@
 "use client";
 
+import { TrashButton } from "@/components/TrashButton";
 import React, { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { Schemas } from "@malabak/api-client";
 import { KV, Page, PageHeader, Pill, ReasonModal, type ReasonRequest, SearchBox, btnDanger, btnOutline, btnSmall, card, muted } from "@/components/ui";
-import { Drawer, Pager, QueryState, Section, Select, Table, fmtDate, fmtDateTime, num, useNotice } from "@/components/admin";
+import { Drawer, Pager, QueryState, Section, Select, Table, fmtDate, fmtDateTime, num, useNotice, useListView } from "@/components/admin";
 import { api, unwrap } from "@/lib/api";
 import { useStepUp } from "@/lib/stepup";
 import { ChevronLeft, LayoutGrid, ShieldCheck, Table2 } from "lucide-react";
@@ -37,7 +38,7 @@ export default function UsersPage() {
   const [status, setStatus] = useState("");
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState<string | null>(null);
-  const [viewMode, setViewMode] = useState<"cards" | "table">("cards");
+  const [viewMode, setViewMode] = useListView();
 
   const users = useQuery({
     queryKey: ["admin-users", q, role, status, page],
@@ -274,6 +275,9 @@ function UserDrawer({ userId, onClose }: { userId: string | null; onClose: () =>
                 <button type="button" className={btnOutline} onClick={() => ask("reactivate", "رفع الإيقاف", "الحساب هيرجع يشتغل عادي.", "رفع الإيقاف")}>
                   رفع الإيقاف
                 </button>
+              )}
+              {u.status !== "Deleted" && !u.roles.some((r) => ["Admin", "SuperAdmin", "SupportAgent", "Finance"].includes(r)) && (
+                <TrashButton kind="user" id={u.id} name={u.fullName} onDeleted={onClose} />
               )}
               {u.status !== "Deleted" && (
                 <button type="button" className={btnSmall} onClick={() => ask("revoke", "قفل كل الجلسات", "مفيد لو الحساب اتسرق. المستخدم هيسجّل دخول تاني.", "قفل الجلسات")}>

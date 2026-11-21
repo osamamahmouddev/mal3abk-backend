@@ -414,6 +414,38 @@ public sealed class Venue : Entity<Guid>
         UpdatedAtUtc = nowUtc;
     }
 
+    /// <summary>Deleted by the platform team: off the app at once, restorable from the trash.</summary>
+    public void MoveToTrash(DateTime nowUtc)
+    {
+        IsPublished = false;
+        SoftDelete(nowUtc);
+        UpdatedAtUtc = nowUtc;
+    }
+
+    /// <summary>Back from the trash; an approved venue is published again (approved venues are always published).</summary>
+    public void RestoreFromTrash(DateTime nowUtc)
+    {
+        Restore();
+        IsPublished = IsApproved;
+        UpdatedAtUtc = nowUtc;
+    }
+
+    /// <summary>
+    /// Purged from the trash (irreversible): the contact number, location, description and photos are erased. The row and its
+    /// name stay, because bookings, payouts and reports still point to it.
+    /// </summary>
+    public void Purge(DateTime nowUtc)
+    {
+        PhoneNumber = string.Empty;
+        Description = null;
+        Address = string.Empty;
+        Latitude = null;
+        Longitude = null;
+        _photos.Clear();
+        IsPublished = false;
+        UpdatedAtUtc = nowUtc;
+    }
+
     private static void ValidateCoordinates(double? latitude, double? longitude)
     {
         if (latitude.HasValue && (latitude.Value < -90 || latitude.Value > 90))

@@ -4,7 +4,7 @@ import React, { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useConfirm } from "@malabak/ui";
 import { KpiCard, Page, PageHeader, Pill, SearchBox, btnOutline, btnPrimary, btnSmall, muted, toArabicDigits } from "@/components/ui";
-import { Pager, QueryState, Select, Table, fmtDateTime, useNotice } from "@/components/admin";
+import { Pager, QueryState, Select, Table, fmtDateTime, useNotice, useListView } from "@/components/admin";
 import { api, downloadFile, unwrap } from "@/lib/api";
 import {
   AlertTriangle,
@@ -110,7 +110,7 @@ export default function WaitlistPage() {
   const [plan, setPlan] = useState("");
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
-  const [viewMode, setViewMode] = useState<"cards" | "table">("cards");
+  const [viewMode, setViewMode] = useListView();
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [isExporting, setIsExporting] = useState(false);
   const notice = useNotice();

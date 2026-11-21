@@ -91,6 +91,8 @@ public static class IdentityModule
         services.AddScoped<Malabak.SharedKernel.Contracts.IAdminMetricsProvider, Malabak.Modules.Identity.Application.Admin.UserMetricsProvider>();
         services.AddScoped<Malabak.Modules.Identity.Application.Waitlist.IWaitlistService, Malabak.Modules.Identity.Application.Waitlist.WaitlistService>();
         services.AddScoped<Malabak.Modules.Identity.Application.Crm.CrmService>();
+        services.AddScoped<Malabak.SharedKernel.Contracts.ITrashProvider, Malabak.Modules.Identity.Application.Trash.UserTrashProvider>();
+        services.AddScoped<Malabak.SharedKernel.Contracts.ITrashProvider, Malabak.Modules.Identity.Application.Trash.CrmTrashProvider>();
         services.AddScoped<Malabak.SharedKernel.Security.IReEncryptionTarget, Malabak.Modules.Identity.Infrastructure.CrmPhoneReEncryptionTarget>();
 
         // Player profile & onboarding

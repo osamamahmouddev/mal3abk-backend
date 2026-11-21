@@ -4,7 +4,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { Schemas } from "@malabak/api-client";
 import { KV, Page, PageHeader, Pill, ReasonModal, type ReasonRequest, SearchBox, btnDanger, card, money, muted, toArabicDigits } from "@/components/ui";
-import { Drawer, Pager, QueryState, Section, Select, Table, fmtDateTime, useNotice } from "@/components/admin";
+import { Drawer, Pager, QueryState, Section, Select, Table, fmtDateTime, useNotice, useListView } from "@/components/admin";
 import { api, unwrap } from "@/lib/api";
 import { useStepUp } from "@/lib/stepup";
 import { Building2, CalendarDays, CheckCircle2, ChevronLeft, Clock, ExternalLink, FileText, LayoutGrid, NotebookPen, Phone, ReceiptText, RotateCw, ShieldAlert, Smartphone, Table2, TriangleAlert, User, XCircle, ZoomIn, ZoomOut } from "lucide-react";
@@ -43,7 +43,7 @@ export default function BookingsPage() {
   const [status, setStatus] = useState("");
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState<string | null>(null);
-  const [viewMode, setViewMode] = useState<"cards" | "table">("cards");
+  const [viewMode, setViewMode] = useListView();
 
   const venuesQuery = useQuery({
     queryKey: ["admin-venues-lookup"],

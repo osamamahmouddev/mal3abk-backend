@@ -11,7 +11,7 @@ import { api, unwrap } from "@/lib/api";
 import { SessionGate } from "./SessionGate";
 import { TopProgressBar } from "./TopProgressBar";
 import { Pitch } from "./icons";
-import { BadgeCheck, ChartColumn, ClipboardList, HandCoins, Handshake, Hourglass, LayoutDashboard, LifeBuoy, LogOut, type LucideIcon, MapPin, Menu, ReceiptText, Scale, ScrollText, Settings, ShieldCheck, Sparkles, Trophy, UserCog, Users, X } from "lucide-react";
+import { BadgeCheck, ChartColumn, ClipboardList, HandCoins, Handshake, Hourglass, LayoutDashboard, LifeBuoy, LogOut, type LucideIcon, MapPin, Menu, ReceiptText, Scale, ScrollText, Settings, ShieldCheck, Sparkles, Trash2, Trophy, UserCog, Users, X } from "lucide-react";
 
 /** Admin app sections, keyed by the navigation keys the API returns for the signed-in staff member's permissions. */
 const SECTIONS: Record<string, { title: string; href: string; icon: LucideIcon | typeof Pitch }[]> = {
@@ -34,6 +34,7 @@ const SECTIONS: Record<string, { title: string; href: string; icon: LucideIcon |
   settings: [{ title: "إعدادات المنصة", href: "/settings", icon: Settings }, { title: "المناطق", href: "/areas", icon: MapPin }],
   accounts: [{ title: "حسابات الفريق", href: "/accounts", icon: UserCog }],
   audit: [{ title: "سجل التدقيق", href: "/audit", icon: ScrollText }],
+  trash: [{ title: "المحذوف مؤخراً", href: "/trash", icon: Trash2 }],
 };
 
 function Brand({ height = "h-8" }: { height?: string; size?: string }) {
@@ -109,7 +110,7 @@ function SideNav({ pathname, user, onClose }: { pathname: string; user: SessionU
   return (
     <aside
       id={onClose ? "admin-nav-drawer" : undefined}
-      className={`w-[248px] shrink-0 bg-ink text-white px-4 py-6 flex flex-col gap-5 ${onClose ? "h-full overflow-y-auto" : "min-h-screen"}`}
+      className={`w-[248px] shrink-0 bg-ink text-white px-4 py-6 flex flex-col gap-5 ${onClose ? "h-full overflow-y-auto" : "h-screen sticky top-0"}`}
     >
       <div className="flex items-center gap-2.5 px-2">
         <Brand />
@@ -124,7 +125,7 @@ function SideNav({ pathname, user, onClose }: { pathname: string; user: SessionU
           </button>
         )}
       </div>
-      <nav aria-label="أقسام الإدارة" className="flex flex-col gap-0.5">
+      <nav aria-label="أقسام الإدارة" className="flex flex-col gap-0.5 flex-1 min-h-0 overflow-y-auto -mx-1 px-1">
         {navigation.isLoading && <div className="h-40 rounded-[9px] bg-white/[0.06] animate-pulse" />}
         {items.map((n) => {
           const active = isActive(n.href);

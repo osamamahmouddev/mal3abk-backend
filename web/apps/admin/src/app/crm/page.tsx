@@ -7,6 +7,7 @@ import { CalendarClock, Download, MessageCircle, NotebookPen, Phone, PhoneCall, 
 import { Page, PageHeader, Pill, ReasonModal, type ReasonRequest, SearchBox, btnOutline, btnPrimary, btnSmall, card, muted, toArabicDigits } from "@/components/ui";
 import { Drawer, Field, QueryState, Section, TextInput, fmtDate, fmtDateTime, useNotice } from "@/components/admin";
 import { api, unwrap } from "@/lib/api";
+import { TrashButton } from "@/components/TrashButton";
 
 type Contact = Schemas["CrmContactItem"];
 type StageKey = "New" | "Contacted" | "Interested" | "Onboarding" | "Active" | "Lost";
@@ -334,6 +335,7 @@ function ContactDrawer({ contactId, onClose }: { contactId: string | null; onClo
               <span className={`text-[12px] ${muted}`}>
                 {SOURCE[d.contact.source] ?? d.contact.source} · اتضاف {fmtDate(d.contact.createdAtUtc)}
               </span>
+              <TrashButton kind="crm" id={d.contact.id} name={d.contact.name} onDeleted={onClose} className="ms-auto !min-h-[32px] !px-2.5 !text-xs" />
             </div>
 
             <Section title="المرحلة">

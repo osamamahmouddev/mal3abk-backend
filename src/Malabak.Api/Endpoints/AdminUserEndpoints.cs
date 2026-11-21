@@ -160,7 +160,8 @@ public static class AdminNavigation
         new("featured", "/featured", Permissions.AdminSettingsManage),
         new("settings", "/settings", Permissions.AdminSettingsManage),
         new("accounts", "/accounts", Permissions.AdminAccountsManage),
-        new("audit", "/audit", Permissions.AuditLogView)
+        new("audit", "/audit", Permissions.AuditLogView),
+        new("trash", "/trash", Permissions.AdminUsersManage)
     ];
 
     public static IReadOnlyList<AdminNavItem> For(UserPermissions? permissions) =>

@@ -25,7 +25,7 @@ public sealed class CrmPhoneReEncryptionTarget : IReEncryptionTarget
         var offset = 0;
         while (processed < batchSize)
         {
-            var page = await _dbContext.CrmContacts.OrderBy(c => c.Id).Skip(offset).Take(_pageSize).ToListAsync(cancellationToken);
+            var page = await _dbContext.CrmContacts.IgnoreQueryFilters().OrderBy(c => c.Id).Skip(offset).Take(_pageSize).ToListAsync(cancellationToken);
             if (page.Count == 0)
             {
                 break;

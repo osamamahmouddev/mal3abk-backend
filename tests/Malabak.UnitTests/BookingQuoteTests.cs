@@ -118,10 +118,27 @@ public sealed class BookingQuoteTests
         return new BookingQuoteService(db, new PricingService(db, _clock), new PitchAvailabilityChecker(db, _clock), bookings, _policies, new TestSigner(), _clock);
     }
 
+    [Fact]
+    public async Task APitchOfADeletedVenue_IsNotQuotedAsync()
+    {
+        await using var db = await SeedAsync();
+        var venue = await db.Venues.SingleAsync();
+        venue.MoveToTrash(_clock.UtcNow);
+        await db.SaveChangesAsync();
+        var start = new DateTime(2026, 11, 12, 16, 0, 0, DateTimeKind.Utc);
+
+        var quote = await new PricingService(db, _clock).QuoteAsync(_pitchId, start, start.AddHours(1));
+
+        quote.IsFailure.Should().BeTrue("a deleted venue's pitches cannot be booked");
+    }
+
     private async Task<VenuesDbContext> SeedAsync()
     {
         var db = new VenuesDbContext(new DbContextOptionsBuilder<VenuesDbContext>().UseInMemoryDatabase(Guid.NewGuid().ToString()).Options);
         _venueId = Guid.NewGuid();
+        // A pitch is only quoted while its venue exists (a deleted venue's pitches cannot be booked).
+        db.Venues.Add(Venue.Create(_venueId, "Club", $"club-{_venueId:N}", null, Guid.NewGuid(), "Addr", "Cairo", "Maadi", null, null, "+201000000001",
+            null, null, _clock.UtcNow));
         db.Pitches.Add(Pitch.Create(_pitchId, _venueId, "P1", SurfaceType.ArtificialTurfValue, 5, null, null, null, _clock.UtcNow));
         db.OperatingSchedules.Add(OperatingSchedule.Create(Guid.NewGuid(), _venueId, DayOfWeek.Thursday, new TimeOnly(18, 0), new TimeOnly(23, 0), 60, _clock.UtcNow));
         db.PriceRules.Add(PriceRule.Create(_venueId,
