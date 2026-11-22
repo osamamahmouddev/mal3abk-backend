@@ -96,7 +96,10 @@ public sealed record VenueFinancialSummaryItem(
     decimal PlatformCollectedOnline = 0m,
     decimal CommissionCollected = 0m,
     decimal CommissionOutstanding = 0m,
-    decimal PlatformOwesVenue = 0m);
+    decimal PlatformOwesVenue = 0m,
+    string? CommissionType = null,
+    decimal? CommissionRate = null,
+    bool CustomCommissionEnabled = false);
 
 public static class AdminBookingErrors
 {
@@ -633,7 +636,10 @@ public sealed class AdminBookingService
                 PlatformCollectedOnline: rows.Sum(r => r.Online),
                 CommissionCollected: rows.Sum(r => r.Collected),
                 CommissionOutstanding: totalCommission - rows.Sum(r => r.Collected),
-                PlatformOwesVenue: platformOwesVenue);
+                PlatformOwesVenue: platformOwesVenue,
+                CommissionType: comm?.CommissionType,
+                CommissionRate: comm?.CommissionRate,
+                CustomCommissionEnabled: comm?.CustomCommissionEnabled ?? false);
         })
         .OrderByDescending(s => s.TotalBookings)
         .ToList();
