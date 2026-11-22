@@ -120,6 +120,9 @@ jobs:
               print(f"Error: Missing PostgreSQL connection string for {target_env} environment.")
               sys.exit(1)
 
+          if "SSL Mode=" not in postgres_conn and "sslmode=" not in postgres_conn.lower():
+              postgres_conn = postgres_conn.rstrip(";") + ";SSL Mode=Require;Trust Server Certificate=true;"
+
           local_dir = "publish"
           remote_root = "/wwwroot"
 
@@ -216,6 +219,9 @@ jobs:
                   web_config = web_config.replace("</aspNetCore>", "  <environmentVariables>\n      </environmentVariables>\n    </aspNetCore>", 1)
 
           web_config = re.sub(r'stdoutLogEnabled="false"', 'stdoutLogEnabled="true"', web_config)
+          web_config = re.sub(r'hostingModel="[^"]*"', 'hostingModel="OutOfProcess" startupTimeLimit="180"', web_config)
+          if 'hostingModel="OutOfProcess"' not in web_config:
+              web_config = re.sub(r'<aspNetCore\b', '<aspNetCore hostingModel="OutOfProcess" startupTimeLimit="180"', web_config, count=1)
           web_config = patch_environment_variable(web_config, "ASPNETCORE_ENVIRONMENT", "Development")
           web_config = patch_environment_variable(web_config, "Database__MigrateOnStartup", "true")
           web_config = patch_environment_variable(web_config, "Hangfire__Enabled", "false")
@@ -247,6 +253,11 @@ jobs:
           web_config = patch_environment_variable(web_config, "Identity__OtpDelivery__Slack__WebhookUrl", os.environ.get("OTP_SLACK_WEBHOOK", ""))
 
           ftp.storbinary("STOR web.config", io.BytesIO(web_config.encode("utf-8")))
+          try:
+              ftp.cwd("/")
+              ftp.storbinary("STOR web.config", io.BytesIO(web_config.encode("utf-8")))
+          except Exception:
+              pass
           print("    web.config written successfully.")
 
           print("==> Stopping IIS process with app_offline.htm...")
