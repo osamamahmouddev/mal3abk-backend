@@ -113,6 +113,16 @@ public static class HangfireServiceCollectionExtensions
                 job => job.ExecuteAsync(CancellationToken.None),
                 Malabak.Api.Infrastructure.Platform.TrashPurgeJob.CronSchedule);
 
+            recurringJobs.AddOrUpdate<Malabak.Api.Infrastructure.Platform.DataRetentionJob>(
+                Malabak.Api.Infrastructure.Platform.DataRetentionJob.RecurringJobId,
+                job => job.ExecuteAsync(CancellationToken.None),
+                Malabak.Api.Infrastructure.Platform.DataRetentionJob.CronSchedule);
+
+            recurringJobs.AddOrUpdate<Malabak.Api.Infrastructure.Idempotency.IdempotencyCleanupJob>(
+                "platform-idempotency-cleanup",
+                job => job.ExecuteAsync(CancellationToken.None),
+                "45 3 * * *");
+
             recurringJobs.AddOrUpdate<ProofRetentionJob>(
                 ProofRetentionJob.RecurringJobId,
                 job => job.ExecuteRecurringCleanupAsync(CancellationToken.None),
