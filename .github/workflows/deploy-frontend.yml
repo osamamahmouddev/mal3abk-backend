@@ -92,6 +92,7 @@ jobs:
         env:
           VERCEL_TOKEN: ${{ steps.target.outputs.TOKEN }}
           VERCEL_ORG_ID: ${{ steps.target.outputs.ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ steps.target.outputs.PROJECT_ID }}
           PROD_FLAG: ${{ steps.target.outputs.PROD_FLAG }}
         run: |
           npx --yes vercel build $PROD_FLAG --token=$VERCEL_TOKEN --scope=$VERCEL_ORG_ID
@@ -101,6 +102,7 @@ jobs:
         env:
           VERCEL_TOKEN: ${{ steps.target.outputs.TOKEN }}
           VERCEL_ORG_ID: ${{ steps.target.outputs.ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ steps.target.outputs.PROJECT_ID }}
           PROD_FLAG: ${{ steps.target.outputs.PROD_FLAG }}
         run: |
           set +e
@@ -190,6 +192,7 @@ jobs:
         env:
           VERCEL_TOKEN: ${{ steps.target.outputs.TOKEN }}
           VERCEL_ORG_ID: ${{ steps.target.outputs.ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ steps.target.outputs.PROJECT_ID }}
           PROD_FLAG: ${{ steps.target.outputs.PROD_FLAG }}
         run: |
           npx --yes vercel build $PROD_FLAG --token=$VERCEL_TOKEN --scope=$VERCEL_ORG_ID
@@ -199,6 +202,7 @@ jobs:
         env:
           VERCEL_TOKEN: ${{ steps.target.outputs.TOKEN }}
           VERCEL_ORG_ID: ${{ steps.target.outputs.ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ steps.target.outputs.PROJECT_ID }}
           PROD_FLAG: ${{ steps.target.outputs.PROD_FLAG }}
         run: |
           set +e
@@ -288,6 +292,7 @@ jobs:
         env:
           VERCEL_TOKEN: ${{ steps.target.outputs.TOKEN }}
           VERCEL_ORG_ID: ${{ steps.target.outputs.ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ steps.target.outputs.PROJECT_ID }}
           PROD_FLAG: ${{ steps.target.outputs.PROD_FLAG }}
         run: |
           npx --yes vercel build $PROD_FLAG --token=$VERCEL_TOKEN --scope=$VERCEL_ORG_ID
@@ -297,6 +302,7 @@ jobs:
         env:
           VERCEL_TOKEN: ${{ steps.target.outputs.TOKEN }}
           VERCEL_ORG_ID: ${{ steps.target.outputs.ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ steps.target.outputs.PROJECT_ID }}
           PROD_FLAG: ${{ steps.target.outputs.PROD_FLAG }}
         run: |
           set +e
