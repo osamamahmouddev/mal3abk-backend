@@ -82,24 +82,26 @@ jobs:
         run: |
           mkdir -p .vercel
           echo "{\"orgId\":\"$VERCEL_ORG_ID\",\"projectId\":\"$VERCEL_PROJECT_ID\"}" > .vercel/project.json
-          npx --yes vercel pull --yes --environment=$ENV_NAME --token=$VERCEL_TOKEN
+          npx --yes vercel pull --yes --environment=$ENV_NAME --token=$VERCEL_TOKEN --scope=$VERCEL_ORG_ID
 
       - name: Build with Vercel CLI
         if: steps.target.outputs.SHOULD_DEPLOY == 'true'
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ steps.target.outputs.ORG_ID }}
           PROD_FLAG: ${{ steps.target.outputs.PROD_FLAG }}
         run: |
-          npx --yes vercel build $PROD_FLAG --token=$VERCEL_TOKEN
+          npx --yes vercel build $PROD_FLAG --token=$VERCEL_TOKEN --scope=$VERCEL_ORG_ID
 
       - name: Deploy Prebuilt to Vercel
         if: steps.target.outputs.SHOULD_DEPLOY == 'true'
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ steps.target.outputs.ORG_ID }}
           PROD_FLAG: ${{ steps.target.outputs.PROD_FLAG }}
         run: |
           set +e
-          DEPLOY_OUTPUT=$(GIT_DIR=/dev/null npx --yes vercel deploy --prebuilt $PROD_FLAG --token=$VERCEL_TOKEN --yes 2>&1)
+          DEPLOY_OUTPUT=$(GIT_DIR=/dev/null npx --yes vercel deploy --prebuilt $PROD_FLAG --token=$VERCEL_TOKEN --scope=$VERCEL_ORG_ID --yes 2>&1)
           EXIT_CODE=$?
           echo "$DEPLOY_OUTPUT"
           if [ $EXIT_CODE -ne 0 ]; then
@@ -175,24 +177,26 @@ jobs:
         run: |
           mkdir -p .vercel
           echo "{\"orgId\":\"$VERCEL_ORG_ID\",\"projectId\":\"$VERCEL_PROJECT_ID\"}" > .vercel/project.json
-          npx --yes vercel pull --yes --environment=$ENV_NAME --token=$VERCEL_TOKEN
+          npx --yes vercel pull --yes --environment=$ENV_NAME --token=$VERCEL_TOKEN --scope=$VERCEL_ORG_ID
 
       - name: Build with Vercel CLI
         if: steps.target.outputs.SHOULD_DEPLOY == 'true'
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ steps.target.outputs.ORG_ID }}
           PROD_FLAG: ${{ steps.target.outputs.PROD_FLAG }}
         run: |
-          npx --yes vercel build $PROD_FLAG --token=$VERCEL_TOKEN
+          npx --yes vercel build $PROD_FLAG --token=$VERCEL_TOKEN --scope=$VERCEL_ORG_ID
 
       - name: Deploy Prebuilt to Vercel
         if: steps.target.outputs.SHOULD_DEPLOY == 'true'
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ steps.target.outputs.ORG_ID }}
           PROD_FLAG: ${{ steps.target.outputs.PROD_FLAG }}
         run: |
           set +e
-          DEPLOY_OUTPUT=$(GIT_DIR=/dev/null npx --yes vercel deploy --prebuilt $PROD_FLAG --token=$VERCEL_TOKEN --yes 2>&1)
+          DEPLOY_OUTPUT=$(GIT_DIR=/dev/null npx --yes vercel deploy --prebuilt $PROD_FLAG --token=$VERCEL_TOKEN --scope=$VERCEL_ORG_ID --yes 2>&1)
           EXIT_CODE=$?
           echo "$DEPLOY_OUTPUT"
           if [ $EXIT_CODE -ne 0 ]; then
@@ -268,24 +272,26 @@ jobs:
         run: |
           mkdir -p .vercel
           echo "{\"orgId\":\"$VERCEL_ORG_ID\",\"projectId\":\"$VERCEL_PROJECT_ID\"}" > .vercel/project.json
-          npx --yes vercel pull --yes --environment=$ENV_NAME --token=$VERCEL_TOKEN
+          npx --yes vercel pull --yes --environment=$ENV_NAME --token=$VERCEL_TOKEN --scope=$VERCEL_ORG_ID
 
       - name: Build with Vercel CLI
         if: steps.target.outputs.SHOULD_DEPLOY == 'true'
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ steps.target.outputs.ORG_ID }}
           PROD_FLAG: ${{ steps.target.outputs.PROD_FLAG }}
         run: |
-          npx --yes vercel build $PROD_FLAG --token=$VERCEL_TOKEN
+          npx --yes vercel build $PROD_FLAG --token=$VERCEL_TOKEN --scope=$VERCEL_ORG_ID
 
       - name: Deploy Prebuilt to Vercel
         if: steps.target.outputs.SHOULD_DEPLOY == 'true'
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ steps.target.outputs.ORG_ID }}
           PROD_FLAG: ${{ steps.target.outputs.PROD_FLAG }}
         run: |
           set +e
-          DEPLOY_OUTPUT=$(GIT_DIR=/dev/null npx --yes vercel deploy --prebuilt $PROD_FLAG --token=$VERCEL_TOKEN --yes 2>&1)
+          DEPLOY_OUTPUT=$(GIT_DIR=/dev/null npx --yes vercel deploy --prebuilt $PROD_FLAG --token=$VERCEL_TOKEN --scope=$VERCEL_ORG_ID --yes 2>&1)
           EXIT_CODE=$?
           echo "$DEPLOY_OUTPUT"
           if [ $EXIT_CODE -ne 0 ]; then
