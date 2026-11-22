@@ -321,3 +321,91 @@ jobs:
               exit $EXIT_CODE
             fi
           fi
+
+
+  notify-slack:
+    name: Notify Slack of Frontend Deployments
+    needs: [ deploy-landing, deploy-venue, deploy-admin ]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send Slack Notification
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_MONITOR_WEBHOOK || secrets.MALABAK_OTP_SLACK_WEBHOOK }}
+          LANDING_STATUS: ${{ needs.deploy-landing.result }}
+          VENUE_STATUS: ${{ needs.deploy-venue.result }}
+          ADMIN_STATUS: ${{ needs.deploy-admin.result }}
+          REF_NAME: ${{ github.ref_name }}
+          EVENT_NAME: ${{ github.event_name }}
+          INPUT_ENV: ${{ github.event.inputs.environment }}
+          COMMIT_MSG: ${{ github.event.head_commit.message || github.sha }}
+          ACTOR: ${{ github.actor }}
+          RUN_URL: "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+        run: |
+          python3 - << 'EOF'
+          import os, json, urllib.request
+
+          slack_url = os.environ.get("SLACK_WEBHOOK_URL", "").strip()
+          if not slack_url:
+              exit(0)
+
+          event_name = os.environ.get("EVENT_NAME")
+          ref_name = os.environ.get("REF_NAME")
+          input_env = os.environ.get("INPUT_ENV")
+          target_env = input_env if event_name == "workflow_dispatch" else ("PRODUCTION" if ref_name == "main" else "STAGING")
+
+          landing_status = os.environ.get("LANDING_STATUS", "unknown")
+          venue_status = os.environ.get("VENUE_STATUS", "unknown")
+          admin_status = os.environ.get("ADMIN_STATUS", "unknown")
+          commit_msg = os.environ.get("COMMIT_MSG", "").split("\n")[0]
+          actor = os.environ.get("ACTOR", "")
+          run_url = os.environ.get("RUN_URL", "")
+
+          all_success = all(s in ["success", "skipped"] for s in [landing_status, venue_status, admin_status])
+          emoji = "🎨" if all_success else "⚠️"
+          color = "#16a34a" if all_success else "#dc2626"
+          title = f"{emoji} Frontend Deployments: {'SUCCESS' if all_success else 'FAILED'} [{target_env}]"
+
+          admin_url = "https://mal3abk-admin.vercel.app" if target_env == "PRODUCTION" else "https://mal3abk-statging.vercel.app"
+          venue_url = "https://mal3abak-six.vercel.app" if target_env == "PRODUCTION" else "https://mal3abk-venue-staging.vercel.app"
+          landing_url = "https://mal3abk-backend.vercel.app"
+
+          fields = [
+              {"type": "mrkdwn", "text": f"*Admin Dashboard:*\n`{admin_status}` • <{admin_url}|Open>"},
+              {"type": "mrkdwn", "text": f"*Venue Dashboard:*\n`{venue_status}` • <{venue_url}|Open>"},
+              {"type": "mrkdwn", "text": f"*Landing Page:*\n`{landing_status}` • <{landing_url}|Open>"},
+              {"type": "mrkdwn", "text": f"*Triggered By:*\n`{actor}`"}
+          ]
+
+          payload = {
+              "text": f"{title}",
+              "attachments": [{
+                  "color": color,
+                  "blocks": [
+                      {
+                          "type": "header",
+                          "text": {"type": "plain_text", "text": title, "emoji": True}
+                      },
+                      {
+                          "type": "section",
+                          "fields": fields
+                      },
+                      {
+                          "type": "section",
+                          "text": {"type": "mrkdwn", "text": f"*Commit:*\n>{commit_msg}"}
+                      },
+                      {
+                          "type": "context",
+                          "elements": [{"type": "mrkdwn", "text": f"<{run_url}|View GitHub Actions Run>"}]
+                      }
+                  ]
+              }]
+          }
+
+          try:
+              req = urllib.request.Request(slack_url, data=json.dumps(payload).encode("utf-8"), headers={"Content-Type": "application/json"})
+              with urllib.request.urlopen(req, timeout=10) as res:
+                  print("Slack notification dispatched successfully.")
+          except Exception as e:
+              print(f"Error notifying Slack: {e}")
+          EOF
