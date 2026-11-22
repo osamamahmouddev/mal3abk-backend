@@ -89,15 +89,23 @@ export function createProxy(config: BffConfig) {
       if (value) responseHeaders.set(name, value);
     }
 
+    const response = new NextResponse(upstream.status === 204 ? null : upstream.body, {
+      status: upstream.status,
+      headers: responseHeaders,
+    });
+
     const appCsrf = csrfCookieName(config);
     if (session.csrf && request.cookies.get(appCsrf)?.value !== session.csrf) {
-      responseHeaders.append(
-        "set-cookie",
-        `${appCsrf}=${encodeURIComponent(session.csrf)}; Path=/; Max-Age=${config.sessionTtlSeconds}; SameSite=${config.sameSite === "strict" ? "Strict" : "Lax"}${isProduction ? "; Secure" : ""}`,
-      );
+      response.cookies.set(appCsrf, session.csrf, {
+        path: "/",
+        maxAge: config.sessionTtlSeconds,
+        sameSite: config.sameSite,
+        secure: isProduction,
+        httpOnly: false,
+      });
     }
 
-    return new NextResponse(upstream.status === 204 ? null : upstream.body, { status: upstream.status, headers: responseHeaders });
+    return response;
   }
 
   return { GET: handle, POST: handle, PUT: handle, PATCH: handle, DELETE: handle };

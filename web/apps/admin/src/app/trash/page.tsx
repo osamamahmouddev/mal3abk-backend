@@ -40,7 +40,7 @@ export default function TrashPage() {
     queryFn: () => unwrap(api.GET("/api/v1/admin/trash", { params: { query: { kind: kind || undefined } } })),
   });
 
-  const refresh = () => queryClient.invalidateQueries();
+  const refresh = () => queryClient.invalidateQueries({ queryKey: ["admin-trash"] });
 
   const restore = useMutation({
     mutationFn: (item: Item) => unwrap(api.POST("/api/v1/admin/trash/{entryId}/restore", { params: { path: { entryId: item.id } } })),

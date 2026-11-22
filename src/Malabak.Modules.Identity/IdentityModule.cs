@@ -94,6 +94,9 @@ public static class IdentityModule
         services.AddScoped<Malabak.SharedKernel.Contracts.ITrashProvider, Malabak.Modules.Identity.Application.Trash.UserTrashProvider>();
         services.AddScoped<Malabak.SharedKernel.Contracts.ITrashProvider, Malabak.Modules.Identity.Application.Trash.CrmTrashProvider>();
         services.AddScoped<Malabak.SharedKernel.Security.IReEncryptionTarget, Malabak.Modules.Identity.Infrastructure.CrmPhoneReEncryptionTarget>();
+        services.AddScoped<Malabak.SharedKernel.Contracts.IDataRetentionTask, Malabak.Modules.Identity.Infrastructure.RefreshTokenRetention>();
+        services.AddScoped<Malabak.SharedKernel.Contracts.IDataRetentionTask, Malabak.Modules.Identity.Infrastructure.InactiveSessionRetention>();
+        services.AddScoped<Malabak.SharedKernel.Contracts.IDataRetentionTask, Malabak.Modules.Identity.Infrastructure.SmsDispatchRetention>();
 
         // Player profile & onboarding
         services.AddScoped<Malabak.Modules.Identity.Application.Profile.ProfileHandlers>();

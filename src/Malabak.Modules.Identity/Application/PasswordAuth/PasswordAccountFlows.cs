@@ -1,4 +1,5 @@
 using Malabak.Modules.Identity.Application.Common;
+using Malabak.Modules.Identity.Application.Sessions;
 using Malabak.Modules.Identity.Domain;
 using Malabak.Modules.Identity.Infrastructure;
 using Malabak.SharedKernel;
@@ -48,6 +49,7 @@ public sealed class PasswordAccountHandlers :
     private readonly IEmailSender _emailSender;
     private readonly ISmsAlertService _phoneAlerts;
     private readonly ITotpService _totp;
+    private readonly ISessionStore? _sessionStore;
     private readonly IFieldCipher _cipher;
     private readonly IClock _clock;
     private readonly ILogger<PasswordAccountHandlers> _logger;
@@ -64,7 +66,8 @@ public sealed class PasswordAccountHandlers :
         IFieldCipher cipher,
         IClock clock,
         IConfiguration configuration,
-        ILogger<PasswordAccountHandlers> logger)
+        ILogger<PasswordAccountHandlers> logger,
+        ISessionStore? sessionStore = null)
     {
         _dbContext = dbContext;
         _hasher = hasher;
@@ -73,6 +76,7 @@ public sealed class PasswordAccountHandlers :
         _emailSender = emailSender;
         _phoneAlerts = phoneAlerts;
         _totp = totp;
+        _sessionStore = sessionStore;
         _cipher = cipher;
         _clock = clock;
         _logger = logger;
@@ -260,6 +264,10 @@ public sealed class PasswordAccountHandlers :
         openSessions.ForEach(s => s.Revoke(nowUtc, reason));
 
         await _dbContext.SaveChangesAsync(cancellationToken);
+        if (_sessionStore != null)
+        {
+            await _sessionStore.MarkRevokedAsync(openSessions.Select(s => s.Id).ToList(), cancellationToken);
+        }
         _logger.LogInformation("Password updated for user {UserId} ({Reason}); {Count} sessions revoked", user.Id, reason, activeTokens.Count);
     }
 

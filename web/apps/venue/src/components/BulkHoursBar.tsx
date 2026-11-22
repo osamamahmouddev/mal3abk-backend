@@ -47,6 +47,9 @@ export function BulkHoursBar({
   const [price, setPrice] = useState("");
   const [error, setError] = useState<string | null>(null);
 
+  const hasPastHour = hours.some((h) => new Date(h.startUtc).getTime() <= Date.now());
+  const effectiveStatus = hasPastHour ? STATUS.confirmed : status;
+
   const refresh = () =>
     queryClient.invalidateQueries({ predicate: (q) => ["calendar", "dashboard", "manual-booking-calendar"].includes(String(q.queryKey[0])) || String(q.queryKey[0]).startsWith("booking") });
 
@@ -57,7 +60,7 @@ export function BulkHoursBar({
           params: { path: { venueId } },
           body: {
             slots: hours,
-            paymentStatus: status,
+            paymentStatus: effectiveStatus,
             customerName: name.trim() || null,
             customerPhone: phone.trim() || null,
             pricePerHour: price.trim() ? Number(price) : null,
@@ -68,9 +71,21 @@ export function BulkHoursBar({
       await refresh();
       setBooking(false);
       const failed = r.slots.filter((s) => !s.succeeded);
-      const why = failed[0]?.errorCode === "Booking.PriceUnavailable" ? " (مفيش سعر للميعاد ده: اكتب سعر الساعة)" : failed.length ? " (كانت محجوزة أو مقفولة)" : "";
+      let why = "";
+      if (failed.length) {
+        const firstErr = failed[0];
+        if (firstErr.errorCode === "Booking.PriceUnavailable") {
+          why = " (مفيش سعر للميعاد ده: اكتب سعر الساعة)";
+        } else if (firstErr.errorCode === "Booking.UnconfirmedInThePast") {
+          why = " (الميعاد عدى خلاص، لازم الحجز يكون «متثبت»)";
+        } else if (firstErr.error) {
+          why = ` (${firstErr.error})`;
+        } else {
+          why = " (كانت محجوزة أو مقفولة)";
+        }
+      }
       onDone(
-        `${status === STATUS.tentative ? "اتحجز مبدئياً" : "اتحجز"} ${toArabicDigits(r.succeeded)} ميعاد${
+        `${effectiveStatus === STATUS.tentative ? "اتحجز مبدئياً" : "اتحجز"} ${toArabicDigits(r.succeeded)} ميعاد${
           failed.length ? `، و${toArabicDigits(failed.length)} ماتحجزش${why}` : ""
         }.`,
       );
@@ -161,24 +176,41 @@ export function BulkHoursBar({
               حجز {toArabicDigits(hours.length)} ساعة
             </h2>
             <p className={`text-xs ${muted}`}>الساعات اللي ورا بعض في نفس الملعب بتبقى حجز واحد. كلها هتبان محجوزة في التطبيق.</p>
-            <fieldset className="flex gap-2">
+            <fieldset className="flex flex-col gap-1.5">
               <legend className="text-[13px] font-semibold mb-1">حالة الحجز</legend>
-              {(
-                [
-                  [STATUS.confirmed, "متثبت"],
-                  [STATUS.tentative, "مبدئي (لسه مش متثبت)"],
-                ] as const
-              ).map(([value, label]) => (
-                <button
-                  key={value}
-                  type="button"
-                  aria-pressed={status === value}
-                  onClick={() => setStatus(value)}
-                  className={`flex-1 min-h-[42px] rounded-xl border text-sm ${status === value ? "bg-navy-900 text-white border-navy-900 font-bold" : "bg-white border-[#C9CFD9] hover:bg-slate-50"}`}
-                >
-                  {label}
-                </button>
-              ))}
+              <div className="flex gap-2">
+                {(
+                  [
+                    [STATUS.confirmed, "متثبت"],
+                    [STATUS.tentative, "مبدئي (لسه مش متثبت)"],
+                  ] as const
+                ).map(([value, label]) => {
+                  const disabled = value === STATUS.tentative && hasPastHour;
+                  return (
+                    <button
+                      key={value}
+                      type="button"
+                      disabled={disabled}
+                      aria-pressed={effectiveStatus === value}
+                      onClick={() => setStatus(value)}
+                      className={`flex-1 min-h-[42px] rounded-xl border text-sm ${
+                        effectiveStatus === value
+                          ? "bg-navy-900 text-white border-navy-900 font-bold"
+                          : disabled
+                          ? "bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed"
+                          : "bg-white border-[#C9CFD9] hover:bg-slate-50"
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+              {hasPastHour && (
+                <p className="text-[11px] text-amber-700 font-medium">
+                  المواعيد اللي بدأت أو عدت مينفعش تتحجز «مبدئي»، لازم تكون «متثبتة».
+                </p>
+              )}
             </fieldset>
             <label className="flex flex-col gap-1 text-[13px] font-semibold">
               محجوز لمين؟ (اختياري)

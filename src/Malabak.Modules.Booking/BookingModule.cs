@@ -82,6 +82,7 @@ public static class BookingModule
                 ? new NoopHoldExpiryScheduler()
                 : new HangfireHoldExpiryScheduler(
                     backgroundJobClient,
+                    sp.GetRequiredService<IClock>(),
                     sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<HangfireHoldExpiryScheduler>>());
         });
         services.AddScoped<ExpireBookingHoldsJob>();

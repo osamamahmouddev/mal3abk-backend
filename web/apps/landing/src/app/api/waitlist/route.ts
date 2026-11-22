@@ -2,8 +2,14 @@ import { NextResponse } from "next/server";
 
 export async function POST(req: Request) {
   try {
+    const origin = req.headers.get("origin");
+    const host = req.headers.get("host");
+    if (origin && host && !origin.includes(host)) {
+      return NextResponse.json({ title: "Forbidden", detail: "Invalid request origin." }, { status: 403 });
+    }
+
     const body = await req.json();
-    const apiUrl = process.env.API_URL || process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+    const apiUrl = process.env.API_URL || process.env.NEXT_PUBLIC_API_URL || "https://api.malabak.app";
 
     const forwardedFor = req.headers.get("x-forwarded-for") || req.headers.get("cf-connecting-ip");
     const userAgent = req.headers.get("user-agent") || "";

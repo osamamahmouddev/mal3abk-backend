@@ -21,7 +21,7 @@ async function refreshTokens(config: BffConfig, refreshToken: string): Promise<R
     })
       .then(async (response): Promise<RefreshOutcome> => {
         if (response.ok) {
-          setTimeout(() => inflight.delete(refreshToken), 60_000);
+          setTimeout(() => inflight.delete(refreshToken), 30_000);
           return (await response.json()) as Tokens;
         }
         inflight.delete(refreshToken);

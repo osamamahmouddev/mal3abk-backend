@@ -526,7 +526,41 @@ public static class BookingEndpoints
         .WithName("MarkBookingNoShow")
         .WithSummary("Mark confirmed booking as No-Show after start time");
 
+        // Review Payment Proof
+        venueManager.MapPost("/bookings/{id:guid}/review-proof", async (
+            Guid venueId,
+            Guid id,
+            ClaimsPrincipal user,
+            [FromBody] ReviewProofApiRequest request,
+            HttpContext httpContext,
+            ICommandHandler<ReviewProofCommand, Result> handler,
+            CancellationToken ct) =>
+        {
+            var actorUserId = user.GetUserId()!.Value;
+            var result = await handler.HandleAsync(new ReviewProofCommand(id, venueId, actorUserId, request.Approved, request.RejectionReason), ct);
+            return result.ToHttpResult(httpContext: httpContext, onSuccess: () => Results.Ok(new { message = request.Approved ? "Proof approved" : "Proof rejected", bookingId = id }));
+        })
+        .RequireVenuePermission(Permissions.BookingsApprove)
+        .WithName("ReviewBookingProof")
+        .WithSummary("Approve or reject booking payment proof");
+
         // Record Manual Refund (TASK-406)
+        venueManager.MapPost("/bookings/{id:guid}/refunds/manual", async (
+            Guid venueId,
+            Guid id,
+            ClaimsPrincipal user,
+            [FromBody] RecordManualRefundApiRequest request,
+            HttpContext httpContext,
+            ICommandHandler<RecordManualRefundCommand, Result> handler,
+            CancellationToken ct) =>
+        {
+            var actorUserId = user.GetUserId()!.Value;
+            var result = await handler.HandleAsync(new RecordManualRefundCommand(venueId, id, request.Amount, request.Notes, actorUserId), ct);
+            return result.ToHttpResult(httpContext: httpContext, onSuccess: () => Results.Ok(new { message = "Manual refund recorded", bookingId = id }));
+        })
+        .RequireVenuePermission(Permissions.BookingsApprove)
+        .WithName("RecordBookingManualRefund")
+        .WithSummary("Record manual deposit refund paid by venue staff");
     }
 
     public sealed record CreateBookingApiRequest(
@@ -576,4 +610,8 @@ public static class BookingEndpoints
     public sealed record ConfirmManualBookingApiRequest(
         decimal? CollectedDeposit = null,
         string? Notes = null);
+
+    public sealed record ReviewProofApiRequest(bool Approved, string? RejectionReason = null);
+
+    public sealed record RecordManualRefundApiRequest(decimal Amount, string Notes);
 }

@@ -155,20 +155,10 @@ function AdminLogin() {
   };
 
   const handleContinueFromCodes = () => {
-    startTransition(async () => {
-      if (enrolledCode && pass && email.trim()) {
-        const result = await adminLogin({
-          email: email.trim(),
-          password: pass,
-          totpCode: enrolledCode,
-        });
-        if (result.ok) return next();
-      }
-      setRecoveryCodes([]);
-      setCode("");
-      setCodeErr(null);
-      setStep("otp");
-    });
+    setRecoveryCodes([]);
+    setCode("");
+    setCodeErr(null);
+    setStep("otp");
   };
 
   const submitBtn = `min-h-[50px] rounded-[14px] bg-brand-red hover:bg-brand-red-hover disabled:opacity-60 text-white text-[15px] font-bold ${redShadow}`;

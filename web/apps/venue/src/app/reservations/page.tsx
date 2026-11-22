@@ -79,7 +79,7 @@ const REASONS = ["صيانة طارئة", "حجز مكرر", "الملعب مق�
 const depositText = (b: Item) => {
   const rem = Math.max(0, b.totalPrice - b.depositAmount);
   const remText = rem > 0 ? ` · المتبقي ${money(rem, b.currency)} كاش` : "";
-  if (b.isManual && b.status === 2) return `${b.depositAmount > 0 ? `${money(b.depositAmount, b.currency)} عربون مطلوب — ` : ""}بانتظار العربون`;
+  if (b.isManual && b.status === 2) return `${b.depositAmount > 0 ? `${money(b.depositAmount, b.currency)} عربون — ` : ""}حجز مبدئي${remText}`;
   if (b.isManual) return `${b.depositAmount > 0 ? `${money(b.depositAmount, b.currency)} عربون — ` : ""}الدفع في الملعب${remText}`;
   if (b.status === 2) return `لم يُرفع بعد${remText}`;
   if (b.status === 3 || b.status === 4) return `${money(b.depositAmount, b.currency)} — إيصال مرفوع${remText}`;
@@ -155,6 +155,21 @@ export default function ReservationsPage() {
   const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const pitchName = (id: string) => venue?.pitches.find((p) => p.id === id)?.name ?? "ملعب";
   const refresh = () => queryClient.invalidateQueries({ predicate: (query) => String(query.queryKey[0]).startsWith("booking") || query.queryKey[0] === "dashboard" });
+
+  const confirmManualBooking = useMutation({
+    mutationFn: (id: string) =>
+      unwrap(
+        api.POST("/api/v1/venue-manager/venues/{venueId}/bookings/{id}/confirm-deposit", {
+          params: { path: { venueId: venueId!, id } },
+          body: {},
+        }),
+      ),
+    onSuccess: async () => {
+      await refresh();
+      setToast("تم تأكيد وتثبيت الحجز بنجاح.");
+    },
+    onError: (e: Error) => setToast(e.message),
+  });
 
   const exportList = () => {
     downloadCsv(
@@ -326,6 +341,8 @@ export default function ReservationsPage() {
                   canReview={can(P.proofsReview)}
                   canApprove={can(P.bookingsApprove)}
                   onDetails={() => setSelId(b.id)}
+                  onConfirmManual={() => confirmManualBooking.mutate(b.id)}
+                  isConfirming={confirmManualBooking.isPending && confirmManualBooking.variables === b.id}
                   compact={false}
                 />
               </li>
@@ -371,7 +388,7 @@ export default function ReservationsPage() {
                         <span className="font-semibold text-slate-800">
                           {b.depositAmount > 0 ? money(b.depositAmount, b.currency) : "بدون عربون"}
                           <span className="text-xs text-[#5B6475] font-normal">
-                            {" "}· {b.isManual ? b.status === 2 ? "بانتظار العربون" : "الدفع في الملعب" : b.status === 2 ? "لم يُرفع بعد" : (b.status === 3 || b.status === 4) ? "إيصال مرفوع" : "معتمد"}
+                            {" "}· {b.isManual ? b.status === 2 ? "حجز مبدئي" : "الدفع في الملعب" : b.status === 2 ? "لم يُرفع بعد" : (b.status === 3 || b.status === 4) ? "إيصال مرفوع" : "معتمد"}
                           </span>
                         </span>
                         {b.totalPrice > b.depositAmount && (
@@ -390,6 +407,8 @@ export default function ReservationsPage() {
                         canReview={can(P.proofsReview)}
                         canApprove={can(P.bookingsApprove)}
                         onDetails={() => setSelId(b.id)}
+                        onConfirmManual={() => confirmManualBooking.mutate(b.id)}
+                        isConfirming={confirmManualBooking.isPending && confirmManualBooking.variables === b.id}
                         compact
                       />
                     </td>
@@ -460,26 +479,40 @@ function RowActions({
   canReview,
   canApprove,
   onDetails,
+  onConfirmManual,
+  isConfirming,
   compact,
 }: {
   b: Item;
   canReview: boolean;
   canApprove: boolean;
   onDetails: () => void;
+  onConfirmManual?: () => void;
+  isConfirming?: boolean;
   compact: boolean;
 }) {
   const size = compact ? "min-h-[34px] px-3 rounded-[9px] text-xs" : "min-h-[40px] px-3.5 rounded-[10px] text-[13px]";
   return (
     <div className="flex flex-wrap gap-1.5 items-center">
-      {b.status === 2 && (
+      {!b.isManual && b.status === 2 && (
         <span className={`${size} bg-amber-50 text-amber-800 border border-amber-200/80 font-bold inline-flex items-center gap-1.5`}>
-          بانتظار تأكيد الإدارة
+          بانتظار العربون
         </span>
       )}
-      {(b.status === 3 || b.status === 4) && (
+      {!b.isManual && (b.status === 3 || b.status === 4) && (
         <span className={`${size} bg-blue-50 text-blue-800 border border-blue-200/80 font-bold inline-flex items-center gap-1.5`}>
           الإيصال قيد مراجعة الإدارة
         </span>
+      )}
+      {b.isManual && b.status === 2 && canApprove && (
+        <button
+          type="button"
+          onClick={onConfirmManual}
+          disabled={isConfirming}
+          className={`${size} bg-emerald-700 hover:bg-emerald-800 text-white font-bold transition-colors cursor-pointer inline-flex items-center gap-1.5`}
+        >
+          {isConfirming ? "جاري…" : "تثبيت الحجز"}
+        </button>
       )}
       <button type="button" onClick={onDetails} className={`${size} bg-[#EEF1F7] hover:bg-slate-200 text-navy-900 font-semibold transition-colors`}>
         التفاصيل
@@ -531,6 +564,20 @@ function BookingDrawer({
     onSuccess: async () => {
       setNoShowOpen(false);
       await onChanged("اتسجل عدم الحضور.");
+    },
+    onError: (e: Error) => onError(e.message),
+  });
+
+  const confirmManual = useMutation({
+    mutationFn: () =>
+      unwrap(
+        api.POST("/api/v1/venue-manager/venues/{venueId}/bookings/{id}/confirm-deposit", {
+          params: { path },
+          body: {},
+        }),
+      ),
+    onSuccess: async () => {
+      await onChanged("تم تأكيد وتثبيت الحجز بنجاح.");
     },
     onError: (e: Error) => onError(e.message),
   });
@@ -591,12 +638,36 @@ function BookingDrawer({
           <Link href="/customers" className="text-[13px] font-semibold text-navy-900 underline hover:text-brand-red">
             ملف العميل وسجل حجوزاته
           </Link>
-          {(b.status === 2 || b.status === 3 || b.status === 4) && (
+          {!b.isManual && (b.status === 2 || b.status === 3 || b.status === 4) && (
             <div className="bg-amber-50/80 border border-amber-200/80 rounded-xl p-3.5 flex flex-col gap-1.5 text-xs text-amber-900">
-              <span className="font-bold text-amber-800">تأكيد العربون يتم مركزياً بواسطة إدارة المنصة</span>
+              <span className="font-bold text-amber-800">
+                {b.status === 2 ? "بانتظار قيام اللاعب برفع إيصال التحويل عبر التطبيق" : "تأكيد العربون يتم مركزياً بواسطة إدارة المنصة"}
+              </span>
               <p className="leading-relaxed text-amber-800/90 text-[11px]">
-                مبلغ العربون وعمولة المنصة يتم تحصيلها وتأكيدها بواسطة الإدارة. يُحصّل الملعب باقي المبلغ كاش عند حضور اللاعب.
+                {b.status === 2
+                  ? "اللاعب لديه مهلة لتحويل العربون ورفع الإيصال. يُحصّل الملعب باقي المبلغ كاش عند الحضور."
+                  : "مبلغ العربون وعمولة المنصة يتم تحصيلها وتأكيدها بواسطة الإدارة. يُحصّل الملعب باقي المبلغ كاش عند حضور اللاعب."}
               </p>
+            </div>
+          )}
+          {b.isManual && b.status === 2 && (
+            <div className="bg-emerald-50/80 border border-emerald-200 rounded-xl p-3.5 flex flex-col gap-2.5 text-xs text-emerald-950">
+              <div className="flex flex-col gap-0.5">
+                <span className="font-bold text-emerald-900 text-sm">حجز يدوي مبدئي (بالملعب)</span>
+                <p className="text-emerald-800 leading-relaxed text-[11px]">
+                  هذا الحجز مسجل يدوياً في الملعب والدفع نقدي، ولا يتطلب مراجعة أو تأكيد من إدارة المنصة. يمكنك تثبيته الآن مباشرة.
+                </p>
+              </div>
+              {can(P.bookingsApprove) && (
+                <button
+                  type="button"
+                  onClick={() => confirmManual.mutate()}
+                  disabled={confirmManual.isPending}
+                  className="min-h-[40px] px-4 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-sm font-bold transition-colors cursor-pointer flex items-center justify-center gap-2"
+                >
+                  {confirmManual.isPending ? "جاري التثبيت…" : "تثبيت الحجز الآن"}
+                </button>
+              )}
             </div>
           )}
           {canNoShow && (
@@ -611,10 +682,12 @@ function BookingDrawer({
                 onClick={() => setCancelOpen(true)}
                 className="min-h-[44px] rounded-xl border border-[#F3C4BF] bg-white hover:bg-red-50 text-[#A8261C] text-sm font-bold transition-colors cursor-pointer"
               >
-                إلغاء الحجز (إحالة للإدارة لرد العربون)
+                {b.isManual ? "إلغاء الحجز اليدوي" : "إلغاء الحجز (إحالة للإدارة لرد العربون)"}
               </button>
               <span className="text-[11px] text-slate-500 text-center leading-tight">
-                عند إلغاء الملعب للحجز، يُحال الطلب للإدارة لرد العربون للاعب.
+                {b.isManual
+                  ? "يتم إلغاء الحجز اليدوي وتحرير الميعاد في التقويم مباشرة."
+                  : "عند إلغاء الملعب للحجز، يُحال الطلب للإدارة لرد العربون للاعب."}
               </span>
             </div>
           )}
@@ -625,8 +698,12 @@ function BookingDrawer({
         <ReasonDialog
           title={`إلغاء حجز ${b.customerName || b.reference}`}
           presets={REASONS}
-          note={`الإلغاء من طرف الملعب يستوجب رد العربون (${money(b.depositAmount, b.currency)}) للاعب. سيتم إحالة الطلب تلقائياً لإدارة المنصة لرد المبلغ.`}
-          confirmLabel="تأكيد الإلغاء والإحالة للإدارة"
+          note={
+            b.isManual
+              ? "سيتم إلغاء الحجز اليدوي وإعادة إتاحة الميعاد في التقويم."
+              : `الإلغاء من طرف الملعب يستوجب رد العربون (${money(b.depositAmount, b.currency)}) للاعب. سيتم إحالة الطلب تلقائياً لإدارة المنصة لرد المبلغ.`
+          }
+          confirmLabel={b.isManual ? "تأكيد الإلغاء" : "تأكيد الإلغاء والإحالة للإدارة"}
           busy={cancel.isPending}
           onConfirm={(reason) => cancel.mutate(reason)}
           onClose={() => setCancelOpen(false)}

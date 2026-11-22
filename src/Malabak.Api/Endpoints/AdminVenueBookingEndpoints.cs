@@ -164,6 +164,7 @@ public static class AdminVenueBookingEndpoints
                 var result = await service.GetVenuesFinancialSummaryAsync(fromUtc, toUtc, ct);
                 return AdminResults.From(result);
             })
+            .RequireAuthorization(Permissions.AdminPaymentsManage)
             .Produces<IReadOnlyList<VenueFinancialSummaryItem>>()
             .WithName("AdminGetVenuesFinancialSummary")
             .WithSummary("Comprehensive financial and commission breakdown for all venues");

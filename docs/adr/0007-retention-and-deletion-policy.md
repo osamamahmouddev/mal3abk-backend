@@ -19,7 +19,12 @@
 | **Payment Proof Images (Rejected/Expired)** | **90 Days** | Private S3 Standard | Hard delete from S3 via automated Hangfire cleanup job after dispute window. |
 | **Active Booking Holds (`PendingDeposit`)** | **10 Minutes** | Redis & PostgreSQL (Hold State) | Hangfire recurring job runs every 60 seconds; releases expired slots back to availability pool. |
 | **Ephemeral OTP Codes** | **5 Minutes** | Redis In-Memory | Redis native volatile TTL eviction; keys deleted immediately upon successful verification. |
-| **Revoked & Expired Refresh Tokens** | **30 Days** | PostgreSQL `identity.refresh_tokens` | Hangfire batch job deletes revoked tokens older than 30 days. |
+| **Revoked & Expired Refresh Tokens** | **30 Days** | PostgreSQL `identity.refresh_tokens` | Nightly `DataRetentionJob` deletes tokens 30 days after they expire (revoked or not), so reuse is still detected while a token could be replayed. |
+| **Inactive Device Sessions** | **90 Days** | PostgreSQL `identity.user_sessions` | Nightly `DataRetentionJob` deletes sessions unused for 90 days that hold no live refresh token. |
+| **SMS / WhatsApp Delivery Logs** | **90 Days** | PostgreSQL `identity.sms_dispatches` | Nightly `DataRetentionJob` (spend caps only read the current month). |
+| **Delivered Domain-Event Outbox / Handled Inbox** | **7 Days / 30 Days** | PostgreSQL `<module>.outbox_messages` / `inbox_messages` | Nightly `DataRetentionJob`; undelivered or retrying messages are never touched. |
+| **Notification Outbox & Finished Push Deliveries** | **7 Days / 30 Days** | PostgreSQL `notifications.*` | Nightly `DataRetentionJob`; pending pushes are never touched. |
+| **Idempotency Records** | **Until expiry** | PostgreSQL `idempotency_records` | Nightly `IdempotencyCleanupJob`. |
 | **Application Structured Logs** | **30 Days Hot, 1 Year Cold** | Seq / ElasticSearch -> Compressed Storage | Retention policy drops verbose debug events after 7 days; info/error after 30 days. |
 
   ### Account Deletion Procedure (Right to Erasure / Law 151):

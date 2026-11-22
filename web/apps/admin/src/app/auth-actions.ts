@@ -49,9 +49,12 @@ export async function adminLogin(input: { email: string; password: string; totpC
   }
   if (!tokens) return { ok: false, code: "TotpRequired", message: "اكتب الكود من تطبيق التحقق." };
 
-  const me = await fetch(`${apiUrl()}/api/v1/me`, { headers: { authorization: `Bearer ${tokens.accessToken}` }, cache: "no-store" });
-  const profile = me.ok ? ((await me.json()) as Schemas["MyProfileDto"]) : null;
-  await signIn(bffConfig, tokens, { id: profile?.userId ?? "", name: profile?.fullName ?? input.email, roles: [] });
+  const auth = { headers: { authorization: `Bearer ${tokens.accessToken}` }, cache: "no-store" as const };
+  const [permissions, profile] = await Promise.all([
+    fetch(`${apiUrl()}/api/v1/me/permissions`, auth).then((r) => (r.ok ? (r.json() as Promise<Schemas["MyPermissionsResponse"]>) : null)),
+    fetch(`${apiUrl()}/api/v1/me`, auth).then((r) => (r.ok ? (r.json() as Promise<Schemas["MyProfileDto"]>) : null)),
+  ]);
+  await signIn(bffConfig, tokens, { id: profile?.userId ?? "", name: profile?.fullName ?? input.email, roles: permissions?.roles ?? [] });
   return { ok: true };
 }
 

@@ -133,7 +133,7 @@ public sealed class VenueCustomerService
             return Result.Failure<CustomerNoteDto>(CustomerErrors.InvalidNote);
         }
 
-        if ((await AllCustomersAsync(venueId, cancellationToken)).TrueForAll(c => c.CustomerKey != customerKey))
+        if (!await CustomerExistsAsync(venueId, customerKey, cancellationToken))
         {
             return Result.Failure<CustomerNoteDto>(CustomerErrors.NotFound);
         }
@@ -186,6 +186,33 @@ public sealed class VenueCustomerService
         }
 
         return bookings.Where(b => b.IsManualBooking && b.CustomerPhone == customer.Phone);
+    }
+
+    private async Task<bool> CustomerExistsAsync(Guid venueId, string customerKey, CancellationToken cancellationToken)
+    {
+        if (customerKey.StartsWith(PlayerPrefix))
+        {
+            if (Guid.TryParse(customerKey[PlayerPrefix.Length..], out var playerId))
+            {
+                return await _dbContext.Bookings.AsNoTracking().AnyAsync(
+                    b => b.VenueId == venueId && !b.IsDeleted && b.Status != BookingStatus.Draft && !b.IsManualBooking && b.PlayerId == playerId,
+                    cancellationToken);
+            }
+            return false;
+        }
+
+        if (customerKey.StartsWith(PhonePrefix))
+        {
+            var phones = await _dbContext.Bookings.AsNoTracking()
+                .Where(b => b.VenueId == venueId && !b.IsDeleted && b.Status != BookingStatus.Draft && b.IsManualBooking && b.CustomerPhone != null)
+                .Select(b => b.CustomerPhone!)
+                .Distinct()
+                .ToListAsync(cancellationToken);
+
+            return phones.Any(p => PhoneKey(p) == customerKey);
+        }
+
+        return false;
     }
 
     private async Task<List<CustomerSummaryDto>> AllCustomersAsync(Guid venueId, CancellationToken cancellationToken)

@@ -18,7 +18,7 @@ export interface AppShellProps {
   user: SessionUser | null;
 }
 
-const PUBLIC_ROUTES = ["/login", "/register", "/verify-email", "/reset-password", "/accept-invitation", "/setup", "/impersonate"];
+const PUBLIC_ROUTES = ["/login", "/register", "/verify-email", "/reset-password", "/accept-invitation", "/impersonate"];
 
 /** Owners land on the setup wizard until they have a venue. */
 const NoVenueRedirect: React.FC = () => {
@@ -42,7 +42,8 @@ export const AppShell: React.FC<AppShellProps> = ({ children, user }) => {
   const pathname = usePathname();
   const { venueId } = useVenue();
   const [menuOpen, setMenuOpen] = useState(false);
-  const isAuthOrSetupRoute = PUBLIC_ROUTES.some((route) => pathname?.startsWith(route));
+  const isPublicRoute = PUBLIC_ROUTES.some((route) => pathname?.startsWith(route));
+  const isSetupRoute = pathname?.startsWith("/setup");
 
   // Close the mobile drawer whenever the route changes.
   useEffect(() => setMenuOpen(false), [pathname]);
@@ -61,12 +62,12 @@ export const AppShell: React.FC<AppShellProps> = ({ children, user }) => {
   }, [menuOpen]);
 
   useEffect(() => {
-    if (!user && !isAuthOrSetupRoute) {
+    if (!user && !isPublicRoute) {
       window.location.href = `/venue/login?next=${encodeURIComponent(pathname || "/")}`;
     }
-  }, [user, isAuthOrSetupRoute, pathname]);
+  }, [user, isPublicRoute, pathname]);
 
-  if (isAuthOrSetupRoute) {
+  if (isPublicRoute) {
     return <main className="min-h-screen w-full">{children}</main>;
   }
 
@@ -76,6 +77,10 @@ export const AppShell: React.FC<AppShellProps> = ({ children, user }) => {
         <div className="w-8 h-8 rounded-full border-2 border-navy-900 border-t-transparent animate-spin" />
       </main>
     );
+  }
+
+  if (isSetupRoute) {
+    return <main className="min-h-screen w-full">{children}</main>;
   }
 
   return (

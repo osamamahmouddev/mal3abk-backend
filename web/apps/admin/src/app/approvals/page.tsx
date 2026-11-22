@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { Schemas } from "@malabak/api-client";
 import { Page, PageHeader, TONE, btnOutline, card, muted, toArabicDigits, useRevealOnSelect, EmptyState } from "@/components/ui";
@@ -70,22 +70,21 @@ export default function ApprovalsPage() {
   const [action, setAction] = useState<Decision | null>(null);
   const [message, setMessage] = useState("");
   const [notice, setNotice] = useState<string | null>(null);
-  const [facilityNames, setFacilityNames] = useState<Record<string, string>>({});
   const [gallery, setGallery] = useState<{ photos: string[]; index: number; title: string } | null>(null);
 
   const pending = useQuery({
     queryKey: ["approvals"],
     queryFn: () => unwrap(api.GET("/api/v1/admin/venues/pending-approval", { params: { query: { page: 1, pageSize: 50 } } })),
   });
-  useQuery({
+  const facilitiesQuery = useQuery({
     queryKey: ["reference", "facilities"],
     staleTime: 86_400_000,
-    queryFn: async () => {
-      const list = await unwrap(api.GET("/api/v1/reference/facilities"));
-      setFacilityNames(Object.fromEntries(list.map((f) => [f.code, f.nameAr])));
-      return list;
-    },
+    queryFn: () => unwrap(api.GET("/api/v1/reference/facilities")),
   });
+  const facilityNames = useMemo(
+    () => Object.fromEntries((facilitiesQuery.data ?? []).map((f) => [f.code, f.nameAr])),
+    [facilitiesQuery.data],
+  );
 
   const list = pending.data ?? [];
   const cur: Pending | undefined = list.find((v) => v.venueId === selId) ?? list[0];
