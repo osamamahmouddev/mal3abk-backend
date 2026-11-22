@@ -162,7 +162,10 @@ public sealed class ProfileHandlers :
 
         if (command.City is null && (user.City is null || user.Area is null))
         {
-            return Result.Failure<MyProfileDto>(ProfileErrors.InvalidPlace);
+            // Owners and staff have no player profile (city, positions): they only change their name and language.
+            return user.Roles.Any(r => r != UserRole.Player) && command.Positions is null && command.SkillLevel is null
+                ? await RenameAsync(command, cancellationToken)
+                : Result.Failure<MyProfileDto>(ProfileErrors.InvalidPlace);
         }
 
         // Merge onto the current values and reuse the onboarding validation/normalisation.
@@ -205,6 +208,40 @@ public sealed class ProfileHandlers :
         user.SetLanguage(command.Language, _clock.UtcNow);
         await _dbContext.SaveChangesAsync(cancellationToken);
         return Result.Success();
+    }
+
+    private async Task<Result<MyProfileDto>> RenameAsync(UpdateMyProfileCommand command, CancellationToken cancellationToken)
+    {
+        if (command.Language is not null && !UserLanguages.IsSupported(command.Language))
+        {
+            return Result.Failure<MyProfileDto>(ProfileErrors.InvalidLanguage);
+        }
+
+        var name = command.FullName is null ? null : Clean(command.FullName);
+        if (name is not null && name.Length is < 2 or > User.MaxNameLength)
+        {
+            return Result.Failure<MyProfileDto>(ProfileErrors.InvalidName);
+        }
+
+        var user = await _dbContext.Users.FirstOrDefaultAsync(u => u.Id == command.UserId && !u.IsDeleted, cancellationToken);
+        if (user is null)
+        {
+            return Result.Failure<MyProfileDto>(ProfileErrors.NotFound);
+        }
+
+        var nowUtc = _clock.UtcNow;
+        if (name is not null)
+        {
+            user.Rename(name, nowUtc);
+        }
+
+        if (command.Language is not null)
+        {
+            user.SetLanguage(command.Language, nowUtc);
+        }
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+        return Result.Success(ToDto(user));
     }
 
     internal static MyProfileDto ToDto(User user) => new(

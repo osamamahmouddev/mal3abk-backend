@@ -561,6 +561,7 @@ if (app.Environment.IsDevelopment())
 
 app.MapAuthEndpoints(apiVersionSet);
 app.MapPhoneChangeEndpoints(apiVersionSet);
+app.MapEmailChangeEndpoints(apiVersionSet);
 app.MapVenueManagerEndpoints(apiVersionSet);
 app.MapMeEndpoints(apiVersionSet);
 app.MapVenueApprovalEndpoints(apiVersionSet);

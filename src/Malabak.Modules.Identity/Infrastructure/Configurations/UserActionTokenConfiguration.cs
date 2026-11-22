@@ -14,6 +14,8 @@ public sealed class UserActionTokenConfiguration : IEntityTypeConfiguration<User
         builder.Property(t => t.TokenHash).HasMaxLength(64).IsRequired();
         builder.Property(t => t.CreatedAtUtc).IsRequired();
         builder.Property(t => t.ExpiresAtUtc).IsRequired();
+        builder.Property(t => t.NewEmail).HasMaxLength(UserActionToken.MaxEmailLength);
+        builder.Property(t => t.FailedAttempts).HasDefaultValue(0);
         builder.HasIndex(t => t.TokenHash).IsUnique();
         builder.HasIndex(t => new { t.UserId, t.Purpose });
     }
