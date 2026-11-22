@@ -76,7 +76,7 @@ jobs:
           STAGING_FTP_PASS: ${{ secrets.MONSTERASP_STAGING_FTP_PASSWORD || '5d!XiF7?=8gL' }}
           STAGING_POSTGRES_CONNECTION: ${{ secrets.MALABAK_STAGING_POSTGRES_CONNECTION || 'Host=db81811.databaseasp.net;Port=5432;Database=db81811;Username=db81811;Password=8Mg?_5Gbx-9L;' }}
           STAGING_REDIS_CONNECTION: ${{ secrets.MALABAK_STAGING_REDIS_CONNECTION || secrets.MALABAK_PRODUCTION_REDIS_CONNECTION }}
-          STAGING_URL: "http://site109978.siteasp.net"
+          STAGING_URL: "http://mal3abk-staging.runasp.net"
 
           # Shared Security & Integration Settings
           ENCRYPTION_BLIND_INDEX_KEY: ${{ secrets.MALABAK_ENCRYPTION_BLIND_INDEX_KEY }}
@@ -110,7 +110,7 @@ jobs:
               ftp_auth = os.environ.get("STAGING_FTP_PASS")
               postgres_conn = os.environ.get("STAGING_POSTGRES_CONNECTION")
               redis_conn = os.environ.get("STAGING_REDIS_CONNECTION", "")
-              target_url = os.environ.get("STAGING_URL", "http://site109978.siteasp.net").rstrip("/")
+              target_url = os.environ.get("STAGING_URL", "http://mal3abk-staging.runasp.net").rstrip("/")
 
           if not host or not user or not ftp_auth:
               print(f"Error: Missing FTP credentials for {target_env} environment.")
