@@ -37,10 +37,12 @@ jobs:
           fi
 
           if [ "$SELECTED_ENV" = "production" ]; then
+            ORG_ID="${{ secrets.VERCEL_ORG_ID }}"
             PROJECT_ID="${{ secrets.VERCEL_PROJECT_ID_LANDING }}"
             ENV_NAME="production"
             PROD_FLAG="--prod"
           else
+            ORG_ID="${{ secrets.VERCEL_ORG_ID_DEV || secrets.VERCEL_ORG_ID }}"
             PROJECT_ID="${{ secrets.VERCEL_PROJECT_ID_LANDING_DEV }}"
             ENV_NAME="production"
             PROD_FLAG="--prod"
@@ -51,10 +53,11 @@ jobs:
             echo "Skipping landing deployment: No project ID configured for $SELECTED_ENV."
           else
             echo "SHOULD_DEPLOY=true" >> $GITHUB_OUTPUT
+            echo "ORG_ID=$ORG_ID" >> $GITHUB_OUTPUT
             echo "PROJECT_ID=$PROJECT_ID" >> $GITHUB_OUTPUT
             echo "ENV_NAME=$ENV_NAME" >> $GITHUB_OUTPUT
             echo "PROD_FLAG=$PROD_FLAG" >> $GITHUB_OUTPUT
-            echo "Targeting $SELECTED_ENV Landing with project: $PROJECT_ID"
+            echo "Targeting $SELECTED_ENV Landing with org: $ORG_ID, project: $PROJECT_ID"
           fi
 
       - name: Setup Node.js 20
@@ -73,7 +76,7 @@ jobs:
         if: steps.target.outputs.SHOULD_DEPLOY == 'true'
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_ORG_ID: ${{ steps.target.outputs.ORG_ID }}
           VERCEL_PROJECT_ID: ${{ steps.target.outputs.PROJECT_ID }}
           ENV_NAME: ${{ steps.target.outputs.ENV_NAME }}
         run: |
@@ -127,10 +130,12 @@ jobs:
           fi
 
           if [ "$SELECTED_ENV" = "production" ]; then
+            ORG_ID="${{ secrets.VERCEL_ORG_ID }}"
             PROJECT_ID="${{ secrets.VERCEL_PROJECT_ID_VENUE }}"
             ENV_NAME="production"
             PROD_FLAG="--prod"
           else
+            ORG_ID="${{ secrets.VERCEL_ORG_ID_DEV || secrets.VERCEL_ORG_ID }}"
             PROJECT_ID="${{ secrets.VERCEL_PROJECT_ID_VENUE_DEV }}"
             ENV_NAME="production"
             PROD_FLAG="--prod"
@@ -141,10 +146,11 @@ jobs:
             echo "Skipping venue deployment: No project ID configured for $SELECTED_ENV."
           else
             echo "SHOULD_DEPLOY=true" >> $GITHUB_OUTPUT
+            echo "ORG_ID=$ORG_ID" >> $GITHUB_OUTPUT
             echo "PROJECT_ID=$PROJECT_ID" >> $GITHUB_OUTPUT
             echo "ENV_NAME=$ENV_NAME" >> $GITHUB_OUTPUT
             echo "PROD_FLAG=$PROD_FLAG" >> $GITHUB_OUTPUT
-            echo "Targeting $SELECTED_ENV Venue with project: $PROJECT_ID"
+            echo "Targeting $SELECTED_ENV Venue with org: $ORG_ID, project: $PROJECT_ID"
           fi
 
       - name: Setup Node.js 20
@@ -163,7 +169,7 @@ jobs:
         if: steps.target.outputs.SHOULD_DEPLOY == 'true'
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_ORG_ID: ${{ steps.target.outputs.ORG_ID }}
           VERCEL_PROJECT_ID: ${{ steps.target.outputs.PROJECT_ID }}
           ENV_NAME: ${{ steps.target.outputs.ENV_NAME }}
         run: |
@@ -217,10 +223,12 @@ jobs:
           fi
 
           if [ "$SELECTED_ENV" = "production" ]; then
+            ORG_ID="${{ secrets.VERCEL_ORG_ID }}"
             PROJECT_ID="${{ secrets.VERCEL_PROJECT_ID_ADMIN }}"
             ENV_NAME="production"
             PROD_FLAG="--prod"
           else
+            ORG_ID="${{ secrets.VERCEL_ORG_ID_DEV || secrets.VERCEL_ORG_ID }}"
             PROJECT_ID="${{ secrets.VERCEL_PROJECT_ID_ADMIN_DEV }}"
             ENV_NAME="production"
             PROD_FLAG="--prod"
@@ -231,10 +239,11 @@ jobs:
             echo "Skipping admin deployment: No project ID configured for $SELECTED_ENV."
           else
             echo "SHOULD_DEPLOY=true" >> $GITHUB_OUTPUT
+            echo "ORG_ID=$ORG_ID" >> $GITHUB_OUTPUT
             echo "PROJECT_ID=$PROJECT_ID" >> $GITHUB_OUTPUT
             echo "ENV_NAME=$ENV_NAME" >> $GITHUB_OUTPUT
             echo "PROD_FLAG=$PROD_FLAG" >> $GITHUB_OUTPUT
-            echo "Targeting $SELECTED_ENV Admin with project: $PROJECT_ID"
+            echo "Targeting $SELECTED_ENV Admin with org: $ORG_ID, project: $PROJECT_ID"
           fi
 
       - name: Setup Node.js 20
@@ -253,7 +262,7 @@ jobs:
         if: steps.target.outputs.SHOULD_DEPLOY == 'true'
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_ORG_ID: ${{ steps.target.outputs.ORG_ID }}
           VERCEL_PROJECT_ID: ${{ steps.target.outputs.PROJECT_ID }}
           ENV_NAME: ${{ steps.target.outputs.ENV_NAME }}
         run: |
