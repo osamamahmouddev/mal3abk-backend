@@ -15,6 +15,7 @@ import { mediaIdOf, mediaSrc, uploadImage } from "@/lib/upload";
 import { LocationField, toApiCoordinates, type LatLng } from "@/components/LocationField";
 import { PhotoDropTile } from "@/components/PhotoDropTile";
 import { CommissionTerms } from "@/components/CommissionTerms";
+import { EmailDialog, NameDialog, PhoneDialog, type AccountField } from "@/components/AccountEditDialogs";
 
 type Tab = "info" | "account";
 
@@ -294,6 +295,7 @@ function Account({ onMessage }: { onMessage: (message: string) => void }) {
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [enrollment, setEnrollment] = useState<{ secret: string; provisioningUri: string } | null>(null);
   const [totpCode, setTotpCode] = useState("");
+  const [editing, setEditing] = useState<AccountField | null>(null);
 
   const changePassword = useMutation({
     mutationFn: () => unwrap(api.POST("/api/v1/auth/password/change", { body: passwords })),
@@ -339,13 +341,32 @@ function Account({ onMessage }: { onMessage: (message: string) => void }) {
       <div className="flex-[999_1_460px] min-w-0 flex flex-col gap-4">
         <section className={`${card} rounded-[20px] p-5 flex flex-col gap-3.5`}>
           <AccountRow label="صاحب الحساب" value={profile.data?.fullName ?? "…"}>
-            <Link href="/staff" className="text-[13px] font-bold text-navy-900 underline hover:text-brand-red">
-              إدارة الموظفين
-            </Link>
+            <span className="flex items-center gap-3">
+              <Link href="/staff" className="text-[13px] font-bold text-navy-900 underline hover:text-brand-red">
+                إدارة الموظفين
+              </Link>
+              <EditButton label="تعديل الاسم" disabled={!profile.data} onClick={() => setEditing("name")} />
+            </span>
           </AccountRow>
-          <AccountRow label="الإيميل" value={<span dir="ltr">{profile.data?.email ?? "—"}</span>} />
-          <AccountRow label="الموبايل" value={<span dir="ltr">{profile.data?.phoneNumber ?? "—"}</span>} />
+          <AccountRow label="الإيميل" value={<span dir="ltr">{profile.data?.email ?? "—"}</span>}>
+            {profile.data?.email && <EditButton label="تعديل الإيميل" onClick={() => setEditing("email")} />}
+          </AccountRow>
+          <AccountRow label="الموبايل" value={<span dir="ltr">{profile.data?.phoneNumber ?? "—"}</span>}>
+            <EditButton label="تعديل الموبايل" disabled={!profile.data} onClick={() => setEditing("phone")} />
+          </AccountRow>
         </section>
+        {editing === "name" && profile.data && (
+          <NameDialog
+            current={profile.data.fullName}
+            onClose={() => setEditing(null)}
+            onDone={(message) => {
+              setEditing(null);
+              onMessage(message);
+            }}
+          />
+        )}
+        {editing === "email" && <EmailDialog onClose={() => setEditing(null)} />}
+        {editing === "phone" && profile.data && <PhoneDialog current={profile.data.phoneNumber ?? ""} onClose={() => setEditing(null)} />}
 
         <section className={`${card} rounded-[20px] p-5 flex flex-col gap-3`}>
           <h2 className="text-base font-bold">تغيير كلمة السر</h2>
@@ -463,6 +484,14 @@ function Account({ onMessage }: { onMessage: (message: string) => void }) {
         )}
       </section>
     </div>
+  );
+}
+
+function EditButton({ label, onClick, disabled }: { label: string; onClick: () => void; disabled?: boolean }) {
+  return (
+    <button type="button" aria-label={label} disabled={disabled} onClick={onClick} className={`${smallBtn} disabled:opacity-60`}>
+      تعديل
+    </button>
   );
 }
 

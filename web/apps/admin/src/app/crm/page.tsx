@@ -3,7 +3,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { Schemas } from "@malabak/api-client";
-import { CalendarClock, Download, MessageCircle, NotebookPen, Phone, PhoneCall, Plus, UserPlus } from "lucide-react";
+import { CalendarClock, Download, MapPin, MessageCircle, NotebookPen, Phone, PhoneCall, Plus, UserPlus } from "lucide-react";
 import { Page, PageHeader, Pill, ReasonModal, type ReasonRequest, SearchBox, btnOutline, btnPrimary, btnSmall, card, muted, toArabicDigits } from "@/components/ui";
 import { Drawer, Field, QueryState, Section, TextInput, fmtDate, fmtDateTime, useNotice } from "@/components/admin";
 import { api, unwrap } from "@/lib/api";
@@ -40,6 +40,33 @@ function followUpState(iso?: string | null): { label: string; tone: "bad" | "war
 
 const whatsapp = (phone: string) => `https://wa.me/${phone.replace(/\D/g, "")}`;
 
+/** Which part of the board is shown: one region, every contact, or the contacts with no region yet. */
+const ALL = "__all";
+const NONE = "__none";
+const REGION_KEY = "crm-region";
+
+function regionQuery(region: string) {
+  if (region === ALL) return {};
+  if (region === NONE) return { unassigned: true };
+  return { region };
+}
+
+function readSavedRegion(): string | null {
+  try {
+    return window.localStorage.getItem(REGION_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function saveRegion(region: string) {
+  try {
+    window.localStorage.setItem(REGION_KEY, region);
+  } catch {
+    // Remembering the tab is a convenience only.
+  }
+}
+
 /** The platform team's CRM for venues: who they talk to, where each one stands, and when to call back. */
 export default function CrmPage() {
   const queryClient = useQueryClient();
@@ -50,16 +77,56 @@ export default function CrmPage() {
   const [showLost, setShowLost] = useState(false);
   const [selected, setSelected] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
+  const [region, setRegion] = useState<string | null>(null);
+  const [newRegions, setNewRegions] = useState<string[]>([]);
+  const [namingRegion, setNamingRegion] = useState(false);
 
   useEffect(() => {
     const t = setTimeout(() => setQ(search.trim()), 300);
     return () => clearTimeout(t);
   }, [search]);
 
-  const summary = useQuery({ queryKey: ["crm-summary"], queryFn: () => unwrap(api.GET("/api/v1/admin/crm/summary")) });
+  const regions = useQuery({ queryKey: ["crm-regions"], queryFn: () => unwrap(api.GET("/api/v1/admin/crm/regions")) });
+
+  // Regions with contacts, then any the team just named and has not filled yet.
+  const regionNames = useMemo(() => {
+    const names = (regions.data?.items ?? []).map((r) => r.name);
+    return [...names, ...newRegions.filter((n) => !names.includes(n))];
+  }, [regions.data, newRegions]);
+
+  // Open on the tab used last time, else the biggest region.
+  const regionItems = useMemo(() => regions.data?.items ?? [], [regions.data]);
+  const unassigned = regions.data?.unassigned ?? 0;
+
+  useEffect(() => {
+    if (region !== null) return;
+    // If the regions cannot be read, the whole board is still shown.
+    if (regions.isError) {
+      setRegion(ALL);
+      return;
+    }
+    if (!regions.data) return;
+    const saved = readSavedRegion();
+    const valid = saved && (saved === ALL || (saved === NONE && unassigned > 0) || regionNames.includes(saved));
+    setRegion(valid ? saved : (regionNames[0] ?? ALL));
+  }, [region, regions.data, regions.isError, regionNames, unassigned]);
+
+  const pick = (value: string) => {
+    setRegion(value);
+    saveRegion(value);
+  };
+
+  const current = region ?? ALL;
+  const summary = useQuery({
+    queryKey: ["crm-summary", current],
+    enabled: region !== null,
+    queryFn: () => unwrap(api.GET("/api/v1/admin/crm/summary", { params: { query: regionQuery(current) } })),
+  });
   const contacts = useQuery({
-    queryKey: ["crm-contacts", q, dueOnly],
-    queryFn: () => unwrap(api.GET("/api/v1/admin/crm/contacts", { params: { query: { q: q || undefined, due: dueOnly || undefined, pageSize: 100 } } })),
+    queryKey: ["crm-contacts", current, q, dueOnly],
+    enabled: region !== null,
+    queryFn: () =>
+      unwrap(api.GET("/api/v1/admin/crm/contacts", { params: { query: { ...regionQuery(current), q: q || undefined, due: dueOnly || undefined, pageSize: 100 } } })),
   });
 
   const importWaitlist = useMutation({
@@ -68,6 +135,7 @@ export default function CrmPage() {
       notice.ok(r.imported ? `اتضاف ${toArabicDigits(r.imported)} صاحب ملعب من قائمة الانتظار.` : "كل أصحاب الملاعب في قائمة الانتظار موجودين بالفعل.");
       await queryClient.invalidateQueries({ queryKey: ["crm-summary"] });
       await queryClient.invalidateQueries({ queryKey: ["crm-contacts"] });
+      await queryClient.invalidateQueries({ queryKey: ["crm-regions"] });
     },
     onError: notice.fail,
   });
@@ -97,6 +165,18 @@ export default function CrmPage() {
         </div>
       </PageHeader>
       {notice.node}
+
+      <div className="flex flex-wrap items-center gap-1.5" role="tablist" aria-label="المناطق">
+        {regionNames.map((name) => (
+          <RegionTab key={name} active={current === name} onClick={() => pick(name)} label={name} count={regionItems.find((r) => r.name === name)?.count ?? 0} />
+        ))}
+        {unassigned > 0 && <RegionTab active={current === NONE} onClick={() => pick(NONE)} label="من غير منطقة" count={unassigned} />}
+        <RegionTab active={current === ALL} onClick={() => pick(ALL)} label="الكل" count={regionItems.reduce((n, r) => n + r.count, 0) + unassigned} />
+        <button type="button" onClick={() => setNamingRegion(true)} className={`${btnSmall} border border-dashed border-slate-300 text-slate-600`}>
+          <Plus className="size-3.5" />
+          منطقة جديدة
+        </button>
+      </div>
 
       <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
         {STAGES.map((st) => (
@@ -130,7 +210,7 @@ export default function CrmPage() {
       <QueryState
         query={contacts}
         isEmpty={(d) => d.total === 0 && !q && !dueOnly}
-        emptyTitle="لسه مفيش عملاء"
+        emptyTitle={current === ALL || current === NONE ? "لسه مفيش عملاء" : `لسه مفيش عملاء في ${current}`}
         emptyDescription="ضيف أول صاحب ملعب بتكلمه، أو استورد اللي سابوا رقمهم في صفحة الهبوط."
         emptyIcon="users"
         emptyAction={{ label: "عميل جديد", onClick: () => setAdding(true) }}
@@ -148,7 +228,7 @@ export default function CrmPage() {
                 </header>
                 {col.items.length === 0 && <p className={`text-[12px] ${muted} px-1 py-3 text-center`}>مفيش حد هنا</p>}
                 {col.items.map((c) => (
-                  <ContactCard key={c.id} contact={c} onOpen={() => setSelected(c.id)} />
+                  <ContactCard key={c.id} contact={c} showRegion={current === ALL} onOpen={() => setSelected(c.id)} />
                 ))}
               </section>
             ))}
@@ -156,13 +236,99 @@ export default function CrmPage() {
         )}
       </QueryState>
 
-      {adding && <NewContactDrawer onClose={() => setAdding(false)} onCreated={(id) => { setAdding(false); setSelected(id); }} />}
-      <ContactDrawer contactId={selected} onClose={() => setSelected(null)} />
+      {adding && (
+        <NewContactDrawer
+          regions={regionNames}
+          defaultRegion={current === ALL || current === NONE ? "" : current}
+          onClose={() => setAdding(false)}
+          onCreated={(id) => {
+            setAdding(false);
+            setSelected(id);
+          }}
+        />
+      )}
+      <ContactDrawer contactId={selected} regions={regionNames} onClose={() => setSelected(null)} />
+      {namingRegion && (
+        <NewRegionModal
+          onClose={() => setNamingRegion(false)}
+          onAdd={(name) => {
+            setNamingRegion(false);
+            setNewRegions((list) => (list.includes(name) ? list : [...list, name]));
+            pick(name);
+          }}
+        />
+      )}
     </Page>
   );
 }
 
-function ContactCard({ contact: c, onOpen }: { contact: Contact; onOpen: () => void }) {
+function RegionTab({ label, count, active, onClick }: { label: string; count: number; active: boolean; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      role="tab"
+      aria-selected={active}
+      onClick={onClick}
+      className={`min-h-[36px] px-3 rounded-[10px] text-[13px] font-semibold border inline-flex items-center gap-1.5 transition-all ${
+        active ? "bg-navy-900 text-white border-navy-900" : "bg-white border-[#C9CFD9] hover:bg-slate-50 cursor-pointer"
+      }`}
+    >
+      <MapPin className="size-3.5" aria-hidden />
+      {label}
+      <span className={active ? "text-white/70" : "text-slate-400"}>{toArabicDigits(count)}</span>
+    </button>
+  );
+}
+
+/** Names a region that has no contacts yet; it becomes a tab and new contacts added there go to it. */
+function NewRegionModal({ onClose, onAdd }: { onClose: () => void; onAdd: (name: string) => void }) {
+  const [name, setName] = useState("");
+  const clean = name.trim();
+  return (
+    <div className="fixed inset-0 z-50 bg-[rgba(10,19,48,0.5)] backdrop-blur-sm animate-fade-in flex items-center justify-center p-4">
+      <form
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="region-title"
+        className="bg-white rounded-[20px] p-6 w-full max-w-[400px] flex flex-col gap-3 animate-modal-in shadow-2xl"
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (clean) onAdd(clean);
+        }}
+      >
+        <h2 id="region-title" className="text-[19px] font-bold">
+          منطقة جديدة
+        </h2>
+        <p className={`text-sm ${muted} leading-[1.7]`}>هتظهر كتبويب، وأي عميل تضيفه وانت فيها هيتسجل عليها.</p>
+        <TextInput autoFocus value={name} maxLength={60} onChange={(e) => setName(e.target.value)} placeholder="مثلاً مايو" aria-label="اسم المنطقة" />
+        <div className="flex gap-2 justify-end">
+          <button type="button" onClick={onClose} className={btnOutline}>
+            رجوع
+          </button>
+          <button type="submit" disabled={!clean} className={btnPrimary}>
+            إضافة
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
+/** Lets the team pick a region already in use or type a new one. */
+function RegionInput({ id, regions, ...props }: { id: string; regions: string[] } & React.InputHTMLAttributes<HTMLInputElement>) {
+  return (
+    <>
+      <TextInput list={id} maxLength={60} {...props} />
+      <datalist id={id}>
+        {regions.map((r) => (
+          <option key={r} value={r} />
+        ))}
+      </datalist>
+    </>
+  );
+}
+
+function ContactCard({ contact: c, showRegion, onOpen }: { contact: Contact; showRegion: boolean; onOpen: () => void }) {
   const due = followUpState(c.nextFollowUpAtUtc);
   return (
     <button
@@ -172,6 +338,12 @@ function ContactCard({ contact: c, onOpen }: { contact: Contact; onOpen: () => v
     >
       <strong className="text-[14px] text-slate-900 truncate">{c.name}</strong>
       {(c.venueName || c.area) && <span className={`text-[12px] ${muted} truncate`}>{[c.venueName, c.area].filter(Boolean).join(" · ")}</span>}
+      {showRegion && c.region && (
+        <span className="text-[11px] text-slate-500 inline-flex items-center gap-1">
+          <MapPin className="size-3" aria-hidden />
+          {c.region}
+        </span>
+      )}
       <span dir="ltr" className="text-[12px] text-slate-500 text-right font-mono">{c.phone}</span>
       <div className="flex flex-wrap gap-1">
         {due && <Pill tone={due.tone}>{due.label}</Pill>}
@@ -181,10 +353,20 @@ function ContactCard({ contact: c, onOpen }: { contact: Contact; onOpen: () => v
   );
 }
 
-function NewContactDrawer({ onClose, onCreated }: { onClose: () => void; onCreated: (id: string) => void }) {
+function NewContactDrawer({
+  regions,
+  defaultRegion,
+  onClose,
+  onCreated,
+}: {
+  regions: string[];
+  defaultRegion: string;
+  onClose: () => void;
+  onCreated: (id: string) => void;
+}) {
   const queryClient = useQueryClient();
   const notice = useNotice();
-  const [form, setForm] = useState({ name: "", phone: "", venueName: "", area: "", followUp: "" });
+  const [form, setForm] = useState({ name: "", phone: "", venueName: "", area: "", region: defaultRegion, followUp: "" });
   const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, [k]: e.target.value });
 
   const create = useMutation({
@@ -196,6 +378,7 @@ function NewContactDrawer({ onClose, onCreated }: { onClose: () => void; onCreat
             phone: form.phone.trim(),
             venueName: form.venueName.trim() || null,
             area: form.area.trim() || null,
+            region: form.region.trim() || null,
             nextFollowUpAtUtc: followUpIso(form.followUp),
           },
         }),
@@ -203,6 +386,7 @@ function NewContactDrawer({ onClose, onCreated }: { onClose: () => void; onCreat
     onSuccess: async (d) => {
       await queryClient.invalidateQueries({ queryKey: ["crm-summary"] });
       await queryClient.invalidateQueries({ queryKey: ["crm-contacts"] });
+      await queryClient.invalidateQueries({ queryKey: ["crm-regions"] });
       onCreated(d.contact.id);
     },
     onError: notice.fail,
@@ -224,18 +408,21 @@ function NewContactDrawer({ onClose, onCreated }: { onClose: () => void; onCreat
         <Field label="رقم الموبايل">
           <TextInput value={form.phone} onChange={set("phone")} dir="ltr" inputMode="tel" placeholder="01xxxxxxxxx" required />
         </Field>
+        <Field label="المنطقة الكبيرة">
+          <RegionInput id="crm-new-regions" regions={regions} value={form.region} onChange={set("region")} placeholder="مثلاً حلوان أو مايو" required />
+        </Field>
         <div className="grid grid-cols-2 gap-2">
           <Field label="اسم الملعب (اختياري)">
             <TextInput value={form.venueName} onChange={set("venueName")} maxLength={160} />
           </Field>
-          <Field label="المنطقة (اختياري)">
+          <Field label="الحي (اختياري)">
             <TextInput value={form.area} onChange={set("area")} maxLength={120} />
           </Field>
         </div>
         <Field label="نكلمه تاني يوم (اختياري)">
           <TextInput type="date" value={form.followUp} onChange={set("followUp")} />
         </Field>
-        <button type="submit" className={btnPrimary} disabled={create.isPending || !form.name.trim() || !form.phone.trim()}>
+        <button type="submit" className={btnPrimary} disabled={create.isPending || !form.name.trim() || !form.phone.trim() || !form.region.trim()}>
           <Plus className="size-4" />
           {create.isPending ? "جاري…" : "إضافة"}
         </button>
@@ -244,12 +431,12 @@ function NewContactDrawer({ onClose, onCreated }: { onClose: () => void; onCreat
   );
 }
 
-function ContactDrawer({ contactId, onClose }: { contactId: string | null; onClose: () => void }) {
+function ContactDrawer({ contactId, regions, onClose }: { contactId: string | null; regions: string[]; onClose: () => void }) {
   const queryClient = useQueryClient();
   const notice = useNotice();
   const [reason, setReason] = useState<ReasonRequest | null>(null);
   const [note, setNote] = useState("");
-  const [form, setForm] = useState({ name: "", phone: "", venueName: "", area: "", followUp: "" });
+  const [form, setForm] = useState({ name: "", phone: "", venueName: "", area: "", region: "", followUp: "" });
 
   const detail = useQuery({
     queryKey: ["crm-contact", contactId],
@@ -265,6 +452,7 @@ function ContactDrawer({ contactId, onClose }: { contactId: string | null; onClo
       phone: c.phone,
       venueName: c.venueName ?? "",
       area: c.area ?? "",
+      region: c.region ?? "",
       followUp: c.nextFollowUpAtUtc ? cairoDate(c.nextFollowUpAtUtc) : "",
     });
   }, [detail.data]);
@@ -273,6 +461,7 @@ function ContactDrawer({ contactId, onClose }: { contactId: string | null; onClo
     await queryClient.invalidateQueries({ queryKey: ["crm-contact", contactId] });
     await queryClient.invalidateQueries({ queryKey: ["crm-contacts"] });
     await queryClient.invalidateQueries({ queryKey: ["crm-summary"] });
+    await queryClient.invalidateQueries({ queryKey: ["crm-regions"] });
   };
 
   const save = useMutation({
@@ -285,6 +474,7 @@ function ContactDrawer({ contactId, onClose }: { contactId: string | null; onClo
             phone: form.phone.trim(),
             venueName: form.venueName.trim() || null,
             area: form.area.trim() || null,
+            region: form.region.trim() || null,
             nextFollowUpAtUtc: followUpIso(form.followUp),
             assignedToUserId: detail.data?.contact.assignedToUserId ?? null,
           },
@@ -389,7 +579,10 @@ function ContactDrawer({ contactId, onClose }: { contactId: string | null; onClo
                   <Field label="الملعب">
                     <TextInput value={form.venueName} onChange={set("venueName")} maxLength={160} />
                   </Field>
-                  <Field label="المنطقة">
+                  <Field label="المنطقة الكبيرة">
+                    <RegionInput id="crm-edit-regions" regions={regions} value={form.region} onChange={set("region")} />
+                  </Field>
+                  <Field label="الحي">
                     <TextInput value={form.area} onChange={set("area")} maxLength={120} />
                   </Field>
                 </div>

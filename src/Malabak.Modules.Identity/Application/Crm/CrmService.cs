@@ -22,7 +22,8 @@ public sealed record CrmContactItem(
     DateTime StageChangedAtUtc,
     DateTime UpdatedAtUtc,
     DateTime CreatedAtUtc,
-    string? LostReason);
+    string? LostReason,
+    string? Region);
 
 public sealed record CrmNoteItem(Guid Id, string Kind, string Text, Guid AuthorUserId, string? AuthorName, DateTime CreatedAtUtc);
 
@@ -32,8 +33,20 @@ public sealed record CrmContactPage(IReadOnlyList<CrmContactItem> Items, int Pag
 
 public sealed record CrmSummary(IReadOnlyDictionary<string, int> ByStage, int FollowUpsDue, int NewThisWeek, int WaitlistNotImported);
 
+/// <summary>One territory on the board with how many contacts it holds (trash excluded).</summary>
+public sealed record CrmRegionItem(string Name, int Count);
+
+/// <summary>The territories in use, most contacts first, and how many contacts have none yet.</summary>
+public sealed record CrmRegions(IReadOnlyList<CrmRegionItem> Items, int Unassigned);
+
+/// <summary>Which part of the board to read: every contact, one region, or the contacts with no region yet.</summary>
+public sealed record CrmRegionFilter(string? Region, bool Unassigned)
+{
+    public static readonly CrmRegionFilter All = new(null, false);
+}
+
 public sealed record CrmContactInput(string? Name, string? VenueName, string? Area, string? Phone, DateTime? NextFollowUpAtUtc, Guid? AssignedToUserId,
-    CrmSource Source = CrmSource.Manual);
+    CrmSource Source = CrmSource.Manual, string? Region = null);
 
 public sealed record CrmImportResult(int Imported, int AlreadyInCrm);
 
@@ -70,17 +83,17 @@ public sealed class CrmService
 
     public static FieldEncryptionContext PhoneContext(Guid contactId) => new(_table, _phoneColumn, contactId);
 
-    public async Task<CrmSummary> GetSummaryAsync(CancellationToken cancellationToken = default)
+    public async Task<CrmSummary> GetSummaryAsync(CrmRegionFilter? region = null, CancellationToken cancellationToken = default)
     {
         var now = _clock.UtcNow;
         var dueBefore = EndOfCairoToday();
-        var byStage = await _dbContext.CrmContacts.AsNoTracking()
+        var contacts = InRegion(_dbContext.CrmContacts.AsNoTracking(), region ?? CrmRegionFilter.All);
+        var byStage = await contacts
             .GroupBy(c => c.Stage)
             .Select(g => new { g.Key, Count = g.Count() })
             .ToListAsync(cancellationToken);
-        var due = await _dbContext.CrmContacts.AsNoTracking()
-            .CountAsync(c => c.NextFollowUpAtUtc != null && c.NextFollowUpAtUtc < dueBefore, cancellationToken);
-        var fresh = await _dbContext.CrmContacts.AsNoTracking().CountAsync(c => c.CreatedAtUtc >= now.AddDays(-7), cancellationToken);
+        var due = await contacts.CountAsync(c => c.NextFollowUpAtUtc != null && c.NextFollowUpAtUtc < dueBefore, cancellationToken);
+        var fresh = await contacts.CountAsync(c => c.CreatedAtUtc >= now.AddDays(-7), cancellationToken);
         var imported = _dbContext.CrmContacts.IgnoreQueryFilters().Where(c => c.WaitlistEntryId != null).Select(c => c.WaitlistEntryId);
         var waiting = await _dbContext.WaitlistEntries.AsNoTracking()
             .CountAsync(w => w.Audience == WaitlistAudience.Venue && !imported.Contains(w.Id), cancellationToken);
@@ -89,16 +102,30 @@ public sealed class CrmService
         return new CrmSummary(stages, due, fresh, waiting);
     }
 
-    public async Task<Result<CrmContactPage>> ListAsync(
-        CrmStage? stage, string? search, bool dueOnly, int page, int pageSize, CancellationToken cancellationToken = default)
+    public async Task<CrmRegions> GetRegionsAsync(CancellationToken cancellationToken = default)
     {
-        if (page < 1 || pageSize is < 1 or > MaxPageSize || search?.Length > 100)
+        var rows = await _dbContext.CrmContacts.AsNoTracking()
+            .GroupBy(c => c.Region)
+            .Select(g => new { Name = g.Key, Count = g.Count() })
+            .ToListAsync(cancellationToken);
+        var items = rows.Where(r => r.Name != null)
+            .Select(r => new CrmRegionItem(r.Name!, r.Count))
+            .OrderByDescending(r => r.Count)
+            .ThenBy(r => r.Name, StringComparer.Ordinal)
+            .ToList();
+        return new CrmRegions(items, rows.FirstOrDefault(r => r.Name == null)?.Count ?? 0);
+    }
+
+    public async Task<Result<CrmContactPage>> ListAsync(
+        CrmStage? stage, string? search, bool dueOnly, int page, int pageSize, CrmRegionFilter? region = null, CancellationToken cancellationToken = default)
+    {
+        if (page < 1 || pageSize is < 1 or > MaxPageSize || search?.Length > 100 || region?.Region?.Length > CrmContact.MaxRegionLength)
         {
             return Result.Failure<CrmContactPage>(Error.Validation("Crm.InvalidFilter", "Invalid filter."));
         }
 
         var dueBefore = EndOfCairoToday();
-        var query = _dbContext.CrmContacts.AsNoTracking();
+        var query = InRegion(_dbContext.CrmContacts.AsNoTracking(), region ?? CrmRegionFilter.All);
         if (stage.HasValue)
         {
             query = query.Where(c => c.Stage == stage.Value);
@@ -333,7 +360,18 @@ public sealed class CrmService
         TimeZoneInfo.ConvertTimeToUtc(_clock.CairoToday.AddDays(1).ToDateTime(TimeOnly.MinValue), _clock.CairoTimeZone);
 
     private static CrmContactDetails Details(CrmContactInput input) =>
-        new(input.Name, input.VenueName, input.Area, input.NextFollowUpAtUtc, input.AssignedToUserId);
+        new(input.Name, input.VenueName, input.Area, input.NextFollowUpAtUtc, input.AssignedToUserId, input.Region);
+
+    private static IQueryable<CrmContact> InRegion(IQueryable<CrmContact> query, CrmRegionFilter filter)
+    {
+        if (filter.Unassigned)
+        {
+            return query.Where(c => c.Region == null);
+        }
+
+        var region = filter.Region?.Trim();
+        return string.IsNullOrEmpty(region) ? query : query.Where(c => c.Region == region);
+    }
 
     private string BlindIndexOf(string normalizedPhone) =>
         Convert.ToHexString(_blindIndex.Compute(normalizedPhone, BlindIndexPurpose.CrmPhone)).ToLowerInvariant();
@@ -357,7 +395,7 @@ public sealed class CrmService
 
             items.Add(new CrmContactItem(c.Id, c.Name, c.VenueName, c.Area, phone, c.Stage.ToString(), c.Source.ToString(), c.NextFollowUpAtUtc,
                 c.AssignedToUserId, c.AssignedToUserId is { } a ? names.GetValueOrDefault(a) : null, c.StageChangedAtUtc, c.UpdatedAtUtc,
-                c.CreatedAtUtc, c.LostReason));
+                c.CreatedAtUtc, c.LostReason, c.Region));
         }
 
         return items;

@@ -13,7 +13,7 @@ public sealed class JwtOptions
 
     /// <summary>Separate audience so a player/venue token is never accepted by /admin endpoints (SECURITY.md §3.9).</summary>
     public string AdminAudience { get; set; } = "Malabak.Admin";
-    public int AdminAccessTokenExpirationMinutes { get; set; } = 5;
+    public int AdminAccessTokenExpirationMinutes { get; set; } = 15;
 
     /// <summary>Absolute admin session length; refreshing does not extend it (no "remember me").</summary>
     public int AdminSessionHours { get; set; } = 8;

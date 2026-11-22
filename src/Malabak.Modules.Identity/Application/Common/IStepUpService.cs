@@ -14,6 +14,7 @@ public interface IStepUpService
 public static class StepUpScopes
 {
     public const string ChangePhone = "change_phone";
+    public const string ChangeEmail = "change_email";
     public const string DeleteAccount = "delete_account";
     public const string DisableTwoFactor = "disable_2fa";
     public const string AdminDestructive = "admin_destructive";
@@ -22,6 +23,7 @@ public static class StepUpScopes
     public static readonly IReadOnlySet<string> All = new HashSet<string>(StringComparer.Ordinal)
     {
         ChangePhone,
+        ChangeEmail,
         DeleteAccount,
         DisableTwoFactor,
         AdminDestructive,

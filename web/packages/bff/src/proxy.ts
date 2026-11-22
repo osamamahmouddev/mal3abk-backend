@@ -1,7 +1,8 @@
 import "server-only";
 import { timingSafeEqual } from "node:crypto";
 import { NextResponse, type NextRequest } from "next/server";
-import { CSRF_HEADER, apiUrl, csrfCookieName, isProduction, type BffConfig } from "./config";
+import { cookies } from "next/headers";
+import { CSRF_COOKIE, CSRF_HEADER, apiUrl, csrfCookieName, isProduction, sessionCookieName, type BffConfig } from "./config";
 import { endSession, getSession } from "./session";
 import { callApi } from "./upstream";
 import { clientIpHeaders } from "./client-ip";
@@ -80,7 +81,11 @@ export function createProxy(config: BffConfig) {
 
     if (upstream.status === 401) {
       await endSession(config);
-      return problem(401, "Bff.SessionExpired");
+      const res = problem(401, "Bff.SessionExpired");
+      res.cookies.delete(sessionCookieName(config));
+      res.cookies.delete(csrfCookieName(config));
+      res.cookies.delete(CSRF_COOKIE);
+      return res;
     }
 
     const responseHeaders = new Headers();
@@ -94,8 +99,20 @@ export function createProxy(config: BffConfig) {
       headers: responseHeaders,
     });
 
+    const sessionName = sessionCookieName(config);
+    const sessionCookie = (await cookies()).get(sessionName);
+    if (sessionCookie?.value) {
+      response.cookies.set(sessionName, sessionCookie.value, {
+        path: "/",
+        maxAge: config.sessionTtlSeconds,
+        sameSite: config.sameSite,
+        secure: isProduction,
+        httpOnly: true,
+      });
+    }
+
     const appCsrf = csrfCookieName(config);
-    if (session.csrf && request.cookies.get(appCsrf)?.value !== session.csrf) {
+    if (session.csrf) {
       response.cookies.set(appCsrf, session.csrf, {
         path: "/",
         maxAge: config.sessionTtlSeconds,

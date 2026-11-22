@@ -65,6 +65,30 @@ public sealed class CrmPostgresTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task TheBoardIsSplitByRegion_EachRegionSeesOnlyItsContactsAsync()
+    {
+        await using (var db = Db())
+        {
+            await Service(db).CreateAsync(new CrmContactInput("Helwan 1", null, "Maasara", "01011111111", null, null, Region: "حلوان"), _admin);
+            await Service(db).CreateAsync(new CrmContactInput("Helwan 2", null, null, "01011111112", null, null, Region: " حلوان "), _admin);
+            await Service(db).CreateAsync(new CrmContactInput("May 1", null, null, "01011111113", null, null, Region: "مايو"), _admin);
+            await Service(db).CreateAsync(new CrmContactInput("Nowhere", null, null, "01011111114", null, null), _admin);
+        }
+
+        await using var read = Db();
+        var regions = await Service(read).GetRegionsAsync();
+        regions.Items.Should().Equal(new CrmRegionItem("حلوان", 2), new CrmRegionItem("مايو", 1));
+        regions.Unassigned.Should().Be(1);
+
+        (await Service(read).ListAsync(null, null, false, 1, 50, new CrmRegionFilter("حلوان", false))).Value.Items
+            .Select(c => c.Name).Should().BeEquivalentTo("Helwan 1", "Helwan 2");
+        (await Service(read).ListAsync(null, null, false, 1, 50, new CrmRegionFilter(null, true))).Value.Items
+            .Select(c => c.Name).Should().Equal("Nowhere");
+        (await Service(read).ListAsync(null, null, false, 1, 50)).Value.Total.Should().Be(4);
+        (await Service(read).GetSummaryAsync(new CrmRegionFilter("مايو", false))).ByStage[nameof(CrmStage.New)].Should().Be(1);
+    }
+
+    [Fact]
     public async Task AStageMoveAndANote_AreSavedOnTheTimelineAsync()
     {
         Guid id;

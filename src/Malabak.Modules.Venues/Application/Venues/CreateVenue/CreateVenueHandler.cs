@@ -1,3 +1,4 @@
+using System.Security.Cryptography;
 using System.Text.RegularExpressions;
 using Malabak.Modules.Venues.Application.Common;
 using Malabak.Modules.Venues.Application.Venues;
@@ -12,6 +13,8 @@ namespace Malabak.Modules.Venues.Application.Venues.CreateVenue;
 
 public sealed class CreateVenueHandler : ICommandHandler<CreateVenueCommand, Result<VenueDto>>
 {
+    private const int _maxAttempts = 3;
+
     private readonly IVenueRepository _venueRepository;
     private readonly VenuesDbContext _dbContext;
     private readonly IEntitlementService _entitlements;
@@ -46,37 +49,67 @@ public sealed class CreateVenueHandler : ICommandHandler<CreateVenueCommand, Res
             return Result.Failure<VenueDto>(allowed.Error);
         }
 
-        var baseSlug = GenerateSlug(command.Name);
-        var finalSlug = baseSlug;
-        var counter = 1;
-
-        while (await _venueRepository.ExistsBySlugAsync(finalSlug, null, cancellationToken))
+        for (var attempt = 1; attempt <= _maxAttempts; attempt++)
         {
-            finalSlug = $"{baseSlug}-{counter++}";
+            var baseSlug = GenerateSlug(command.Name);
+            if (attempt > 1)
+            {
+                baseSlug = $"{baseSlug}-{RandomNumberGenerator.GetHexString(2).ToLowerInvariant()}";
+            }
+
+            var finalSlug = baseSlug;
+            var counter = 1;
+
+            while (await _venueRepository.ExistsBySlugAsync(finalSlug, null, cancellationToken))
+            {
+                finalSlug = $"{baseSlug}-{counter++}";
+            }
+
+            var venue = Venue.Create(
+                id: Guid.NewGuid(),
+                name: command.Name,
+                slug: finalSlug,
+                description: command.Description,
+                ownerId: command.OwnerId,
+                address: command.Address,
+                city: command.City,
+                area: command.Area,
+                latitude: command.Latitude,
+                longitude: command.Longitude,
+                phoneNumber: command.PhoneNumber,
+                facilities: command.Facilities,
+                photos: command.Photos,
+                createdAtUtc: nowUtc);
+
+            _venueRepository.Add(venue);
+
+            try
+            {
+                await _dbContext.SaveChangesAsync(cancellationToken);
+
+                _logger.LogInformation("Venue {VenueId} ('{VenueName}', slug: '{VenueSlug}') created by owner {OwnerId}", venue.Id, venue.Name, venue.Slug, venue.OwnerId);
+
+                return Result.Success(VenueMapper.ToDto(venue));
+            }
+            catch (DbUpdateException ex) when (IsSlugCollision(ex) && attempt < _maxAttempts)
+            {
+                _logger.LogWarning(ex, "Slug collision detected for '{Slug}' on attempt {Attempt}. Retrying with fresh slug...", finalSlug, attempt);
+                _dbContext.ChangeTracker.Clear();
+            }
         }
 
-        var venue = Venue.Create(
-            id: Guid.NewGuid(),
-            name: command.Name,
-            slug: finalSlug,
-            description: command.Description,
-            ownerId: command.OwnerId,
-            address: command.Address,
-            city: command.City,
-            area: command.Area,
-            latitude: command.Latitude,
-            longitude: command.Longitude,
-            phoneNumber: command.PhoneNumber,
-            facilities: command.Facilities,
-            photos: command.Photos,
-            createdAtUtc: nowUtc);
+        return Result.Failure<VenueDto>(new Error("Venue.SlugCollision", "Could not generate a unique slug for the venue. Please try again."));
+    }
 
-        _venueRepository.Add(venue);
-        await _dbContext.SaveChangesAsync(cancellationToken);
+    private static bool IsSlugCollision(DbUpdateException exception)
+    {
+        if (exception.InnerException is Npgsql.PostgresException pgEx && pgEx.SqlState == "23505")
+        {
+            return pgEx.ConstraintName?.Contains("Slug", StringComparison.OrdinalIgnoreCase) == true;
+        }
 
-        _logger.LogInformation("Venue {VenueId} ('{VenueName}') created by owner {OwnerId}", venue.Id, venue.Name, venue.OwnerId);
-
-        return Result.Success(VenueMapper.ToDto(venue));
+        return exception.InnerException?.Message.Contains("IX_venues_Slug", StringComparison.OrdinalIgnoreCase) == true
+            || exception.Message.Contains("IX_venues_Slug", StringComparison.OrdinalIgnoreCase);
     }
 
     private static string GenerateSlug(string name)
@@ -85,6 +118,12 @@ public sealed class CreateVenueHandler : ICommandHandler<CreateVenueCommand, Res
         slug = Regex.Replace(slug, @"[^a-z0-9\s-]", "");
         slug = Regex.Replace(slug, @"\s+", "-").Trim('-');
 
-        return string.IsNullOrWhiteSpace(slug) ? "venue" : slug;
+        if (string.IsNullOrWhiteSpace(slug))
+        {
+            var randomSuffix = RandomNumberGenerator.GetHexString(3).ToLowerInvariant();
+            return $"venue-{randomSuffix}";
+        }
+
+        return slug;
     }
 }
