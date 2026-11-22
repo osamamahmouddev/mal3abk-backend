@@ -471,9 +471,13 @@ export function ManualBookingForm({
       notes: notes || undefined,
     });
     const found: Record<string, string> = parsed.success ? {} : Object.fromEntries(parsed.error.issues.map((i) => [String(i.path[0]), i.message]));
+    const isPast = new Date(startUtc).getTime() <= Date.now();
+    if (isPast && payment === PAYMENT.unconfirmed) {
+      found.payment = "الميعاد بدأ أو عدى خلاص: لازم يكون الحجز مدفوع مش مبدئي.";
+    }
     const problem = depositError(payment, price === "" ? undefined : Number(price), deposit);
     if (problem) found.deposit = problem;
-    if (!parsed.success || problem) {
+    if (!parsed.success || problem || found.payment) {
       setErrors(found);
       return;
     }
@@ -736,18 +740,37 @@ export function ManualBookingForm({
         <fieldset className="flex flex-col gap-1 text-sm font-semibold sm:col-span-2">
           <legend className="mb-1">حالة الحجز</legend>
           <div className="flex flex-wrap gap-2">
-            {PAYMENT_OPTIONS.map((option) => (
-              <button
-                key={option.value}
-                type="button"
-                aria-pressed={payment === option.value}
-                onClick={() => setPayment(option.value)}
-                className={`flex-1 min-w-[120px] min-h-[44px] rounded-xl border text-sm ${payment === option.value ? "bg-navy-900 text-white border-navy-900 font-bold shadow-xs" : "bg-white border-[#C9CFD9] hover:bg-slate-50"}`}
-              >
-                {option.label}
-              </button>
-            ))}
+            {PAYMENT_OPTIONS.map((option) => {
+              const isPast = new Date(startUtc).getTime() <= Date.now();
+              const disabled = isPast && option.value === PAYMENT.unconfirmed;
+              return (
+                <button
+                  key={option.value}
+                  type="button"
+                  disabled={disabled}
+                  aria-pressed={payment === option.value}
+                  onClick={() => setPayment(option.value)}
+                  className={`flex-1 min-w-[120px] min-h-[44px] rounded-xl border text-sm ${
+                    payment === option.value
+                      ? "bg-navy-900 text-white border-navy-900 font-bold shadow-xs"
+                      : disabled
+                      ? "bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed"
+                      : "bg-white border-[#C9CFD9] hover:bg-slate-50"
+                  }`}
+                >
+                  {option.label}
+                </button>
+              );
+            })}
           </div>
+          {new Date(startUtc).getTime() <= Date.now() && (
+            <span className="text-[11px] text-amber-700 font-medium">الميعاد في وقت فات: لازم يكون الحجز مدفوع/مؤكد، مينفعش «محجوز مبدئي».</span>
+          )}
+          {errors.payment && (
+            <span role="alert" className="text-xs font-normal text-[#A8261C]">
+              {errors.payment}
+            </span>
+          )}
           <span className={`text-xs font-normal ${muted}`}>{PAYMENT_OPTIONS.find((o) => o.value === payment)?.hint}</span>
         </fieldset>
         {payment !== PAYMENT.full &&
