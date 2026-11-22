@@ -2,6 +2,15 @@ name: Deploy Frontends to Vercel
 
 on:
   workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target Environment'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - staging
+          - production
   push:
     branches: [ main, dev ]
     paths:
@@ -16,43 +25,83 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
 
+      - name: Determine Target Environment & Project
+        id: target
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            SELECTED_ENV="${{ github.event.inputs.environment }}"
+          elif [ "${{ github.ref_name }}" = "main" ]; then
+            SELECTED_ENV="production"
+          else
+            SELECTED_ENV="staging"
+          fi
+
+          if [ "$SELECTED_ENV" = "production" ]; then
+            PROJECT_ID="${{ secrets.VERCEL_PROJECT_ID_LANDING }}"
+            ENV_NAME="production"
+            PROD_FLAG="--prod"
+          else
+            PROJECT_ID="${{ secrets.VERCEL_PROJECT_ID_LANDING_DEV }}"
+            ENV_NAME="production"
+            PROD_FLAG="--prod"
+          fi
+
+          if [ -z "$PROJECT_ID" ]; then
+            echo "SHOULD_DEPLOY=false" >> $GITHUB_OUTPUT
+            echo "Skipping landing deployment: No project ID configured for $SELECTED_ENV."
+          else
+            echo "SHOULD_DEPLOY=true" >> $GITHUB_OUTPUT
+            echo "PROJECT_ID=$PROJECT_ID" >> $GITHUB_OUTPUT
+            echo "ENV_NAME=$ENV_NAME" >> $GITHUB_OUTPUT
+            echo "PROD_FLAG=$PROD_FLAG" >> $GITHUB_OUTPUT
+            echo "Targeting $SELECTED_ENV Landing with project: $PROJECT_ID"
+          fi
+
       - name: Setup Node.js 20
+        if: steps.target.outputs.SHOULD_DEPLOY == 'true'
         uses: actions/setup-node@v4
         with:
           node-version: 20
 
       - name: Setup pnpm
+        if: steps.target.outputs.SHOULD_DEPLOY == 'true'
         uses: pnpm/action-setup@v4
         with:
           package_json_file: web/package.json
 
       - name: Link & Pull Vercel Environment
+        if: steps.target.outputs.SHOULD_DEPLOY == 'true'
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_LANDING }}
+          VERCEL_PROJECT_ID: ${{ steps.target.outputs.PROJECT_ID }}
+          ENV_NAME: ${{ steps.target.outputs.ENV_NAME }}
         run: |
           mkdir -p .vercel
           echo "{\"orgId\":\"$VERCEL_ORG_ID\",\"projectId\":\"$VERCEL_PROJECT_ID\"}" > .vercel/project.json
-          npx --yes vercel pull --yes --environment=production --token=$VERCEL_TOKEN
+          npx --yes vercel pull --yes --environment=$ENV_NAME --token=$VERCEL_TOKEN
 
       - name: Build with Vercel CLI
+        if: steps.target.outputs.SHOULD_DEPLOY == 'true'
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          PROD_FLAG: ${{ steps.target.outputs.PROD_FLAG }}
         run: |
-          npx --yes vercel build --prod --token=$VERCEL_TOKEN
+          npx --yes vercel build $PROD_FLAG --token=$VERCEL_TOKEN
 
-      - name: Deploy Prebuilt to Production
+      - name: Deploy Prebuilt to Vercel
+        if: steps.target.outputs.SHOULD_DEPLOY == 'true'
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          PROD_FLAG: ${{ steps.target.outputs.PROD_FLAG }}
         run: |
           set +e
-          DEPLOY_OUTPUT=$(GIT_DIR=/dev/null npx --yes vercel deploy --prebuilt --prod --token=$VERCEL_TOKEN --yes 2>&1)
+          DEPLOY_OUTPUT=$(GIT_DIR=/dev/null npx --yes vercel deploy --prebuilt $PROD_FLAG --token=$VERCEL_TOKEN --yes 2>&1)
           EXIT_CODE=$?
           echo "$DEPLOY_OUTPUT"
           if [ $EXIT_CODE -ne 0 ]; then
             if echo "$DEPLOY_OUTPUT" | grep -q "api-deployments-free-per-day"; then
-              echo "::warning title=Vercel Free Tier Rate Limit::Vercel free tier daily limit of 100 API deployments reached. Deployment will resume once quota resets (24h) or when upgraded."
+              echo "::warning title=Vercel Free Tier Rate Limit::Vercel free tier daily limit reached."
               exit 0
             else
               exit $EXIT_CODE
@@ -66,43 +115,83 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
 
+      - name: Determine Target Environment & Project
+        id: target
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            SELECTED_ENV="${{ github.event.inputs.environment }}"
+          elif [ "${{ github.ref_name }}" = "main" ]; then
+            SELECTED_ENV="production"
+          else
+            SELECTED_ENV="staging"
+          fi
+
+          if [ "$SELECTED_ENV" = "production" ]; then
+            PROJECT_ID="${{ secrets.VERCEL_PROJECT_ID_VENUE }}"
+            ENV_NAME="production"
+            PROD_FLAG="--prod"
+          else
+            PROJECT_ID="${{ secrets.VERCEL_PROJECT_ID_VENUE_DEV }}"
+            ENV_NAME="production"
+            PROD_FLAG="--prod"
+          fi
+
+          if [ -z "$PROJECT_ID" ]; then
+            echo "SHOULD_DEPLOY=false" >> $GITHUB_OUTPUT
+            echo "Skipping venue deployment: No project ID configured for $SELECTED_ENV."
+          else
+            echo "SHOULD_DEPLOY=true" >> $GITHUB_OUTPUT
+            echo "PROJECT_ID=$PROJECT_ID" >> $GITHUB_OUTPUT
+            echo "ENV_NAME=$ENV_NAME" >> $GITHUB_OUTPUT
+            echo "PROD_FLAG=$PROD_FLAG" >> $GITHUB_OUTPUT
+            echo "Targeting $SELECTED_ENV Venue with project: $PROJECT_ID"
+          fi
+
       - name: Setup Node.js 20
+        if: steps.target.outputs.SHOULD_DEPLOY == 'true'
         uses: actions/setup-node@v4
         with:
           node-version: 20
 
       - name: Setup pnpm
+        if: steps.target.outputs.SHOULD_DEPLOY == 'true'
         uses: pnpm/action-setup@v4
         with:
           package_json_file: web/package.json
 
       - name: Link & Pull Vercel Environment
+        if: steps.target.outputs.SHOULD_DEPLOY == 'true'
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_VENUE }}
+          VERCEL_PROJECT_ID: ${{ steps.target.outputs.PROJECT_ID }}
+          ENV_NAME: ${{ steps.target.outputs.ENV_NAME }}
         run: |
           mkdir -p .vercel
           echo "{\"orgId\":\"$VERCEL_ORG_ID\",\"projectId\":\"$VERCEL_PROJECT_ID\"}" > .vercel/project.json
-          npx --yes vercel pull --yes --environment=production --token=$VERCEL_TOKEN
+          npx --yes vercel pull --yes --environment=$ENV_NAME --token=$VERCEL_TOKEN
 
       - name: Build with Vercel CLI
+        if: steps.target.outputs.SHOULD_DEPLOY == 'true'
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          PROD_FLAG: ${{ steps.target.outputs.PROD_FLAG }}
         run: |
-          npx --yes vercel build --prod --token=$VERCEL_TOKEN
+          npx --yes vercel build $PROD_FLAG --token=$VERCEL_TOKEN
 
-      - name: Deploy Prebuilt to Production
+      - name: Deploy Prebuilt to Vercel
+        if: steps.target.outputs.SHOULD_DEPLOY == 'true'
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          PROD_FLAG: ${{ steps.target.outputs.PROD_FLAG }}
         run: |
           set +e
-          DEPLOY_OUTPUT=$(GIT_DIR=/dev/null npx --yes vercel deploy --prebuilt --prod --token=$VERCEL_TOKEN --yes 2>&1)
+          DEPLOY_OUTPUT=$(GIT_DIR=/dev/null npx --yes vercel deploy --prebuilt $PROD_FLAG --token=$VERCEL_TOKEN --yes 2>&1)
           EXIT_CODE=$?
           echo "$DEPLOY_OUTPUT"
           if [ $EXIT_CODE -ne 0 ]; then
             if echo "$DEPLOY_OUTPUT" | grep -q "api-deployments-free-per-day"; then
-              echo "::warning title=Vercel Free Tier Rate Limit::Vercel free tier daily limit of 100 API deployments reached. Deployment will resume once quota resets (24h) or when upgraded."
+              echo "::warning title=Vercel Free Tier Rate Limit::Vercel free tier daily limit reached."
               exit 0
             else
               exit $EXIT_CODE
@@ -116,43 +205,83 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
 
+      - name: Determine Target Environment & Project
+        id: target
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            SELECTED_ENV="${{ github.event.inputs.environment }}"
+          elif [ "${{ github.ref_name }}" = "main" ]; then
+            SELECTED_ENV="production"
+          else
+            SELECTED_ENV="staging"
+          fi
+
+          if [ "$SELECTED_ENV" = "production" ]; then
+            PROJECT_ID="${{ secrets.VERCEL_PROJECT_ID_ADMIN }}"
+            ENV_NAME="production"
+            PROD_FLAG="--prod"
+          else
+            PROJECT_ID="${{ secrets.VERCEL_PROJECT_ID_ADMIN_DEV }}"
+            ENV_NAME="production"
+            PROD_FLAG="--prod"
+          fi
+
+          if [ -z "$PROJECT_ID" ]; then
+            echo "SHOULD_DEPLOY=false" >> $GITHUB_OUTPUT
+            echo "Skipping admin deployment: No project ID configured for $SELECTED_ENV."
+          else
+            echo "SHOULD_DEPLOY=true" >> $GITHUB_OUTPUT
+            echo "PROJECT_ID=$PROJECT_ID" >> $GITHUB_OUTPUT
+            echo "ENV_NAME=$ENV_NAME" >> $GITHUB_OUTPUT
+            echo "PROD_FLAG=$PROD_FLAG" >> $GITHUB_OUTPUT
+            echo "Targeting $SELECTED_ENV Admin with project: $PROJECT_ID"
+          fi
+
       - name: Setup Node.js 20
+        if: steps.target.outputs.SHOULD_DEPLOY == 'true'
         uses: actions/setup-node@v4
         with:
           node-version: 20
 
       - name: Setup pnpm
+        if: steps.target.outputs.SHOULD_DEPLOY == 'true'
         uses: pnpm/action-setup@v4
         with:
           package_json_file: web/package.json
 
       - name: Link & Pull Vercel Environment
+        if: steps.target.outputs.SHOULD_DEPLOY == 'true'
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_ADMIN }}
+          VERCEL_PROJECT_ID: ${{ steps.target.outputs.PROJECT_ID }}
+          ENV_NAME: ${{ steps.target.outputs.ENV_NAME }}
         run: |
           mkdir -p .vercel
           echo "{\"orgId\":\"$VERCEL_ORG_ID\",\"projectId\":\"$VERCEL_PROJECT_ID\"}" > .vercel/project.json
-          npx --yes vercel pull --yes --environment=production --token=$VERCEL_TOKEN
+          npx --yes vercel pull --yes --environment=$ENV_NAME --token=$VERCEL_TOKEN
 
       - name: Build with Vercel CLI
+        if: steps.target.outputs.SHOULD_DEPLOY == 'true'
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          PROD_FLAG: ${{ steps.target.outputs.PROD_FLAG }}
         run: |
-          npx --yes vercel build --prod --token=$VERCEL_TOKEN
+          npx --yes vercel build $PROD_FLAG --token=$VERCEL_TOKEN
 
-      - name: Deploy Prebuilt to Production
+      - name: Deploy Prebuilt to Vercel
+        if: steps.target.outputs.SHOULD_DEPLOY == 'true'
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          PROD_FLAG: ${{ steps.target.outputs.PROD_FLAG }}
         run: |
           set +e
-          DEPLOY_OUTPUT=$(GIT_DIR=/dev/null npx --yes vercel deploy --prebuilt --prod --token=$VERCEL_TOKEN --yes 2>&1)
+          DEPLOY_OUTPUT=$(GIT_DIR=/dev/null npx --yes vercel deploy --prebuilt $PROD_FLAG --token=$VERCEL_TOKEN --yes 2>&1)
           EXIT_CODE=$?
           echo "$DEPLOY_OUTPUT"
           if [ $EXIT_CODE -ne 0 ]; then
             if echo "$DEPLOY_OUTPUT" | grep -q "api-deployments-free-per-day"; then
-              echo "::warning title=Vercel Free Tier Rate Limit::Vercel free tier daily limit of 100 API deployments reached. Deployment will resume once quota resets (24h) or when upgraded."
+              echo "::warning title=Vercel Free Tier Rate Limit::Vercel free tier daily limit reached."
               exit 0
             else
               exit $EXIT_CODE
