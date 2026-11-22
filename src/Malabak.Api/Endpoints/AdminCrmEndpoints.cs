@@ -22,25 +22,37 @@ public static class AdminCrmEndpoints
             .RequireAuthorization(Permissions.AdminVenuesApprove)
             .WithTags("Admin CRM");
 
-        crm.MapGet("/summary", async (HttpContext http, CrmService service, CancellationToken ct) =>
+        crm.MapGet("/summary", async ([FromQuery] string? region, [FromQuery] bool? unassigned, HttpContext http, CrmService service,
+                CancellationToken ct) =>
             {
                 AdminResults.NoStore(http);
-                return Results.Ok(await service.GetSummaryAsync(ct));
+                return Results.Ok(await service.GetSummaryAsync(new CrmRegionFilter(region, unassigned == true), ct));
             })
             .Produces<CrmSummary>()
             .WithName("AdminCrmSummary")
-            .WithSummary("Contacts per stage, follow-ups due today and venue waitlist leads not in the CRM yet");
+            .WithSummary("Contacts per stage, follow-ups due today and venue waitlist leads not in the CRM yet; optionally for one region");
 
-        crm.MapGet("/contacts", async ([FromQuery] CrmStage? stage, [FromQuery] string? q, [FromQuery] bool? due, [FromQuery] int? page,
-                [FromQuery] int? pageSize, HttpContext http, CrmService service, CancellationToken ct) =>
+        crm.MapGet("/regions", async (HttpContext http, CrmService service, CancellationToken ct) =>
             {
                 AdminResults.NoStore(http);
-                return AdminResults.From(await service.ListAsync(stage, q, due == true, page ?? 1, pageSize ?? 50, ct));
+                return Results.Ok(await service.GetRegionsAsync(ct));
+            })
+            .Produces<CrmRegions>()
+            .WithName("AdminCrmRegions")
+            .WithSummary("The regions the board is split by, most contacts first, and how many contacts have no region yet");
+
+        crm.MapGet("/contacts", async ([FromQuery] CrmStage? stage, [FromQuery] string? q, [FromQuery] bool? due, [FromQuery] int? page,
+                [FromQuery] int? pageSize, [FromQuery] string? region, [FromQuery] bool? unassigned, HttpContext http, CrmService service,
+                CancellationToken ct) =>
+            {
+                AdminResults.NoStore(http);
+                return AdminResults.From(await service.ListAsync(stage, q, due == true, page ?? 1, pageSize ?? 50,
+                    new CrmRegionFilter(region, unassigned == true), ct));
             })
             .Produces<CrmContactPage>()
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .WithName("AdminCrmListContacts")
-            .WithSummary("Contacts, next follow-up first; q matches a phone number exactly or a name, venue or area");
+            .WithSummary("Contacts, next follow-up first; q matches a phone number exactly or a name, venue or area; region (or unassigned) narrows to one region");
 
         crm.MapGet("/contacts/{id:guid}", async (Guid id, HttpContext http, CrmService service, CancellationToken ct) =>
             {
@@ -98,9 +110,10 @@ public static class AdminCrmEndpoints
 }
 
 public sealed record CrmContactApiRequest(
-    string? Name, string? VenueName, string? Area, string? Phone, DateTime? NextFollowUpAtUtc, Guid? AssignedToUserId, CrmSource? Source = null)
+    string? Name, string? VenueName, string? Area, string? Phone, DateTime? NextFollowUpAtUtc, Guid? AssignedToUserId, CrmSource? Source = null,
+    string? Region = null)
 {
-    public CrmContactInput ToInput() => new(Name, VenueName, Area, Phone, NextFollowUpAtUtc, AssignedToUserId, Source ?? CrmSource.Manual);
+    public CrmContactInput ToInput() => new(Name, VenueName, Area, Phone, NextFollowUpAtUtc, AssignedToUserId, Source ?? CrmSource.Manual, Region);
 }
 
 public sealed record CrmStageApiRequest(CrmStage Stage, string? Reason = null);

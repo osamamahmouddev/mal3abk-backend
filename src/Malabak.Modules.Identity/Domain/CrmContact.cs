@@ -37,6 +37,7 @@ public sealed class CrmContact
     public const int MaxNameLength = 120;
     public const int MaxVenueNameLength = 160;
     public const int MaxAreaLength = 120;
+    public const int MaxRegionLength = 60;
     public const int MaxLostReasonLength = 300;
 
     private readonly List<CrmNote> _notes = [];
@@ -49,6 +50,9 @@ public sealed class CrmContact
     public string Name { get; private set; } = string.Empty;
     public string? VenueName { get; private set; }
     public string? Area { get; private set; }
+
+    /// <summary>The territory the team works it from (e.g. «حلوان», «مايو»); the board is split by it. Null until someone sets it.</summary>
+    public string? Region { get; private set; }
     public byte[] PhoneEncrypted { get; private set; } = [];
     public string PhoneBlindIndex { get; private set; } = string.Empty;
     public CrmStage Stage { get; private set; }
@@ -172,13 +176,14 @@ public sealed class CrmContact
         var name = details.Name?.Trim() ?? string.Empty;
         var venueName = string.IsNullOrWhiteSpace(details.VenueName) ? null : details.VenueName.Trim();
         var area = string.IsNullOrWhiteSpace(details.Area) ? null : details.Area.Trim();
+        var region = string.IsNullOrWhiteSpace(details.Region) ? null : details.Region.Trim();
 
         if (name.Length is 0 or > MaxNameLength)
         {
             return Result.Failure(CrmErrors.NameRequired);
         }
 
-        if (venueName?.Length > MaxVenueNameLength || area?.Length > MaxAreaLength)
+        if (venueName?.Length > MaxVenueNameLength || area?.Length > MaxAreaLength || region?.Length > MaxRegionLength)
         {
             return Result.Failure(CrmErrors.TextTooLong);
         }
@@ -191,6 +196,7 @@ public sealed class CrmContact
         Name = name;
         VenueName = venueName;
         Area = area;
+        Region = region;
         NextFollowUpAtUtc = details.NextFollowUpAtUtc;
         AssignedToUserId = details.AssignedToUserId;
         UpdatedAtUtc = nowUtc;
@@ -199,7 +205,8 @@ public sealed class CrmContact
 }
 
 /// <summary>The fields the team edits on a contact (the phone number is handled apart because it is encrypted).</summary>
-public sealed record CrmContactDetails(string? Name, string? VenueName, string? Area, DateTime? NextFollowUpAtUtc, Guid? AssignedToUserId);
+public sealed record CrmContactDetails(
+    string? Name, string? VenueName, string? Area, DateTime? NextFollowUpAtUtc, Guid? AssignedToUserId, string? Region = null);
 
 /// <summary>One line on a contact's timeline: a note, a logged call, or a stage move. Never edited once written.</summary>
 public sealed class CrmNote

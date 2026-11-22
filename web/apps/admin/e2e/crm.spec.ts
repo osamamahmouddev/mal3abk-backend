@@ -6,7 +6,7 @@ const CONTACT_ID = "c1000000-0000-4000-8000-000000000001";
 const contact = (stage: string, extra: Record<string, unknown> = {}) => ({
   id: CONTACT_ID, name: "كابتن أحمد", venueName: "ملعب النصر", area: "مدينة نصر", phone: "+201012345678", stage, source: "Manual",
   nextFollowUpAtUtc: "2020-01-01T10:00:00Z", assignedToUserId: null, assignedToName: null, stageChangedAtUtc: "2026-11-20T10:00:00Z",
-  updatedAtUtc: "2026-11-20T10:00:00Z", createdAtUtc: "2026-11-19T10:00:00Z", lostReason: null, ...extra,
+  updatedAtUtc: "2026-11-20T10:00:00Z", createdAtUtc: "2026-11-19T10:00:00Z", lostReason: null, region: "حلوان", ...extra,
 });
 
 test.beforeEach(async ({ api }) => {
@@ -14,6 +14,7 @@ test.beforeEach(async ({ api }) => {
   api.on("GET", /^\/api\/v1\/admin\/crm\/summary$/, () => ({
     byStage: { New: 1, Contacted: 0, Interested: 0, Onboarding: 0, Active: 0, Lost: 0 }, followUpsDue: 1, newThisWeek: 1, waitlistNotImported: 3,
   }));
+  api.on("GET", /^\/api\/v1\/admin\/crm\/regions$/, () => ({ items: [{ name: "حلوان", count: 1 }, { name: "مايو", count: 2 }], unassigned: 0 }));
   api.on("GET", /^\/api\/v1\/admin\/crm\/contacts$/, () => ({ items: [contact("New")], page: 1, pageSize: 100, total: 1 }));
   api.on("GET", new RegExp(`^/api/v1/admin/crm/contacts/${CONTACT_ID}$`), () => ({ contact: contact("New"), notes: [] }));
 });
@@ -53,6 +54,24 @@ test("moving a contact to «not interested» asks why, and a call is logged on i
   await page.screenshot({ path: "test-results/crm-drawer.png" });
 });
 
+test("the board is split by region: it opens on the biggest one and each tab reads only its contacts", async ({ page, api }) => {
+  await page.goto("/admin/crm");
+
+  const tabs = page.getByRole("tablist", { name: "المناطق" });
+  await expect(tabs.getByRole("tab", { name: /حلوان/ })).toHaveAttribute("aria-selected", "true");
+  await waitForCall(page, api.calls, (c) => c.path.startsWith("/api/v1/admin/crm/contacts?") && c.path.includes(`region=${encodeURIComponent("حلوان")}`));
+
+  await tabs.getByRole("tab", { name: /مايو/ }).click();
+  await waitForCall(page, api.calls, (c) => c.path.startsWith("/api/v1/admin/crm/contacts?") && c.path.includes(`region=${encodeURIComponent("مايو")}`));
+  await waitForCall(page, api.calls, (c) => c.path.startsWith("/api/v1/admin/crm/summary?") && c.path.includes(`region=${encodeURIComponent("مايو")}`));
+
+  await tabs.getByRole("button", { name: "منطقة جديدة" }).click();
+  await page.getByLabel("اسم المنطقة").fill("المعادي");
+  await page.getByRole("dialog", { name: "منطقة جديدة" }).getByRole("button", { name: "إضافة" }).click();
+  await expect(tabs.getByRole("tab", { name: /المعادي/ })).toHaveAttribute("aria-selected", "true");
+  await page.screenshot({ path: "test-results/crm-regions.png", fullPage: true });
+});
+
 test("a new contact is added with its phone and follow-up day", async ({ page, api }) => {
   api.on("POST", /^\/api\/v1\/admin\/crm\/contacts$/, () => ({ contact: contact("New"), notes: [] }));
 
@@ -65,5 +84,6 @@ test("a new contact is added with its phone and follow-up day", async ({ page, a
   await drawer.getByRole("button", { name: "إضافة" }).click();
 
   const call = await waitForCall(page, api.calls, (c) => c.method === "POST" && c.path === "/api/v1/admin/crm/contacts");
-  expect(call.body).toMatchObject({ name: "كابتن أحمد", phone: "01012345678", nextFollowUpAtUtc: "2026-11-25T10:00:00.000Z" });
+  // It goes to the region the board is on.
+  expect(call.body).toMatchObject({ name: "كابتن أحمد", phone: "01012345678", region: "حلوان", nextFollowUpAtUtc: "2026-11-25T10:00:00.000Z" });
 });

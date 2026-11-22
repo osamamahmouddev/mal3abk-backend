@@ -14,6 +14,7 @@ public sealed class CrmContactConfiguration : IEntityTypeConfiguration<CrmContac
         builder.Property(c => c.Name).HasMaxLength(CrmContact.MaxNameLength).IsRequired();
         builder.Property(c => c.VenueName).HasMaxLength(CrmContact.MaxVenueNameLength);
         builder.Property(c => c.Area).HasMaxLength(CrmContact.MaxAreaLength);
+        builder.Property(c => c.Region).HasMaxLength(CrmContact.MaxRegionLength);
         builder.Property(c => c.LostReason).HasMaxLength(CrmContact.MaxLostReasonLength);
         builder.Property(c => c.PhoneEncrypted).IsRequired();
         builder.Property(c => c.PhoneBlindIndex).HasMaxLength(64).IsRequired();
@@ -23,6 +24,7 @@ public sealed class CrmContactConfiguration : IEntityTypeConfiguration<CrmContac
         // One contact per phone number, so two people never chase the same venue owner separately.
         builder.HasIndex(c => c.PhoneBlindIndex).IsUnique();
         builder.HasIndex(c => new { c.Stage, c.NextFollowUpAtUtc });
+        builder.HasIndex(c => c.Region);
 
         // Contacts in the trash are hidden everywhere; the trash and restore read them explicitly.
         builder.HasQueryFilter(c => !c.IsDeleted);
