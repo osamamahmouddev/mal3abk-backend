@@ -178,6 +178,71 @@ public sealed class VenuePitchTests
     }
 
     [Fact]
+    public async Task CreateVenueHandler_ArabicName_GeneratesUniqueSlugAsync()
+    {
+        using var dbContext = CreateDbContext();
+        var venueRepo = new VenueRepository(dbContext);
+        var handler = new CreateVenueHandler(venueRepo, dbContext, new AllowAllEntitlements(), _clock, NullLogger<CreateVenueHandler>.Instance);
+
+        var ownerId = Guid.NewGuid();
+        var command = new CreateVenueCommand(
+            ownerId,
+            "ملعب الأبطال الدولي",
+            "ملعب حديث ومجهز بالكامل",
+            "شارع الهرم",
+            "Giza",
+            "Haram",
+            30.01,
+            31.20,
+            "+201011112222",
+            ["Parking"],
+            null);
+
+        var result = await handler.HandleAsync(command);
+
+        result.IsSuccess.Should().BeTrue();
+        result.Value.Slug.Should().StartWith("venue-");
+        result.Value.Slug.Length.Should().BeGreaterThan("venue-".Length);
+    }
+
+    [Fact]
+    public async Task CreateVenueHandler_SoftDeletedVenue_DoesNotReuseSlugAsync()
+    {
+        using var dbContext = CreateDbContext();
+        var venueRepo = new VenueRepository(dbContext);
+        var handler = new CreateVenueHandler(venueRepo, dbContext, new AllowAllEntitlements(), _clock, NullLogger<CreateVenueHandler>.Instance);
+
+        var ownerId = Guid.NewGuid();
+        var command = new CreateVenueCommand(
+            ownerId,
+            "Champions Arena",
+            null,
+            "Cairo Road",
+            "Cairo",
+            "Maadi",
+            null,
+            null,
+            "+201011112222",
+            null,
+            null);
+
+        var result1 = await handler.HandleAsync(command);
+        result1.IsSuccess.Should().BeTrue();
+        result1.Value.Slug.Should().Be("champions-arena");
+
+        // Soft delete the first venue
+        var venue = await venueRepo.GetByIdAsync(result1.Value.Id);
+        venue.Should().NotBeNull();
+        venueRepo.Delete(venue!, _clock.UtcNow);
+        await dbContext.SaveChangesAsync();
+
+        // Create again with the same name - should NOT pick "champions-arena" because of DB uniqueness across soft-deleted rows
+        var result2 = await handler.HandleAsync(command);
+        result2.IsSuccess.Should().BeTrue();
+        result2.Value.Slug.Should().Be("champions-arena-1");
+    }
+
+    [Fact]
     public async Task UpdateVenueHandler_Rejects_WhenNotOwnerAsync()
     {
         using var dbContext = CreateDbContext();

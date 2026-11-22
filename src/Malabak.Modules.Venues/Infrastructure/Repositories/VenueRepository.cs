@@ -47,9 +47,10 @@ public sealed class VenueRepository : IVenueRepository
         var normalized = slug.Trim().ToLowerInvariant();
 
         // Slugs are unique across all owners, so this check must see venues outside the caller's tenant scope.
+        // Slugs must also be unique across all venues including soft-deleted ones, because IX_venues_Slug is unique unconditionally.
         return await _dbContext.Venues
             .IgnoreQueryFilters()
-            .AnyAsync(v => v.Slug == normalized && (!excludeVenueId.HasValue || v.Id != excludeVenueId.Value) && !v.IsDeleted, cancellationToken);
+            .AnyAsync(v => v.Slug == normalized && (!excludeVenueId.HasValue || v.Id != excludeVenueId.Value), cancellationToken);
     }
 
     public void Add(Venue venue)

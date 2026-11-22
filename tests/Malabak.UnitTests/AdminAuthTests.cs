@@ -125,7 +125,7 @@ public sealed class AdminAuthTests
         var jwt = new JwtSecurityTokenHandler().ReadJwtToken(tokens.AccessToken);
 
         jwt.Audiences.Should().Equal("Malabak.Admin");
-        tokens.ExpiresIn.Should().Be(300);
+        tokens.ExpiresIn.Should().Be(900);
         tokens.SessionExpiresAtUtc.Should().Be(_clock.UtcNow.AddHours(8));
         jwt.Claims.Where(c => c.Type == "amr").Select(c => c.Value).Should().Contain("mfa");
         jwt.Claims.Should().NotContain(c => c.Type == "phone_number" || c.Type == "email");
