@@ -17,6 +17,10 @@ on:
       - 'src/**'
       - '.github/workflows/deploy-backend.yml'
 
+concurrency:
+  group: deploy-backend-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   deploy-backend:
     name: Build & Deploy Backend
