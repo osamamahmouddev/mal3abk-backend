@@ -219,6 +219,7 @@ jobs:
                   web_config = web_config.replace("</aspNetCore>", "  <environmentVariables>\n      </environmentVariables>\n    </aspNetCore>", 1)
 
           web_config = re.sub(r'stdoutLogEnabled="false"', 'stdoutLogEnabled="true"', web_config)
+          web_config = re.sub(r'\s+startupTimeLimit="[^"]*"', '', web_config)
           web_config = re.sub(r'hostingModel="[^"]*"', 'hostingModel="OutOfProcess" startupTimeLimit="180"', web_config)
           if 'hostingModel="OutOfProcess"' not in web_config:
               web_config = re.sub(r'<aspNetCore\b', '<aspNetCore hostingModel="OutOfProcess" startupTimeLimit="180"', web_config, count=1)
