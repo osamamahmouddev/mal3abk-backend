@@ -167,6 +167,19 @@ public sealed class User : Entity<Guid>
         UpdatedAtUtc = nowUtc;
     }
 
+    /// <summary>Changes the display name only (owners and staff, who have no player profile).</summary>
+    public void Rename(string fullName, DateTime nowUtc)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(fullName);
+        if (fullName.Trim().Length > MaxNameLength)
+        {
+            throw new ArgumentException("Profile value too long.");
+        }
+
+        FullName = fullName.Trim();
+        UpdatedAtUtc = nowUtc;
+    }
+
     public void SetLanguage(string language, DateTime nowUtc)
     {
         if (!UserLanguages.IsSupported(language))

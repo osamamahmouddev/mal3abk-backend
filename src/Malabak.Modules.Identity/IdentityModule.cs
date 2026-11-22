@@ -161,6 +161,11 @@ public static class IdentityModule
         services.AddScoped<ICommandHandler<CancelPhoneChangeCommand, Result>, CancelPhoneChangeHandler>();
         services.AddScoped<ICommandHandler<RecoverPhoneCommand, Result>, RecoverPhoneHandler>();
 
+        // Email change for accounts that sign in with an email (owners and staff)
+        services.AddScoped<Malabak.Modules.Identity.Application.EmailChange.EmailChangeHandlers>();
+        services.AddScoped<ICommandHandler<Malabak.Modules.Identity.Application.EmailChange.StartEmailChangeCommand, Result>>(sp => sp.GetRequiredService<Malabak.Modules.Identity.Application.EmailChange.EmailChangeHandlers>());
+        services.AddScoped<ICommandHandler<Malabak.Modules.Identity.Application.EmailChange.ConfirmEmailChangeCommand, Result>>(sp => sp.GetRequiredService<Malabak.Modules.Identity.Application.EmailChange.EmailChangeHandlers>());
+
         return services;
     }
 

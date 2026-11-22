@@ -43,6 +43,22 @@ public static class EmailTemplates
         "إذا لم تكن أنت، سجّل الخروج من كل الأجهزة من الإعدادات وتواصل مع الدعم.",
         "If this wasn't you, sign out all devices from settings and contact support.");
 
+    public static RenderedEmail EmailChangeCode(string code) => Build(
+        "كود تأكيد البريد الجديد | Confirm your new email",
+        $"استخدم الكود {code} لتأكيد بريدك الإلكتروني الجديد في ملعبك. الكود صالح 15 دقيقة.",
+        $"Use the code {code} to confirm your new Malabak email address. It expires in 15 minutes.",
+        link: null,
+        "إذا لم تطلب ذلك، تجاهل الرسالة؛ لن يتغير شيء.",
+        "If you didn't ask for this, ignore this email; nothing will change.");
+
+    public static RenderedEmail EmailChanged(string newEmailMasked) => Build(
+        "تم تغيير بريد حسابك | Your account email was changed",
+        $"تم تغيير البريد الإلكتروني لحسابك في ملعبك إلى {newEmailMasked}، وتم تسجيل الخروج من باقي الأجهزة.",
+        $"Your Malabak account email was changed to {newEmailMasked}, and your other devices were signed out.",
+        link: null,
+        "إذا لم تكن أنت، تواصل مع الدعم فوراً.",
+        "If this wasn't you, contact support right away.");
+
     private static RenderedEmail Build(string subject, string introAr, string introEn, string? link, string footerAr, string footerEn)
     {
         var text = string.Join("\n\n", new[] { introAr, link, footerAr, "—", introEn, link, footerEn }.Where(s => s is not null));
