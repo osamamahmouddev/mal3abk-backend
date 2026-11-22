@@ -1,0 +1,228 @@
+name: Server Monitor Home (Health Checks)
+
+on:
+  schedule:
+    # Run every 10 minutes around the clock
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+    inputs:
+      notify_always:
+        description: 'Send Slack notification even if all services are healthy'
+        required: true
+        type: boolean
+        default: true
+
+jobs:
+  monitor-servers:
+    name: Check Server Health & Notify Slack
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Run Server Healthchecks
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_MONITOR_WEBHOOK || secrets.MALABAK_OTP_SLACK_WEBHOOK }}
+          NOTIFY_ALWAYS: ${{ github.event.inputs.notify_always || 'false' }}
+        run: |
+          python3 - << 'EOF'
+          import os, sys, json, time, urllib.request, urllib.error
+
+          slack_url = os.environ.get("SLACK_WEBHOOK_URL", "").strip()
+          notify_always = os.environ.get("NOTIFY_ALWAYS", "false").lower() == "true"
+
+          targets = [
+              {
+                  "name": "Production Backend",
+                  "env": "PROD",
+                  "type": "api",
+                  "url": "http://mal3abk.runasp.net/health/ready",
+                  "critical": True
+              },
+              {
+                  "name": "Staging Backend",
+                  "env": "STAGING",
+                  "type": "api",
+                  "url": "http://mal3abk-staging.runasp.net/health/ready",
+                  "critical": False
+              },
+              {
+                  "name": "Production Admin",
+                  "env": "PROD",
+                  "type": "web",
+                  "url": "https://mal3abk-admin.vercel.app",
+                  "critical": True
+              },
+              {
+                  "name": "Production Venue",
+                  "env": "PROD",
+                  "type": "web",
+                  "url": "https://mal3abak-six.vercel.app",
+                  "critical": True
+              },
+              {
+                  "name": "Staging Admin",
+                  "env": "STAGING",
+                  "type": "web",
+                  "url": "https://mal3abk-statging.vercel.app",
+                  "critical": False
+              },
+              {
+                  "name": "Staging Venue",
+                  "env": "STAGING",
+                  "type": "web",
+                  "url": "https://mal3abk-venue-staging.vercel.app",
+                  "critical": False
+              }
+          ]
+
+          results = []
+          any_failed = False
+          critical_failed = False
+
+          print("=" * 60)
+          print("==> Running Server Monitor Home checks...")
+          print("=" * 60)
+
+          for target in targets:
+              start_time = time.time()
+              url = target["url"]
+              status_code = None
+              error_msg = None
+              details = {}
+
+              try:
+                  req = urllib.request.Request(url, headers={"User-Agent": "MalabakServerMonitor/1.0"})
+                  with urllib.request.urlopen(req, timeout=12) as res:
+                      status_code = res.status
+                      body = res.read().decode("utf-8", errors="ignore")
+                      if target["type"] == "api" and status_code == 200:
+                          try:
+                              payload = json.loads(body)
+                              entries = payload.get("entries", {})
+                              details["postgres"] = entries.get("postgres", {}).get("status", "Unknown")
+                              details["redis"] = entries.get("redis", {}).get("status", "Unknown")
+                          except Exception:
+                              pass
+              except urllib.error.HTTPError as e:
+                  status_code = e.code
+                  error_msg = f"HTTP {e.code}: {e.reason}"
+              except Exception as e:
+                  status_code = 0
+                  error_msg = str(e)
+
+              latency_ms = round((time.time() - start_time) * 1000)
+              is_healthy = (status_code in [200, 307])
+
+              if not is_healthy:
+                  any_failed = True
+                  if target["critical"]:
+                      critical_failed = True
+
+              result_entry = {
+                  "target": target,
+                  "status_code": status_code,
+                  "latency_ms": latency_ms,
+                  "is_healthy": is_healthy,
+                  "error_msg": error_msg,
+                  "details": details
+              }
+              results.append(result_entry)
+
+              mark = "✅" if is_healthy else "❌"
+              detail_str = f" [PG: {details.get('postgres', 'N/A')}, Redis: {details.get('redis', 'N/A')}]" if details else ""
+              print(f"{mark} {target['name']} ({target['env']}): Code {status_code} | {latency_ms}ms{detail_str}")
+
+          print("=" * 60)
+          print(f"Summary: Any Failed: {any_failed} | Critical Failed: {critical_failed}")
+
+          if not slack_url:
+              print("⚠️ Warning: No SLACK_WEBHOOK_URL configured. Skipping notification.")
+              if critical_failed:
+                  sys.exit(1)
+              sys.exit(0)
+
+          # Determine whether to send Slack notification
+          # Default: send on failure, or always if requested via workflow_dispatch
+          should_notify = any_failed or notify_always
+
+          if not should_notify:
+              print("All services healthy. Notification skipped (periodic silent check).")
+              sys.exit(0)
+
+          # Build Slack Block Kit Message
+          header_color = "#dc2626" if critical_failed else ("#f59e0b" if any_failed else "#16a34a")
+          header_title = "🚨 SERVER OUTAGE DETECTED" if critical_failed else ("⚠️ Staging Issue Detected" if any_failed else "🟢 All Malabak Servers Operational")
+
+          fields = []
+          for r in results:
+              t = r["target"]
+              status_badge = "✅ Up" if r["is_healthy"] else f"❌ Down ({r['error_msg'] or r['status_code']})"
+              comp_str = ""
+              if r["details"]:
+                  comp_str = f" `DB: {r['details'].get('postgres')}` `Redis: {r['details'].get('redis')}`"
+              fields.append({
+                  "type": "mrkdwn",
+                  "text": f"*{t['name']}* ({t['env']})\n{status_badge} • {r['latency_ms']}ms{comp_str}"
+              })
+
+          blocks = [
+              {
+                  "type": "header",
+                  "text": {
+                      "type": "plain_text",
+                      "text": f"{header_title}",
+                      "emoji": True
+                  }
+              },
+              {
+                  "type": "section",
+                  "text": {
+                      "type": "mrkdwn",
+                      "text": f"*Server Monitor Home* • Check performed at <!date^{int(time.time())}^{{time_secs}}|{time.strftime('%Y-%m-%d %H:%M:%S UTC', time.gmtime())}>"
+                  }
+              },
+              {
+                  "type": "divider"
+              },
+              {
+                  "type": "section",
+                  "fields": fields[:10]
+              },
+              {
+                  "type": "context",
+                  "elements": [
+                      {
+                          "type": "mrkdwn",
+                          "text": "🤖 Automated by GitHub Actions (`server-monitor.yml`)"
+                      }
+                  ]
+              }
+          ]
+
+          slack_payload = {
+              "text": f"{header_title} - Server Monitor Home",
+              "attachments": [
+                  {
+                      "color": header_color,
+                      "blocks": blocks
+                  }
+              ]
+          }
+
+          try:
+              req = urllib.request.Request(
+                  slack_url,
+                  data=json.dumps(slack_payload).encode("utf-8"),
+                  headers={"Content-Type": "application/json"}
+              )
+              with urllib.request.urlopen(req, timeout=10) as res:
+                  print(f"==> Slack notification dispatched successfully (HTTP {res.status}).")
+          except Exception as e:
+              print(f"Error dispatching Slack notification: {e}")
+
+          if critical_failed:
+              sys.exit(1)
+          EOF
