@@ -673,6 +673,7 @@ function SlotDrawer({
   });
   // A manual booking that is not confirmed yet (tentative, or waiting for its deposit) is settled here by the venue.
   const pendingManual = slot.isManual && slot.status === "PendingDeposit";
+  const canCancelManual = slot.isManual && (slot.status === "PendingDeposit" || slot.status === "Confirmed");
   const [cancelling, setCancelling] = useState(false);
   const [cancelReason, setCancelReason] = useState("");
   const settled = async (message: string) => {
@@ -754,25 +755,25 @@ function SlotDrawer({
           </Link>
         )}
         {pendingManual && canDecide && !cancelling && (
-          <>
-            <button
-              type="button"
-              onClick={() => confirm.mutate()}
-              disabled={confirm.isPending}
-              className="min-h-[44px] px-4 rounded-xl bg-navy-900 text-white text-sm font-bold"
-            >
-              {confirm.isPending ? "جاري…" : "ثبّت الحجز"}
-            </button>
-            <button
-              type="button"
-              onClick={() => setCancelling(true)}
-              className="min-h-[44px] px-4 rounded-xl border border-[#F3C4BF] text-[#A8261C] text-sm font-bold"
-            >
-              إلغاء الحجز
-            </button>
-          </>
+          <button
+            type="button"
+            onClick={() => confirm.mutate()}
+            disabled={confirm.isPending}
+            className="min-h-[44px] px-4 rounded-xl bg-navy-900 text-white text-sm font-bold"
+          >
+            {confirm.isPending ? "جاري…" : "ثبّت الحجز"}
+          </button>
         )}
-        {pendingManual && canDecide && cancelling && (
+        {canCancelManual && canDecide && !cancelling && (
+          <button
+            type="button"
+            onClick={() => setCancelling(true)}
+            className="min-h-[44px] px-4 rounded-xl border border-[#F3C4BF] text-[#A8261C] text-sm font-bold"
+          >
+            إلغاء الحجز
+          </button>
+        )}
+        {canCancelManual && canDecide && cancelling && (
           <form
             className="basis-full flex flex-col gap-2"
             onSubmit={(e) => {

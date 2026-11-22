@@ -33,7 +33,7 @@ const nextConfig = {
         permanent: false,
       },
       {
-        source: "/:path(login|featured|venues|approvals|billing|teams|support|settings|accounts|audit)",
+        source: "/:path(login|featured|venues|approvals|billing|teams|support|settings|accounts|audit|bookings|deposits|payouts|disputes|users|trash|crm|waitlist|overview|security|areas|reports)",
         destination: "/admin/:path",
         basePath: false,
         permanent: false,

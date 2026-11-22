@@ -1,5 +1,6 @@
 using Hangfire;
 using Malabak.Modules.Booking.Application;
+using Malabak.SharedKernel;
 using Microsoft.Extensions.Logging;
 
 namespace Malabak.Modules.Booking.Infrastructure.Jobs;
@@ -7,19 +8,22 @@ namespace Malabak.Modules.Booking.Infrastructure.Jobs;
 public sealed class HangfireHoldExpiryScheduler : IHoldExpiryScheduler
 {
     private readonly IBackgroundJobClient _backgroundJobClient;
+    private readonly IClock _clock;
     private readonly ILogger<HangfireHoldExpiryScheduler> _logger;
 
     public HangfireHoldExpiryScheduler(
         IBackgroundJobClient backgroundJobClient,
+        IClock clock,
         ILogger<HangfireHoldExpiryScheduler> logger)
     {
         _backgroundJobClient = backgroundJobClient;
+        _clock = clock;
         _logger = logger;
     }
 
     public void ScheduleHoldExpiry(Guid bookingId, DateTime holdExpiresAtUtc)
     {
-        var delay = holdExpiresAtUtc - DateTime.UtcNow;
+        var delay = holdExpiresAtUtc - _clock.UtcNow;
         if (delay < TimeSpan.Zero)
         {
             delay = TimeSpan.Zero;

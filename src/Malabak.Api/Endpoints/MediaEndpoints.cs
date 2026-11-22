@@ -37,10 +37,17 @@ public static class MediaEndpoints
             }
 
             using var buffer = new MemoryStream();
-            await request.Body.CopyToAsync(buffer, ct);
-            if (buffer.Length > ImageProcessor.MaxBytes)
+            var chunk = new byte[81920];
+            int bytesRead;
+            long totalRead = 0;
+            while ((bytesRead = await request.Body.ReadAsync(chunk, 0, chunk.Length, ct)) > 0)
             {
-                return Results.Problem(title: "Media.TooLarge", statusCode: StatusCodes.Status413PayloadTooLarge);
+                totalRead += bytesRead;
+                if (totalRead > ImageProcessor.MaxBytes)
+                {
+                    return Results.Problem(title: "Media.TooLarge", statusCode: StatusCodes.Status413PayloadTooLarge);
+                }
+                buffer.Write(chunk, 0, bytesRead);
             }
 
             var result = await service.UploadAsync(id, user.GetUserId()!.Value, token, buffer.ToArray(), ct);

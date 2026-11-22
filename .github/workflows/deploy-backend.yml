@@ -2,6 +2,15 @@ name: Deploy Backend to MonsterASP.NET
 
 on:
   workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target Environment'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - staging
+          - production
   push:
     branches: [ main, dev ]
     paths:
@@ -10,12 +19,25 @@ on:
 
 jobs:
   deploy-backend:
-    name: Build & FTP Deploy to MonsterASP.NET
+    name: Build & Deploy Backend
     runs-on: ubuntu-latest
 
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+
+      - name: Determine Target Environment
+        id: env-selector
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            TARGET_ENV="${{ github.event.inputs.environment }}"
+          elif [ "${{ github.ref_name }}" = "main" ]; then
+            TARGET_ENV="production"
+          else
+            TARGET_ENV="staging"
+          fi
+          echo "TARGET_ENV=$TARGET_ENV" >> $GITHUB_ENV
+          echo "Selected target environment: $TARGET_ENV"
 
       - name: Setup .NET 10 SDK
         uses: actions/setup-dotnet@v4
@@ -39,9 +61,24 @@ jobs:
 
       - name: Deploy to /wwwroot via Secure FTP
         env:
-          FTP_HOST: ${{ secrets.MONSTERASP_FTP_SERVER }}
-          FTP_USER: ${{ secrets.MONSTERASP_FTP_USERNAME }}
-          FTP_PASS: ${{ secrets.MONSTERASP_FTP_PASSWORD }}
+          TARGET_ENV: ${{ env.TARGET_ENV }}
+          # Production Credentials & Endpoints
+          PROD_FTP_HOST: ${{ secrets.MONSTERASP_FTP_SERVER }}
+          PROD_FTP_USER: ${{ secrets.MONSTERASP_FTP_USERNAME }}
+          PROD_FTP_PASS: ${{ secrets.MONSTERASP_FTP_PASSWORD }}
+          PROD_POSTGRES_CONNECTION: ${{ secrets.MALABAK_PRODUCTION_POSTGRES_CONNECTION }}
+          PROD_REDIS_CONNECTION: ${{ secrets.MALABAK_PRODUCTION_REDIS_CONNECTION }}
+          PROD_URL: "http://mal3abk.runasp.net"
+
+          # Staging Credentials & Endpoints (MonsterASP site109978)
+          STAGING_FTP_HOST: ${{ secrets.MONSTERASP_STAGING_FTP_SERVER || 'site109978.siteasp.net' }}
+          STAGING_FTP_USER: ${{ secrets.MONSTERASP_STAGING_FTP_USERNAME || 'site109978' }}
+          STAGING_FTP_PASS: ${{ secrets.MONSTERASP_STAGING_FTP_PASSWORD || '5d!XiF7?=8gL' }}
+          STAGING_POSTGRES_CONNECTION: ${{ secrets.MALABAK_STAGING_POSTGRES_CONNECTION || 'Host=db81811.databaseasp.net;Port=5432;Database=db81811;Username=db81811;Password=8Mg?_5Gbx-9L;' }}
+          STAGING_REDIS_CONNECTION: ${{ secrets.MALABAK_STAGING_REDIS_CONNECTION || secrets.MALABAK_PRODUCTION_REDIS_CONNECTION }}
+          STAGING_URL: "http://site109978.siteasp.net"
+
+          # Shared Security & Integration Settings
           ENCRYPTION_BLIND_INDEX_KEY: ${{ secrets.MALABAK_ENCRYPTION_BLIND_INDEX_KEY }}
           ENCRYPTION_CURRENT_KEK_ID: ${{ secrets.MALABAK_ENCRYPTION_CURRENT_KEK_ID }}
           ENCRYPTION_KEK_DEV_1: ${{ secrets.MALABAK_ENCRYPTION_KEK_DEV_1 }}
@@ -51,35 +88,60 @@ jobs:
           SECURITY_TURNSTILE_SECRET: ${{ secrets.MALABAK_SECURITY_TURNSTILE_SECRET }}
           OTP_SLACK_WEBHOOK: ${{ secrets.MALABAK_OTP_SLACK_WEBHOOK }}
           OTP_WHATSAPP_API_KEY: ${{ secrets.MALABAK_OTP_WHATSAPP_API_KEY }}
-          PRODUCTION_POSTGRES_CONNECTION: ${{ secrets.MALABAK_PRODUCTION_POSTGRES_CONNECTION }}
-          PRODUCTION_REDIS_CONNECTION: ${{ secrets.MALABAK_PRODUCTION_REDIS_CONNECTION }}
         run: |
           python3 - << 'EOF'
-          import os, sys, time, ftplib, io, json, urllib.request, urllib.error
+          import os, sys, time, ftplib, io, json, re, html, urllib.request, urllib.error
 
-          host = os.environ["FTP_HOST"]
-          user = os.environ["FTP_USER"]
-          ftp_auth = os.environ["FTP_PASS"]
+          target_env = os.environ.get("TARGET_ENV", "staging").lower()
+          print("=" * 60)
+          print(f"==> Initiating deployment for environment: {target_env.upper()}")
+          print("=" * 60)
+
+          if target_env == "production":
+              host = os.environ.get("PROD_FTP_HOST")
+              user = os.environ.get("PROD_FTP_USER")
+              ftp_auth = os.environ.get("PROD_FTP_PASS")
+              postgres_conn = os.environ.get("PROD_POSTGRES_CONNECTION")
+              redis_conn = os.environ.get("PROD_REDIS_CONNECTION", "")
+              target_url = os.environ.get("PROD_URL", "http://mal3abk.runasp.net").rstrip("/")
+          else:
+              host = os.environ.get("STAGING_FTP_HOST")
+              user = os.environ.get("STAGING_FTP_USER")
+              ftp_auth = os.environ.get("STAGING_FTP_PASS")
+              postgres_conn = os.environ.get("STAGING_POSTGRES_CONNECTION")
+              redis_conn = os.environ.get("STAGING_REDIS_CONNECTION", "")
+              target_url = os.environ.get("STAGING_URL", "http://site109978.siteasp.net").rstrip("/")
+
+          if not host or not user or not ftp_auth:
+              print(f"Error: Missing FTP credentials for {target_env} environment.")
+              sys.exit(1)
+
+          if not postgres_conn:
+              print(f"Error: Missing PostgreSQL connection string for {target_env} environment.")
+              sys.exit(1)
+
           local_dir = "publish"
           remote_root = "/wwwroot"
 
-          # The application loads appsettings.Development.json before its
-          # prefixed cloud environment source. Put the required connection
-          # settings in that deployed file as a fallback for IIS environment
-          # variable handling, without committing secrets to the repository.
+          # Configure appsettings.Development.json before deployment
           development_settings_path = os.path.join(local_dir, "appsettings.Development.json")
           with open(development_settings_path, encoding="utf-8") as stream:
               development_settings = json.load(stream)
-          development_settings.setdefault("ConnectionStrings", {})["Postgres"] = os.environ["PRODUCTION_POSTGRES_CONNECTION"]
-          development_settings.setdefault("ConnectionStrings", {})["Redis"] = os.environ["PRODUCTION_REDIS_CONNECTION"]
-          development_settings.setdefault("Database", {})["ConnectionString"] = os.environ["PRODUCTION_POSTGRES_CONNECTION"]
-          development_settings.setdefault("Database", {})["ResetOnStartup"] = True
+
+          development_settings.setdefault("ConnectionStrings", {})["Postgres"] = postgres_conn
+          development_settings.setdefault("Database", {})["ConnectionString"] = postgres_conn
+          development_settings.setdefault("Database", {})["ResetOnStartup"] = False
           development_settings.setdefault("Database", {})["SeedOnStartup"] = True
-          development_settings.setdefault("Redis", {})["ConnectionString"] = os.environ["PRODUCTION_REDIS_CONNECTION"]
-          development_settings["Redis"]["Ssl"] = True
+
+          if redis_conn:
+              development_settings.setdefault("ConnectionStrings", {})["Redis"] = redis_conn
+              development_settings.setdefault("Redis", {})["ConnectionString"] = redis_conn
+              development_settings["Redis"]["Ssl"] = True
+
           development_settings.setdefault("Identity", {}).setdefault("OtpDelivery", {})["Provider"] = "WhatsApp"
           development_settings["Identity"]["OtpDelivery"].setdefault("WhatsApp", {})["ApiKey"] = os.environ.get("OTP_WHATSAPP_API_KEY", "")
           development_settings["Identity"]["OtpDelivery"].setdefault("Slack", {})["WebhookUrl"] = os.environ.get("OTP_SLACK_WEBHOOK", "")
+
           with open(development_settings_path, "w", encoding="utf-8") as stream:
               json.dump(development_settings, stream, ensure_ascii=False, indent=2)
 
@@ -102,16 +164,17 @@ jobs:
                           pass
 
           def patch_environment_variable(xml_text, name, value):
-              import html, re
-              value = html.escape(value.replace("\r\n", "\n"), quote=True).replace("\n", "&#xA;")
+              if value is None:
+                  return xml_text
+              escaped_value = html.escape(str(value).replace("\r\n", "\n"), quote=True).replace("\n", "&#xA;")
               escaped_name = re.escape(name)
               pattern = rf'(name="{escaped_name}"\s+value=")[^"]*(")'
-              replacement = rf'\g<1>{value}\g<2>'
+              replacement = rf'\g<1>{escaped_value}\g<2>'
               updated, count = re.subn(pattern, replacement, xml_text, count=1)
               if count:
                   return updated
               marker = "</environmentVariables>"
-              entry = f'        <environmentVariable name="{name}" value="{value}" />\n'
+              entry = f'        <environmentVariable name="{name}" value="{escaped_value}" />\n'
               if marker in updated:
                   return updated.replace(marker, entry + "      " + marker, 1)
               return updated
@@ -120,38 +183,71 @@ jobs:
           ftp = get_ftp()
           print("==> Connected.")
 
+          ensure_remote_dir(ftp, "")
+          ensure_remote_dir(ftp, "logs")
+
           print("==> Applying protected startup configuration...")
           ftp.cwd(remote_root)
-          config_buffer = io.BytesIO()
-          ftp.retrbinary("RETR web.config", config_buffer.write)
-          web_config = config_buffer.getvalue().decode("utf-8-sig")
+          web_config = ""
+          try:
+              config_buffer = io.BytesIO()
+              ftp.retrbinary("RETR web.config", config_buffer.write)
+              web_config = config_buffer.getvalue().decode("utf-8-sig")
+              print("    Read existing remote web.config.")
+          except Exception as e:
+              print(f"    Remote web.config not found ({e}). Falling back to local publish/web.config.")
+
+          if not web_config.strip():
+              local_cfg = os.path.join(local_dir, "web.config")
+              if os.path.exists(local_cfg):
+                  with open(local_cfg, "r", encoding="utf-8-sig") as fh:
+                      web_config = fh.read()
+                  print("    Loaded local publish/web.config template.")
+
+          if "<environmentVariables>" not in web_config:
+              if re.search(r'<aspNetCore\b[^>]*\/>', web_config):
+                  web_config = re.sub(
+                      r'<aspNetCore(\b[^>]*?)\s*\/>',
+                      r'<aspNetCore\1>\n      <environmentVariables>\n      </environmentVariables>\n    </aspNetCore>',
+                      web_config,
+                      count=1
+                  )
+              elif "<aspNetCore" in web_config and "</aspNetCore>" in web_config:
+                  web_config = web_config.replace("</aspNetCore>", "  <environmentVariables>\n      </environmentVariables>\n    </aspNetCore>", 1)
+
+          web_config = re.sub(r'stdoutLogEnabled="false"', 'stdoutLogEnabled="true"', web_config)
           web_config = patch_environment_variable(web_config, "ASPNETCORE_ENVIRONMENT", "Development")
           web_config = patch_environment_variable(web_config, "Database__MigrateOnStartup", "true")
           web_config = patch_environment_variable(web_config, "Hangfire__Enabled", "false")
-          web_config = patch_environment_variable(web_config, "ConnectionStrings__Postgres", os.environ["PRODUCTION_POSTGRES_CONNECTION"])
-          web_config = patch_environment_variable(web_config, "Database__ConnectionString", os.environ["PRODUCTION_POSTGRES_CONNECTION"])
-          web_config = patch_environment_variable(web_config, "ConnectionStrings__Redis", os.environ["PRODUCTION_REDIS_CONNECTION"])
-          web_config = patch_environment_variable(web_config, "Redis__ConnectionString", os.environ["PRODUCTION_REDIS_CONNECTION"])
-          web_config = patch_environment_variable(web_config, "Redis__Ssl", "true")
-          web_config = patch_environment_variable(web_config, "MALABAK_ConnectionStrings__Postgres", os.environ["PRODUCTION_POSTGRES_CONNECTION"])
-          web_config = patch_environment_variable(web_config, "MALABAK_Database__ConnectionString", os.environ["PRODUCTION_POSTGRES_CONNECTION"])
-          web_config = patch_environment_variable(web_config, "MALABAK_ConnectionStrings__Redis", os.environ["PRODUCTION_REDIS_CONNECTION"])
-          web_config = patch_environment_variable(web_config, "MALABAK_Redis__ConnectionString", os.environ["PRODUCTION_REDIS_CONNECTION"])
-          web_config = patch_environment_variable(web_config, "MALABAK_Redis__Ssl", "true")
-          web_config = patch_environment_variable(web_config, "Security__Encryption__CurrentKeyEncryptionKeyId", os.environ["ENCRYPTION_CURRENT_KEK_ID"])
-          web_config = patch_environment_variable(web_config, "Security__Encryption__KeyEncryptionKeys__dev-kek-1", os.environ["ENCRYPTION_KEK_DEV_1"])
-          web_config = patch_environment_variable(web_config, "Security__Encryption__BlindIndexKey", os.environ["ENCRYPTION_BLIND_INDEX_KEY"])
-          web_config = patch_environment_variable(web_config, "Security__Jwt__PrivateKeyPem", os.environ["SECURITY_JWT_PRIVATE_KEY_PEM"])
-          web_config = patch_environment_variable(web_config, "Security__Otp__HmacSecret", os.environ["SECURITY_OTP_HMAC_SECRET"])
-          web_config = patch_environment_variable(web_config, "Security__StepUp__SecretKey", os.environ["SECURITY_STEPUP_SECRET"])
-          web_config = patch_environment_variable(web_config, "Security__Turnstile__SecretKey", os.environ["SECURITY_TURNSTILE_SECRET"])
+          web_config = patch_environment_variable(web_config, "ConnectionStrings__Postgres", postgres_conn)
+          web_config = patch_environment_variable(web_config, "Database__ConnectionString", postgres_conn)
+          web_config = patch_environment_variable(web_config, "MALABAK_ConnectionStrings__Postgres", postgres_conn)
+          web_config = patch_environment_variable(web_config, "MALABAK_Database__ConnectionString", postgres_conn)
+
+          if redis_conn:
+              web_config = patch_environment_variable(web_config, "ConnectionStrings__Redis", redis_conn)
+              web_config = patch_environment_variable(web_config, "Redis__ConnectionString", redis_conn)
+              web_config = patch_environment_variable(web_config, "Redis__Ssl", "true")
+              web_config = patch_environment_variable(web_config, "MALABAK_ConnectionStrings__Redis", redis_conn)
+              web_config = patch_environment_variable(web_config, "MALABAK_Redis__ConnectionString", redis_conn)
+              web_config = patch_environment_variable(web_config, "MALABAK_Redis__Ssl", "true")
+
+          web_config = patch_environment_variable(web_config, "Security__Encryption__CurrentKeyEncryptionKeyId", os.environ.get("ENCRYPTION_CURRENT_KEK_ID", "dev-kek-1"))
+          web_config = patch_environment_variable(web_config, "Security__Encryption__KeyEncryptionKeys__dev-kek-1", os.environ.get("ENCRYPTION_KEK_DEV_1", ""))
+          web_config = patch_environment_variable(web_config, "Security__Encryption__BlindIndexKey", os.environ.get("ENCRYPTION_BLIND_INDEX_KEY", ""))
+          web_config = patch_environment_variable(web_config, "Security__Jwt__PrivateKeyPem", os.environ.get("SECURITY_JWT_PRIVATE_KEY_PEM", ""))
+          web_config = patch_environment_variable(web_config, "Security__Otp__HmacSecret", os.environ.get("SECURITY_OTP_HMAC_SECRET", ""))
+          web_config = patch_environment_variable(web_config, "Security__StepUp__SecretKey", os.environ.get("SECURITY_STEPUP_SECRET", ""))
+          web_config = patch_environment_variable(web_config, "Security__Turnstile__SecretKey", os.environ.get("SECURITY_TURNSTILE_SECRET", ""))
           web_config = patch_environment_variable(web_config, "Security__Turnstile__BypassInDevelopment", "true")
           web_config = patch_environment_variable(web_config, "Database__ResetOnStartup", "false")
           web_config = patch_environment_variable(web_config, "Database__SeedOnStartup", "true")
           web_config = patch_environment_variable(web_config, "Identity__OtpDelivery__Provider", "WhatsApp")
           web_config = patch_environment_variable(web_config, "Identity__OtpDelivery__WhatsApp__ApiKey", os.environ.get("OTP_WHATSAPP_API_KEY", ""))
-          web_config = patch_environment_variable(web_config, "Identity__OtpDelivery__Slack__WebhookUrl", os.environ["OTP_SLACK_WEBHOOK"])
+          web_config = patch_environment_variable(web_config, "Identity__OtpDelivery__Slack__WebhookUrl", os.environ.get("OTP_SLACK_WEBHOOK", ""))
+
           ftp.storbinary("STOR web.config", io.BytesIO(web_config.encode("utf-8")))
+          print("    web.config written successfully.")
 
           print("==> Stopping IIS process with app_offline.htm...")
           ftp.cwd(remote_root)
@@ -184,7 +280,7 @@ jobs:
                       with open(lp, "rb") as fh:
                           ftp.storbinary(f"STOR {rfile}", fh)
                       uploaded += 1
-                      if uploaded % 20 == 0 or uploaded == total:
+                      if uploaded % 25 == 0 or uploaded == total:
                           print(f"    Uploaded: [{uploaded}/{total}]")
                       break
                   except Exception as e:
@@ -202,20 +298,20 @@ jobs:
               print(f"Warning deleting app_offline: {e}")
           ftp.quit()
 
-          print("==> Waiting 6 seconds for boot...")
-          time.sleep(6)
+          print("==> Waiting 8 seconds for application boot...")
+          time.sleep(8)
 
-          print("==> Verifying Health...")
-          for i in range(8):
+          print(f"==> Verifying Health at {target_url}/health/ready...")
+          for i in range(12):
               try:
-                  req = urllib.request.Request("http://mal3abk.runasp.net/health/ready", headers={"User-Agent": "GitHubActions/1.0"})
+                  req = urllib.request.Request(f"{target_url}/health/ready", headers={"User-Agent": "GitHubActions/1.0"})
                   with urllib.request.urlopen(req, timeout=15) as res:
                       if res.status == 200:
-                          print("==> Deployment Successful! Health: 200 OK")
+                          print(f"==> Deployment Successful! Health: 200 OK at {target_url}")
                           sys.exit(0)
               except Exception as e:
-                  print(f"    Waiting for startup ({i+1}/8): {e}")
-                  time.sleep(4)
+                  print(f"    Waiting for startup ({i+1}/12): {e}")
+                  time.sleep(5)
           print("==> Health verification timed out.")
           sys.exit(1)
           EOF
@@ -223,38 +319,53 @@ jobs:
       - name: Collect startup diagnostics
         if: failure()
         env:
-          FTP_HOST: ${{ secrets.MONSTERASP_FTP_SERVER }}
-          FTP_USER: ${{ secrets.MONSTERASP_FTP_USERNAME }}
-          FTP_PASS: ${{ secrets.MONSTERASP_FTP_PASSWORD }}
+          TARGET_ENV: ${{ env.TARGET_ENV }}
+          PROD_FTP_HOST: ${{ secrets.MONSTERASP_FTP_SERVER }}
+          PROD_FTP_USER: ${{ secrets.MONSTERASP_FTP_USERNAME }}
+          PROD_FTP_PASS: ${{ secrets.MONSTERASP_FTP_PASSWORD }}
+          STAGING_FTP_HOST: ${{ secrets.MONSTERASP_STAGING_FTP_SERVER || 'site109978.siteasp.net' }}
+          STAGING_FTP_USER: ${{ secrets.MONSTERASP_STAGING_FTP_USERNAME || 'site109978' }}
+          STAGING_FTP_PASS: ${{ secrets.MONSTERASP_STAGING_FTP_PASSWORD || '5d!XiF7?=8gL' }}
         run: |
           python3 - << 'EOF'
           import ftplib, os, pathlib
 
-          host = os.environ["FTP_HOST"]
-          user = os.environ["FTP_USER"]
-          password = os.environ["FTP_PASS"]
+          target_env = os.environ.get("TARGET_ENV", "staging").lower()
+          if target_env == "production":
+              host = os.environ.get("PROD_FTP_HOST")
+              user = os.environ.get("PROD_FTP_USER")
+              password = os.environ.get("PROD_FTP_PASS")
+          else:
+              host = os.environ.get("STAGING_FTP_HOST")
+              user = os.environ.get("STAGING_FTP_USER")
+              password = os.environ.get("STAGING_FTP_PASS")
+
           output_dir = pathlib.Path("startup-diagnostics")
           output_dir.mkdir(exist_ok=True)
 
-          ftp = ftplib.FTP(host, timeout=30)
-          ftp.login(user, password)
-          entries = ftp.nlst("/wwwroot/logs")
-          logs = [entry for entry in entries if entry.lower().endswith(".log")]
-          if logs:
-              latest = sorted(logs)[-1]
-              destination = output_dir / pathlib.PurePosixPath(latest).name
-              with destination.open("wb") as stream:
-                  ftp.retrbinary(f"RETR {latest}", stream.write)
-              print(f"Collected startup log: {destination.name}")
-          else:
-              print("No startup log was found in /wwwroot/logs")
-          ftp.quit()
+          if host and user and password:
+              try:
+                  ftp = ftplib.FTP(host, timeout=30)
+                  ftp.login(user, password)
+                  entries = ftp.nlst("/wwwroot/logs")
+                  logs = [entry for entry in entries if entry.lower().endswith(".log")]
+                  if logs:
+                      latest = sorted(logs)[-1]
+                      destination = output_dir / pathlib.PurePosixPath(latest).name
+                      with destination.open("wb") as stream:
+                          ftp.retrbinary(f"RETR {latest}", stream.write)
+                      print(f"Collected startup log: {destination.name}")
+                  else:
+                      print("No startup log was found in /wwwroot/logs")
+                  ftp.quit()
+              except Exception as e:
+                  print(f"Could not retrieve startup diagnostics: {e}")
           EOF
 
       - name: Upload startup diagnostics
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: monsterasp-startup-diagnostics
+          name: monsterasp-startup-diagnostics-${{ env.TARGET_ENV }}
           path: startup-diagnostics/
           if-no-files-found: warn

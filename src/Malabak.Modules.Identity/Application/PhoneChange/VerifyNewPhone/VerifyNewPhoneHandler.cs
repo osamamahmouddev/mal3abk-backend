@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using Malabak.Modules.Identity.Application.Common;
+using Malabak.Modules.Identity.Application.Sessions;
 using Malabak.Modules.Identity.Domain;
 using Malabak.Modules.Identity.Infrastructure;
 using Malabak.SharedKernel;
@@ -14,6 +15,7 @@ public sealed class VerifyNewPhoneHandler : ICommandHandler<VerifyNewPhoneComman
     private readonly IOtpSecurityService _otpSecurityService;
     private readonly ITokenService _tokenService;
     private readonly ISmsAlertService _smsAlertService;
+    private readonly ISessionStore? _sessionStore;
     private readonly IClock _clock;
     private readonly ILogger<VerifyNewPhoneHandler> _logger;
 
@@ -23,12 +25,14 @@ public sealed class VerifyNewPhoneHandler : ICommandHandler<VerifyNewPhoneComman
         ITokenService tokenService,
         ISmsAlertService smsAlertService,
         IClock clock,
-        ILogger<VerifyNewPhoneHandler> logger)
+        ILogger<VerifyNewPhoneHandler> logger,
+        ISessionStore? sessionStore = null)
     {
         _dbContext = dbContext;
         _otpSecurityService = otpSecurityService;
         _tokenService = tokenService;
         _smsAlertService = smsAlertService;
+        _sessionStore = sessionStore;
         _clock = clock;
         _logger = logger;
     }
@@ -126,7 +130,7 @@ public sealed class VerifyNewPhoneHandler : ICommandHandler<VerifyNewPhoneComman
             // 1. Update user phone number, confirmed status, last change time, and security stamp
             user.ChangePhoneNumber(request.NewPhoneNumber, nowUtc);
 
-            // 2. Revoke all active remote sessions
+            // 2. Revoke all active remote sessions and tokens
             var activeTokens = await _dbContext.RefreshTokens
                 .Where(t => t.UserId == user.Id && !t.IsRevoked)
                 .ToListAsync(cancellationToken);
@@ -136,6 +140,15 @@ public sealed class VerifyNewPhoneHandler : ICommandHandler<VerifyNewPhoneComman
                 token.Revoke("phone_changed", nowUtc);
             }
 
+            var openSessions = await _dbContext.UserSessions
+                .Where(s => s.UserId == user.Id && !s.IsRevoked)
+                .ToListAsync(cancellationToken);
+
+            foreach (var session in openSessions)
+            {
+                session.Revoke(nowUtc, "phone_changed");
+            }
+
             // 3. Complete phone change request
             request.Complete(recoveryTokenHash, nowUtc);
 
@@ -143,6 +156,10 @@ public sealed class VerifyNewPhoneHandler : ICommandHandler<VerifyNewPhoneComman
             {
                 await _dbContext.SaveChangesAsync(cancellationToken);
                 await transaction.CommitAsync(cancellationToken);
+                if (_sessionStore != null)
+                {
+                    await _sessionStore.MarkRevokedAsync(openSessions.Select(s => s.Id).ToList(), cancellationToken);
+                }
             }
             catch (DbUpdateException ex)
             {

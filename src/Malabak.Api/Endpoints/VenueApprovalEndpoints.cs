@@ -116,6 +116,7 @@ public static class VenueApprovalEndpoints
             Guid venueId,
             [FromBody] AdminPublishVenueRequest request,
             VenuesDbContext dbContext,
+            IClock clock,
             CancellationToken ct) =>
         {
             var venue = await dbContext.Venues.FirstOrDefaultAsync(v => v.Id == venueId && !v.IsDeleted, ct);
@@ -129,7 +130,7 @@ public static class VenueApprovalEndpoints
                 return Results.BadRequest(new { message = "Cannot publish a venue that is not approved." });
             }
 
-            venue.SetPublished(request.IsPublished, DateTime.UtcNow);
+            venue.SetPublished(request.IsPublished, clock.UtcNow);
             await dbContext.SaveChangesAsync(ct);
 
             return Results.Ok(new { message = request.IsPublished ? "Venue published successfully." : "Venue unpublished successfully.", isPublished = request.IsPublished });

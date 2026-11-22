@@ -11,15 +11,18 @@ public sealed class LinkChallengeBookingHandler : ICommandHandler<LinkChallengeB
     private readonly IMatchesDbContext _dbContext;
     private readonly ITeamCaptaincyChecker _captaincyChecker;
     private readonly IClock _clock;
+    private readonly IBookingPaymentDetailsProvider? _bookingDetailsProvider;
 
     public LinkChallengeBookingHandler(
         IMatchesDbContext dbContext,
         ITeamCaptaincyChecker captaincyChecker,
-        IClock clock)
+        IClock clock,
+        IBookingPaymentDetailsProvider? bookingDetailsProvider = null)
     {
         _dbContext = dbContext;
         _captaincyChecker = captaincyChecker;
         _clock = clock;
+        _bookingDetailsProvider = bookingDetailsProvider;
     }
 
     public async Task<Result<TeamChallengeDto>> HandleAsync(LinkChallengeBookingCommand command, CancellationToken cancellationToken = default)
@@ -28,6 +31,15 @@ public sealed class LinkChallengeBookingHandler : ICommandHandler<LinkChallengeB
         if (!isCaptain)
         {
             return Result.Failure<TeamChallengeDto>(ChallengeErrors.NotAuthorizedCaptain);
+        }
+
+        if (_bookingDetailsProvider != null)
+        {
+            var bookingCheck = await _bookingDetailsProvider.GetPayableBookingAsync(command.BookingId, command.CallerPlayerId, cancellationToken);
+            if (!bookingCheck.IsSuccess)
+            {
+                return Result.Failure<TeamChallengeDto>(Error.Validation("Challenge.InvalidBooking", "The specified booking was not found or does not belong to you."));
+            }
         }
 
         var challenge = await _dbContext.TeamChallenges
