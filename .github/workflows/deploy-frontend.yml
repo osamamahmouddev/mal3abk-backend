@@ -17,6 +17,10 @@ on:
       - 'web/**'
       - '.github/workflows/deploy-frontend.yml'
 
+concurrency:
+  group: deploy-frontend-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   deploy-landing:
     name: Deploy Landing to Vercel
