@@ -93,25 +93,35 @@ jobs:
               error_msg = None
               details = {}
 
-              try:
-                  req = urllib.request.Request(url, headers={"User-Agent": "MalabakServerMonitor/1.0"})
-                  with urllib.request.urlopen(req, timeout=12) as res:
-                      status_code = res.status
-                      body = res.read().decode("utf-8", errors="ignore")
-                      if target["type"] == "api" and status_code == 200:
-                          try:
-                              payload = json.loads(body)
-                              entries = payload.get("entries", {})
-                              details["postgres"] = entries.get("postgres", {}).get("status", "Unknown")
-                              details["redis"] = entries.get("redis", {}).get("status", "Unknown")
-                          except Exception:
-                              pass
-              except urllib.error.HTTPError as e:
-                  status_code = e.code
-                  error_msg = f"HTTP {e.code}: {e.reason}"
-              except Exception as e:
-                  status_code = 0
-                  error_msg = str(e)
+              # Allow up to 2 attempts for shared hosting cold-starts (MonsterASP IIS worker recycle)
+              max_attempts = 2 if target["type"] == "api" else 1
+              timeout_sec = 25 if target["type"] == "api" else 15
+
+              for attempt in range(max_attempts):
+                  try:
+                      req = urllib.request.Request(url, headers={"User-Agent": "MalabakServerMonitor/1.0"})
+                      with urllib.request.urlopen(req, timeout=timeout_sec) as res:
+                          status_code = res.status
+                          body = res.read().decode("utf-8", errors="ignore")
+                          if target["type"] == "api" and status_code == 200:
+                              try:
+                                  payload = json.loads(body)
+                                  entries = payload.get("entries", {})
+                                  details["postgres"] = entries.get("postgres", {}).get("status", "Unknown")
+                                  details["redis"] = entries.get("redis", {}).get("status", "Unknown")
+                              except Exception:
+                                  pass
+                          break
+                  except urllib.error.HTTPError as e:
+                      status_code = e.code
+                      error_msg = f"HTTP {e.code}: {e.reason}"
+                      if attempt < max_attempts - 1:
+                          time.sleep(4)
+                  except Exception as e:
+                      status_code = 0
+                      error_msg = str(e)
+                      if attempt < max_attempts - 1:
+                          time.sleep(4)
 
               latency_ms = round((time.time() - start_time) * 1000)
               is_healthy = (status_code in [200, 307])
