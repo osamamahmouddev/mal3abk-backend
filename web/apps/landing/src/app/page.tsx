@@ -7,6 +7,9 @@ import { Plans } from "@/components/Plans";
 import { ScrollReveal } from "@/components/ScrollReveal";
 import { Check, Star, X } from "lucide-react";
 
+/** The iPhone app on the App Store (no country in the link, so it opens in each visitor's own store). */
+const APP_STORE_URL = "https://apps.apple.com/app/id6835570535";
+
 const toArabicDigits = (v: string | number) => String(v).replace(/[0-9]/g, (d) => "٠١٢٣٤٥٦٧٨٩"[Number(d)]);
 
 const STEPS: [string, string][] = [
@@ -125,12 +128,18 @@ export default function LandingPage() {
                   مكالمة.
                 </p>
                 <div className="stores">
-                  <a href="#join" className="store primary">
+                  <a
+                    href={APP_STORE_URL}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="store primary"
+                    aria-label="حمّل ملعبك من App Store"
+                  >
                     <svg width="26" height="26" viewBox="0 0 24 24" fill="#FFFFFF" aria-hidden="true">
                       <path d="M16.4 12.6c0-2.3 1.9-3.4 2-3.5-1.1-1.6-2.8-1.8-3.4-1.8-1.4-.2-2.8.8-3.5.8-.7 0-1.8-.8-3-.8-1.5 0-3 .9-3.8 2.3-1.6 2.8-.4 7 1.2 9.3.8 1.1 1.7 2.4 2.9 2.3 1.2 0 1.6-.7 3-.7s1.8.7 3 .7c1.3 0 2.1-1.1 2.8-2.3.9-1.3 1.3-2.6 1.3-2.6s-2.5-1-2.5-3.7zM14.2 5.8c.6-.8 1.1-1.9 1-3-.9 0-2.1.6-2.7 1.4-.6.7-1.1 1.8-1 2.9 1 .1 2.1-.5 2.7-1.3z" />
                     </svg>
                     <span>
-                      <small>قريباً على</small>
+                      <small>حمّله من</small>
                       <b>App Store</b>
                     </span>
                   </a>
