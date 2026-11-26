@@ -25,7 +25,6 @@ public sealed record GetBookingPaymentMethodsQuery(Guid BookingId, Guid PlayerId
 /// </summary>
 public sealed class GetBookingPaymentMethodsHandler : IQueryHandler<GetBookingPaymentMethodsQuery, Result<IReadOnlyList<BookingPaymentMethodDto>>>
 {
-    private static readonly Guid _platformPaymobId = Guid.Parse("00000000-0000-0000-0000-000000000001");
     private static readonly Guid _platformInstaPayId = Guid.Parse("11111111-1111-1111-1111-111111111111");
     private static readonly Guid _platformWalletId = Guid.Parse("22222222-2222-2222-2222-222222222222");
     private static readonly Guid _platformBankId = Guid.Parse("33333333-3333-3333-3333-333333333333");
@@ -64,18 +63,7 @@ public sealed class GetBookingPaymentMethodsHandler : IQueryHandler<GetBookingPa
         var bankName = await _platformSettings.GetStringAsync(PlatformSettingKeys.PlatformBankName, cancellationToken);
         var instructions = await _platformSettings.GetStringAsync(PlatformSettingKeys.PlatformDepositInstructions, cancellationToken);
 
-        var platformMethods = new List<BookingPaymentMethodDto>
-        {
-            new(
-                _platformPaymobId,
-                "Paymob",
-                "بوابة Paymob للدفع الإلكتروني",
-                "بطاقات بنكية (Visa / MasterCard / ميزة) ومحافظ إلكترونية",
-                "الدفع الإلكتروني المباشر عبر Paymob غير متوفر حالياً وسيتاح قريباً. يرجى استخدام إنستاباي أو فودافون كاش أو التحويل البنكي.",
-                IsOnline: true,
-                IsAvailable: false,
-                Badge: "قريباً")
-        };
+        var platformMethods = new List<BookingPaymentMethodDto>();
 
         if (!string.IsNullOrWhiteSpace(instapay))
         {

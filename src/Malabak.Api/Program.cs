@@ -500,6 +500,8 @@ app.MapGet("/", () => Results.Ok(new
     docs = "/swagger"
 })).AllowAnonymous();
 
+app.MapDeepLinkEndpoints();
+
 // Minimal API test endpoint
 var apiVersionSet = app.NewApiVersionSet()
     .HasApiVersion(new ApiVersion(1, 0))

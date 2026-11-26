@@ -8926,6 +8926,10 @@ export interface components {
             commissionOutstanding: number;
             /** Format: double */
             platformOwesVenue: number;
+            commissionType?: string | null;
+            /** Format: double */
+            commissionRate?: number | null;
+            customCommissionEnabled: boolean;
         };
         VenueOffer: {
             name: string;

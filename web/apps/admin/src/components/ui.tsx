@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { X } from "lucide-react";
 
@@ -220,9 +221,15 @@ export interface ReasonRequest {
  * Render once per page and open it with `setRequest({...})`.
  */
 export function ReasonModal({ request, onClose }: { request: ReasonRequest | null; onClose: () => void }) {
+  const [mounted, setMounted] = useState(false);
   const [reason, setReason] = useState("");
   const [err, setErr] = useState(false);
-  if (!request) return null;
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!request || !mounted) return null;
 
   const close = () => {
     setReason("");
@@ -239,8 +246,8 @@ export function ReasonModal({ request, onClose }: { request: ReasonRequest | nul
     close();
   };
 
-  return (
-    <div className="fixed inset-0 z-50 bg-[rgba(10,19,48,0.5)] backdrop-blur-sm animate-fade-in flex items-center justify-center p-4">
+  return createPortal(
+    <div className="fixed inset-0 z-[100] bg-[rgba(10,19,48,0.65)] backdrop-blur-sm animate-fade-in flex items-center justify-center p-4">
       <div
         role="dialog"
         aria-modal="true"
@@ -280,7 +287,8 @@ export function ReasonModal({ request, onClose }: { request: ReasonRequest | nul
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 

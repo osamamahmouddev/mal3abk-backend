@@ -44,6 +44,9 @@ interface VenueFinancialSummaryItem {
   manualBookings?: number;
   commissionCollected?: number;
   commissionOutstanding?: number;
+  commissionType?: string | null;
+  commissionRate?: number | null;
+  customCommissionEnabled?: boolean;
 }
 
 function isoDay(offsetDays: number) {
@@ -56,6 +59,16 @@ const depositShareOf = (v: VenueFinancialSummaryItem) => v.venueDepositShare ?? 
 /** A signed amount: negative shows as "عليه" so a venue's debt never reads like money it is owed. */
 function Signed({ value }: { value: number }) {
   return value < 0 ? <span className="text-[#A8261C]">عليه {money(-value)}</span> : <>{money(value)}</>;
+}
+
+function formatCommissionRule(v: VenueFinancialSummaryItem) {
+  if (v.customCommissionEnabled && v.commissionRate != null) {
+    if (v.commissionType === "FixedPerBooking") {
+      return `${num(v.commissionRate)} ج.م / حجز`;
+    }
+    return `${num(v.commissionRate)}%`;
+  }
+  return "الافتراضية (10%)";
 }
 
 export default function ReportsPage() {
@@ -112,7 +125,7 @@ export default function ReportsPage() {
 
   const exportCsv = () => {
     if (venues.length === 0) return;
-    const headers = ["اسم الملعب", "إجمالي الحجوزات", "حجوزات مؤكدة", "حجوزات ملغية", "حجوزات يدوية", "إجمالي الحجز (ج.م)", "العربون المحصل (ج.م)", "عمولة المنصة (ج.م)", "صافي مستحقات الملعب = العربون - العمولة (ج.م)", "إحالات استرداد معلقة (عدد)", "مبالغ الاسترداد المعلقة (ج.م)", "المدفوع في الملعب - للعلم (ج.م)"];
+    const headers = ["اسم الملعب", "إجمالي الحجوزات", "حجوزات مؤكدة", "حجوزات ملغية", "حجوزات يدوية", "إجمالي الحجز (ج.م)", "العربون المحصل (ج.م)", "نظام / نسبة العمولة", "عمولة المنصة (ج.م)", "صافي مستحقات الملعب = العربون - العمولة (ج.م)", "إحالات استرداد معلقة (عدد)", "مبالغ الاسترداد المعلقة (ج.م)", "المدفوع في الملعب - للعلم (ج.م)"];
     const rows = venues.map((v) => [
       `"${v.venueName.replace(/"/g, '""')}"`,
       v.totalBookings,
@@ -121,6 +134,7 @@ export default function ReportsPage() {
       v.manualBookings ?? 0,
       v.totalGrossAmount.toFixed(2),
       v.totalDepositAmount.toFixed(2),
+      `"${formatCommissionRule(v)}"`,
       v.totalPlatformCommission.toFixed(2),
       depositShareOf(v).toFixed(2),
       v.pendingRefundsCount,
@@ -235,7 +249,8 @@ export default function ReportsPage() {
                   <th scope="col" className={`${th} text-center`}>الملغية</th>
                   <th scope="col" className={th}>إجمالي الحجز</th>
                   <th scope="col" className={th}>العربون المحصّل</th>
-                  <th scope="col" className={`${th} text-[#C7362A]`}>عمولة المنصة</th>
+                  <th scope="col" className={`${th} text-center text-purple-700`}>نسبة / نظام العمولة</th>
+                  <th scope="col" className={`${th} text-[#C7362A]`}>مبلغ عمولة المنصة</th>
                   <th scope="col" className={`${th} text-[#1F6B3A]`}>صافي مستحقات الملعب</th>
                   <th scope="col" className={th}>إحالات الاسترداد</th>
                   <th scope="col" className={`${th} text-[11px] font-normal`}>المدفوع في الملعب (للعلم)</th>
@@ -253,6 +268,11 @@ export default function ReportsPage() {
                     <td className={`${td} text-center ${v.cancelledBookings ? "text-[#A8261C]" : "text-slate-400"}`}>{num(v.cancelledBookings)}</td>
                     <td className={`${td} font-semibold`}>{money(v.totalGrossAmount)}</td>
                     <td className={td}>{money(v.totalDepositAmount)}</td>
+                    <td className={`${td} text-center`}>
+                      <span className="inline-block px-2.5 py-1 rounded-lg text-xs font-semibold bg-purple-50 text-purple-800 border border-purple-200">
+                        {formatCommissionRule(v)}
+                      </span>
+                    </td>
                     <td className={`${td} font-semibold text-[#C7362A]`}>{money(v.totalPlatformCommission)}</td>
                     <td className={`${td} font-bold text-[#1F6B3A] bg-[#F1F9F3]`}><Signed value={depositShareOf(v)} /></td>
                     <td className={td}>
@@ -274,6 +294,7 @@ export default function ReportsPage() {
                   <td className={`${td} text-center`}>{num(t.cancelled)}</td>
                   <td className={td}>{money(t.gross)}</td>
                   <td className={td}>{money(t.deposits)}</td>
+                  <td className={`${td} text-center text-slate-400 font-normal`}>—</td>
                   <td className={`${td} text-[#C7362A]`}>{money(t.commission)}</td>
                   <td className={`${td} text-[#1F6B3A] bg-[#E6F4EA]`}><Signed value={t.depositShare} /></td>
                   <td className={td}>{t.refundsCount ? money(t.refunds) : "—"}</td>

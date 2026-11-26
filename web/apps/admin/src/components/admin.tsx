@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import type { UseQueryResult } from "@tanstack/react-query";
 import { ApiError } from "@/lib/api";
 import {
@@ -14,7 +15,7 @@ import {
   type EmptyStateIcon,
   type EmptyStateProps,
 } from "@/components/ui";
-import { ChevronLeft } from "lucide-react";
+import { AlertCircle, CheckCircle2, ChevronLeft, X } from "lucide-react";
 
 export { EmptyState, type EmptyStateIcon, type EmptyStateProps };
 
@@ -361,24 +362,98 @@ export function useListView() {
   return [view, setView] as const;
 }
 
-/** Page-level status line for the result of the last action. */
+function sanitizeNoticeError(e: unknown): string {
+  const raw = e instanceof Error ? e.message : String(e ?? "");
+  if (!raw || raw === "[object Object]") return "حدث خطأ غير متوقع، يرجى المحاولة لاحقاً.";
+  if (raw.includes("max requests limit exceeded") || raw.includes("quota")) {
+    return "تم الوصول للحد الأقصى لخدمة الكاش (Upstash Redis). برجاء المحاولة لاحقاً أو مراجعة استهلاك الكاش.";
+  }
+  if (raw.includes("Failed to fetch") || raw.includes("NetworkError") || raw.includes("ECONNREFUSED") || raw.includes("Network request failed")) {
+    return "تعذر الاتصال بالخادم. يرجى التأكد من اتصال الإنترنت والمحاولة مجدداً.";
+  }
+  if (raw.includes("Unauthorized") || raw.includes("401")) {
+    return "انتهت صلاحية الجلسة، برجاء تسجيل الدخول مجدداً.";
+  }
+  if (raw.includes("Forbidden") || raw.includes("403")) {
+    return "ليس لديك صلاحية كافية لتنفيذ هذا الإجراء.";
+  }
+  if (raw.includes("DbUpdateConcurrencyException") || raw.includes("concurrency")) {
+    return "حدث تعارض أثناء الحفظ بسبب تعديل البيانات بواسطة مستخدم آخر. يرجى تحديث الصفحة.";
+  }
+  if (raw.includes("Internal Server Error") || raw.includes("500")) {
+    return "حدث خطأ داخلي في الخادم أثناء معالجة الطلب. يرجى المحاولة بعد قليل.";
+  }
+  return raw;
+}
+
+/** Page-level animated snackbar/toast for the result of the last action. */
 export function useNotice() {
+  const [mounted, setMounted] = useState(false);
   const [notice, setNotice] = useState<{ text: string; bad?: boolean } | null>(null);
-  const node = notice ? (
-    <div
-      role="status"
-      className={`rounded-xl px-4 py-3 text-sm font-semibold animate-fade-in-up transition-all ${
-        notice.bad ? "bg-[#FDECEA] text-[#A8261C]" : "bg-[#EEF0F5] text-[#1F2A44]"
-      }`}
-    >
-      {notice.text}
-    </div>
-  ) : null;
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (!notice) return;
+    const timer = setTimeout(() => {
+      setNotice(null);
+    }, notice.bad ? 7000 : 4500);
+    return () => clearTimeout(timer);
+  }, [notice]);
+
+  const clear = () => setNotice(null);
+
+  const node =
+    mounted && notice
+      ? createPortal(
+          <div
+            role="status"
+            aria-live="polite"
+            className="fixed top-6 left-1/2 -translate-x-1/2 z-[9999] pointer-events-none w-full max-w-[480px] px-4"
+          >
+            <div
+              className={`pointer-events-auto flex items-start gap-3 p-4 rounded-2xl shadow-[0_12px_36px_rgba(0,0,0,0.18)] border backdrop-blur-md transition-all duration-300 animate-fade-in-down ${
+                notice.bad
+                  ? "bg-white/95 border-red-200 text-slate-900 ring-1 ring-red-500/15"
+                  : "bg-white/95 border-emerald-200 text-slate-900 ring-1 ring-emerald-500/15"
+              }`}
+            >
+              <div
+                className={`p-2 rounded-xl shrink-0 ${
+                  notice.bad ? "bg-red-50 text-red-600" : "bg-emerald-50 text-emerald-600"
+                }`}
+              >
+                {notice.bad ? <AlertCircle className="size-5" /> : <CheckCircle2 className="size-5" />}
+              </div>
+              <div className="flex-1 min-w-0 pt-0.5">
+                <p className={`text-xs font-bold ${notice.bad ? "text-red-700" : "text-emerald-700"}`}>
+                  {notice.bad ? "تنبيه / فشل الإجراء" : "تمت العملية بنجاح"}
+                </p>
+                <p className="text-sm font-semibold text-slate-800 leading-snug mt-0.5 break-words">
+                  {notice.text}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={clear}
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors shrink-0"
+                aria-label="إغلاق التنبيه"
+              >
+                <X className="size-4" />
+              </button>
+            </div>
+          </div>,
+          document.body,
+        )
+      : null;
+
   return {
     node,
-    ok: (text: string) => setNotice({ text }),
-    fail: (e: unknown) => setNotice({ text: e instanceof Error ? e.message : String(e), bad: true }),
-    clear: () => setNotice(null),
+    ok: (text: string) => setNotice({ text, bad: false }),
+    fail: (e: unknown) => setNotice({ text: sanitizeNoticeError(e), bad: true }),
+    clear,
   };
 }
 
