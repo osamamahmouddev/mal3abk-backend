@@ -1,6 +1,6 @@
 "use client";
 
-import React, { Suspense, useEffect, useMemo, useState } from "react";
+import React, { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -79,7 +79,8 @@ function computeOperatingHours(
   let minOpen = FIRST_HOUR;
   let maxClose = LAST_HOUR;
 
-  const activeSchedules = schedules?.filter((s) => s.isActive) ?? [];
+  // Anything but a list (not loaded yet, or an unexpected body) means no schedule: the default hours are shown.
+  const activeSchedules = Array.isArray(schedules) ? schedules.filter((s) => s.isActive) : [];
 
   if (activeSchedules.length > 0) {
     if (view === "day") {
@@ -189,6 +190,22 @@ function Calendar() {
       }
       return next;
     });
+  /** A whole day (or pitch) at once: its free hours. Works from the header too, turning picking on by itself. */
+  const pickDay = (list: PickedHour[]) => {
+    if (list.length === 0) {
+      setToast("مفيش ساعات فاضية في اليوم ده.");
+      return;
+    }
+
+    if (!picking) {
+      setPicking(true);
+      setPickedTaken({});
+      setPickedHours(Object.fromEntries(list.map((h) => [`${h.pitchId}|${h.startUtc}`, h])));
+      return;
+    }
+
+    pickAll(list);
+  };
   const pickSlot = (s: Slot) => {
     const blocked = s.status === "Blocked";
     if (!blocked && !(s.isManual && ["PendingDeposit", "Confirmed"].includes(s.status))) {
@@ -358,8 +375,9 @@ function Calendar() {
           pickedHours={pickedHours}
           pickedTaken={pickedTaken}
           onPickHour={togglePick}
-          onPickAll={pickAll}
+          onPickAll={pickDay}
           onPickSlot={pickSlot}
+          canPick={can(P.bookingsApprove)}
         />
       )}
       {view === "week" && (
@@ -368,6 +386,7 @@ function Calendar() {
             const d = addDays(weekStart(date), i);
             return { key: d, label: `${DAY_SHORT[new Date(`${d}T12:00:00Z`).getUTCDay()]} ${toArabicDigits(Number(d.slice(8)))}`, date: d, pitchId: weekPitch };
           })}
+          byDay
           slots={all}
           firstHour={visibleHours.firstHour}
           lastHour={visibleHours.lastHour}
@@ -378,8 +397,9 @@ function Calendar() {
           pickedHours={pickedHours}
           pickedTaken={pickedTaken}
           onPickHour={togglePick}
-          onPickAll={pickAll}
+          onPickAll={pickDay}
           onPickSlot={pickSlot}
+          canPick={can(P.bookingsApprove)}
         />
       )}
       {picking && venueId && view !== "month" && (
@@ -491,6 +511,8 @@ function Grid({
   onPickHour,
   onPickAll,
   onPickSlot,
+  canPick = false,
+  byDay = false,
 }: {
   columns: Column[];
   slots: Slot[];
@@ -505,7 +527,25 @@ function Grid({
   onPickHour?: (h: PickedHour) => void;
   onPickAll?: (hours: PickedHour[]) => void;
   onPickSlot?: (s: Slot) => void;
+  /** Whether a whole day can be picked from its header (needs the booking permission). */
+  canPick?: boolean;
+  /** One column per day (week view): today's column is then labelled. */
+  byDay?: boolean;
 }) {
+  // Moves the "now" line on today's column every minute.
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 60_000);
+    return () => clearInterval(t);
+  }, []);
+  const today = cairoToday();
+  // On a narrow screen the week scrolls sideways: bring today's column into view once it is drawn.
+  const todayRef = useRef<HTMLDivElement | null>(null);
+  const hasToday = columns.some((c) => c.date === today);
+  useEffect(() => {
+    if (hasToday) todayRef.current?.scrollIntoView({ block: "nearest", inline: "center" });
+  }, [hasToday]);
+
   if (columns.length === 0) {
     return <p className={`${card} rounded-[18px] p-8 text-center text-sm ${muted}`}>ضيف ملعب نشط عشان يظهر التقويم.</p>;
   }
@@ -525,20 +565,37 @@ function Grid({
     <section aria-label="جدول المواعيد" aria-busy={busy} className={`${card} rounded-[18px] overflow-x-auto`} tabIndex={0}>
       <div className="grid min-w-[640px]" style={{ gridTemplateColumns: `64px repeat(${columns.length}, minmax(120px, 1fr))` }}>
         <div className="sticky top-0 bg-white border-b border-[#EDF0F5]" />
-        {columns.map((c) => (
-          <div key={c.key} className="sticky top-0 bg-white border-b border-[#EDF0F5] px-2 py-2.5 text-center text-[13px] font-bold flex flex-col items-center gap-1">
-            {c.label}
-            {picking && (
-              <button
-                type="button"
-                onClick={() => onPickAll?.(freeHours(c))}
-                className="text-[11px] font-semibold text-brand-red hover:underline"
-              >
-                اليوم كله
-              </button>
-            )}
-          </div>
-        ))}
+        {columns.map((c) => {
+          const isToday = c.date === today;
+          const free = freeHours(c);
+          const allPicked = picking && free.length > 0 && free.every((h) => pickedHours[`${h.pitchId}|${h.startUtc}`]);
+          return (
+            <div
+              key={c.key}
+              ref={isToday ? todayRef : undefined}
+              aria-current={isToday ? "date" : undefined}
+              className={`sticky top-0 border-b px-2 py-2.5 text-center text-[13px] font-bold flex flex-col items-center gap-1 ${
+                isToday ? "bg-[#FFF1EF] border-b-brand-red border-t-[3px] border-t-brand-red text-brand-red" : "bg-white border-[#EDF0F5]"
+              }`}
+            >
+              {c.label}
+              {isToday && byDay && <span className="text-[10px] font-bold text-white bg-brand-red rounded-full px-2 py-0.5">النهارده</span>}
+              {canPick && (
+                <button
+                  type="button"
+                  aria-pressed={picking ? allPicked : undefined}
+                  aria-label={`${allPicked ? "إلغاء تحديد" : "تحديد"} ${c.label} كله`}
+                  onClick={() => onPickAll?.(free)}
+                  className={`text-[11px] font-semibold rounded-md px-1.5 py-0.5 transition-colors ${
+                    allPicked ? "bg-brand-red text-white" : "text-brand-red hover:bg-[#FDECEA]"
+                  }`}
+                >
+                  {allPicked ? "✓ اليوم كله" : "اليوم كله"}
+                </button>
+              )}
+            </div>
+          );
+        })}
         <div className="relative" style={{ height: gridHeight }}>
           {hours.map((h, i) => (
             <span key={h} className={`absolute right-2 text-[11px] ${muted}`} style={{ top: i * ROW + 4 }}>
@@ -551,8 +608,11 @@ function Grid({
             const start = minutesFrom(c.date, s.startUtc);
             return start >= firstHour * 60 - 60 && start < lastHour * 60;
           });
+          const isToday = c.date === today;
+          const nowMinutes = isToday ? minutesFrom(c.date, new Date(now).toISOString()) : -1;
+          const showNow = isToday && nowMinutes >= firstHour * 60 && nowMinutes <= lastHour * 60;
           return (
-            <div key={c.key} className="relative border-r border-[#EDF0F5]" style={{ height: gridHeight }}>
+            <div key={c.key} className={`relative border-r border-[#EDF0F5] ${isToday ? "bg-[#FFF8F7]" : ""}`} style={{ height: gridHeight }}>
               {hours.map((h, i) => {
                 const hour = hourOf(c, h);
                 const picked = !!pickedHours[`${hour.pitchId}|${hour.startUtc}`];
@@ -572,6 +632,15 @@ function Grid({
                   </button>
                 );
               })}
+              {showNow && (
+                <div
+                  aria-hidden="true"
+                  className="absolute inset-x-0 z-10 h-0.5 bg-brand-red pointer-events-none"
+                  style={{ top: ((nowMinutes - firstHour * 60) / 60) * ROW }}
+                >
+                  <span className="absolute -right-1 -top-[5px] size-3 rounded-full bg-brand-red" />
+                </div>
+              )}
               {mine.map((s) => {
                 const start = Math.max(minutesFrom(c.date, s.startUtc), firstHour * 60);
                 const end = Math.min(minutesFrom(c.date, s.endUtc), lastHour * 60);
