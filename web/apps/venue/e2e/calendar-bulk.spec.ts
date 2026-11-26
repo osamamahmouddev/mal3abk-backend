@@ -51,3 +51,29 @@ test("a tentative manual booking is picked and freed so players can book it", as
   expect(call.body).toEqual({ bookingIds: [MANUAL_ID] });
   await expect(page.getByRole("status").filter({ hasText: "اتفتح ١ ميعاد" })).toBeVisible();
 });
+
+test("a whole day is picked from its header, even before turning picking on, and a second click lets it go", async ({ page }) => {
+  await page.goto("/venue/calendar?view=week&date=2030-01-10");
+  const grid = page.getByRole("region", { name: "جدول المواعيد" });
+  const bar = page.getByRole("region", { name: "الساعات المحددة" });
+
+  // Thursday 10 Jan 2030: every hour is free except the manual booking at 10 PM.
+  const day = grid.getByRole("button", { name: /^تحديد خميس ١٠ كله$/ });
+  await day.click();
+  await expect(bar).toBeVisible();
+  await expect(page.getByRole("button", { name: "خلصت التحديد" })).toBeVisible();
+  const picked = await grid.getByRole("button", { name: /^خميس ١٠ .*ميعاد فاضي$/, pressed: true }).count();
+  expect(picked).toBeGreaterThan(1);
+  await expect(bar).toContainText(`${picked.toLocaleString("ar-EG")} ساعة فاضية`);
+
+  await grid.getByRole("button", { name: /^إلغاء تحديد خميس ١٠ كله$/ }).click();
+  await expect(grid.getByRole("button", { name: /ميعاد فاضي$/, pressed: true })).toHaveCount(0);
+});
+
+test("today's column is marked in the week", async ({ page }) => {
+  await page.goto("/venue/calendar?view=week");
+  const today = page.getByRole("region", { name: "جدول المواعيد" }).locator('[aria-current="date"]');
+  await expect(today).toHaveCount(1);
+  await expect(today).toContainText("النهارده");
+  await page.screenshot({ path: `test-results/calendar-today-${test.info().project.name}.png`, fullPage: true });
+});
