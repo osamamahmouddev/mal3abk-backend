@@ -73,7 +73,7 @@ public sealed record ExploreResult(
     IReadOnlyList<ExploreVenueCard> Items, int Page, int PageSize, int TotalCount, bool HasMore, IReadOnlyList<ExploreSuggestion> Suggestions);
 
 public sealed record MapVenuePin(
-    Guid VenueId, string Name, double Latitude, double Longitude, decimal? FromHourlyPrice, string Currency, DateTime? NextAvailableStartUtc, bool IsFavorite);
+    Guid VenueId, string Name, double Latitude, double Longitude, string? CoverPhotoUrl, decimal? FromHourlyPrice, string Currency, DateTime? NextAvailableStartUtc, bool IsFavorite);
 
 /// <summary>A city/area with searchable venues (codes when the area is in the curated list, else the stored name).</summary>
 public sealed record ExploreArea(
@@ -159,7 +159,7 @@ public sealed partial class VenueExplore
         var top = Sort(matches, query with { Sort = ExploreSort.Popularity }).Take(MaxMapPins).ToList();
         top = await WithFavoritesAsync(top, userId, cancellationToken);
         var pins = top
-            .Select(c => new MapVenuePin(c.VenueId, c.Name, c.Latitude!.Value, c.Longitude!.Value, c.FromHourlyPrice, c.Currency, c.NextAvailableStartUtc, c.IsFavorite))
+            .Select(c => new MapVenuePin(c.VenueId, c.Name, c.Latitude!.Value, c.Longitude!.Value, c.CoverPhotoUrl, c.FromHourlyPrice, c.Currency, c.NextAvailableStartUtc, c.IsFavorite))
             .ToList();
         return Result.Success(new MapSearchResult(pins, matches.Count, matches.Count > pins.Count));
     }
