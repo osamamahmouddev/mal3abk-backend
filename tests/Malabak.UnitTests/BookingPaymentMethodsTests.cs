@@ -30,7 +30,7 @@ public sealed class BookingPaymentMethodsTests
 
         result.IsSuccess.Should().BeTrue();
         result.Value.Where(m => m.IsAvailable).Should().ContainSingle().Which.AccountDetails.Should().Be("01000000000");
-        result.Value.Should().OnlyContain(m => m.RecipientName == "Malabak" || m.MethodType == "Paymob", "deposits go to the platform, never the venue");
+        result.Value.Should().OnlyContain(m => m.RecipientName == "Malabak", "deposits go to the platform, never the venue");
         _payments.Reads.Should().BeGreaterThan(0);
     }
 
