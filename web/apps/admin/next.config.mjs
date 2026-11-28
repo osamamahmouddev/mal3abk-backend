@@ -8,33 +8,44 @@ const securityHeaders = [
     : []),
 ];
 
+// BASE_PATH: "/admin" (default) when this app shares one domain with the others and is routed by path,
+// or "/" when it has its own subdomain (admin.mal3abk.app).
+const basePath = (process.env.BASE_PATH ?? "/admin").trim().replace(/\/+$/, "");
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  basePath: "/admin",
+  ...(basePath ? { basePath } : {}),
   // next/image does not prefix static (svg) sources with basePath; components read this to do it.
-  env: { NEXT_PUBLIC_BASE_PATH: "/admin" },
+  env: { NEXT_PUBLIC_BASE_PATH: basePath },
   reactStrictMode: true,
   // The dev-mode indicator floats over bottom-left buttons; E2E runs (E2E=1) hide it so clicks reach the page.
   ...(process.env.E2E === "1" ? { devIndicators: false } : {}),
   poweredByHeader: false,
   transpilePackages: ["@malabak/ui", "@malabak/api-client", "@malabak/i18n", "@malabak/bff"],
   async redirects() {
+    if (!basePath) {
+      // Own subdomain: old links that still carry /admin land on the same page without it.
+      return [
+        { source: "/admin", destination: "/", permanent: true },
+        { source: "/admin/:path*", destination: "/:path*", permanent: true },
+      ];
+    }
     return [
       {
         source: "/",
-        destination: "/admin",
+        destination: basePath,
         basePath: false,
         permanent: false,
       },
       {
         source: "/images/:path*",
-        destination: "/admin/images/:path*",
+        destination: `${basePath}/images/:path*`,
         basePath: false,
         permanent: false,
       },
       {
         source: "/:path(login|featured|venues|approvals|billing|teams|support|settings|accounts|audit|bookings|deposits|payouts|disputes|users|trash|crm|waitlist|overview|security|areas|reports)",
-        destination: "/admin/:path",
+        destination: `${basePath}/:path`,
         basePath: false,
         permanent: false,
       },

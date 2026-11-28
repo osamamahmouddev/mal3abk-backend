@@ -8,31 +8,42 @@ const securityHeaders = [
     : []),
 ];
 
+// BASE_PATH: "/venue" (default) when this app shares one domain with the others and is routed by path,
+// or "/" when it has its own subdomain (venue.mal3abk.app).
+const basePath = (process.env.BASE_PATH ?? "/venue").trim().replace(/\/+$/, "");
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  basePath: "/venue",
+  ...(basePath ? { basePath } : {}),
   // next/image does not prefix static (svg) sources with basePath; components read this to do it.
-  env: { NEXT_PUBLIC_BASE_PATH: "/venue" },
+  env: { NEXT_PUBLIC_BASE_PATH: basePath },
   reactStrictMode: true,
   poweredByHeader: false,
   transpilePackages: ["@malabak/ui", "@malabak/api-client", "@malabak/i18n", "@malabak/bff"],
   async redirects() {
+    if (!basePath) {
+      // Own subdomain: old links that still carry /venue land on the same page without it.
+      return [
+        { source: "/venue", destination: "/", permanent: true },
+        { source: "/venue/:path*", destination: "/:path*", permanent: true },
+      ];
+    }
     return [
       {
         source: "/",
-        destination: "/venue",
+        destination: basePath,
         basePath: false,
         permanent: false,
       },
       {
         source: "/images/:path*",
-        destination: "/venue/images/:path*",
+        destination: `${basePath}/images/:path*`,
         basePath: false,
         permanent: false,
       },
       {
         source: "/:path(accept-invitation|reset-password|verify-email|login|register)",
-        destination: "/venue/:path",
+        destination: `${basePath}/:path`,
         basePath: false,
         permanent: false,
       },

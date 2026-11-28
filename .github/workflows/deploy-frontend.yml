@@ -366,9 +366,9 @@ jobs:
           color = "#16a34a" if all_success else "#dc2626"
           title = f"{emoji} Frontend Deployments: {'SUCCESS' if all_success else 'FAILED'} [{target_env}]"
 
-          admin_url = "https://mal3abk-admin.vercel.app" if target_env == "PRODUCTION" else "https://mal3abk-statging.vercel.app"
-          venue_url = "https://mal3abak-six.vercel.app" if target_env == "PRODUCTION" else "https://mal3abk-venue-staging.vercel.app"
-          landing_url = "https://mal3abk-backend.vercel.app"
+          admin_url = "https://mal3abk-app-admin.vercel.app" if target_env == "PRODUCTION" else "https://mal3abk-statging.vercel.app"
+          venue_url = "https://mal3abk-app-venue.vercel.app" if target_env == "PRODUCTION" else "https://mal3abk-venue-staging.vercel.app"
+          landing_url = "https://mal3abk-app.vercel.app"
 
           fields = [
               {"type": "mrkdwn", "text": f"*Admin Dashboard:*\n`{admin_status}` • <{admin_url}|Open>"},

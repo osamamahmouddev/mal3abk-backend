@@ -49,17 +49,24 @@ jobs:
                   "critical": False
               },
               {
+                  "name": "Production Landing",
+                  "env": "PROD",
+                  "type": "web",
+                  "url": "https://mal3abk-app.vercel.app",
+                  "critical": True
+              },
+              {
                   "name": "Production Admin",
                   "env": "PROD",
                   "type": "web",
-                  "url": "https://mal3abk-admin.vercel.app",
+                  "url": "https://mal3abk-app-admin.vercel.app",
                   "critical": True
               },
               {
                   "name": "Production Venue",
                   "env": "PROD",
                   "type": "web",
-                  "url": "https://mal3abak-six.vercel.app",
+                  "url": "https://mal3abk-app-venue.vercel.app",
                   "critical": True
               },
               {

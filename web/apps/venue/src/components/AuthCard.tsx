@@ -2,6 +2,7 @@ import React from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { CircleCheck } from "lucide-react";
+import { withBase } from "@/lib/base-path";
 
 export const authField =
   "w-full min-h-[48px] rounded-xl px-3.5 text-[15px] text-slate-900 border border-[#C9CFD9] transition-all duration-150 ease-out focus:outline-none focus:ring-2 focus:ring-navy-900 focus:shadow-[0_0_0_3px_rgba(15,27,61,0.1)]";
@@ -13,7 +14,7 @@ export function AuthCard({ title, subtitle, children }: { title: string; subtitl
     <div dir="rtl" className="min-h-screen bg-surface px-4 py-10 flex flex-col items-center justify-center gap-6 animate-fade-in">
       <Link href="/login" className="flex items-center gap-2.5 text-navy-900 no-underline transition-transform hover:scale-105">
         <Image
-          src="/venue/images/logo-horizontal.png"
+          src={withBase("/images/logo-horizontal.png")}
           alt="ملعبك"
           width={130}
           height={46}

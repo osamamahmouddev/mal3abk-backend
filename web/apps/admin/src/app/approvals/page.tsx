@@ -8,6 +8,7 @@ import { usePlaceNames } from "@/lib/place-names";
 import { api, unwrap } from "@/lib/api";
 import { Eye } from "lucide-react";
 import { ImageLightbox, type LightboxPhoto } from "@/components/ImageLightbox";
+import { BASE_PATH } from "@/lib/base-path";
 
 type PendingPitch = {
   id?: string;
@@ -37,8 +38,8 @@ const TURF_LABELS: Record<string, string> = {
 function mediaSrc(path: string) {
   if (!path) return "";
   if (/^https?:\/\//i.test(path)) return path;
-  if (path.startsWith("/admin/bff")) return path;
-  return `/admin/bff${path.startsWith("/") ? "" : "/"}${path}`;
+  if (path.startsWith(`${BASE_PATH}/bff`)) return path;
+  return `${BASE_PATH}/bff${path.startsWith("/") ? "" : "/"}${path}`;
 }
 
 const ACTIONS: Record<Decision, { title: string; placeholder: string; cta: string; btn: string }> = {

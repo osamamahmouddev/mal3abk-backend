@@ -11,10 +11,12 @@ function readCookie(name: string): string | undefined {
  * Typed API client for the browser. Calls go to the app's own `/bff` proxy (never straight to the
  * API), carry the CSRF token on writes, and send the user to sign in when the session has ended.
  */
-export function createBrowserApi(loginPath: string, basePath = ""): ApiClient {
-  const normalizedBase = basePath ? `/${basePath.replace(/^\/+|\/+$/g, "")}` : "";
+export function createBrowserApi(loginPath: string, basePath = "", csrfCookie?: string): ApiClient {
+  const trimmedBase = basePath.replace(/^\/+|\/+$/g, "");
+  const normalizedBase = trimmedBase ? `/${trimmedBase}` : "";
   const client = createApiClient({ baseUrl: `${normalizedBase}/bff` });
-  const appCsrfName = normalizedBase ? `malabak-${normalizedBase.slice(1)}-csrf` : CSRF_COOKIE;
+  // The app's own CSRF cookie name. Pass it when the app runs at the root of its own subdomain (no basePath).
+  const appCsrfName = csrfCookie ?? (normalizedBase ? `malabak-${normalizedBase.slice(1)}-csrf` : CSRF_COOKIE);
   client.use({
     onRequest({ request }) {
       if (!request.headers.has("Accept-Language")) {

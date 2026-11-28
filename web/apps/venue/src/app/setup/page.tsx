@@ -19,6 +19,7 @@ import { PhotoDropTile } from "@/components/PhotoDropTile";
 import { CommissionTerms } from "@/components/CommissionTerms";
 import { LocationField, isValidLocation, toApiCoordinates, type LatLng } from "@/components/LocationField";
 import { Check, CircleCheck, CircleX, Eye, Loader2, Plus, TriangleAlert, X } from "lucide-react";
+import { withBase } from "@/lib/base-path";
 
 const pitchPattern =
   "radial-gradient(closest-side circle at 50% 50%, transparent 0 32%, rgba(255,255,255,0.55) 32% 36%, transparent 36%), linear-gradient(90deg, transparent calc(50% - 1px), rgba(255,255,255,0.55) calc(50% - 1px) calc(50% + 1px), transparent calc(50% + 1px)), repeating-linear-gradient(90deg, #2E8B55 0 12.5%, #287D4C 12.5% 25%)";
@@ -144,7 +145,7 @@ export default function SetupPage() {
     <div dir="rtl" className="w-full min-h-screen bg-surface text-slate-900 flex flex-col">
       <header className="bg-white border-b border-[#EDF0F5] px-4 sm:px-8 py-4 flex items-center gap-x-4 gap-y-2 flex-wrap">
         <Image
-          src="/venue/images/logo-horizontal.png"
+          src={withBase("/images/logo-horizontal.png")}
           alt="ملعبك"
           width={120}
           height={44}

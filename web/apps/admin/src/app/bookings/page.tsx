@@ -8,6 +8,7 @@ import { Drawer, Pager, QueryState, Section, Select, Table, fmtDateTime, useNoti
 import { api, unwrap } from "@/lib/api";
 import { useStepUp } from "@/lib/stepup";
 import { Building2, CalendarDays, CheckCircle2, ChevronLeft, Clock, ExternalLink, FileText, LayoutGrid, NotebookPen, Phone, ReceiptText, RotateCw, ShieldAlert, Smartphone, Table2, TriangleAlert, User, XCircle, ZoomIn, ZoomOut } from "lucide-react";
+import { BASE_PATH } from "@/lib/base-path";
 
 type Row = Schemas["AdminBookingListItem"];
 
@@ -312,8 +313,8 @@ export default function BookingsPage() {
 function mediaSrc(path: string) {
   if (!path) return "";
   if (/^https?:\/\//i.test(path)) return path;
-  if (path.startsWith("/admin/bff")) return path;
-  return `/admin/bff${path.startsWith("/") ? "" : "/"}${path}`;
+  if (path.startsWith(`${BASE_PATH}/bff`)) return path;
+  return `${BASE_PATH}/bff${path.startsWith("/") ? "" : "/"}${path}`;
 }
 
 /** Receipt preview: images zoom (buttons, wheel) and pan (drag), rotate; PDFs open in the browser's own viewer. */

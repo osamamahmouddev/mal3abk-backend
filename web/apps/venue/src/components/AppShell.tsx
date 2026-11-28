@@ -12,6 +12,7 @@ import { RealtimeProvider, useVenueRealtime } from "@/lib/realtime";
 import { logout } from "@/app/auth-actions";
 import { TopProgressBar } from "./TopProgressBar";
 import { Menu } from "lucide-react";
+import { BASE_PATH, withBase } from "@/lib/base-path";
 
 export interface AppShellProps {
   children: React.ReactNode;
@@ -63,7 +64,7 @@ export const AppShell: React.FC<AppShellProps> = ({ children, user }) => {
 
   useEffect(() => {
     if (!user && !isPublicRoute) {
-      window.location.href = `/venue/login?next=${encodeURIComponent(pathname || "/")}`;
+      window.location.href = `${BASE_PATH}/login?next=${encodeURIComponent(pathname || "/")}`;
     }
   }, [user, isPublicRoute, pathname]);
 
@@ -108,7 +109,7 @@ export const AppShell: React.FC<AppShellProps> = ({ children, user }) => {
             <Menu className="size-[22px]" />
           </button>
           <Image
-            src="/venue/images/logo-horizontal-darkbg.png"
+            src={withBase("/images/logo-horizontal-darkbg.png")}
             alt="ملعبك"
             width={120}
             height={40}

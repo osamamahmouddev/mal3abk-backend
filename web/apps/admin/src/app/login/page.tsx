@@ -7,6 +7,7 @@ import { QRCodeSVG } from "qrcode.react";
 import { Check, Copy, Download } from "lucide-react";
 import { inputClass, muted, redShadow } from "@/components/ui";
 import { adminLogin, confirmTotpEnrollment, startTotpEnrollment } from "@/app/auth-actions";
+import { withBase } from "@/lib/base-path";
 
 export default function AdminLoginPage() {
   return (
@@ -36,9 +37,9 @@ function AdminLogin() {
 
   const next = () => {
     const target = params.get("next");
-    const fallback = "/admin/overview";
+    const fallback = "/overview";
     const dest = target && target.startsWith("/") && !target.startsWith("//") ? target : fallback;
-    window.location.assign(dest.startsWith("/admin") ? dest : `/admin${dest}`);
+    window.location.assign(withBase(dest));
   };
 
   const submitCreds = (e: React.FormEvent) => {
@@ -171,7 +172,7 @@ function AdminLogin() {
       <main className="w-full max-w-[440px] bg-white rounded-3xl p-8 flex flex-col gap-4 shadow-[0_30px_60px_-30px_rgba(0,0,0,0.6)] animate-fade-in-up">
         <div className="flex items-center gap-2.5">
           <Image
-            src="/admin/images/logo-horizontal.png"
+            src={withBase("/images/logo-horizontal.png")}
             alt="ملعبك"
             width={130}
             height={46}
