@@ -2,6 +2,7 @@
 
 import { problemMessage, type Schemas } from "@malabak/api-client";
 import { api, unwrap } from "./api";
+import { BASE_PATH } from "@/lib/base-path";
 
 function getCsrfToken(): string {
   if (typeof document === "undefined") return "";
@@ -18,7 +19,7 @@ export async function uploadImage(file: File, purpose: Schemas["MediaPurpose"]):
   if (file.size > ticket.maxBytes) throw new Error("الصورة أكبر من ٨ ميجا.");
 
   const csrf = getCsrfToken();
-  const response = await fetch(`/venue/bff${ticket.uploadUrl}`, {
+  const response = await fetch(`${BASE_PATH}/bff${ticket.uploadUrl}`, {
     method: "PUT",
     headers: {
       "content-type": file.type || "application/octet-stream",
@@ -41,4 +42,4 @@ export const isManagedMedia = (photo: string) => photo.startsWith("/api/v1/media
 export const mediaIdOf = (photo: string): string | null => (isManagedMedia(photo) ? (photo.split("/")[4] ?? null) : null);
 
 /** Uploaded photos load through the dashboard's proxy; a full link is used as it is (it is not ours to proxy). */
-export const mediaSrc = (path: string) => (/^https?:\/\//i.test(path) ? path : `/venue/bff${path}`);
+export const mediaSrc = (path: string) => (/^https?:\/\//i.test(path) ? path : `${BASE_PATH}/bff${path}`);

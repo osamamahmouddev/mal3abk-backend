@@ -12,6 +12,7 @@ import { useStepUp } from "@/lib/stepup";
 import { ImageLightbox } from "@/components/ImageLightbox";
 import { Camera, Check, ChevronLeft, Eye, Image as ImageIcon, LayoutGrid, MapPin, Smartphone, Table2, X, BadgePercent } from "lucide-react";
 import { Pitch, SoccerBall } from "@/components/icons";
+import { BASE_PATH } from "@/lib/base-path";
 
 type Row = Schemas["AdminVenueListItem"];
 
@@ -28,8 +29,8 @@ const TURF_LABELS: Record<string, string> = {
 function mediaSrc(path: string) {
   if (!path) return "";
   if (/^https?:\/\//i.test(path)) return path;
-  if (path.startsWith("/admin/bff")) return path;
-  return `/admin/bff${path.startsWith("/") ? "" : "/"}${path}`;
+  if (path.startsWith(`${BASE_PATH}/bff`)) return path;
+  return `${BASE_PATH}/bff${path.startsWith("/") ? "" : "/"}${path}`;
 }
 
 const STATUSES: [string, string][] = [

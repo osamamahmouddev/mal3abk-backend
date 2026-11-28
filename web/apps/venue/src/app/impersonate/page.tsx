@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { card, inputClass, muted, primaryBtn } from "@/components/ui";
 import { startImpersonation } from "@/app/auth-actions";
+import { withBase } from "@/lib/base-path";
 
 /** Entry point for support agents: paste the 60-second code from the admin console (TASK-063). */
 export default function ImpersonatePage() {
@@ -17,7 +18,7 @@ export default function ImpersonatePage() {
     try {
       const result = await startImpersonation(code);
       if (result.ok) {
-        window.location.assign("/venue/overview");
+        window.location.assign(withBase("/overview"));
         return;
       }
       setError(result.message ?? "حصل خطأ.");

@@ -12,6 +12,7 @@ import { SessionGate } from "./SessionGate";
 import { TopProgressBar } from "./TopProgressBar";
 import { Pitch } from "./icons";
 import { BadgeCheck, ChartColumn, ClipboardList, HandCoins, Handshake, Hourglass, LayoutDashboard, LifeBuoy, LogOut, type LucideIcon, MapPin, Menu, ReceiptText, Scale, ScrollText, Settings, ShieldCheck, Sparkles, Trash2, Trophy, UserCog, Users, X } from "lucide-react";
+import { BASE_PATH, withBase } from "@/lib/base-path";
 
 /** Admin app sections, keyed by the navigation keys the API returns for the signed-in staff member's permissions. */
 const SECTIONS: Record<string, { title: string; href: string; icon: LucideIcon | typeof Pitch }[]> = {
@@ -41,7 +42,7 @@ function Brand({ height = "h-8" }: { height?: string; size?: string }) {
   return (
     <div className="flex items-center gap-2">
       <Image
-        src="/admin/images/logo-horizontal-darkbg.png"
+        src={withBase("/images/logo-horizontal-darkbg.png")}
         alt="ملعبك"
         width={140}
         height={44}
@@ -226,7 +227,7 @@ export function AdminShell({ children, user }: { children: React.ReactNode; user
 
   useEffect(() => {
     if (!user && !pathname.startsWith("/login")) {
-      window.location.href = `/admin/login?next=${encodeURIComponent(pathname)}`;
+      window.location.href = `${BASE_PATH}/login?next=${encodeURIComponent(pathname)}`;
     }
   }, [user, pathname]);
 

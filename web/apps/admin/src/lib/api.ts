@@ -2,8 +2,9 @@
 
 import { createBrowserApi } from "@malabak/bff/client";
 import { problemMessage } from "@malabak/api-client";
+import { BASE_PATH } from "@/lib/base-path";
 
-export const api = createBrowserApi("/login", "/admin");
+export const api = createBrowserApi("/login", BASE_PATH, "malabak-admin-csrf");
 
 /** An API failure with its HTTP status, so screens can tell "no permission" (403) from other errors. */
 export class ApiError extends Error {
@@ -28,7 +29,7 @@ export async function unwrap<T>(call: Promise<{ data?: T; error?: unknown; respo
 
 /** Downloads a binary response (e.g. an invoice PDF) through the BFF and opens it. */
 export async function openFile(path: string) {
-  const response = await fetch(`/admin/bff${path}`, { credentials: "same-origin" });
+  const response = await fetch(`${BASE_PATH}/bff${path}`, { credentials: "same-origin" });
   if (!response.ok) throw new ApiError("تعذّر تحميل الملف.", response.status);
   const url = URL.createObjectURL(await response.blob());
   window.open(url, "_blank", "noopener");
@@ -37,7 +38,7 @@ export async function openFile(path: string) {
 
 /** Downloads a binary response (e.g. CSV export) directly to the user's filesystem. */
 export async function downloadFile(path: string, filename: string) {
-  const response = await fetch(`/admin/bff${path}`, { credentials: "same-origin" });
+  const response = await fetch(`${BASE_PATH}/bff${path}`, { credentials: "same-origin" });
   if (!response.ok) throw new ApiError("تعذّر تحميل الملف.", response.status);
   const blob = await response.blob();
   const url = URL.createObjectURL(blob);

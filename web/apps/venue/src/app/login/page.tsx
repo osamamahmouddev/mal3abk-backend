@@ -7,6 +7,7 @@ import { useSearchParams } from "next/navigation";
 import { Check, CircleCheck, Eye, EyeOff } from "lucide-react";
 import { muted, redShadow } from "@/components/ui";
 import { forgotPassword, login } from "@/app/auth-actions";
+import { withBase } from "@/lib/base-path";
 
 type View = "login" | "forgot";
 
@@ -15,9 +16,9 @@ const fieldClass =
 
 /** Only same-site paths, so `?next=` can't send the user to another site after sign-in. */
 function safeNext(next: string | null): string {
-  const fallback = "/venue/overview";
+  const fallback = "/overview";
   const target = next && next.startsWith("/") && !next.startsWith("//") ? next : fallback;
-  return target.startsWith("/venue") ? target : `/venue${target}`;
+  return withBase(target);
 }
 
 export default function LoginPage() {
@@ -90,7 +91,7 @@ function LoginView() {
         </svg>
         <div className="flex items-center gap-2.5">
           <Image
-            src="/venue/images/logo-horizontal-darkbg.png"
+            src={withBase("/images/logo-horizontal-darkbg.png")}
             alt="ملعبك"
             width={140}
             height={50}

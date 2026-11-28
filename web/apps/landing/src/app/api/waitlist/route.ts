@@ -9,7 +9,11 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json();
-    const apiUrl = process.env.API_URL || process.env.NEXT_PUBLIC_API_URL || "https://api.malabak.app";
+    const apiUrl = (process.env.API_URL || process.env.NEXT_PUBLIC_API_URL || "").replace(/\/+$/, "");
+    if (!apiUrl) {
+      console.error("Waitlist proxy: API_URL is not configured.");
+      return NextResponse.json({ title: "Waitlist.Error", detail: "الخدمة غير متاحة حالياً. حاول مرة أخرى لاحقاً." }, { status: 503 });
+    }
 
     const forwardedFor = req.headers.get("x-forwarded-for") || req.headers.get("cf-connecting-ip");
     const userAgent = req.headers.get("user-agent") || "";

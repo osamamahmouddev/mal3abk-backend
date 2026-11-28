@@ -14,6 +14,7 @@ import { P } from "@/lib/permissions";
 import { toArabicDigits } from "./ui";
 import { Bell, CalendarDays, ChartColumn, ChevronDown, ClipboardList, Clock, HandCoins, LayoutDashboard, LogOut, ScrollText, Settings, Tag, UserCog, Users, X, type LucideIcon } from "lucide-react";
 import { Pitch } from "./icons";
+import { withBase } from "@/lib/base-path";
 
 export interface NavItem {
   title: string;
@@ -93,7 +94,7 @@ export const Sidebar: React.FC<SidebarProps> = memo(({ user, onClose }) => {
     >
       <div className="flex items-center gap-2 px-2 shrink-0">
         <Image
-          src="/venue/images/logo-horizontal-darkbg.png"
+          src={withBase("/images/logo-horizontal-darkbg.png")}
           alt="ملعبك"
           width={130}
           height={44}

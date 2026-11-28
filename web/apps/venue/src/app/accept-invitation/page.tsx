@@ -9,6 +9,7 @@ import { useVenue } from "@/components/Providers";
 import { AuthCard, FormError, FormSuccess, authField, authPrimary } from "@/components/AuthCard";
 import { previewInvitation, registerFromInvitation, type InvitationPreview } from "@/app/auth-actions";
 import { Eye, EyeOff, UserPlus } from "lucide-react";
+import { withBase } from "@/lib/base-path";
 
 const ROLE_AR: Record<string, string> = { Manager: "مدير", Receptionist: "استقبال", Accountant: "محاسب" };
 
@@ -62,7 +63,7 @@ function AcceptInvitation() {
       {done ? (
         <>
           <FormSuccess>انضميت لفريق الملعب.</FormSuccess>
-          <a href="/venue/overview" className={`${authPrimary} flex items-center justify-center no-underline`}>
+          <a href={withBase("/overview")} className={`${authPrimary} flex items-center justify-center no-underline`}>
             افتح اللوحة
           </a>
         </>
@@ -101,7 +102,7 @@ function JoinAsNewStaff({ token, loginHref }: { token: string; loginHref: string
     setError(null);
     startTransition(async () => {
       const result = await registerFromInvitation({ token, ...form });
-      if (result.ok) window.location.href = "/venue/overview";
+      if (result.ok) window.location.href = withBase("/overview");
       else setError(result.message ?? "حصل خطأ، حاول تاني.");
     });
   };
